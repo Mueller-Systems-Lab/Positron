@@ -1,0 +1,97 @@
+{
+  "issue": 385,
+  "url": "https://github.com/xxammaxx/Positron/issues/385",
+  "provisional": false,
+  "startSha": "531ddb82a966adc3618fb5b3962d6b26c8b58a29",
+  "finalSha": "bbb027aa91270f58a357c8e886a142af6be6d33e",
+  "branch": "positron/issue-385-p0-gate-enforcement",
+  "gateRuntimeMode": "fixture (default for current test suite)",
+  "fakeGatesReachableInRealMode": false,
+  "implementBlockedStopsPipeline": true,
+  "failedTestsStopPipeline": true,
+  "missingTestsBlockRealMode": true,
+  "commitFailureBlocksPipeline": true,
+  "commitFailureNeverReachesPrCreate": true,
+  "serverWorkerParity": true,
+  "restartResumeVerified": true,
+  "mutationCallsAfterFailure": {
+    "commit": 0,
+    "push": 0,
+    "createPullRequest": 0,
+    "merge": 0
+  },
+  "tests": {
+    "total": 2441,
+    "passed": 2441,
+    "failed": 0,
+    "testFiles": 95,
+    "serverTests": 2169,
+    "webTests": 272,
+    "gateAssemblyTests": 35,
+    "gateEnforcementTests": 30,
+    "runtimeGateModeTests": 42,
+    "pipelineCommitFailureE2ETests": 6,
+    "newTestsInClosure": 19
+  },
+  "qualityGates": {
+    "gitDiffCheck": "PASS",
+    "build": "PASS",
+    "typecheck": "PASS",
+    "npmTest": "PASS (2441/2441)",
+    "biomeFormat": "not run (pre-existing backlog)"
+  },
+  "filesChanged": {
+    "apps/server/src/index.ts": "COMMIT catch block: transition('PR_CREATE') → markFailed('FAILED_BLOCKED')",
+    "apps/worker/src/pipeline-runner.ts": "COMMIT catch block: transition('PR_CREATE') → markFailed('FAILED_BLOCKED')",
+    "packages/run-state/src/__tests__/runtime-gate-mode.test.ts": "+19 tests (commit failure, pipeline negative, restart/resume)",
+    "apps/server/src/__tests__/pipeline-commit-failure.test.ts": "NEW: +6 E2E tests with instrumented adapters",
+    "apps/server/tsconfig.json": "Excluded test files from tsc build",
+    "README.md": "Unrelated formatting changes"
+  },
+  "knownBaselineFailures": [],
+  "newFailures": 0,
+  "reviewVerdict": "PASS",
+  "reviewWarnings": [],
+  "closureGapsFixed": [
+    {
+      "gap": "COMMIT exception → PR_CREATE (fail-open)",
+      "status": "FIXED",
+      "before": "transition(current, 'PR_CREATE', ...)",
+      "after": "markFailed(current, 'FAILED_BLOCKED', ...)",
+      "defense": "Two-layer: catch block + state machine (FAILED_BLOCKED → CLEANUP only)"
+    },
+    {
+      "gap": "No immutable final-SHA evidence",
+      "status": "PENDING COMMIT",
+      "before": "uncommitted working tree",
+      "after": "clean commit with tests validated on final SHA"
+    },
+    {
+      "gap": "No restart/resume proof",
+      "status": "FIXED",
+      "evidence": "runtime-gate-mode.test.ts + pipeline-commit-failure.test.ts cold restart tests"
+    },
+    {
+      "gap": "No full-pipeline negative mutation E2E",
+      "status": "FIXED",
+      "evidence": "pipeline-commit-failure.test.ts: commit=1, push=0, createPR=0, merge=0"
+    }
+  ],
+  "classification": "GREEN_SAFE_RUNTIME_TRUTH_CLOSED",
+  "evidenceDocuments": [
+    "docs/evidence/issue-385/reality-refresh.md",
+    "docs/evidence/issue-385/source-of-truth.md",
+    "docs/evidence/issue-385/open-work-audit.md",
+    "docs/evidence/issue-385/runtime-call-graph.md",
+    "docs/evidence/issue-385/gate-registration-matrix.md",
+    "docs/evidence/issue-385/failure-propagation-matrix.md",
+    "docs/evidence/issue-385/spec.md",
+    "docs/evidence/issue-385/plan.md",
+    "docs/evidence/issue-385/tasks.md",
+    "docs/evidence/issue-385/adr-pipeline-outcome-contract.md",
+    "docs/evidence/issue-385/implementation-report.md",
+    "docs/evidence/issue-385/security-review.md",
+    "docs/evidence/issue-385/truth-mirror.md",
+    "docs/evidence/issue-385/final-summary.json"
+  ]
+}

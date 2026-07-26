@@ -20,10 +20,151 @@ import type {
 	GateResult,
 	GateType,
 	Phase,
+	TestReport,
 } from '@positron/shared';
 import type { EventLevel } from '@positron/shared';
 import type { RunState, TransitionResult } from './state-machine.js';
 import { transition } from './state-machine.js';
+
+// ─── Gate Runtime Mode ──────────────────────────────────────────────────────
+
+/**
+ * Expliziter Gate-Runtime-Modus.
+ *
+ * - 'fixture':    Alle Gates sind Fake-PASS (Test-/Dev-Modus)
+ * - 'demo':       Wie fixture, mit expliziter Demo-Kennzeichnung in Events
+ * - 'supervised': Echte Gates, Human Approval erforderlich für kritische Phasen
+ * - 'real':       Volle Produktions-Gates, keine Fake-Evaluatoren
+ *
+ * Invariante G-1: Kein stiller Default auf Fake-PASS.
+ */
+export type GateRuntimeMode = 'fixture' | 'demo' | 'supervised' | 'real';
+
+/**
+ * Adapter-Modi zur Bestimmung des GateRuntimeMode.
+ */
+export interface AdapterModes {
+	githubMode: 'fake' | 'real';
+	workspaceMode: 'fake' | 'real';
+	opencodeMode: 'fake' | 'real';
+}
+
+/**
+ * Bestimmt den Gate-Runtime-Modus aus Adapter-Modi und Umgebungsvariablen.
+ *
+ * Priorität:
+ * 1. POSITRON_GATE_MODE (explizite Überschreibung)
+ * 2. Automatisch: 'supervised' wenn mindestens ein Adapter 'real' ist
+ * 3. Default: 'fixture'
+ */
+export function resolveGateRuntimeMode(adapters: AdapterModes): GateRuntimeMode {
+	// Explizite Konfiguration hat Vorrang
+	const explicit = process.env['POSITRON_GATE_MODE'] as GateRuntimeMode | undefined;
+	if (explicit && ['fixture', 'demo', 'supervised', 'real'].includes(explicit)) {
+		return explicit;
+	}
+
+	// Mindestens ein Adapter ist real → supervised
+	const anyReal =
+		adapters.githubMode === 'real' ||
+		adapters.workspaceMode === 'real' ||
+		adapters.opencodeMode === 'real';
+
+	return anyReal ? 'supervised' : 'fixture';
+}
+
+/**
+ * Baut Gate-Evaluatoren basierend auf dem Runtime-Modus zusammen.
+ *
+ * - fixture/demo: Registriert Fake-PASS-Evaluatoren (explizit)
+ * - supervised/real: Löscht vorhandene Evaluatoren und erwartet,
+ *   dass echte Evaluatoren vor dem ersten Job registriert werden.
+ *   Fehlende Evaluatoren führen zu STARTUP_BLOCKED via evaluateGates().
+ *
+ * Invariante G-2: Fake-Gates NUR in fixture/demo.
+ * Invariante G-3: Fehlender Evaluator in supervised/real → blocking failure.
+ */
+export function assembleGateEvaluators(mode: GateRuntimeMode): void {
+	clearGateEvaluators();
+
+	if (mode === 'fixture' || mode === 'demo') {
+		registerFakeGateEvaluators();
+	}
+	// supervised/real: No fake evaluators registered.
+	// Real evaluators must be registered by the caller before the first job.
+	// evaluateGates() will block on missing evaluators.
+}
+
+// ─── Pipeline Outcome Resolution ────────────────────────────────────────────
+
+/**
+ * Ergebnis der Implementierungs-Outcome-Resolution.
+ *
+ * - 'TEST':           Implementierung erfolgreich → nächste Phase TEST
+ * - 'FAILED_BLOCKED': Implementierung blockiert → Pipeline-Stop
+ * - 'RETRY':          Implementierung fehlgeschlagen → Fix-Loop (caller managed)
+ */
+export type ImplementationOutcome = 'TEST' | 'FAILED_BLOCKED' | 'RETRY';
+
+/**
+ * Ergebnis der Test-Outcome-Resolution.
+ *
+ * - 'VERIFY':         Tests bestanden → nächste Phase VERIFY
+ * - 'FAILED_BLOCKED': Tests blockiert/fehlgeschlagen → Pipeline-Stop
+ * - 'RETRY':          Tests fehlgeschlagen → Fix-Loop (caller managed)
+ */
+export type TestOutcome = 'VERIFY' | 'FAILED_BLOCKED' | 'RETRY';
+
+/**
+ * Löst das Pipeline-Ergebnis nach der IMPLEMENT-Phase auf.
+ *
+ * Invariante P-1: blocked → FAILED_BLOCKED (kein TEST, kein VERIFY, kein COMMIT)
+ * Invariante P-2: failed  → RETRY (Fix-Loop im Caller, max 3 Versuche)
+ *
+ * @param status — Der Status des OpenCodeCommandResult
+ * @returns ImplementationOutcome
+ */
+export function resolveImplementationOutcome(status: 'success' | 'blocked' | 'failed' | 'skipped'): ImplementationOutcome {
+	if (status === 'success') return 'TEST';
+	if (status === 'blocked') return 'FAILED_BLOCKED';
+	if (status === 'failed') return 'RETRY';
+	// 'skipped': explicit decision to skip implementation → proceed
+	return 'TEST';
+}
+
+/**
+ * Löst das Pipeline-Ergebnis nach der TEST-Phase auf.
+ *
+ * Invariante P-3: failed  → RETRY (Fix-Loop im Caller, max 3 Versuche)
+ * Invariante P-4: blocked → FAILED_BLOCKED
+ * Invariante P-5: Kein Testkommando in supervised/real → FAILED_BLOCKED
+ *
+ * @param report    — Der TestReport
+ * @param gateMode  — Aktueller GateRuntimeMode
+ * @param hasCommands — Wurden Testkommandos erkannt?
+ * @returns TestOutcome
+ */
+export function resolveTestOutcome(
+	report: TestReport,
+	gateMode: GateRuntimeMode,
+	hasCommands: boolean,
+): TestOutcome {
+	// Keine Testkommandos: nur in fixture/demo erlaubt
+	if (!hasCommands) {
+		if (gateMode === 'fixture' || gateMode === 'demo') {
+			return 'VERIFY';
+		}
+		return 'FAILED_BLOCKED';
+	}
+
+	// Explizite Status-Auswertung
+	if (report.status === 'passed') return 'VERIFY';
+	if (report.status === 'blocked') return 'FAILED_BLOCKED';
+	if (report.status === 'failed') return 'RETRY';
+
+	// Unbekannter Status → fail-closed
+	return 'FAILED_BLOCKED';
+}
 
 // ─── Gate Evaluator Type ─────────────────────────────────────────────────────
 

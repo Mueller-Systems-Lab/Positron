@@ -43,6 +43,7 @@ import type {
 import { renderAccepted } from '@positron/github-adapter';
 import { FakeOpenCodeAdapter, RealOpenCodeAdapter } from '@positron/opencode-adapter';
 import {
+	assembleGateEvaluators,
 	createRun,
 	getRequiredGates,
 	markFailed,
@@ -51,6 +52,9 @@ import {
 	registerFakeGateEvaluators,
 	registerWorkspaceCleanup,
 	resolveDatabasePath,
+	resolveGateRuntimeMode,
+	resolveImplementationOutcome,
+	resolveTestOutcome,
 	resumeFromEvents,
 	retry,
 	runCleanup,
@@ -250,6 +254,9 @@ function resolveOpencodeAdapter(): OpenCodeAdapter {
 let workspaceAdapter: GitWorkspaceAdapter = resolveWorkspaceAdapter();
 let speckitAdapter: SpecKitAdapter = resolveSpeckitAdapter();
 let opencodeAdapter: OpenCodeAdapter = resolveOpencodeAdapter();
+
+// Issue #385: Gate runtime mode — resolved in createApp, used by pipeline
+let gateRuntimeMode: import('@positron/run-state').GateRuntimeMode = 'fixture';
 
 // Watcher Stop-Funktion (wird von createApp gesetzt, von Shutdown verwendet)
 let stopWatcher: (() => void) | null = null;
@@ -961,18 +968,39 @@ async function executePhase(
 
 			try {
 				const ir = await opencode.runImplement(input);
-				if (ir.status === 'blocked') {
+
+				// Issue #385: Explicit outcome resolution — blocked/failed must NOT reach TEST
+				const outcome = resolveImplementationOutcome(ir.status);
+
+				if (outcome === 'FAILED_BLOCKED') {
 					storeEvent({
 						id: createRunId(),
 						runId: current.id,
 						phase: 'IMPLEMENT',
-						level: 'WARN',
+						level: 'ERROR',
 						message: `Implement blocked: ${ir.blockedReason ?? 'policy'}`,
-						payload: { result: ir },
+						payload: { result: ir, gateRuntimeMode },
 						createdAt: new Date().toISOString(),
 					});
+					result = markFailed(
+						current,
+						'FAILED_BLOCKED',
+						`Implement blocked: ${ir.blockedReason ?? 'policy'}`,
+					);
+				} else if (outcome === 'RETRY') {
+					result = markFailed(
+						current,
+						'FAILED_TRANSIENT',
+						`Implement failed: ${ir.summary}`,
+					);
+				} else {
+					result = transition(
+						current,
+						'TEST',
+						ir.summary,
+						ir.status === 'success' ? 'INFO' : 'WARN',
+					);
 				}
-				result = transition(current, 'TEST', ir.summary, ir.status === 'success' ? 'INFO' : 'WARN');
 			} catch (err) {
 				const implErrMsg = `Implement error: ${String(err).slice(0, 200)}`;
 				result = markFailed(current, 'FAILED_TRANSIENT', implErrMsg);
@@ -984,19 +1012,33 @@ async function executePhase(
 				const wsPath = current.workspacePath ?? current.branch ?? '/tmp';
 				const detector = new TestCommandDetector();
 				const detection = await detector.detect(wsPath);
+
+				// Issue #385: No detected test commands — resolve based on gate runtime mode
 				if (detection.commands.length === 0) {
-					const strictMode = process.env.POSITRON_STRICT_TEST_MODE === 'true';
-					if (strictMode) {
+					const emptyReport: TestReport = {
+						status: 'blocked',
+						summary: 'No test commands detected',
+						passed: 0,
+						failed: 0,
+						total: 0,
+						durationMs: 0,
+					};
+					const outcome = resolveTestOutcome(
+						emptyReport,
+						gateRuntimeMode,
+						false,
+					);
+					if (outcome === 'FAILED_BLOCKED') {
 						result = markFailed(
 							current,
 							'FAILED_BLOCKED',
-							'No test commands configured. Set up tests or disable strict mode.',
+							`No test commands configured in ${gateRuntimeMode} mode. Set up tests or switch to fixture/demo mode.`,
 						);
 					} else {
 						result = transition(
 							current,
 							'VERIFY',
-							'No test commands configured — tests skipped',
+							'No test commands configured — tests skipped (fixture/demo mode)',
 							'WARN',
 						);
 					}
@@ -1048,15 +1090,34 @@ async function executePhase(
 							);
 						}
 					}
-					result = transition(
-						current,
-						'VERIFY',
-						`Tests ${report.status}`,
-						report.status === 'passed' ? 'INFO' : 'ERROR',
-					);
+
+					// Issue #385: Explicit outcome resolution — failed/blocked must NOT reach VERIFY
+					const outcome = resolveTestOutcome(report, gateRuntimeMode, true);
+
+					if (outcome === 'FAILED_BLOCKED') {
+						result = markFailed(
+							current,
+							'FAILED_BLOCKED',
+							`Tests ${report.status}: ${report.summary}`,
+						);
+					} else if (outcome === 'RETRY') {
+						result = markFailed(
+							current,
+							'FAILED_TRANSIENT',
+							`Tests failed: ${report.summary}`,
+						);
+					} else {
+						result = transition(current, 'VERIFY', `Tests passed`, 'INFO');
+					}
 				}
-			} catch {
-				result = transition(current, 'VERIFY', 'Test-Ausführung fehlgeschlagen (MVP)', 'WARN');
+			} catch (err) {
+				const errMsg = err instanceof Error ? err.message : String(err);
+				// Issue #385: Test execution crash must NOT proceed to VERIFY
+				result = markFailed(
+					current,
+					'FAILED_BLOCKED',
+					`Test execution crashed: ${errMsg.slice(0, 200)}`,
+				);
 			}
 			break;
 		case 'VERIFY':
@@ -1142,6 +1203,8 @@ async function executePhase(
 					result = transition(current, 'PR_CREATE', summary, 'INFO');
 				}
 			} catch (err) {
+				// Issue #385: COMMIT exception → FAILED_BLOCKED (never PR_CREATE)
+				// A failed commit means no safe state to push or PR from.
 				storeEvent({
 					id: createRunId(),
 					runId: current.id,
@@ -1151,11 +1214,10 @@ async function executePhase(
 					payload: null,
 					createdAt: new Date().toISOString(),
 				});
-				result = transition(
+				result = markFailed(
 					current,
-					'PR_CREATE',
-					`Commit skipped: ${String(err).slice(0, 100)}`,
-					'WARN',
+					'FAILED_BLOCKED',
+					`Commit/Push failed: ${String(err).slice(0, 200)}`,
 				);
 			}
 			break;
@@ -2444,10 +2506,20 @@ export function createApp(options: ServerOptions = {}) {
 	const activeOpenCodeAdapter = resolveOpenCodeAdapter(options.opencodeAdapter);
 	const syncService = new GitHubStatusSyncService(github);
 
-	// Issue #246: Register fake gate evaluators (explicit, not implicit).
-	// In fake/dry-run mode, all gates pass. In real mode (#308),
-	// these will be replaced with actual evaluators.
-	registerFakeGateEvaluators();
+	// ── Issue #385: Gate runtime mode — explicit, mode-aware assembly ──
+	// Replaces unconditional registerFakeGateEvaluators().
+	// fixture/demo: fake evaluators registered.
+	// supervised/real: no fake evaluators — real evaluators must be registered
+	// or gate evaluation will block (fail-closed).
+	gateRuntimeMode = resolveGateRuntimeMode({
+		githubMode: githubMode,
+		workspaceMode:
+			activeWorkspaceAdapter instanceof FakeGitWorkspaceAdapter ? 'fake' : 'real',
+		opencodeMode:
+			activeOpenCodeAdapter instanceof FakeOpenCodeAdapter ? 'fake' : 'real',
+	});
+	assembleGateEvaluators(gateRuntimeMode);
+	log.info(`Gate runtime mode: ${gateRuntimeMode}`);
 
 	// ── Issue #322: Wire ToolGateway onAudit into server runtime ──
 	// Creates a GatewayService with audit sink for audit-required tool calls.

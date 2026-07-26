@@ -18,11 +18,13 @@ import {
 	getRequiredGates,
 	markFailed,
 	phaseRequiresGates,
+	resolveImplementationOutcome,
+	resolveTestOutcome,
 	runCleanup,
 	transition,
 	tryTransitionWithGates,
 } from '@positron/run-state';
-import type { RunEventData, RunState } from '@positron/run-state';
+import type { GateRuntimeMode, RunEventData, RunState } from '@positron/run-state';
 import { TestCommandDetector, TestRunner } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
 import {
@@ -58,6 +60,8 @@ export interface PipelineDeps {
 	syncService?: GitHubStatusSyncService;
 	/** Issue #322: Optional gateway service for tool audit enforcement */
 	gateway?: GatewayService;
+	/** Issue #385: Gate runtime mode for pipeline outcome resolution */
+	gateRuntimeMode: GateRuntimeMode;
 }
 
 // ---------------------------------------------------------------------------
@@ -724,21 +728,42 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 
 			try {
 				const ir = await deps.opencode.runImplement(input);
-				if (ir.status === 'blocked') {
+
+				// Issue #385: Explicit outcome resolution — blocked/failed must NOT reach TEST
+				const outcome = resolveImplementationOutcome(ir.status);
+
+				if (outcome === 'FAILED_BLOCKED') {
 					storeEvent(
 						{
 							id: createRunId(),
 							runId: current.id,
 							phase: 'IMPLEMENT',
-							level: 'WARN',
+							level: 'ERROR',
 							message: `Implement blocked: ${ir.blockedReason ?? 'policy'}`,
-							payload: { result: ir },
+							payload: { result: ir, gateRuntimeMode: deps.gateRuntimeMode },
 							createdAt: new Date().toISOString(),
 						},
 						deps,
 					);
+					result = markFailed(
+						current,
+						'FAILED_BLOCKED',
+						`Implement blocked: ${ir.blockedReason ?? 'policy'}`,
+					);
+				} else if (outcome === 'RETRY') {
+					result = markFailed(
+						current,
+						'FAILED_TRANSIENT',
+						`Implement failed: ${ir.summary}`,
+					);
+				} else {
+					result = transition(
+						current,
+						'TEST',
+						ir.summary,
+						ir.status === 'success' ? 'INFO' : 'WARN',
+					);
 				}
-				result = transition(current, 'TEST', ir.summary, ir.status === 'success' ? 'INFO' : 'WARN');
 			} catch (err) {
 				const implErrMsg = `Implement error: ${String(err).slice(0, 200)}`;
 				result = markFailed(current, 'FAILED_TRANSIENT', implErrMsg);
@@ -750,19 +775,33 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				const wsPath = current.workspacePath ?? current.branch ?? '/tmp';
 				const detector = new TestCommandDetector();
 				const detection = await detector.detect(wsPath);
+
+				// Issue #385: No detected test commands — resolve based on gate runtime mode
 				if (detection.commands.length === 0) {
-					const strictMode = process.env.POSITRON_STRICT_TEST_MODE === 'true';
-					if (strictMode) {
+					const emptyReport: import('@positron/shared').TestReport = {
+						status: 'blocked',
+						summary: 'No test commands detected',
+						passed: 0,
+						failed: 0,
+						total: 0,
+						durationMs: 0,
+					};
+					const outcome = resolveTestOutcome(
+						emptyReport,
+						deps.gateRuntimeMode,
+						false,
+					);
+					if (outcome === 'FAILED_BLOCKED') {
 						result = markFailed(
 							current,
 							'FAILED_BLOCKED',
-							'No test commands configured. Set up tests or disable strict mode.',
+							`No test commands configured in ${deps.gateRuntimeMode} mode. Set up tests or switch to fixture/demo mode.`,
 						);
 					} else {
 						result = transition(
 							current,
 							'VERIFY',
-							'No test commands configured — tests skipped',
+							'No test commands configured — tests skipped (fixture/demo mode)',
 							'WARN',
 						);
 					}
@@ -774,6 +813,8 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						commands: detection.commands,
 						mode: 'standard',
 					});
+
+					// Sync to GitHub (existing logic)
 					if (deps.syncService && report) {
 						const syncInput: GitHubStatusSyncInput = {
 							runId: current.id,
@@ -816,15 +857,34 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 							);
 						}
 					}
-					result = transition(
-						current,
-						'VERIFY',
-						`Tests ${report.status}`,
-						report.status === 'passed' ? 'INFO' : 'ERROR',
-					);
+
+					// Issue #385: Explicit outcome resolution — failed/blocked must NOT reach VERIFY
+					const outcome = resolveTestOutcome(report, deps.gateRuntimeMode, true);
+
+					if (outcome === 'FAILED_BLOCKED') {
+						result = markFailed(
+							current,
+							'FAILED_BLOCKED',
+							`Tests ${report.status}: ${report.summary}`,
+						);
+					} else if (outcome === 'RETRY') {
+						result = markFailed(
+							current,
+							'FAILED_TRANSIENT',
+							`Tests failed: ${report.summary}`,
+						);
+					} else {
+						result = transition(current, 'VERIFY', `Tests passed`, 'INFO');
+					}
 				}
-			} catch {
-				result = transition(current, 'VERIFY', 'Test-Ausführung fehlgeschlagen (MVP)', 'WARN');
+			} catch (err) {
+				const errMsg = err instanceof Error ? err.message : String(err);
+				// Issue #385: Test execution crash must NOT proceed to VERIFY
+				result = markFailed(
+					current,
+					'FAILED_BLOCKED',
+					`Test execution crashed: ${errMsg.slice(0, 200)}`,
+				);
 			}
 			break;
 		case 'VERIFY':
@@ -902,6 +962,8 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 					result = transition(current, 'PR_CREATE', summary, 'INFO');
 				}
 			} catch (err) {
+				// Issue #385: COMMIT exception → FAILED_BLOCKED (never PR_CREATE)
+				// A failed commit means no safe state to push or PR from.
 				storeEvent(
 					{
 						id: createRunId(),
@@ -914,11 +976,10 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 					},
 					deps,
 				);
-				result = transition(
+				result = markFailed(
 					current,
-					'PR_CREATE',
-					`Commit skipped: ${String(err).slice(0, 100)}`,
-					'WARN',
+					'FAILED_BLOCKED',
+					`Commit/Push failed: ${String(err).slice(0, 200)}`,
 				);
 			}
 			break;
