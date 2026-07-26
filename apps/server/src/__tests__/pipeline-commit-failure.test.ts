@@ -15,11 +15,7 @@ import { FakeGitHubAdapter } from '@positron/github-adapter';
 import type { GitHubAdapter } from '@positron/github-adapter';
 import { FakeOpenCodeAdapter } from '@positron/opencode-adapter';
 import type { OpenCodeAdapter, SpecKitAdapter } from '@positron/shared';
-import {
-	createRun,
-	clearGateEvaluators,
-	assembleGateEvaluators,
-} from '@positron/run-state';
+import { createRun, clearGateEvaluators, assembleGateEvaluators } from '@positron/run-state';
 import type { RunState, GateRuntimeMode } from '@positron/run-state';
 import { FakeGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
@@ -136,7 +132,11 @@ function makeDeps(
 ): PipelineDeps {
 	return {
 		db,
-		repository: { owner: 'test-owner', repo: 'test-repo', remoteUrl: 'https://github.com/test-owner/test-repo.git' },
+		repository: {
+			owner: 'test-owner',
+			repo: 'test-repo',
+			remoteUrl: 'https://github.com/test-owner/test-repo.git',
+		},
 		workspace,
 		speckit: new FakeSpecKitAdapter(),
 		opencode: new FakeOpenCodeAdapter(),
@@ -345,10 +345,16 @@ describe('Issue #385 — Restart/Resume: blocked runs stay blocked', () => {
 			INSERT OR REPLACE INTO runs (id, repo_id, issue_number, branch, phase, status, autonomy_level, attempt, started_at, finished_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`).run(
-			firstRun.id, firstRun.repoId, firstRun.issueNumber,
-			firstRun.branch, firstRun.phase, firstRun.status,
-			firstRun.autonomyLevel, firstRun.attempt,
-			firstRun.startedAt, firstRun.finishedAt,
+			firstRun.id,
+			firstRun.repoId,
+			firstRun.issueNumber,
+			firstRun.branch,
+			firstRun.phase,
+			firstRun.status,
+			firstRun.autonomyLevel,
+			firstRun.attempt,
+			firstRun.startedAt,
+			firstRun.finishedAt,
 		);
 
 		// Cold restart: create fresh adapters and deps

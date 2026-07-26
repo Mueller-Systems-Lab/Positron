@@ -751,11 +751,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						`Implement blocked: ${ir.blockedReason ?? 'policy'}`,
 					);
 				} else if (outcome === 'RETRY') {
-					result = markFailed(
-						current,
-						'FAILED_TRANSIENT',
-						`Implement failed: ${ir.summary}`,
-					);
+					result = markFailed(current, 'FAILED_TRANSIENT', `Implement failed: ${ir.summary}`);
 				} else {
 					result = transition(
 						current,
@@ -786,11 +782,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						total: 0,
 						durationMs: 0,
 					};
-					const outcome = resolveTestOutcome(
-						emptyReport,
-						deps.gateRuntimeMode,
-						false,
-					);
+					const outcome = resolveTestOutcome(emptyReport, deps.gateRuntimeMode, false);
 					if (outcome === 'FAILED_BLOCKED') {
 						result = markFailed(
 							current,
@@ -868,11 +860,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 							`Tests ${report.status}: ${report.summary}`,
 						);
 					} else if (outcome === 'RETRY') {
-						result = markFailed(
-							current,
-							'FAILED_TRANSIENT',
-							`Tests failed: ${report.summary}`,
-						);
+						result = markFailed(current, 'FAILED_TRANSIENT', `Tests failed: ${report.summary}`);
 					} else {
 						result = transition(current, 'VERIFY', `Tests passed`, 'INFO');
 					}

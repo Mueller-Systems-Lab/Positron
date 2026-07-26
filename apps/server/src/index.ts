@@ -988,11 +988,7 @@ async function executePhase(
 						`Implement blocked: ${ir.blockedReason ?? 'policy'}`,
 					);
 				} else if (outcome === 'RETRY') {
-					result = markFailed(
-						current,
-						'FAILED_TRANSIENT',
-						`Implement failed: ${ir.summary}`,
-					);
+					result = markFailed(current, 'FAILED_TRANSIENT', `Implement failed: ${ir.summary}`);
 				} else {
 					result = transition(
 						current,
@@ -1023,11 +1019,7 @@ async function executePhase(
 						total: 0,
 						durationMs: 0,
 					};
-					const outcome = resolveTestOutcome(
-						emptyReport,
-						gateRuntimeMode,
-						false,
-					);
+					const outcome = resolveTestOutcome(emptyReport, gateRuntimeMode, false);
 					if (outcome === 'FAILED_BLOCKED') {
 						result = markFailed(
 							current,
@@ -1101,11 +1093,7 @@ async function executePhase(
 							`Tests ${report.status}: ${report.summary}`,
 						);
 					} else if (outcome === 'RETRY') {
-						result = markFailed(
-							current,
-							'FAILED_TRANSIENT',
-							`Tests failed: ${report.summary}`,
-						);
+						result = markFailed(current, 'FAILED_TRANSIENT', `Tests failed: ${report.summary}`);
 					} else {
 						result = transition(current, 'VERIFY', `Tests passed`, 'INFO');
 					}
@@ -2513,10 +2501,8 @@ export function createApp(options: ServerOptions = {}) {
 	// or gate evaluation will block (fail-closed).
 	gateRuntimeMode = resolveGateRuntimeMode({
 		githubMode: githubMode,
-		workspaceMode:
-			activeWorkspaceAdapter instanceof FakeGitWorkspaceAdapter ? 'fake' : 'real',
-		opencodeMode:
-			activeOpenCodeAdapter instanceof FakeOpenCodeAdapter ? 'fake' : 'real',
+		workspaceMode: activeWorkspaceAdapter instanceof FakeGitWorkspaceAdapter ? 'fake' : 'real',
+		opencodeMode: activeOpenCodeAdapter instanceof FakeOpenCodeAdapter ? 'fake' : 'real',
 	});
 	assembleGateEvaluators(gateRuntimeMode);
 	log.info(`Gate runtime mode: ${gateRuntimeMode}`);

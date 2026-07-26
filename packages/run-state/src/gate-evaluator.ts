@@ -124,7 +124,9 @@ export type TestOutcome = 'VERIFY' | 'FAILED_BLOCKED' | 'RETRY';
  * @param status — Der Status des OpenCodeCommandResult
  * @returns ImplementationOutcome
  */
-export function resolveImplementationOutcome(status: 'success' | 'blocked' | 'failed' | 'skipped'): ImplementationOutcome {
+export function resolveImplementationOutcome(
+	status: 'success' | 'blocked' | 'failed' | 'skipped',
+): ImplementationOutcome {
 	if (status === 'success') return 'TEST';
 	if (status === 'blocked') return 'FAILED_BLOCKED';
 	if (status === 'failed') return 'RETRY';
