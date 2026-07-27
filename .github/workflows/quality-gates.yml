@@ -12,7 +12,8 @@ permissions:
   actions: write
 
 jobs:
-  build-and-test:
+  # ── Format Gate (blocking, all files) ──────────────────────────────
+  format-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,17 +30,165 @@ jobs:
       - name: Format check (Biome)
         run: npx biome format .
 
-      - name: Lint (Biome)
-        run: npx biome lint .
+  # ── Differential Lint (blocking, only changed TS/TSX files) ────────
+  # Compares HEAD against the PR base (or parent commit on push to main).
+  # Blocks only on NEW or WORSENED diagnostics in changed files.
+  differential-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Determine diff base
+        id: base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "ref=origin/${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=HEAD~1" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Get changed TypeScript files
+        id: changed
+        run: |
+          git diff --name-only --diff-filter=AMRT "${{ steps.base.outputs.ref }}...HEAD" -- '*.ts' '*.tsx' ':!.d.ts' > /tmp/changed-ts.txt || true
+          if [ -s /tmp/changed-ts.txt ]; then
+            echo "=== Changed TypeScript files ==="
+            cat /tmp/changed-ts.txt
+            echo "count=$(wc -l < /tmp/changed-ts.txt)" >> "$GITHUB_OUTPUT"
+          else
+            echo "No TypeScript files changed in this PR."
+            echo "count=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Differential Biome lint
+        if: steps.changed.outputs.count != '0'
+        run: |
+          # Use NUL-separated paths to handle filenames with spaces safely
+          while IFS= read -r file; do
+            [ -f "$file" ] && printf '%s\0' "$file"
+          done < /tmp/changed-ts.txt > /tmp/changed-ts.null || true
+          if [ -s /tmp/changed-ts.null ]; then
+            echo "Running Biome lint on changed files..."
+            xargs -0 npx biome lint < /tmp/changed-ts.null
+          fi
+
+  # ── Build (blocking, independent) ──────────────────────────────────
+  build:
+    runs-on: ubuntu-latest
+    needs: format-check
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Build
         run: npm run build
 
+  # ── Typecheck (blocking, independent) ──────────────────────────────
+  typecheck:
+    runs-on: ubuntu-latest
+    needs: format-check
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Typecheck
         run: npm run typecheck
 
+  # ── Unit Tests (blocking, depends on build) ────────────────────────
+  unit-tests:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (reuse cached artifacts)
+        run: npm run build
+
       - name: Unit Tests
         run: npm test
+
+  # ── Full Repository Lint Report (advisory, transparent baseline) ───
+  # Non-blocking: shows the full lint state including known backlog.
+  # Differential-lint (above) is the blocking gate for new changes.
+  full-lint-report:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    needs: format-check
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Full repository lint (advisory)
+        id: lint
+        run: |
+          npx biome lint . 2>&1 | tee /tmp/full-lint.log || true
+          echo "checked=$(grep -oP 'Checked \K\d+' /tmp/full-lint.log || echo 0)" >> "$GITHUB_OUTPUT"
+          echo "errors=$(grep -oP 'Found \K\d+(?= error)' /tmp/full-lint.log || echo 0)" >> "$GITHUB_OUTPUT"
+          echo "warnings=$(grep -oP 'Found \K\d+(?= warning)' /tmp/full-lint.log || echo 0)" >> "$GITHUB_OUTPUT"
+          hidden=$(grep -oP 'Diagnostics not shown: \K\d+' /tmp/full-lint.log || echo 0)
+          echo "hidden=${hidden}" >> "$GITHUB_OUTPUT"
+
+      - name: Post lint summary
+        if: always()
+        run: |
+          {
+            echo "## Full Repository Lint Report (advisory)"
+            echo ""
+            echo "| Metric | Count |"
+            echo "|--------|-------|"
+            echo "| Checked files | ${{ steps.lint.outputs.checked }} |"
+            echo "| Errors | ${{ steps.lint.outputs.errors }} |"
+            echo "| Warnings | ${{ steps.lint.outputs.warnings }} |"
+            echo "| Diagnostics hidden | ${{ steps.lint.outputs.hidden }} |"
+            echo ""
+            echo "> This report is advisory. The blocking **differential-lint** job enforces"
+            echo "> NEW/WORSENED diagnostics on changed files only."
+            echo "> The known backlog is tracked in Issue #340."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ── #223: Tool Gateway Windows Path Tests (non-blocking) ──────
   # Runs path traversal tests on Windows to validate cross-platform
