@@ -361,18 +361,18 @@ export interface GatedTransitionResult extends TransitionResult {
  * @param run — Aktueller RunState
  * @param to — Ziel-Phase
  * @param message — Event-Message
+ * @param context — GateEvaluationContext
  * @param level — Event-Level (default: INFO)
  * @param payload — Optionales Payload
- * @param context — GateEvaluationContext
  * @returns GatedTransitionResult
  */
 export function tryTransitionWithGates(
 	run: RunState,
 	to: Phase,
 	message: string,
+	context: GateEvaluationContext,
 	level: EventLevel = 'INFO',
 	payload: Record<string, unknown> | null = null,
-	context: GateEvaluationContext,
 ): GatedTransitionResult {
 	const requiredGates = getRequiredGates(to);
 
