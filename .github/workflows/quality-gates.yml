@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main, master, develop]
   workflow_dispatch:
+    inputs:
+      base_sha:
+        description: 'Base SHA for comparison (default: HEAD~1 on main)'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -30,9 +35,9 @@ jobs:
       - name: Format check (Biome)
         run: npx biome format .
 
-  # ── Differential Lint (blocking, only changed TS/TSX files) ────────
-  # Compares HEAD against the PR base (or parent commit on push to main).
-  # Blocks only on NEW or WORSENED diagnostics in changed files.
+  # ── Differential Lint (blocking, true BASE vs HEAD comparison) ─────
+  # Compares Biome diagnostics between BASE and HEAD for changed files.
+  # Blocks only on NEW or WORSENED diagnostics.
   differential-lint:
     runs-on: ubuntu-latest
     steps:
@@ -49,41 +54,154 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Determine diff base
-        id: base
+      - name: Determine BASE and HEAD SHAs
+        id: shas
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "ref=origin/${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            BEFORE="${{ github.event.before }}"
+            if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              echo "::notice::Null-SHA on first push — comparing against HEAD~1"
+              BASE_SHA="$(git rev-parse HEAD~1 || echo '')"
+            else
+              BASE_SHA="$BEFORE"
+            fi
+            HEAD_SHA="${{ github.sha }}"
           else
-            echo "ref=HEAD~1" >> "$GITHUB_OUTPUT"
+            INPUT_SHA="${{ inputs.base_sha }}"
+            if [ -n "$INPUT_SHA" ]; then
+              BASE_SHA="$INPUT_SHA"
+            else
+              BASE_SHA="$(git rev-parse HEAD~1 || echo '')"
+            fi
+            HEAD_SHA="$(git rev-parse HEAD)"
           fi
 
+          if [ -z "$BASE_SHA" ] || ! git cat-file -e "$BASE_SHA" 2>/dev/null; then
+            echo "::notice::BASE_SHA unavailable or not fetchable — cannot compare"
+            BASE_SHA=""
+          fi
+
+          echo "base=${BASE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "head=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
+          echo "BASE_SHA: ${BASE_SHA:-<none>}"
+          echo "HEAD_SHA: ${HEAD_SHA}"
+
       - name: Get changed TypeScript files
-        id: changed
+        id: files
         run: |
-          git diff --name-only --diff-filter=AMRT "${{ steps.base.outputs.ref }}...HEAD" -- '*.ts' '*.tsx' ':!.d.ts' > /tmp/changed-ts.txt || true
-          if [ -s /tmp/changed-ts.txt ]; then
-            echo "=== Changed TypeScript files ==="
-            cat /tmp/changed-ts.txt
-            echo "count=$(wc -l < /tmp/changed-ts.txt)" >> "$GITHUB_OUTPUT"
+          BASE="${{ steps.shas.outputs.base }}"
+          HEAD="${{ steps.shas.outputs.head }}"
+
+          if [ -z "$BASE" ]; then
+            echo "::notice::No BASE_SHA — linting all TS files as a safe fallback"
+            git ls-files -z '*.ts' '*.tsx' ':!:*.d.ts' > /tmp/changed-ts.null
           else
-            echo "No TypeScript files changed in this PR."
+            git diff --name-only --diff-filter=AMRT -z "$BASE...$HEAD" -- '*.ts' '*.tsx' ':!:*.d.ts' > /tmp/changed-ts.null
+          fi
+
+          if [ -s /tmp/changed-ts.null ]; then
+            count=$(tr '\0' '\n' < /tmp/changed-ts.null | wc -l)
+            echo "Changed TS/TSX files: ${count}"
+            tr '\0' '\n' < /tmp/changed-ts.null | head -20
+            echo "count=${count}" >> "$GITHUB_OUTPUT"
+          else
+            echo "No TypeScript files changed in this PR/push."
             echo "count=0" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Differential Biome lint
-        if: steps.changed.outputs.count != '0'
+      - name: Differential Biome lint (BASE vs HEAD)
+        id: diff
+        if: steps.files.outputs.count != '0'
         run: |
-          # Use NUL-separated paths to handle filenames with spaces safely
-          while IFS= read -r file; do
-            [ -f "$file" ] && printf '%s\0' "$file"
-          done < /tmp/changed-ts.txt > /tmp/changed-ts.null || true
-          if [ -s /tmp/changed-ts.null ]; then
-            echo "Running Biome lint on changed files..."
-            xargs -0 npx biome lint < /tmp/changed-ts.null
-          fi
+          BASE="${{ steps.shas.outputs.base }}"
+          HEAD="${{ steps.shas.outputs.head }}"
 
-  # ── Build (blocking, independent) ──────────────────────────────────
+          mkdir -p /tmp/diff-lint/base /tmp/diff-lint/head
+
+          # Extract both BASE and HEAD versions of each changed file
+          while IFS= read -r -d '' file; do
+            if [ -z "$file" ]; then continue; fi
+
+            # Skip files deleted at HEAD (they don't exist to lint)
+            if ! git cat-file -e "${HEAD}:${file}" 2>/dev/null; then
+              echo "Skipping deleted: $file"
+              continue
+            fi
+
+            # BASE version (if file existed at base)
+            if [ -n "$BASE" ]; then
+              git show "${BASE}:${file}" > "/tmp/diff-lint/base/$(basename "$file")" 2>/dev/null || \
+                echo "::notice::File did not exist at BASE: $file (ADDED)"
+            fi
+
+            # HEAD version (always available — we just verified above)
+            git show "${HEAD}:${file}" > "/tmp/diff-lint/head/$(basename "$file")"
+          done < /tmp/changed-ts.null
+
+          echo "BASE files: $(ls /tmp/diff-lint/base/ 2>/dev/null | wc -l)"
+          echo "HEAD files: $(ls /tmp/diff-lint/head/ 2>/dev/null | wc -l)"
+
+          # ── Normalize & compare Biome diagnostics ───────────────────
+          # Normalization key: (file_basename, rule, severity, description)
+          # Comparison: HEAD minus BASE → detect NEW/WORSENED diagnostics
+          # REMOVED and UNCHANGED diagnostics are allowed (PASS)
+
+          python3 << 'PYEOF'
+          import json, os, sys, subprocess
+
+          def norm_diags(path):
+              if not os.path.isdir(path):
+                  return set()
+              files = sorted([os.path.join(path, f) for f in os.listdir(path)
+                             if f.endswith(('.ts','.tsx'))])
+              if not files:
+                  return set()
+              r = subprocess.run(['npx','biome','lint','--reporter=json'] + files,
+                                capture_output=True, text=True, timeout=60)
+              output = (r.stdout or '') + (r.stderr or '')
+              diag_set = set()
+              for line in output.splitlines():
+                  line = line.strip()
+                  if not line.startswith('{'):
+                      continue
+                  try: data = json.loads(line)
+                  except json.JSONDecodeError: continue
+                  for d in data.get('diagnostics', []):
+                      rule = str(d.get('category', ''))
+                      sev  = str(d.get('severity', ''))
+                      msg  = str(d.get('description', ''))
+                      loc  = d.get('location', {})
+                      fname = os.path.basename(str(loc.get('path', ''))) \
+                              if isinstance(loc, dict) else ''
+                      diag_set.add((fname, rule, sev, msg))
+              return diag_set
+
+          base_d = norm_diags('/tmp/diff-lint/base')
+          head_d = norm_diags('/tmp/diff-lint/head')
+          print(f'BASE diagnostics: {len(base_d)} | HEAD: {len(head_d)}')
+
+          removed_diags = base_d - head_d
+          new_diags = head_d - base_d
+          unchanged = head_d & base_d
+
+          for d in sorted(removed_diags):
+              print(f'  REMOVED  {d[0]}: {d[1]} ({d[2]})')
+          for d in sorted(new_diags):
+              print(f'  NEW      {d[0]}: {d[1]} ({d[2]}) — {d[3][:100]}')
+
+          if new_diags:
+              print(f'\n::error::FAIL: {len(new_diags)} new/worsened diagnostics — PR must not introduce new lint problems')
+              sys.exit(1)
+          else:
+              print(f'\nPASS: 0 new diagnostics')
+              print(f'  removed={len(removed_diags)} unchanged={len(unchanged)}')
+              sys.exit(0)
+          PYEOF
+
+  # ── Build (blocking, independent of lint) ──────────────────────────
   build:
     runs-on: ubuntu-latest
     needs: format-check
@@ -102,7 +220,7 @@ jobs:
       - name: Build
         run: npm run build
 
-  # ── Typecheck (blocking, independent) ──────────────────────────────
+  # ── Typecheck (blocking, independent of lint) ──────────────────────
   typecheck:
     runs-on: ubuntu-latest
     needs: format-check
@@ -137,15 +255,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build (reuse cached artifacts)
+      - name: Build (reuse cache)
         run: npm run build
 
       - name: Unit Tests
         run: npm test
 
   # ── Full Repository Lint Report (advisory, transparent baseline) ───
-  # Non-blocking: shows the full lint state including known backlog.
-  # Differential-lint (above) is the blocking gate for new changes.
   full-lint-report:
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -165,7 +281,7 @@ jobs:
       - name: Full repository lint (advisory)
         id: lint
         run: |
-          npx biome lint . 2>&1 | tee /tmp/full-lint.log || true
+          npx biome lint . 2>&1 | tee /tmp/full-lint.log && echo "exit=0" >> "$GITHUB_OUTPUT" || echo "exit=1" >> "$GITHUB_OUTPUT"
           echo "checked=$(grep -oP 'Checked \K\d+' /tmp/full-lint.log || echo 0)" >> "$GITHUB_OUTPUT"
           echo "errors=$(grep -oP 'Found \K\d+(?= error)' /tmp/full-lint.log || echo 0)" >> "$GITHUB_OUTPUT"
           echo "warnings=$(grep -oP 'Found \K\d+(?= warning)' /tmp/full-lint.log || echo 0)" >> "$GITHUB_OUTPUT"
@@ -175,8 +291,7 @@ jobs:
       - name: Post lint summary
         if: always()
         run: |
-          {
-            echo "## Full Repository Lint Report (advisory)"
+          { echo "## Full Repository Lint Report (advisory)"
             echo ""
             echo "| Metric | Count |"
             echo "|--------|-------|"
@@ -187,12 +302,10 @@ jobs:
             echo ""
             echo "> This report is advisory. The blocking **differential-lint** job enforces"
             echo "> NEW/WORSENED diagnostics on changed files only."
-            echo "> The known backlog is tracked in Issue #340."
+            echo "> The known backlog is tracked in Issue [#340](https://github.com/xxammaxx/Positron/issues/340)."
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ── #223: Tool Gateway Windows Path Tests (non-blocking) ──────
-  # Runs path traversal tests on Windows to validate cross-platform
-  # path separator handling (backslash vs forward slash).
   tool-gateway-windows:
     runs-on: windows-latest
     timeout-minutes: 5
@@ -286,9 +399,6 @@ jobs:
             reports/mutation/**
           if-no-files-found: warn
 
-  # ── QA-007: Mutation Safety Baseline (non-blocking) ──────────────
-  # Targets 7 safety-critical modules only. Fast runtime (~34s).
-  # Non-blocking: baseline only — will be hardened in QA-008.
   mutation-safety:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -323,11 +433,6 @@ jobs:
             reports/mutation/safety-baseline/**
           if-no-files-found: warn
 
-  # ── QA-030: Playwright E2E (non-blocking, optional) ─────────────
-  # Non-blocking until E2E stability window completed:
-  #   Criteria: ≥ 5 consecutive green runs on main
-  #   Tracked in: docs/qa-tooling.md#e2e-stability-window
-  #   After 5/5: promote to blocking (continue-on-error: false)
   e2e-playwright:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -363,7 +468,6 @@ jobs:
       - name: Run E2E tests
         run: npm run test:e2e
         env:
-          # Fake/Safety-Env — no real tokens, no external API calls
           VITEST: 'true'
           NODE_ENV: test
           POSITRON_DISABLE_QUEUE: 'true'
@@ -371,11 +475,9 @@ jobs:
           POSITRON_OPENCODE_MODE: fake
           POSITRON_SPECKIT_MODE: fake
           GITHUB_TOKEN: ''
-          # Repository config (fake mode requires these)
           POSITRON_REPO_OWNER: test-owner
           POSITRON_REPO_NAME: test-repo
           POSITRON_REPO_DEFAULT_BRANCH: main
-          # Admin token (used for protected endpoints in test mode)
           POSITRON_ADMIN_TOKEN: positron-test-token-dev
 
       - name: Upload Playwright report
