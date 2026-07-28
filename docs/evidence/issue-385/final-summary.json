@@ -2,9 +2,12 @@
 	"issue": 385,
 	"url": "https://github.com/xxammaxx/Positron/issues/385",
 	"provisional": false,
-	"startSha": "531ddb82a966adc3618fb5b3962d6b26c8b58a29",
-	"finalSha": "bbb027aa91270f58a357c8e886a142af6be6d33e",
+	"startSha": "4fd31894019ad4eb164f8085756c4a51c57feb71",
+	"finalSha": "e1c983e8ad1541550deaa9c57d17ea21c61806f6",
+	"baseSha": "ab346563727d851a41e26ffbd545412e097f08b3",
+	"validatedCiRun": 30384152331,
 	"branch": "positron/issue-385-p0-gate-enforcement",
+	"pr": 386,
 	"gateRuntimeMode": "fixture (default for current test suite)",
 	"fakeGatesReachableInRealMode": false,
 	"implementBlockedStopsPipeline": true,
@@ -20,33 +23,59 @@
 		"createPullRequest": 0,
 		"merge": 0
 	},
+	"differentialLint": {
+		"new": 0,
+		"worsened": 0,
+		"unchanged": 23,
+		"improved": 0,
+		"removed": 1,
+		"result": "PASS"
+	},
 	"tests": {
-		"total": 2441,
-		"passed": 2441,
+		"total": 2499,
+		"passed": 2499,
 		"failed": 0,
 		"testFiles": 95,
 		"serverTests": 2169,
-		"webTests": 272,
-		"gateAssemblyTests": 35,
-		"gateEnforcementTests": 30,
-		"runtimeGateModeTests": 42,
-		"pipelineCommitFailureE2ETests": 6,
-		"newTestsInClosure": 19
+		"webTests": 330
 	},
 	"qualityGates": {
 		"gitDiffCheck": "PASS",
+		"biomeFormat": "PASS",
+		"differentialLint": "PASS (NEW=0, WORSENED=0)",
 		"build": "PASS",
 		"typecheck": "PASS",
-		"npmTest": "PASS (2441/2441)",
-		"biomeFormat": "not run (pre-existing backlog)"
+		"npmTest": "PASS (2499/2499)",
+		"fullLintReport": "PASS (advisory, artifact present)",
+		"mutationFast": "PASS",
+		"mutationSafety": "PASS",
+		"e2ePlaywright": "PASS",
+		"toolGatewayWindows": "PASS",
+		"observabilityConfigCheck": "PASS"
 	},
 	"filesChanged": {
-		"apps/server/src/index.ts": "COMMIT catch block: transition('PR_CREATE') → markFailed('FAILED_BLOCKED')",
-		"apps/worker/src/pipeline-runner.ts": "COMMIT catch block: transition('PR_CREATE') → markFailed('FAILED_BLOCKED')",
-		"packages/run-state/src/__tests__/runtime-gate-mode.test.ts": "+19 tests (commit failure, pipeline negative, restart/resume)",
-		"apps/server/src/__tests__/pipeline-commit-failure.test.ts": "NEW: +6 E2E tests with instrumented adapters",
-		"apps/server/tsconfig.json": "Excluded test files from tsc build",
-		"README.md": "Unrelated formatting changes"
+		"apps/server/src/index.ts": "COMMIT catch block: transition('PR_CREATE') → markFailed('FAILED_BLOCKED'); gate assembly; IMPLEMENT+TEST outcome resolution",
+		"apps/worker/src/pipeline-runner.ts": "COMMIT catch block: transition('PR_CREATE') → markFailed('FAILED_BLOCKED'); IMPLEMENT+TEST outcome resolution",
+		"apps/worker/src/index.ts": "Mode-aware gate assembly; removed redundant console.log (differential lint closure)",
+		"packages/run-state/src/gate-evaluator.ts": "GateRuntimeMode types + resolution functions; useLiteralKeys fix",
+		"packages/run-state/src/__tests__/runtime-gate-mode.test.ts": "Gate mode resolution + pipeline negative + restart/resume tests; useLiteralKeys + noDelete fixes",
+		"apps/server/src/__tests__/pipeline-commit-failure.test.ts": "E2E tests: commit failure, IMPLEMENT blocked, restart/resume; noUnusedVariables fix"
+	},
+	"differentialLintClosure": {
+		"before": "6 NEW + 1 WORSENED",
+		"after": "0 NEW + 0 WORSENED",
+		"closed": [
+			"pipeline-commit-failure.test.ts: noUnusedVariables",
+			"server/src/index.ts: noUnusedTemplateLiteral",
+			"worker/src/pipeline-runner.ts: noUnusedTemplateLiteral",
+			"runtime-gate-mode.test.ts: useLiteralKeys",
+			"runtime-gate-mode.test.ts: noDelete",
+			"gate-evaluator.ts: useLiteralKeys",
+			"worker/src/index.ts: noConsoleLog WORSENED"
+		],
+		"baselineUntouched": true,
+		"noBiomeIgnores": true,
+		"noRuleSuppression": true
 	},
 	"knownBaselineFailures": [],
 	"newFailures": 0,
@@ -62,9 +91,9 @@
 		},
 		{
 			"gap": "No immutable final-SHA evidence",
-			"status": "PENDING COMMIT",
+			"status": "FIXED",
 			"before": "uncommitted working tree",
-			"after": "clean commit with tests validated on final SHA"
+			"after": "e1c983e8ad1541550deaa9c57d17ea21c61806f6 — CI-validated runtime code SHA"
 		},
 		{
 			"gap": "No restart/resume proof",
@@ -75,12 +104,17 @@
 			"gap": "No full-pipeline negative mutation E2E",
 			"status": "FIXED",
 			"evidence": "pipeline-commit-failure.test.ts: commit=1, push=0, createPR=0, merge=0"
+		},
+		{
+			"gap": "Differential lint regressions (6 NEW + 1 WORSENED)",
+			"status": "FIXED",
+			"evidence": "CI run 30384152331: NEW=0, WORSENED=0, Result=PASS"
 		}
 	],
-	"classification": "GREEN_SAFE_RUNTIME_TRUTH_CLOSED",
+	"classification": "GREEN_PR386_RUNTIME_DELIVERY_AND_EVIDENCE_CLOSED_UNMERGED",
 	"evidenceDocuments": [
-		"docs/evidence/issue-385/reality-refresh.md",
 		"docs/evidence/issue-385/source-of-truth.md",
+		"docs/evidence/issue-385/reality-refresh.md",
 		"docs/evidence/issue-385/open-work-audit.md",
 		"docs/evidence/issue-385/runtime-call-graph.md",
 		"docs/evidence/issue-385/gate-registration-matrix.md",
