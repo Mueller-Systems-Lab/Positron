@@ -211,7 +211,7 @@ export function parseChangedFiles(raw) {
 			});
 		} else {
 			const path = tokens[i++] || '';
-			let record = { status, basePath: path, headPath: path, logicalPath: path };
+			const record = { status, basePath: path, headPath: path, logicalPath: path };
 			if (status === 'A') {
 				record.basePath = null;
 			} else if (status === 'D') {
@@ -248,7 +248,7 @@ export function isLintableFile(filePath, configExtensions = null) {
 	const ext = extname(filePath).toLowerCase();
 	if (LINTABLE_EXTENSIONS.has(ext)) return true;
 	// Also check custom extensions from config if provided
-	if (configExtensions && configExtensions.has(ext)) return true;
+	if (configExtensions?.has(ext)) return true;
 	return false;
 }
 
@@ -304,7 +304,7 @@ export function createSnapshot(sha, repoRoot, runId, label) {
 			return { dir, isFullSnapshot: false };
 		}
 
-		const tarFile = writeFileSync(join('/tmp', `positron-diff-${runId}`, `${label}.tar`), r.stdout);
+		writeFileSync(join('/tmp', `positron-diff-${runId}`, `${label}.tar`), r.stdout);
 		const extractResult = spawnSync(
 			'tar',
 			['-xf', join('/tmp', `positron-diff-${runId}`, `${label}.tar`), '-C', dir],
@@ -492,7 +492,7 @@ export function parseBiomeOutput(stdout) {
 export function normalizeDiagnostic(diag, snapshotRoot) {
 	let filePath = '';
 	const loc = diag.location;
-	if (loc && loc.path) {
+	if (loc?.path) {
 		if (typeof loc.path === 'string') {
 			filePath = loc.path;
 		} else if (loc.path.file) {
@@ -527,7 +527,7 @@ export function normalizeDiagnostics(diagnostics, snapshotRoot, renameMap = null
 	for (const d of diagnostics) {
 		const nd = normalizeDiagnostic(d, snapshotRoot);
 		// For renames: map old BASE path to new HEAD logical path
-		if (renameMap && renameMap.has(nd.file)) {
+		if (renameMap?.has(nd.file)) {
 			nd.file = renameMap.get(nd.file);
 		}
 		normalized.push(nd);
@@ -659,7 +659,6 @@ export function runDifferentialLint({
 	runId,
 	biomeBin,
 	event,
-	summaryPath,
 }) {
 	const result = {
 		baseSha,
@@ -819,8 +818,8 @@ export function renderSummary(result) {
 	const lines = [];
 	lines.push('## Differential Biome Lint Report');
 	lines.push('');
-	lines.push(`| Field | Value |`);
-	lines.push(`|-------|-------|`);
+	lines.push('| Field | Value |');
+	lines.push('|-------|-------|');
 	lines.push(`| Base SHA | \`${result.baseSha}\` |`);
 	lines.push(`| Head SHA | \`${result.headSha}\` |`);
 	lines.push(`| Event | ${result.event} |`);
@@ -981,12 +980,11 @@ async function mainCLI() {
 		runId: cli.runId,
 		biomeBin: cli.biomeBin,
 		event: cli.event,
-		summaryPath: cli.summaryPath,
 	});
 
 	// Render summary
 	const summary = renderSummary(result);
-	console.log(summary);
+	process.stdout.write(`${summary}\n`);
 
 	// Write summary file if requested
 	if (cli.summaryPath) {
@@ -1001,17 +999,23 @@ async function mainCLI() {
 	switch (result.result) {
 		case 'PASS':
 			process.exit(EXIT.PASS);
+			break;
 		case 'FAIL_NEW_DIAGNOSTICS':
 		case 'FAIL_NEW_AND_WORSENED':
 			process.exit(EXIT.FAIL_NEW_DIAGNOSTICS);
+			break;
 		case 'FAIL_WORSENED_DIAGNOSTICS':
 			process.exit(EXIT.FAIL_WORSENED_DIAGNOSTICS);
+			break;
 		case 'FAIL_GIT_DIFF':
 			process.exit(EXIT.FAIL_GIT_DIFF);
+			break;
 		case 'FAIL_BIOME_EXECUTION':
 			process.exit(EXIT.FAIL_BIOME_EXECUTION);
+			break;
 		case 'FAIL_BIOME_OUTPUT':
 			process.exit(EXIT.FAIL_BIOME_OUTPUT);
+			break;
 		default:
 			process.exit(EXIT.FAIL_CONFIG);
 	}

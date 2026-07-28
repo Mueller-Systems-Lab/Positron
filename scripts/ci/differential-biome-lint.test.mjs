@@ -6,18 +6,20 @@
 // Usage: node --test scripts/ci/differential-biome-lint.test.mjs
 
 import assert from 'node:assert';
+import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
-import { execSync } from 'node:child_process';
 
 // Import module under test
 import {
+	EMPTY_TREE_SHA,
+	EXIT,
 	buildDiagnosticCounts,
 	compareDiagnostics,
 	createFullSnapshots,
-	createSnapshots,
 	createSnapshot,
+	createSnapshots,
 	detectConfigChanges,
 	determineShas,
 	diagnosticKey,
@@ -34,8 +36,6 @@ import {
 	runBiome,
 	runDifferentialLint,
 	validateCommit,
-	EXIT,
-	EMPTY_TREE_SHA,
 } from './differential-biome-lint.mjs';
 
 // ─── Test Helpers ───────────────────────────────────────────────────
@@ -638,7 +638,7 @@ describe('findLintableFiles', () => {
 		writeFileSync(join(dir, 'README.md'), '# readme');
 
 		const files = findLintableFiles(dir);
-		const names = files.map((f) => f.replace(dir + '/', ''));
+		const names = files.map((f) => f.replace(`${dir}/`, ''));
 		assert.ok(names.some((n) => n.endsWith('main.ts')));
 		assert.ok(names.some((n) => n.endsWith('util.js')));
 		assert.ok(names.some((n) => n.endsWith('helper.mjs')));
@@ -651,7 +651,8 @@ describe('findLintableFiles', () => {
 
 describe('Real Biome CLI integration', () => {
 	let fixtureDir;
-	let sha1, sha2;
+	let sha1;
+	let sha2;
 
 	before(() => {
 		fixtureDir = setupGitFixture('biome-integration');
@@ -1113,7 +1114,9 @@ describe('createSnapshot', () => {
 // ─── Suite 18: getChangedFiles integration ──────────────────────────
 
 describe('getChangedFiles integration', () => {
-	let dir, sha1, sha2;
+	let dir;
+	let sha1;
+	let sha2;
 
 	before(() => {
 		dir = setupGitFixture('diff-test');
@@ -1163,4 +1166,4 @@ describe('getChangedFiles integration', () => {
 
 // ─── Finish ─────────────────────────────────────────────────────────
 
-console.log('\n✅ All differential lint tests completed.\n');
+process.stdout.write('\n✅ All differential lint tests completed.\n');
