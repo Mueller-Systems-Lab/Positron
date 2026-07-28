@@ -652,14 +652,7 @@ export function findLintableFiles(dir) {
 /**
  * Run the complete differential lint analysis.
  */
-export function runDifferentialLint({
-	baseSha,
-	headSha,
-	repoRoot,
-	runId,
-	biomeBin,
-	event,
-}) {
+export function runDifferentialLint({ baseSha, headSha, repoRoot, runId, biomeBin, event }) {
 	const result = {
 		baseSha,
 		headSha,
