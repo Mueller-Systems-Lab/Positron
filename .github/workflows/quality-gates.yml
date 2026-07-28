@@ -36,8 +36,11 @@ jobs:
         run: npx biome format .
 
   # ── Differential Lint (blocking, true BASE vs HEAD comparison) ─────
-  # Compares Biome diagnostics between BASE and HEAD for changed files.
-  # Blocks only on NEW or WORSENED diagnostics.
+  # Compares Biome diagnostics between BASE and HEAD for all lintable files.
+  # Uses scripts/ci/differential-biome-lint.mjs (counted multiset, rename-aware,
+  # fail-closed, full repository-relative paths, config-change detection).
+  # Blocks on NEW or WORSENED diagnostics. Passes on REMOVED/UNCHANGED/IMPROVED.
+  # Relates to #340. Follow-up to #268.
   differential-lint:
     runs-on: ubuntu-latest
     steps:
@@ -54,152 +57,44 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Determine BASE and HEAD SHAs
+      - name: Determine SHAs from event context
         id: shas
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE_SHA="${{ github.event.pull_request.base.sha }}"
-            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            echo "base=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event_name }}" = "push" ]; then
-            BEFORE="${{ github.event.before }}"
-            if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
-              echo "::notice::Null-SHA on first push — comparing against HEAD~1"
-              BASE_SHA="$(git rev-parse HEAD~1 || echo '')"
-            else
-              BASE_SHA="$BEFORE"
-            fi
-            HEAD_SHA="${{ github.sha }}"
+            echo "base=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.sha }}" >> "$GITHUB_OUTPUT"
           else
-            INPUT_SHA="${{ inputs.base_sha }}"
-            if [ -n "$INPUT_SHA" ]; then
-              BASE_SHA="$INPUT_SHA"
-            else
-              BASE_SHA="$(git rev-parse HEAD~1 || echo '')"
-            fi
-            HEAD_SHA="$(git rev-parse HEAD)"
+            echo "base=${{ inputs.base_sha }}" >> "$GITHUB_OUTPUT"
+            echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           fi
+          echo "event=${{ github.event_name }}" >> "$GITHUB_OUTPUT"
 
-          if [ -z "$BASE_SHA" ] || ! git cat-file -e "$BASE_SHA" 2>/dev/null; then
-            echo "::notice::BASE_SHA unavailable or not fetchable — cannot compare"
-            BASE_SHA=""
-          fi
+      - name: Test differential lint engine
+        run: node --test scripts/ci/differential-biome-lint.test.mjs
 
-          echo "base=${BASE_SHA}" >> "$GITHUB_OUTPUT"
-          echo "head=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
-          echo "BASE_SHA: ${BASE_SHA:-<none>}"
-          echo "HEAD_SHA: ${HEAD_SHA}"
-
-      - name: Get changed TypeScript files
-        id: files
-        run: |
-          BASE="${{ steps.shas.outputs.base }}"
-          HEAD="${{ steps.shas.outputs.head }}"
-
-          if [ -z "$BASE" ]; then
-            echo "::notice::No BASE_SHA — linting all TS files as a safe fallback"
-            git ls-files -z '*.ts' '*.tsx' ':!:*.d.ts' > /tmp/changed-ts.null
-          else
-            git diff --name-only --diff-filter=AMRT -z "$BASE...$HEAD" -- '*.ts' '*.tsx' ':!:*.d.ts' > /tmp/changed-ts.null
-          fi
-
-          if [ -s /tmp/changed-ts.null ]; then
-            count=$(tr '\0' '\n' < /tmp/changed-ts.null | wc -l)
-            echo "Changed TS/TSX files: ${count}"
-            tr '\0' '\n' < /tmp/changed-ts.null | head -20
-            echo "count=${count}" >> "$GITHUB_OUTPUT"
-          else
-            echo "No TypeScript files changed in this PR/push."
-            echo "count=0" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Differential Biome lint (BASE vs HEAD)
+      - name: Run differential Biome lint
         id: diff
-        if: steps.files.outputs.count != '0'
         run: |
-          BASE="${{ steps.shas.outputs.base }}"
-          HEAD="${{ steps.shas.outputs.head }}"
+          BIOME_BIN="${{ github.workspace }}/node_modules/@biomejs/biome/bin/biome"
+          node scripts/ci/differential-biome-lint.mjs \
+            --base "${{ steps.shas.outputs.base }}" \
+            --head "${{ steps.shas.outputs.head }}" \
+            --event "${{ steps.shas.outputs.event }}" \
+            --repo-root "${{ github.workspace }}" \
+            --biome-bin "$BIOME_BIN" \
+            --summary "${{ github.step_summary }}"
 
-          mkdir -p /tmp/diff-lint/base /tmp/diff-lint/head
-
-          # Extract both BASE and HEAD versions of each changed file
-          while IFS= read -r -d '' file; do
-            if [ -z "$file" ]; then continue; fi
-
-            # Skip files deleted at HEAD (they don't exist to lint)
-            if ! git cat-file -e "${HEAD}:${file}" 2>/dev/null; then
-              echo "Skipping deleted: $file"
-              continue
-            fi
-
-            # BASE version (if file existed at base)
-            if [ -n "$BASE" ]; then
-              git show "${BASE}:${file}" > "/tmp/diff-lint/base/$(basename "$file")" 2>/dev/null || \
-                echo "::notice::File did not exist at BASE: $file (ADDED)"
-            fi
-
-            # HEAD version (always available — we just verified above)
-            git show "${HEAD}:${file}" > "/tmp/diff-lint/head/$(basename "$file")"
-          done < /tmp/changed-ts.null
-
-          echo "BASE files: $(ls /tmp/diff-lint/base/ 2>/dev/null | wc -l)"
-          echo "HEAD files: $(ls /tmp/diff-lint/head/ 2>/dev/null | wc -l)"
-
-          # ── Normalize & compare Biome diagnostics ───────────────────
-          # Normalization key: (file_basename, rule, severity, description)
-          # Comparison: HEAD minus BASE → detect NEW/WORSENED diagnostics
-          # REMOVED and UNCHANGED diagnostics are allowed (PASS)
-
-          python3 << 'PYEOF'
-          import json, os, sys, subprocess
-
-          def norm_diags(path):
-              if not os.path.isdir(path):
-                  return set()
-              files = sorted([os.path.join(path, f) for f in os.listdir(path)
-                             if f.endswith(('.ts','.tsx'))])
-              if not files:
-                  return set()
-              r = subprocess.run(['npx','biome','lint','--reporter=json'] + files,
-                                capture_output=True, text=True, timeout=60)
-              output = (r.stdout or '') + (r.stderr or '')
-              diag_set = set()
-              for line in output.splitlines():
-                  line = line.strip()
-                  if not line.startswith('{'):
-                      continue
-                  try: data = json.loads(line)
-                  except json.JSONDecodeError: continue
-                  for d in data.get('diagnostics', []):
-                      rule = str(d.get('category', ''))
-                      sev  = str(d.get('severity', ''))
-                      msg  = str(d.get('description', ''))
-                      loc  = d.get('location', {})
-                      fname = os.path.basename(str(loc.get('path', ''))) \
-                              if isinstance(loc, dict) else ''
-                      diag_set.add((fname, rule, sev, msg))
-              return diag_set
-
-          base_d = norm_diags('/tmp/diff-lint/base')
-          head_d = norm_diags('/tmp/diff-lint/head')
-          print(f'BASE diagnostics: {len(base_d)} | HEAD: {len(head_d)}')
-
-          removed_diags = base_d - head_d
-          new_diags = head_d - base_d
-          unchanged = head_d & base_d
-
-          for d in sorted(removed_diags):
-              print(f'  REMOVED  {d[0]}: {d[1]} ({d[2]})')
-          for d in sorted(new_diags):
-              print(f'  NEW      {d[0]}: {d[1]} ({d[2]}) — {d[3][:100]}')
-
-          if new_diags:
-              print(f'\n::error::FAIL: {len(new_diags)} new/worsened diagnostics — PR must not introduce new lint problems')
-              sys.exit(1)
-          else:
-              print(f'\nPASS: 0 new diagnostics')
-              print(f'  removed={len(removed_diags)} unchanged={len(unchanged)}')
-              sys.exit(0)
-          PYEOF
+      - name: Publish differential lint summary
+        if: always()
+        run: |
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Event | ${{ github.event_name }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| BASE | \`${{ steps.shas.outputs.base }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| HEAD | \`${{ steps.shas.outputs.head }}\` |" >> "$GITHUB_STEP_SUMMARY"
 
   # ── Build (blocking, independent of lint) ──────────────────────────
   build:
@@ -265,7 +160,6 @@ jobs:
   full-lint-report:
     runs-on: ubuntu-latest
     continue-on-error: true
-    needs: format-check
     steps:
       - uses: actions/checkout@v4
 
