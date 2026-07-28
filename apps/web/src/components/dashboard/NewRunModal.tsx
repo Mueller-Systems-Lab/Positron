@@ -39,6 +39,7 @@ export default function NewRunModal({ isOpen, onClose }: NewRunModalProps): Reac
 				<div className="flex items-center justify-between mb-4">
 					<h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">New Run</h2>
 					<button
+						type="button"
 						onClick={onClose}
 						className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
 					>
@@ -52,10 +53,14 @@ export default function NewRunModal({ isOpen, onClose }: NewRunModalProps): Reac
 
 				<div className="space-y-3">
 					<div>
-						<label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">
+						<label
+							htmlFor="new-run-issue-url"
+							className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1"
+						>
 							Issue URL
 						</label>
 						<input
+							id="new-run-issue-url"
 							type="text"
 							placeholder="https://github.com/owner/repo/issues/123"
 							value={issueUrl}
@@ -72,10 +77,11 @@ export default function NewRunModal({ isOpen, onClose }: NewRunModalProps): Reac
 					)}
 
 					<div className="flex items-center justify-end gap-3 pt-2">
-						<button onClick={onClose} className="btn-secondary text-sm">
+						<button type="button" onClick={onClose} className="btn-secondary text-sm">
 							Cancel
 						</button>
 						<button
+							type="button"
 							onClick={handleCreate}
 							disabled={creating || !issueUrl.trim()}
 							className="btn-primary text-sm disabled:opacity-50"

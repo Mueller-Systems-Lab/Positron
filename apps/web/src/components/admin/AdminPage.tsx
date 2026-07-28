@@ -101,11 +101,16 @@ export default function AdminPage(): React.ReactElement {
 						className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
 					/>
 					{authStatus === 'valid' ? (
-						<button onClick={handleDisconnect} className="btn-ghost text-sm whitespace-nowrap">
+						<button
+							type="button"
+							onClick={handleDisconnect}
+							className="btn-ghost text-sm whitespace-nowrap"
+						>
 							Disconnect
 						</button>
 					) : (
 						<button
+							type="button"
 							onClick={handleConnect}
 							disabled={!tokenInput.trim() || authStatus === 'connecting'}
 							className="btn-primary text-sm whitespace-nowrap"
@@ -176,18 +181,21 @@ export default function AdminPage(): React.ReactElement {
 							<h3 className="text-sm font-semibold mb-3">Bulk Operations</h3>
 							<div className="flex flex-wrap gap-3">
 								<button
+									type="button"
 									onClick={() => bulkAction('cancel', 'Cancel All')}
 									className="btn-danger text-sm"
 								>
 									Cancel All Active/Blocked
 								</button>
 								<button
+									type="button"
 									onClick={() => bulkAction('retry', 'Retry Failed')}
 									className="btn-secondary text-sm"
 								>
 									Retry All Failed
 								</button>
 								<button
+									type="button"
 									onClick={() => bulkAction('cleanup', 'Cleanup')}
 									className="btn-ghost text-sm"
 								>

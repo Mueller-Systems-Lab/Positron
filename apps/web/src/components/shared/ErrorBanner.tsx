@@ -22,6 +22,7 @@ export default function ErrorBanner({
 				<div className="flex items-center gap-2">
 					{onRetry && (
 						<button
+							type="button"
 							onClick={onRetry}
 							className="text-xs px-3 py-1.5 rounded bg-red-500/20 hover:bg-red-500/30 text-red-700 dark:text-red-300 transition-colors"
 						>
@@ -30,6 +31,7 @@ export default function ErrorBanner({
 					)}
 					{onDismiss && (
 						<button
+							type="button"
 							onClick={onDismiss}
 							className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
 						>

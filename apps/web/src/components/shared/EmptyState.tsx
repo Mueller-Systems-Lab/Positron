@@ -24,12 +24,12 @@ export default function EmptyState({
 			</p>
 			<div className="flex items-center justify-center gap-3">
 				{action && (
-					<button onClick={action.onClick} className="btn-primary">
+					<button type="button" onClick={action.onClick} className="btn-primary">
 						{action.label}
 					</button>
 				)}
 				{secondaryAction && (
-					<button onClick={secondaryAction.onClick} className="btn-secondary">
+					<button type="button" onClick={secondaryAction.onClick} className="btn-secondary">
 						{secondaryAction.label}
 					</button>
 				)}

@@ -127,6 +127,7 @@ export default function RunsPage(): React.ReactElement {
 				<div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mt-4">
 					<p className="text-sm text-red-600 dark:text-red-400">{error}</p>
 					<button
+						type="button"
 						onClick={fetchRuns}
 						className="text-xs mt-2 text-red-600 dark:text-red-400 hover:underline"
 					>

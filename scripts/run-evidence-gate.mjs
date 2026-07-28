@@ -204,7 +204,7 @@ function loadSnapshotFromFile(filePath) {
 	const snapshot = parsed.snapshot ?? parsed;
 
 	if (!snapshot.pullRequests || !snapshot.issues) {
-		throw new Error(`Snapshot file missing required fields: pullRequests, issues`);
+		throw new Error('Snapshot file missing required fields: pullRequests, issues');
 	}
 
 	return snapshot;
@@ -829,10 +829,10 @@ async function main() {
 				console.log(`  Local gates: ${options.localGatesDryRun ? 'simulated (dry-run)' : 'live'}`);
 			}
 			if (options.approvalPack || options.safeApplyPlan) {
-				console.log(`  Approval pack: enabled`);
+				console.log('  Approval pack: enabled');
 			}
 			if (options.safeApplyPlan) {
-				console.log(`  Safe apply plan: enabled`);
+				console.log('  Safe apply plan: enabled');
 			}
 			console.log('');
 			console.log('  Using synthetic dry-run fixture...');

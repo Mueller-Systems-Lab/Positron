@@ -81,6 +81,7 @@ export default function ArtifactPanel({ runId }: ArtifactPanelProps): React.Reac
 				<h3 className="text-sm font-medium text-slate-300">Artefakte</h3>
 				{artifact && (
 					<button
+						type="button"
 						onClick={handleDownload}
 						className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
 					>
@@ -93,6 +94,7 @@ export default function ArtifactPanel({ runId }: ArtifactPanelProps): React.Reac
 			<div className="flex gap-1 mb-3">
 				{TABS.map((tab) => (
 					<button
+						type="button"
 						key={tab.kind}
 						onClick={() => setActiveTab(tab.kind)}
 						className={`px-2.5 py-1 text-xs rounded-md transition-colors ${

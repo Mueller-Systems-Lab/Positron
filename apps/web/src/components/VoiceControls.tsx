@@ -33,6 +33,7 @@ function ToggleSwitch({
 }) {
 	return (
 		<button
+			type="button"
 			onClick={() => onChange(!enabled)}
 			role="switch"
 			aria-checked={enabled}
@@ -161,6 +162,8 @@ export default function VoiceControls(): React.ReactElement {
 							stroke="currentColor"
 							strokeWidth="2"
 							className="text-purple-400"
+							aria-hidden="true"
+							focusable="false"
 						>
 							<path d="M11 5L6 9H2v6h4l5 4V5z" />
 							<path
@@ -276,6 +279,7 @@ export default function VoiceControls(): React.ReactElement {
 				{/* Test Voice Button */}
 				<div>
 					<button
+						type="button"
 						onClick={handleTestVoice}
 						disabled={testStatus === 'speaking'}
 						className="btn-secondary text-xs py-1.5 px-3"
@@ -286,10 +290,10 @@ export default function VoiceControls(): React.ReactElement {
 				</div>
 
 				{/* Event Type Checkboxes */}
-				<div className="pt-3 border-t border-slate-200 dark:border-slate-800">
-					<label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
+				<fieldset className="pt-3 border-t border-slate-200 dark:border-slate-800">
+					<legend className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
 						Speak these events:
-					</label>
+					</legend>
 					<div className="space-y-1.5">
 						{Object.entries(EVENT_LABELS).map(([type, label]) => (
 							<label
@@ -306,7 +310,7 @@ export default function VoiceControls(): React.ReactElement {
 							</label>
 						))}
 					</div>
-				</div>
+				</fieldset>
 
 				{/* Last Spoken Status */}
 				{lastSpoken && (

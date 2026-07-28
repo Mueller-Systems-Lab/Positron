@@ -308,12 +308,12 @@ function processCapabilities(
 	const newRefRows: string[] = [];
 	if (input.completedIssues) {
 		for (const issueNum of input.completedIssues) {
-			newRefRows.push(tableRow([`#${issueNum}`, `Completed in run`, `CLOSED`]));
+			newRefRows.push(tableRow([`#${issueNum}`, 'Completed in run', 'CLOSED']));
 		}
 	}
 	if (input.createdIssues) {
 		for (const issueNum of input.createdIssues) {
-			newRefRows.push(tableRow([`#${issueNum}`, `Created in run`, `OPEN`]));
+			newRefRows.push(tableRow([`#${issueNum}`, 'Created in run', 'OPEN']));
 		}
 	}
 

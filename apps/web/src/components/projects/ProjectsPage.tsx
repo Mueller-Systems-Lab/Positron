@@ -121,6 +121,7 @@ function ProjectCard({ project }: { project: ManagedTargetProject }): React.Reac
 
 			{/* Expand/Collapse Toggle */}
 			<button
+				type="button"
 				onClick={() => setExpanded(!expanded)}
 				className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline mb-2"
 				aria-expanded={expanded}

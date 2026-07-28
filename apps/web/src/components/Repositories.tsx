@@ -79,7 +79,7 @@ export default function Repositories(): React.ReactElement {
 			{/* Header */}
 			<div className="flex items-center justify-between mb-6">
 				<h1 className="text-2xl font-bold text-white">📁 Repositories</h1>
-				<button onClick={() => setIsAddModalOpen(true)} className="btn-primary">
+				<button type="button" onClick={() => setIsAddModalOpen(true)} className="btn-primary">
 					+ Add Repository
 				</button>
 			</div>
@@ -88,7 +88,11 @@ export default function Repositories(): React.ReactElement {
 			{error && (
 				<div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-200 text-sm">
 					{error}
-					<button onClick={() => setError(null)} className="ml-2 text-red-300 hover:text-red-100">
+					<button
+						type="button"
+						onClick={() => setError(null)}
+						className="ml-2 text-red-300 hover:text-red-100"
+					>
 						✕
 					</button>
 				</div>
@@ -104,7 +108,7 @@ export default function Repositories(): React.ReactElement {
 				<div className="card text-center py-12">
 					<p className="text-4xl mb-3">📂</p>
 					<p className="text-slate-400 text-lg mb-4">Keine Repositories registriert</p>
-					<button onClick={() => setIsAddModalOpen(true)} className="btn-primary">
+					<button type="button" onClick={() => setIsAddModalOpen(true)} className="btn-primary">
 						Repository hinzufügen
 					</button>
 				</div>
@@ -124,6 +128,7 @@ export default function Repositories(): React.ReactElement {
 										</p>
 									</div>
 									<button
+										type="button"
 										onClick={() => handleLoadIssues(repo.id)}
 										disabled={loadingIssues.has(repo.id)}
 										className="btn-secondary text-xs"
@@ -150,6 +155,7 @@ export default function Repositories(): React.ReactElement {
 														{issue.title}
 													</span>
 													<button
+														type="button"
 														onClick={() => handleStartRun(repo.id, issue.number)}
 														className="text-xs text-blue-400 hover:text-blue-300"
 													>
@@ -182,6 +188,7 @@ export default function Repositories(): React.ReactElement {
 						<div className="flex items-center justify-between mb-4">
 							<h2 className="text-lg font-bold text-white">Repository hinzufügen</h2>
 							<button
+								type="button"
 								onClick={() => setIsAddModalOpen(false)}
 								className="text-slate-400 hover:text-white text-xl"
 							>
@@ -191,8 +198,11 @@ export default function Repositories(): React.ReactElement {
 
 						<div className="space-y-4">
 							<div>
-								<label className="block text-sm text-slate-300 mb-1">Owner</label>
+								<label htmlFor="repo-owner" className="block text-sm text-slate-300 mb-1">
+									Owner
+								</label>
 								<input
+									id="repo-owner"
 									type="text"
 									placeholder="z.B. xxammaxx"
 									value={newOwner}
@@ -201,8 +211,11 @@ export default function Repositories(): React.ReactElement {
 								/>
 							</div>
 							<div>
-								<label className="block text-sm text-slate-300 mb-1">Repository-Name</label>
+								<label htmlFor="repo-name" className="block text-sm text-slate-300 mb-1">
+									Repository-Name
+								</label>
 								<input
+									id="repo-name"
 									type="text"
 									placeholder="z.B. Positron"
 									value={newName}
@@ -211,6 +224,7 @@ export default function Repositories(): React.ReactElement {
 								/>
 							</div>
 							<button
+								type="button"
 								onClick={handleAddRepo}
 								disabled={!newOwner || !newName || adding}
 								className="btn-primary w-full"

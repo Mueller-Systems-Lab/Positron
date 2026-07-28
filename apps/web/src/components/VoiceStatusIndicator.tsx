@@ -45,6 +45,8 @@ export default function VoiceStatusIndicator(): React.ReactElement {
 					stroke="currentColor"
 					strokeWidth="2"
 					className="opacity-50"
+					aria-hidden="true"
+					focusable="false"
 				>
 					<path d="M11 5L6 9H2v6h4l5 4V5z" />
 					<line x1="23" y1="9" x2="17" y2="15" />
@@ -57,6 +59,7 @@ export default function VoiceStatusIndicator(): React.ReactElement {
 
 	return (
 		<button
+			type="button"
 			onClick={handleToggle}
 			className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors cursor-pointer ${
 				enabled
@@ -77,6 +80,8 @@ export default function VoiceStatusIndicator(): React.ReactElement {
 				fill="none"
 				stroke="currentColor"
 				strokeWidth="2"
+				aria-hidden="true"
+				focusable="false"
 			>
 				<path d="M11 5L6 9H2v6h4l5 4V5z" />
 				<path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />

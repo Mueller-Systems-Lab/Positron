@@ -152,7 +152,7 @@ Safe: Only read-only gh commands are used. No mutations.
 async function collectSnapshot(options) {
 	const { dryRun, repo, targetPr, targetIssue } = options;
 
-	console.log(`Positron GitHub Snapshot Collector — Phase 1C`);
+	console.log('Positron GitHub Snapshot Collector — Phase 1C');
 	console.log(`  Repo: ${repo}`);
 	console.log(`  Dry-run: ${dryRun}`);
 	console.log('');

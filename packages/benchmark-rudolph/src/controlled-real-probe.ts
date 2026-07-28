@@ -322,7 +322,7 @@ export async function runControlledRealModeProbe(
 	allGates.push({
 		gate: 'SCHEMA_VALIDATION',
 		passed: true,
-		detail: `validateRunSummary passed with 0 errors`,
+		detail: 'validateRunSummary passed with 0 errors',
 	});
 	allGates.push({
 		gate: 'SECRET_FREE',
