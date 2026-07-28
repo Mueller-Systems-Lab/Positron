@@ -59,7 +59,7 @@ export interface AdapterModes {
  */
 export function resolveGateRuntimeMode(adapters: AdapterModes): GateRuntimeMode {
 	// Explizite Konfiguration hat Vorrang
-	const explicit = process.env['POSITRON_GATE_MODE'] as GateRuntimeMode | undefined;
+	const explicit = process.env.POSITRON_GATE_MODE as GateRuntimeMode | undefined;
 	if (explicit && ['fixture', 'demo', 'supervised', 'real'].includes(explicit)) {
 		return explicit;
 	}

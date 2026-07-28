@@ -56,7 +56,7 @@ describe('Issue #385 — GateRuntimeMode Resolution', () => {
 	});
 
 	it('POSITRON_GATE_MODE override takes precedence', () => {
-		process.env['POSITRON_GATE_MODE'] = 'demo';
+		process.env.POSITRON_GATE_MODE = 'demo';
 		try {
 			const mode = resolveGateRuntimeMode({
 				githubMode: 'real',
@@ -65,12 +65,12 @@ describe('Issue #385 — GateRuntimeMode Resolution', () => {
 			});
 			expect(mode).toBe('demo');
 		} finally {
-			delete process.env['POSITRON_GATE_MODE'];
+			Reflect.deleteProperty(process.env, 'POSITRON_GATE_MODE');
 		}
 	});
 
 	it('invalid POSITRON_GATE_MODE falls back to auto-detection', () => {
-		process.env['POSITRON_GATE_MODE'] = 'invalid-mode';
+		process.env.POSITRON_GATE_MODE = 'invalid-mode';
 		try {
 			const mode = resolveGateRuntimeMode({
 				githubMode: 'fake',
@@ -79,7 +79,7 @@ describe('Issue #385 — GateRuntimeMode Resolution', () => {
 			});
 			expect(mode).toBe('fixture');
 		} finally {
-			delete process.env['POSITRON_GATE_MODE'];
+			Reflect.deleteProperty(process.env, 'POSITRON_GATE_MODE');
 		}
 	});
 

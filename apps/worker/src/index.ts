@@ -124,7 +124,6 @@ const gateRuntimeMode = resolveGateRuntimeMode({
 	opencodeMode: opencode instanceof FakeOpenCodeAdapter ? 'fake' : 'real',
 });
 assembleGateEvaluators(gateRuntimeMode);
-console.log(`[Worker] Gate runtime mode: ${gateRuntimeMode}`);
 
 // ── Issue #322: Wire ToolGateway onAudit into worker runtime ──
 const workerToolRegistry = new ToolRegistry();

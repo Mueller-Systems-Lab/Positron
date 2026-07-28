@@ -1095,7 +1095,7 @@ async function executePhase(
 					} else if (outcome === 'RETRY') {
 						result = markFailed(current, 'FAILED_TRANSIENT', `Tests failed: ${report.summary}`);
 					} else {
-						result = transition(current, 'VERIFY', `Tests passed`, 'INFO');
+						result = transition(current, 'VERIFY', 'Tests passed', 'INFO');
 					}
 				}
 			} catch (err) {

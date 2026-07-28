@@ -43,7 +43,7 @@ class ThrowingCommitWorkspaceAdapter extends FakeGitWorkspaceAdapter {
 		mergeCalls: 0,
 	};
 
-	async commit(workspacePath: string, message: string): Promise<{ sha: string }> {
+	async commit(_workspacePath: string, _message: string): Promise<{ sha: string }> {
 		this.counters.commitCalls++;
 		throw new Error('SIMULATED_COMMIT_FAILURE: disk full');
 	}
