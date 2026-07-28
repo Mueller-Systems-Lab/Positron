@@ -6,13 +6,19 @@ on:
   pull_request:
     branches: [main, master, develop]
   workflow_dispatch:
+    inputs:
+      base_sha:
+        description: 'Base SHA for comparison (default: HEAD~1 on main)'
+        required: false
+        default: ''
 
 permissions:
   contents: read
   actions: write
 
 jobs:
-  build-and-test:
+  # ── Format Gate (blocking, all files) ──────────────────────────────
+  format-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,21 +35,194 @@ jobs:
       - name: Format check (Biome)
         run: npx biome format .
 
-      - name: Lint (Biome)
-        run: npx biome lint .
+  # ── Differential Lint (blocking, true BASE vs HEAD comparison) ─────
+  # Compares Biome diagnostics between BASE and HEAD for all lintable files.
+  # Uses scripts/ci/differential-biome-lint.mjs (counted multiset, rename-aware,
+  # fail-closed, full repository-relative paths, config-change detection).
+  # Blocks on NEW or WORSENED diagnostics. Passes on REMOVED/UNCHANGED/IMPROVED.
+  # Relates to #340. Follow-up to #268.
+  differential-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Determine SHAs from event context
+        id: shas
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "base=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            echo "base=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=${{ inputs.base_sha }}" >> "$GITHUB_OUTPUT"
+            echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+          echo "event=${{ github.event_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Test differential lint engine
+        run: node --test scripts/ci/differential-biome-lint.test.mjs
+
+      - name: Run differential Biome lint
+        id: diff
+        run: |
+          BIOME_BIN="${{ github.workspace }}/node_modules/@biomejs/biome/bin/biome"
+          node scripts/ci/differential-biome-lint.mjs \
+            --base "${{ steps.shas.outputs.base }}" \
+            --head "${{ steps.shas.outputs.head }}" \
+            --event "${{ steps.shas.outputs.event }}" \
+            --repo-root "${{ github.workspace }}" \
+            --biome-bin "$BIOME_BIN" \
+            --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish differential lint summary
+        if: always()
+        run: |
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Event | ${{ github.event_name }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| BASE | \`${{ steps.shas.outputs.base }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| HEAD | \`${{ steps.shas.outputs.head }}\` |" >> "$GITHUB_STEP_SUMMARY"
+
+  # ── Build (blocking, independent of format) ────────────────────────
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Build
         run: npm run build
 
+  # ── Typecheck (blocking, independent of format) ────────────────────
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Typecheck
         run: npm run typecheck
+
+  # ── Unit Tests (blocking, depends on build) ────────────────────────
+  unit-tests:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (reuse cache)
+        run: npm run build
 
       - name: Unit Tests
         run: npm test
 
+  # ── Full Repository Lint Report (advisory, transparent baseline) ───
+  full-lint-report:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Full repository lint (advisory)
+        id: lint
+        shell: bash
+        run: |
+          set +e
+          set -o pipefail
+
+          mkdir -p reports/ci
+          npx biome lint . 2>&1 | tee reports/ci/full-lint.log
+          lint_exit=${PIPESTATUS[0]}
+
+          echo "exit=${lint_exit}" >> "$GITHUB_OUTPUT"
+
+          checked=$(grep -oP 'Checked \K\d+' reports/ci/full-lint.log | tail -1 || true)
+          errors=$(grep -oP 'Found \K\d+(?= error)' reports/ci/full-lint.log | tail -1 || true)
+          warnings=$(grep -oP 'Found \K\d+(?= warning)' reports/ci/full-lint.log | tail -1 || true)
+          hidden=$(grep -oP 'Diagnostics not shown: \K\d+' reports/ci/full-lint.log | tail -1 || true)
+
+          echo "checked=${checked:-0}" >> "$GITHUB_OUTPUT"
+          echo "errors=${errors:-0}" >> "$GITHUB_OUTPUT"
+          echo "warnings=${warnings:-0}" >> "$GITHUB_OUTPUT"
+          echo "hidden=${hidden:-0}" >> "$GITHUB_OUTPUT"
+
+          exit 0
+
+      - name: Upload full lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-lint-report
+          path: reports/ci/full-lint.log
+          if-no-files-found: error
+
+      - name: Post lint summary
+        if: always()
+        run: |
+          { echo "## Full Repository Lint Report (advisory)"
+            echo ""
+            echo "| Metric | Count |"
+            echo "|--------|-------|"
+            echo "| Actual Biome exit | ${{ steps.lint.outputs.exit }} |"
+            echo "| Checked files | ${{ steps.lint.outputs.checked }} |"
+            echo "| Errors | ${{ steps.lint.outputs.errors }} |"
+            echo "| Warnings | ${{ steps.lint.outputs.warnings }} |"
+            echo "| Diagnostics hidden | ${{ steps.lint.outputs.hidden }} |"
+            echo "| Artifact name | full-lint-report |"
+            echo ""
+            echo "> This report is advisory. The blocking **differential-lint** job enforces"
+            echo "> NEW/WORSENED diagnostics on changed files only."
+            echo "> The known backlog is tracked in Issue [#340](https://github.com/xxammaxx/Positron/issues/340)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # ── #223: Tool Gateway Windows Path Tests (non-blocking) ──────
-  # Runs path traversal tests on Windows to validate cross-platform
-  # path separator handling (backslash vs forward slash).
   tool-gateway-windows:
     runs-on: windows-latest
     timeout-minutes: 5
@@ -137,9 +316,6 @@ jobs:
             reports/mutation/**
           if-no-files-found: warn
 
-  # ── QA-007: Mutation Safety Baseline (non-blocking) ──────────────
-  # Targets 7 safety-critical modules only. Fast runtime (~34s).
-  # Non-blocking: baseline only — will be hardened in QA-008.
   mutation-safety:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -174,11 +350,6 @@ jobs:
             reports/mutation/safety-baseline/**
           if-no-files-found: warn
 
-  # ── QA-030: Playwright E2E (non-blocking, optional) ─────────────
-  # Non-blocking until E2E stability window completed:
-  #   Criteria: ≥ 5 consecutive green runs on main
-  #   Tracked in: docs/qa-tooling.md#e2e-stability-window
-  #   After 5/5: promote to blocking (continue-on-error: false)
   e2e-playwright:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -214,7 +385,6 @@ jobs:
       - name: Run E2E tests
         run: npm run test:e2e
         env:
-          # Fake/Safety-Env — no real tokens, no external API calls
           VITEST: 'true'
           NODE_ENV: test
           POSITRON_DISABLE_QUEUE: 'true'
@@ -222,11 +392,9 @@ jobs:
           POSITRON_OPENCODE_MODE: fake
           POSITRON_SPECKIT_MODE: fake
           GITHUB_TOKEN: ''
-          # Repository config (fake mode requires these)
           POSITRON_REPO_OWNER: test-owner
           POSITRON_REPO_NAME: test-repo
           POSITRON_REPO_DEFAULT_BRANCH: main
-          # Admin token (used for protected endpoints in test mode)
           POSITRON_ADMIN_TOKEN: positron-test-token-dev
 
       - name: Upload Playwright report
