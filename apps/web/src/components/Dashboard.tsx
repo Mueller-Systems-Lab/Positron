@@ -117,7 +117,7 @@ export default function Dashboard(): React.ReactElement {
 					<h1 className="text-2xl font-bold text-white">⚡ Positron Dashboard</h1>
 					<p className="text-slate-400 text-sm mt-1">Evidence-Gated GitHub Issue Execution</p>
 				</div>
-				<button onClick={() => setIsNewRunModalOpen(true)} className="btn-primary">
+				<button type="button" onClick={() => setIsNewRunModalOpen(true)} className="btn-primary">
 					+ New Run
 				</button>
 			</div>
@@ -126,7 +126,11 @@ export default function Dashboard(): React.ReactElement {
 			{error && (
 				<div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-200 text-sm">
 					{error}
-					<button onClick={() => setError(null)} className="ml-2 text-red-300 hover:text-red-100">
+					<button
+						type="button"
+						onClick={() => setError(null)}
+						className="ml-2 text-red-300 hover:text-red-100"
+					>
 						✕
 					</button>
 				</div>
@@ -194,7 +198,11 @@ export default function Dashboard(): React.ReactElement {
 							: 'Keine Runs gefunden, die den Filtern entsprechen'}
 					</p>
 					{runs.length === 0 && (
-						<button onClick={() => setIsNewRunModalOpen(true)} className="btn-primary mt-4">
+						<button
+							type="button"
+							onClick={() => setIsNewRunModalOpen(true)}
+							className="btn-primary mt-4"
+						>
 							Ersten Run erstellen
 						</button>
 					)}
@@ -225,6 +233,7 @@ export default function Dashboard(): React.ReactElement {
 										<tr key={run.id} className="hover:bg-slate-700/50 transition-colors">
 											<td className="px-4 py-3 font-mono text-xs text-blue-400">
 												<button
+													type="button"
 													onClick={() => navigate(`/runs/${run.id}`)}
 													className="hover:underline"
 												>
@@ -261,6 +270,7 @@ export default function Dashboard(): React.ReactElement {
 											</td>
 											<td className="px-4 py-3 text-right">
 												<button
+													type="button"
 													onClick={() => navigate(`/runs/${run.id}`)}
 													className="btn-secondary text-xs py-1 px-3"
 												>
@@ -287,6 +297,7 @@ export default function Dashboard(): React.ReactElement {
 						<div className="flex items-center justify-between mb-4">
 							<h2 className="text-lg font-bold text-white">Neuen Run starten</h2>
 							<button
+								type="button"
 								onClick={() => setIsNewRunModalOpen(false)}
 								className="text-slate-400 hover:text-white text-xl"
 							>
@@ -296,8 +307,11 @@ export default function Dashboard(): React.ReactElement {
 
 						<div className="space-y-4">
 							<div>
-								<label className="block text-sm text-slate-300 mb-1">Repository</label>
+								<label htmlFor="dashboard-repo" className="block text-sm text-slate-300 mb-1">
+									Repository
+								</label>
 								<input
+									id="dashboard-repo"
 									type="text"
 									placeholder="z.B. Positron"
 									value={selectedRepo}
@@ -307,8 +321,11 @@ export default function Dashboard(): React.ReactElement {
 							</div>
 
 							<div>
-								<label className="block text-sm text-slate-300 mb-1">Issue-Nummer</label>
+								<label htmlFor="dashboard-issue" className="block text-sm text-slate-300 mb-1">
+									Issue-Nummer
+								</label>
 								<input
+									id="dashboard-issue"
 									type="number"
 									min={1}
 									placeholder="z.B. 42"
@@ -318,8 +335,8 @@ export default function Dashboard(): React.ReactElement {
 								/>
 							</div>
 
-							<div>
-								<label className="block text-sm text-slate-300 mb-2">Autonomie-Level</label>
+							<fieldset>
+								<legend className="block text-sm text-slate-300 mb-2">Autonomie-Level</legend>
 								<div className="flex gap-3">
 									{[
 										{ value: 0, label: 'Full' },
@@ -346,9 +363,10 @@ export default function Dashboard(): React.ReactElement {
 										</label>
 									))}
 								</div>
-							</div>
+							</fieldset>
 
 							<button
+								type="button"
 								onClick={handleStartRun}
 								disabled={!selectedRepo || !issueNumber || startingRun}
 								className="btn-primary w-full"

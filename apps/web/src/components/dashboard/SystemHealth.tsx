@@ -63,6 +63,8 @@ export default function SystemHealth(): React.ReactElement {
 					strokeLinecap="round"
 					strokeLinejoin="round"
 					className="text-slate-500"
+					aria-hidden="true"
+					focusable="false"
 				>
 					<path d="M22 12h-4l-3 9L9 3l-3 9H2" />
 				</svg>

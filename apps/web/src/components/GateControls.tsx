@@ -84,12 +84,14 @@ export default function GateControls({
 					{!showApproveConfirm && !showReviseForm && (
 						<div className="flex gap-2">
 							<button
+								type="button"
 								onClick={() => setShowApproveConfirm(true)}
 								className="btn-success flex-1 text-sm"
 							>
 								✓ Genehmigen
 							</button>
 							<button
+								type="button"
 								onClick={() => setShowReviseForm(true)}
 								className="btn-secondary flex-1 text-sm"
 							>
@@ -106,6 +108,7 @@ export default function GateControls({
 							</p>
 							<div className="flex gap-2">
 								<button
+									type="button"
 									onClick={() => setShowApproveConfirm(false)}
 									className="btn-secondary flex-1 text-xs"
 									disabled={loading}
@@ -113,6 +116,7 @@ export default function GateControls({
 									Abbrechen
 								</button>
 								<button
+									type="button"
 									onClick={handleApprove}
 									className="btn-success flex-1 text-xs"
 									disabled={loading}
@@ -136,6 +140,7 @@ export default function GateControls({
 							/>
 							<div className="flex gap-2">
 								<button
+									type="button"
 									onClick={() => {
 										setShowReviseForm(false);
 										setReviseReason('');
@@ -146,6 +151,7 @@ export default function GateControls({
 									Abbrechen
 								</button>
 								<button
+									type="button"
 									onClick={handleRevise}
 									className="btn-danger flex-1 text-xs"
 									disabled={loading || reviseReason.trim().length < 20}

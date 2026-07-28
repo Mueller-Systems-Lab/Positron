@@ -401,7 +401,7 @@ export class Stage3SupervisedPilotPolicy {
 			if (actualSha256 !== this.config.expectedFileSha256) {
 				return this._deny(
 					`File SHA-256 mismatch: expected ${this.config.expectedFileSha256}, got ${actualSha256}`,
-					[{ gate: 'fileSha256', reason: `SHA-256 mismatch` }],
+					[{ gate: 'fileSha256', reason: 'SHA-256 mismatch' }],
 				);
 			}
 

@@ -95,6 +95,7 @@ export default function BlueprintPanel(): React.ReactElement {
 					aria-label="Issue number"
 				/>
 				<button
+					type="button"
 					onClick={generateBlueprint}
 					disabled={isFetching || isLoading}
 					className="btn-secondary text-sm whitespace-nowrap"
@@ -143,6 +144,7 @@ export default function BlueprintPanel(): React.ReactElement {
 
 			<div className="flex items-center gap-3 mt-4">
 				<button
+					type="button"
 					onClick={startDemoRun}
 					disabled={isLoading}
 					className="btn-primary text-sm"

@@ -56,7 +56,7 @@ export default function DashboardPage(): React.ReactElement {
 				</div>
 				<div className="flex items-center gap-3">
 					<VoiceStatusIndicator />
-					<button onClick={() => setIsNewRunModalOpen(true)} className="btn-primary">
+					<button type="button" onClick={() => setIsNewRunModalOpen(true)} className="btn-primary">
 						+ New Run
 					</button>
 				</div>
@@ -96,6 +96,8 @@ export default function DashboardPage(): React.ReactElement {
 										strokeWidth="2"
 										strokeLinecap="round"
 										strokeLinejoin="round"
+										aria-hidden="true"
+										focusable="false"
 									>
 										<rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
 										<line x1="8" y1="21" x2="16" y2="21" />
@@ -103,7 +105,11 @@ export default function DashboardPage(): React.ReactElement {
 									</svg>
 									Managed External Projects
 								</h3>
-								<button onClick={() => navigate('/projects')} className="btn-ghost text-xs">
+								<button
+									type="button"
+									onClick={() => navigate('/projects')}
+									className="btn-ghost text-xs"
+								>
 									View All →
 								</button>
 							</div>

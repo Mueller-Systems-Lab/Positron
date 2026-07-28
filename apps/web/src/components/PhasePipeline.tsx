@@ -77,6 +77,7 @@ function PhaseNode({
 
 	return (
 		<button
+			type="button"
 			onClick={() => onClick?.(phase)}
 			title={phase}
 			className={`

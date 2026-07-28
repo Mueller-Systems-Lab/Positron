@@ -247,7 +247,7 @@ describe('planEvidencePortfolioUpdate', () => {
 		return {
 			runId: 'test-run-01',
 			status: 'GREEN',
-			evidencePaths: [`docs/evidence/test-run/report.md`],
+			evidencePaths: ['docs/evidence/test-run/report.md'],
 			capabilities: ['Test Capability: New feature works'],
 			limitations: ['Test Limitation: Known bug exists'],
 			completedIssues: [305],

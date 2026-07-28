@@ -69,6 +69,7 @@ export default function LogViewer({
 				<div className="flex gap-1">
 					{(['ALL', 'INFO', 'WARN', 'ERROR', 'DEBUG'] as const).map((l) => (
 						<button
+							type="button"
 							key={l}
 							onClick={() => setFilter(l)}
 							className={`px-2 py-1 text-xs rounded-md transition-colors ${
@@ -147,6 +148,7 @@ export default function LogViewer({
 			{/* New events indicator */}
 			{!autoScroll && events.length > 0 && (
 				<button
+					type="button"
 					onClick={() => {
 						setAutoScroll(true);
 						if (scrollRef.current) {

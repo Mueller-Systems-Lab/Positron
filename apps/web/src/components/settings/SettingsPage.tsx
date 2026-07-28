@@ -29,6 +29,7 @@ function ToggleSwitch({
 }: { enabled: boolean; onChange: (v: boolean) => void; label: string }) {
 	return (
 		<button
+			type="button"
 			onClick={() => onChange(!enabled)}
 			role="switch"
 			aria-checked={enabled}
@@ -172,6 +173,8 @@ export default function SettingsPage(): React.ReactElement {
 								stroke="currentColor"
 								strokeWidth="2"
 								className="text-amber-400"
+								aria-hidden="true"
+								focusable="false"
 							>
 								<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
 							</svg>
@@ -236,6 +239,8 @@ export default function SettingsPage(): React.ReactElement {
 							stroke="currentColor"
 							strokeWidth="2"
 							className="text-sky-400"
+							aria-hidden="true"
+							focusable="false"
 						>
 							<rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
 							<rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
@@ -354,6 +359,8 @@ export default function SettingsPage(): React.ReactElement {
 							stroke="currentColor"
 							strokeWidth="2"
 							className="text-amber-400"
+							aria-hidden="true"
+							focusable="false"
 						>
 							<path d="M9 11l3 3L22 4" />
 							<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
