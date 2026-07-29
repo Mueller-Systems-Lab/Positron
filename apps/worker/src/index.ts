@@ -14,6 +14,8 @@ import {
 	openDatabase,
 	registerFakeGateEvaluators,
 	registerWorkspaceCleanup,
+	resolveGateRuntimeMode,
+	assembleGateEvaluators,
 } from '@positron/run-state';
 import type { RunState } from '@positron/run-state';
 import { FakeGitWorkspaceAdapter, RealGitWorkspaceAdapter } from '@positron/sandbox';
@@ -111,8 +113,17 @@ const opencode = resolveOpencodeAdapter();
 const repository = resolveRepositoryConfig();
 const syncService = new GitHubStatusSyncService(github);
 
-// Issue #246: Register fake gate evaluators for worker pipeline
-registerFakeGateEvaluators();
+// ── Issue #385: Gate runtime mode — explicit, mode-aware assembly ──
+// Replaces unconditional registerFakeGateEvaluators().
+// fixture/demo: fake evaluators registered.
+// supervised/real: no fake evaluators — real evaluators must be registered
+// or gate evaluation will block (fail-closed).
+const gateRuntimeMode = resolveGateRuntimeMode({
+	githubMode: github instanceof FakeGitHubAdapter ? 'fake' : 'real',
+	workspaceMode: workspace instanceof FakeGitWorkspaceAdapter ? 'fake' : 'real',
+	opencodeMode: opencode instanceof FakeOpenCodeAdapter ? 'fake' : 'real',
+});
+assembleGateEvaluators(gateRuntimeMode);
 
 // ── Issue #322: Wire ToolGateway onAudit into worker runtime ──
 const workerToolRegistry = new ToolRegistry();
@@ -166,6 +177,7 @@ const worker = new Worker<PipelineJobData, PipelineJobResult>(
 			github,
 			syncService,
 			gateway: workerGateway,
+			gateRuntimeMode,
 		};
 
 		// Run the pipeline

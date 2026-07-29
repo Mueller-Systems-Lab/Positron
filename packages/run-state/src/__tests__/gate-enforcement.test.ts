@@ -237,7 +237,7 @@ describe('tryTransitionWithGates', () => {
 			gateTypes: ['pre_merge', 'security', 'human_approval'],
 		});
 
-		const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', 'INFO', null, ctx);
+		const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', ctx, 'INFO', null);
 
 		expect(result.ok).toBe(false);
 		expect(result.gateResult.allPassed).toBe(false);
@@ -266,7 +266,7 @@ describe('tryTransitionWithGates', () => {
 			gateTypes: ['security', 'human_approval'],
 		});
 
-		const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', 'INFO', null, ctx);
+		const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', ctx, 'INFO', null);
 
 		expect(result.ok).toBe(false);
 		expect(result.event.message).toContain('security failure cannot be overridden');
@@ -288,7 +288,7 @@ describe('tryTransitionWithGates', () => {
 			gateTypes: ['pre_merge', 'security', 'human_approval'],
 		});
 
-		const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', 'INFO', null, ctx);
+		const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', ctx, 'INFO', null);
 
 		expect(result.ok).toBe(false);
 		expect(result.run.phase).toBe('GATE_APPROVE');
@@ -310,7 +310,7 @@ describe('tryTransitionWithGates', () => {
 			gateTypes: ['pre_merge', 'security', 'human_approval'],
 		});
 
-		const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', 'INFO', null, ctx);
+		const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', ctx, 'INFO', null);
 
 		expect(result.ok).toBe(false);
 		expect(result.run.phase).toBe('GATE_APPROVE');
@@ -330,7 +330,7 @@ describe('tryTransitionWithGates', () => {
 			gateTypes: ['pre_write', 'evidence_required'],
 		});
 
-		const result = tryTransitionWithGates(run, 'COMMIT', 'Attempt commit', 'INFO', null, ctx);
+		const result = tryTransitionWithGates(run, 'COMMIT', 'Attempt commit', ctx, 'INFO', null);
 
 		expect(result.ok).toBe(false);
 		expect(result.gateResult.blockingFailures.some((f) => f.gateType === 'evidence_required')).toBe(
@@ -350,7 +350,7 @@ describe('tryTransitionWithGates', () => {
 			gateTypes: ['pre_write', 'evidence_required'],
 		});
 
-		const result = tryTransitionWithGates(run, 'COMMIT', 'Attempt commit', 'INFO', null, ctx);
+		const result = tryTransitionWithGates(run, 'COMMIT', 'Attempt commit', ctx, 'INFO', null);
 
 		expect(result.ok).toBe(false);
 		expect(result.gateResult.blockingFailures.some((f) => f.gateType === 'pre_write')).toBe(true);
@@ -368,7 +368,7 @@ describe('tryTransitionWithGates', () => {
 			gateTypes: ['pre_pr', 'evidence_required'],
 		});
 
-		const result = tryTransitionWithGates(run, 'PR_CREATE', 'Attempt PR', 'INFO', null, ctx);
+		const result = tryTransitionWithGates(run, 'PR_CREATE', 'Attempt PR', ctx, 'INFO', null);
 
 		expect(result.ok).toBe(false);
 		expect(result.gateResult.blockingFailures.some((f) => f.gateType === 'pre_pr')).toBe(true);
@@ -387,7 +387,7 @@ describe('tryTransitionWithGates', () => {
 			gateTypes: ['pre_merge', 'security', 'human_approval'],
 		});
 
-		const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', 'INFO', null, ctx);
+		const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', ctx, 'INFO', null);
 
 		expect(result.ok).toBe(false);
 		expect(result.gateResult.blockingFailures.some((f) => f.gateType === 'pre_merge')).toBe(true);
@@ -405,7 +405,7 @@ describe('tryTransitionWithGates', () => {
 			gateTypes: ['pre_write', 'evidence_required'],
 		});
 
-		const result = tryTransitionWithGates(run, 'COMMIT', 'All gates passed', 'INFO', null, ctx);
+		const result = tryTransitionWithGates(run, 'COMMIT', 'All gates passed', ctx, 'INFO', null);
 
 		expect(result.ok).toBe(true);
 		expect(result.gateResult.allPassed).toBe(true);
@@ -421,7 +421,7 @@ describe('tryTransitionWithGates', () => {
 			gateTypes: [],
 		});
 
-		const result = tryTransitionWithGates(run, 'CLAIMED', 'Internal transition', 'INFO', null, ctx);
+		const result = tryTransitionWithGates(run, 'CLAIMED', 'Internal transition', ctx, 'INFO', null);
 
 		expect(result.ok).toBe(true);
 		expect(result.run.phase).toBe('CLAIMED');
@@ -547,7 +547,7 @@ describe('GateType Non-Bypass', () => {
 			gateTypes: ['security', 'pre_merge', 'human_approval'],
 		});
 
-		const result = tryTransitionWithGates(run, 'MERGE', 'Merge attempt', 'INFO', null, ctx);
+		const result = tryTransitionWithGates(run, 'MERGE', 'Merge attempt', ctx, 'INFO', null);
 
 		expect(result.ok).toBe(false);
 	});

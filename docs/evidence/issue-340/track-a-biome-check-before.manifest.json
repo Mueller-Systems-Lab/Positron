@@ -1,0 +1,19 @@
+{
+	"kind": "biome-check-raw-report-manifest",
+	"originalPath": "docs/evidence/issue-340/track-a-biome-check-before.json",
+	"sourceCommit": "67064a85e76f4998d3d5e983cf96e745d8a543df",
+	"blobSha": "ed48c0fe487a72327b47bbfb726b18f1981e6c07",
+	"sizeBytes": 39744786,
+	"sha256": "8a187908e3744c1bb07ecd6a35237844578deecaa7523f07dd32f4c1bde08e75",
+	"summary": {
+		"changed": 0,
+		"unchanged": 730,
+		"errors": 275,
+		"warnings": 1260
+	},
+	"reasonForRemoval": "Generated raw report exceeded Biome's configured/default processable file size and blocked the repository format gate.",
+	"retrieval": {
+		"command": "git show 67064a85e76f4998d3d5e983cf96e745d8a543df:docs/evidence/issue-340/track-a-biome-check-before.json"
+	},
+	"historyPreserved": true
+}
