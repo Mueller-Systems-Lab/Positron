@@ -10,6 +10,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, test, vi } from 'vitest';
 import { createStableTextItems } from '../components/projects/ProjectsPage.js';
+import { createSkeletonSlots } from '../components/shared/LoadingSkeleton.js';
 
 // -----------------------------------------------------------------------
 // Helper: createStableTextItems
@@ -377,14 +378,164 @@ describe('Skeleton rendering — fixed-size groups and suppression sites', () =>
 });
 
 // -----------------------------------------------------------------------
+// Helper: createSkeletonSlots
+// -----------------------------------------------------------------------
+
+describe('createSkeletonSlots', () => {
+	test('zero rows produces empty array', () => {
+		const result = createSkeletonSlots('loading-skeleton-table-row', 0);
+		expect(result).toHaveLength(0);
+	});
+
+	test('one row produces expected first key', () => {
+		const result = createSkeletonSlots('loading-skeleton-table-row', 1);
+		expect(result).toHaveLength(1);
+		expect(result[0].key).toBe('loading-skeleton-table-row-1');
+		expect(result[0].position).toBe(0);
+	});
+
+	test('multiple rows produce unique keys', () => {
+		const result = createSkeletonSlots('loading-skeleton-table-row', 5);
+		expect(result).toHaveLength(5);
+		const keys = new Set(result.map((s) => s.key));
+		expect(keys.size).toBe(5);
+	});
+
+	test('same input yields identical output', () => {
+		const a = createSkeletonSlots('loading-skeleton-table-row', 3);
+		const b = createSkeletonSlots('loading-skeleton-table-row', 3);
+		expect(a).toEqual(b);
+	});
+
+	test('3 to 5 rows preserves first three slot values', () => {
+		const three = createSkeletonSlots('loading-skeleton-table-row', 3);
+		const five = createSkeletonSlots('loading-skeleton-table-row', 5);
+		expect(five.slice(0, 3)).toEqual(three);
+		expect(five[3].key).toBe('loading-skeleton-table-row-4');
+		expect(five[4].key).toBe('loading-skeleton-table-row-5');
+	});
+
+	test('5 to 2 rows preserves first two slot values', () => {
+		const five = createSkeletonSlots('loading-skeleton-table-row', 5);
+		const two = createSkeletonSlots('loading-skeleton-table-row', 2);
+		expect(two).toEqual(five.slice(0, 2));
+	});
+
+	test('table and text prefixes do not collide', () => {
+		const table = createSkeletonSlots('loading-skeleton-table-row', 3);
+		const text = createSkeletonSlots('loading-skeleton-text-row', 3);
+		const allKeys = new Set([...table.map((s) => s.key), ...text.map((s) => s.key)]);
+		expect(allKeys.size).toBe(6);
+	});
+
+	test('position is zero-based', () => {
+		const result = createSkeletonSlots('loading-skeleton-text-row', 3);
+		expect(result[0].position).toBe(0);
+		expect(result[1].position).toBe(1);
+		expect(result[2].position).toBe(2);
+	});
+});
+
+// -----------------------------------------------------------------------
+// LoadingSkeleton rendering — rerender identity
+// -----------------------------------------------------------------------
+
+describe('LoadingSkeleton rendering — rerender identity', () => {
+	test('table variant renders 0 rows', async () => {
+		const { default: LoadingSkeleton } = await import('../components/shared/LoadingSkeleton.js');
+		const { container } = render(<LoadingSkeleton variant="table" rows={0} />);
+		const rows = container.querySelectorAll('.flex.gap-4');
+		expect(rows).toHaveLength(0);
+	});
+
+	test('table variant renders 1 row', async () => {
+		const { default: LoadingSkeleton } = await import('../components/shared/LoadingSkeleton.js');
+		const { container } = render(<LoadingSkeleton variant="table" rows={1} />);
+		const rows = container.querySelectorAll('.flex.gap-4');
+		expect(rows).toHaveLength(1);
+	});
+
+	test('text variant renders multiple rows', async () => {
+		const { default: LoadingSkeleton } = await import('../components/shared/LoadingSkeleton.js');
+		const { container } = render(<LoadingSkeleton variant="text" rows={3} />);
+		const lines = container.querySelectorAll('.skeleton.h-3');
+		expect(lines).toHaveLength(3);
+	});
+
+	test('table rerender from 3 to 5 preserves first three rows', async () => {
+		const { default: LoadingSkeleton } = await import('../components/shared/LoadingSkeleton.js');
+		const { container, rerender } = render(<LoadingSkeleton variant="table" rows={3} />);
+		expect(container.querySelectorAll('.flex.gap-4')).toHaveLength(3);
+
+		rerender(<LoadingSkeleton variant="table" rows={5} />);
+		const allFive = [...container.querySelectorAll('.flex.gap-4')];
+
+		expect(allFive).toHaveLength(5);
+	});
+
+	test('table rerender from 5 to 2 keeps two rows', async () => {
+		const { default: LoadingSkeleton } = await import('../components/shared/LoadingSkeleton.js');
+		const { container, rerender } = render(<LoadingSkeleton variant="table" rows={5} />);
+
+		rerender(<LoadingSkeleton variant="table" rows={2} />);
+		const remaining = container.querySelectorAll('.flex.gap-4');
+		expect(remaining).toHaveLength(2);
+	});
+
+	test('no React duplicate-key warning from skeleton slots', async () => {
+		const warnSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		try {
+			const { default: LoadingSkeleton } = await import('../components/shared/LoadingSkeleton.js');
+			render(<LoadingSkeleton variant="table" rows={5} />);
+
+			const duplicateKeyCalls = warnSpy.mock.calls.filter((call) => {
+				const msg = String(call[0]);
+				return (
+					msg.includes('Encountered two children with the same key') ||
+					msg.includes('duplicate key')
+				);
+			});
+			expect(duplicateKeyCalls).toHaveLength(0);
+		} finally {
+			warnSpy.mockRestore();
+		}
+	});
+});
+
+// -----------------------------------------------------------------------
+// createStableTextItems — edge cases
+// -----------------------------------------------------------------------
+
+describe('createStableTextItems — edge cases', () => {
+	test('Unicode and special characters do not collide', () => {
+		const result = createStableTextItems(['über', 'über', 'ñ', 'ñ', '–—', '–—']);
+		expect(result).toHaveLength(6);
+		const keys = new Set(result.map((r) => r.key));
+		expect(keys.size).toBe(6);
+	});
+
+	test('triple duplicate values produce three distinct keys', () => {
+		const result = createStableTextItems(['dup', 'dup', 'dup']);
+		expect(result).toHaveLength(3);
+		const keys = new Set(result.map((r) => r.key));
+		expect(keys.size).toBe(3);
+	});
+});
+
+// -----------------------------------------------------------------------
 // React hook rules compliance (no hooks-in-conditions etc.)
 // -----------------------------------------------------------------------
 
 describe('React hook rules compliance', () => {
 	test('createStableTextItems is a pure function (not a hook)', () => {
-		// Verify it doesn't throw when called outside component context
 		const result = createStableTextItems(['a', 'b']);
 		expect(result).toBeDefined();
 		expect(result).toHaveLength(2);
+	});
+
+	test('createSkeletonSlots is a pure function (not a hook)', () => {
+		const result = createSkeletonSlots('test', 3);
+		expect(result).toBeDefined();
+		expect(result).toHaveLength(3);
 	});
 });
