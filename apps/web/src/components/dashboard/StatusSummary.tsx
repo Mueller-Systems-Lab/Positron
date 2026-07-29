@@ -1,6 +1,14 @@
 import type React from 'react';
 import type { Metrics } from '../../types.js';
 
+/** Fixed-size skeleton slot keys — stateless visual placeholders only. */
+const STATUS_SUMMARY_SKELETON_SLOTS = [
+	'status-summary-skeleton-1',
+	'status-summary-skeleton-2',
+	'status-summary-skeleton-3',
+	'status-summary-skeleton-4',
+] as const;
+
 interface StatusSummaryProps {
 	metrics: Metrics | null;
 	isLoading: boolean;
@@ -13,8 +21,8 @@ export default function StatusSummary({
 	if (isLoading) {
 		return (
 			<div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-				{Array.from({ length: 4 }).map((_, i) => (
-					<div key={i} className="card animate-pulse">
+				{STATUS_SUMMARY_SKELETON_SLOTS.map((slotKey) => (
+					<div key={slotKey} className="card animate-pulse">
 						<div className="skeleton h-3 w-20 mb-2 rounded" />
 						<div className="skeleton h-8 w-12 rounded" />
 					</div>

@@ -4,6 +4,37 @@ import { api } from '../../api.js';
 import type { ManagedTargetProject, SafetyCheck } from '../../types.jsx';
 import ErrorBanner from '../shared/ErrorBanner.js';
 
+// ── Duplicate-safe stable text keys ─────────────────────────────────
+
+export interface StableTextItem {
+	key: string;
+	value: string;
+}
+
+/**
+ * Produces deterministic, duplicate-safe, reorder-stable keys from
+ * a readonly string array.  Two occurrences of the same text receive
+ * distinct keys.
+ *
+ * Key contract:
+ * - Unique values retain their content-based key across reordering,
+ * - Identical values receive deterministic occurrence keys (0, 1, …),
+ * - No key depends on the callback array index.
+ */
+export function createStableTextItems(values: readonly string[]): StableTextItem[] {
+	const occurrenceByValue = new Map<string, number>();
+
+	return values.map((value) => {
+		const occurrence = occurrenceByValue.get(value) ?? 0;
+		occurrenceByValue.set(value, occurrence + 1);
+
+		return {
+			key: JSON.stringify([value, occurrence]),
+			value,
+		};
+	});
+}
+
 // ── Status Badge ──────────────────────────────────────────────────
 
 const STATUS_STYLE: Record<string, string> = {
@@ -112,8 +143,8 @@ function ProjectCard({ project }: { project: ManagedTargetProject }): React.Reac
 				<div className="mb-3 p-3 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-800">
 					<p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-1">Blockers</p>
 					<ul className="list-disc list-inside text-xs text-red-600 dark:text-red-400">
-						{project.blockers.map((b, i) => (
-							<li key={i}>{b}</li>
+						{createStableTextItems(project.blockers).map((item) => (
+							<li key={item.key}>{item.value}</li>
 						))}
 					</ul>
 				</div>
@@ -153,8 +184,8 @@ function ProjectCard({ project }: { project: ManagedTargetProject }): React.Reac
 								Next Recommended Positron Runs
 							</p>
 							<ul className="list-disc list-inside text-sm text-slate-600 dark:text-slate-400 space-y-0.5">
-								{project.nextRecommendedRuns.map((run, i) => (
-									<li key={i}>{run}</li>
+								{createStableTextItems(project.nextRecommendedRuns).map((item) => (
+									<li key={item.key}>{item.value}</li>
 								))}
 							</ul>
 						</div>

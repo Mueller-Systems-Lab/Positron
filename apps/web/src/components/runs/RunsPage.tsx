@@ -53,6 +53,18 @@ function timeAgo(dateStr: string): string {
 	return `${Math.floor(ms / 86400000)}d ago`;
 }
 
+/** Fixed-size skeleton slot keys — stateless visual placeholders only. */
+const RUNS_PAGE_SKELETON_SLOTS = [
+	'runs-page-skeleton-1',
+	'runs-page-skeleton-2',
+	'runs-page-skeleton-3',
+	'runs-page-skeleton-4',
+	'runs-page-skeleton-5',
+	'runs-page-skeleton-6',
+	'runs-page-skeleton-7',
+	'runs-page-skeleton-8',
+] as const;
+
 export default function RunsPage(): React.ReactElement {
 	const [runs, setRuns] = useState<Run[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -112,8 +124,8 @@ export default function RunsPage(): React.ReactElement {
 				<div className="skeleton h-8 w-32 mb-2" />
 				<div className="skeleton h-4 w-56 mb-6" />
 				<div className="space-y-2">
-					{Array.from({ length: 8 }).map((_, i) => (
-						<div key={i} className="skeleton h-10 w-full rounded" />
+					{RUNS_PAGE_SKELETON_SLOTS.map((slotKey) => (
+						<div key={slotKey} className="skeleton h-10 w-full rounded" />
 					))}
 				</div>
 			</div>

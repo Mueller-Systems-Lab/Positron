@@ -2,6 +2,14 @@ import type React from 'react';
 import { Link } from 'react-router-dom';
 import type { Run } from '../../types.js';
 
+/** Fixed-size skeleton slot keys — stateless visual placeholders only. */
+const RECENT_ACTIVITY_SKELETON_SLOTS = [
+	'recent-activity-skeleton-1',
+	'recent-activity-skeleton-2',
+	'recent-activity-skeleton-3',
+	'recent-activity-skeleton-4',
+] as const;
+
 interface RecentActivityProps {
 	runs: Run[];
 	isLoading: boolean;
@@ -24,8 +32,8 @@ export default function RecentActivity({
 			<div className="card animate-pulse">
 				<div className="skeleton h-5 w-28 mb-3 rounded" />
 				<div className="space-y-3">
-					{Array.from({ length: 4 }).map((_, i) => (
-						<div key={i} className="flex gap-3">
+					{RECENT_ACTIVITY_SKELETON_SLOTS.map((slotKey) => (
+						<div key={slotKey} className="flex gap-3">
 							<div className="skeleton h-8 w-8 rounded-full" />
 							<div className="flex-1 space-y-1">
 								<div className="skeleton h-3 w-3/4 rounded" />

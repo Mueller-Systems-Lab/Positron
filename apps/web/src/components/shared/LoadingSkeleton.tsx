@@ -1,5 +1,17 @@
 import type React from 'react';
 
+interface SkeletonSlot {
+	key: string;
+	position: number;
+}
+
+export function createSkeletonSlots(prefix: string, rows: number): SkeletonSlot[] {
+	return Array.from({ length: rows }, (_, position) => ({
+		key: `${prefix}-${position + 1}`,
+		position,
+	}));
+}
+
 interface LoadingSkeletonProps {
 	variant?: 'table' | 'card' | 'text';
 	rows?: number;
@@ -12,8 +24,8 @@ export default function LoadingSkeleton({
 	if (variant === 'table') {
 		return (
 			<div className="space-y-2">
-				{Array.from({ length: rows }).map((_, i) => (
-					<div key={i} className="flex gap-4 animate-pulse">
+				{createSkeletonSlots('loading-skeleton-table-row', rows).map((slot) => (
+					<div key={slot.key} className="flex gap-4 animate-pulse">
 						<div className="skeleton h-4 w-24 rounded" />
 						<div className="skeleton h-4 w-16 rounded" />
 						<div className="skeleton h-4 flex-1 rounded" />
@@ -43,11 +55,11 @@ export default function LoadingSkeleton({
 
 	return (
 		<div className="space-y-2 animate-pulse">
-			{Array.from({ length: rows }).map((_, i) => (
+			{createSkeletonSlots('loading-skeleton-text-row', rows).map((slot) => (
 				<div
-					key={i}
+					key={slot.key}
 					className="skeleton h-3 rounded"
-					style={{ width: `${Math.max(40, 100 - i * 12)}%` }}
+					style={{ width: `${Math.max(40, 100 - slot.position * 12)}%` }}
 				/>
 			))}
 		</div>
