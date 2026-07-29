@@ -173,7 +173,7 @@ describe('Phase B: Fake Gate Assembly — Positive Tests', () => {
 				evidencePaths: ['test/path/evidence.md'],
 			});
 
-			const result = tryTransitionWithGates(run, 'COMMIT', 'Commit changes', 'INFO', null, ctx);
+			const result = tryTransitionWithGates(run, 'COMMIT', 'Commit changes', ctx, 'INFO', null);
 			assertPassed(result);
 			expect(result.run.phase).toBe('COMMIT');
 		});
@@ -187,7 +187,7 @@ describe('Phase B: Fake Gate Assembly — Positive Tests', () => {
 				evidencePaths: ['test/path/evidence.md'],
 			});
 
-			const result = tryTransitionWithGates(run, 'PR_CREATE', 'Create PR', 'INFO', null, ctx);
+			const result = tryTransitionWithGates(run, 'PR_CREATE', 'Create PR', ctx, 'INFO', null);
 			assertPassed(result);
 			expect(result.run.phase).toBe('PR_CREATE');
 		});
@@ -201,7 +201,7 @@ describe('Phase B: Fake Gate Assembly — Positive Tests', () => {
 				evidencePaths: ['test/path/evidence.md'],
 			});
 
-			const result = tryTransitionWithGates(run, 'MERGE', 'Merge PR', 'INFO', null, ctx);
+			const result = tryTransitionWithGates(run, 'MERGE', 'Merge PR', ctx, 'INFO', null);
 			assertPassed(result);
 			expect(result.run.phase).toBe('MERGE');
 		});
@@ -215,7 +215,7 @@ describe('Phase B: Fake Gate Assembly — Positive Tests', () => {
 				evidencePaths: ['test/path/evidence.md'],
 			});
 
-			const result = tryTransitionWithGates(run, 'DONE', 'Complete run', 'INFO', null, ctx);
+			const result = tryTransitionWithGates(run, 'DONE', 'Complete run', ctx, 'INFO', null);
 			assertPassed(result);
 			expect(result.run.phase).toBe('DONE');
 			expect(result.run.status).toBe('done');
@@ -229,14 +229,14 @@ describe('Phase B: Fake Gate Assembly — Positive Tests', () => {
 				run,
 				'COMMIT',
 				'Step 1: Commit',
-				'INFO',
-				null,
 				makeContext({
 					phase: 'VERIFY',
 					targetPhase: 'COMMIT',
 					gateTypes: [...(PHASE_GATE_REQUIREMENTS['COMMIT'] ?? [])],
 					evidencePaths: ['evidence/step1.md'],
 				}),
+				'INFO',
+				null,
 			);
 			assertPassed(r1);
 			run = r1.run;
@@ -246,14 +246,14 @@ describe('Phase B: Fake Gate Assembly — Positive Tests', () => {
 				run,
 				'PR_CREATE',
 				'Step 2: PR',
-				'INFO',
-				null,
 				makeContext({
 					phase: 'COMMIT',
 					targetPhase: 'PR_CREATE',
 					gateTypes: [...(PHASE_GATE_REQUIREMENTS['PR_CREATE'] ?? [])],
 					evidencePaths: ['evidence/step2.md'],
 				}),
+				'INFO',
+				null,
 			);
 			assertPassed(r2);
 			run = r2.run;
@@ -263,15 +263,16 @@ describe('Phase B: Fake Gate Assembly — Positive Tests', () => {
 				run,
 				'MERGE',
 				'Step 3: Merge',
-				'INFO',
-				null,
 				makeContext({
 					phase: 'PR_CREATE',
 					targetPhase: 'MERGE',
 					gateTypes: [...(PHASE_GATE_REQUIREMENTS['MERGE'] ?? [])],
 					evidencePaths: ['evidence/step3.md'],
 				}),
+				'INFO',
+				null,
 			);
+
 			assertPassed(r3);
 			run = r3.run;
 
@@ -280,14 +281,14 @@ describe('Phase B: Fake Gate Assembly — Positive Tests', () => {
 				run,
 				'DONE',
 				'Step 4: Done',
-				'INFO',
-				null,
 				makeContext({
 					phase: 'MERGE',
 					targetPhase: 'DONE',
 					gateTypes: [...(PHASE_GATE_REQUIREMENTS['DONE'] ?? [])],
 					evidencePaths: ['evidence/step4.md'],
 				}),
+				'INFO',
+				null,
 			);
 			assertPassed(r4);
 			expect(r4.run.phase).toBe('DONE');
@@ -349,9 +350,9 @@ describe('Phase B: Fake Gate Assembly — Positive Tests', () => {
 				run,
 				'COMMIT',
 				'Commit with evidence',
+				ctx,
 				'INFO',
 				null,
-				ctx,
 			);
 			assertPassed(result);
 			expect(ctx.evidencePaths).toEqual(evidencePaths);
@@ -387,7 +388,7 @@ describe('Phase B: Fake Gate Assembly — Positive Tests', () => {
 				evidencePaths: ['test/evidence.md'],
 			});
 
-			const result = tryTransitionWithGates(run, 'COMMIT', 'Test', 'INFO', null, ctx);
+			const result = tryTransitionWithGates(run, 'COMMIT', 'Test', ctx, 'INFO', null);
 			assertPassed(result);
 
 			expect(result.gateResult.results).toHaveLength(2);
@@ -402,9 +403,9 @@ describe('Phase B: Fake Gate Assembly — Positive Tests', () => {
 				run,
 				'VERIFY',
 				'Internal transition',
+				makeContext({ phase: 'TEST', targetPhase: 'VERIFY', gateTypes: [] }),
 				'INFO',
 				null,
-				makeContext({ phase: 'TEST', targetPhase: 'VERIFY', gateTypes: [] }),
 			);
 
 			expect(result.ok).toBe(true);
@@ -460,7 +461,7 @@ describe('Phase B: Fake Gate Assembly — Negative Tests', () => {
 				gateTypes: ['pre_write', 'evidence_required'],
 			});
 
-			const result = tryTransitionWithGates(run, 'COMMIT', 'Attempt', 'INFO', null, ctx);
+			const result = tryTransitionWithGates(run, 'COMMIT', 'Attempt', ctx, 'INFO', null);
 			assertBlocked(result, 'pre_write');
 			expect(result.gateResult.results.find((r) => r.gateType === 'pre_write')!.message).toContain(
 				'No evaluator registered',
@@ -477,7 +478,7 @@ describe('Phase B: Fake Gate Assembly — Negative Tests', () => {
 				gateTypes: ['evidence_required'],
 			});
 
-			const result = tryTransitionWithGates(run, 'DONE', 'Attempt done', 'INFO', null, ctx);
+			const result = tryTransitionWithGates(run, 'DONE', 'Attempt done', ctx, 'INFO', null);
 			assertBlocked(result, 'evidence_required');
 		});
 
@@ -493,7 +494,7 @@ describe('Phase B: Fake Gate Assembly — Negative Tests', () => {
 				gateTypes: ['pre_merge', 'security', 'human_approval'],
 			});
 
-			const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', 'INFO', null, ctx);
+			const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', ctx, 'INFO', null);
 			expect(result.ok).toBe(false);
 			expect(result.run.phase).toBe('GATE_APPROVE');
 			expect(result.run.status).toBe('blocked');
@@ -511,7 +512,7 @@ describe('Phase B: Fake Gate Assembly — Negative Tests', () => {
 				gateTypes: ['pre_merge', 'security', 'human_approval'],
 			});
 
-			const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', 'INFO', null, ctx);
+			const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', ctx, 'INFO', null);
 			assertBlocked(result, 'security');
 		});
 	});
@@ -530,7 +531,7 @@ describe('Phase B: Fake Gate Assembly — Negative Tests', () => {
 				gateTypes: ['pre_merge', 'security', 'human_approval'],
 			});
 
-			const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', 'INFO', null, ctx);
+			const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', ctx, 'INFO', null);
 
 			expect(result.ok).toBe(false);
 			expect(result.event.message).toContain('security failure cannot be overridden');
@@ -562,7 +563,7 @@ describe('Phase B: Fake Gate Assembly — Negative Tests', () => {
 				gateTypes: ['pre_merge', 'security', 'human_approval'],
 			});
 
-			const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', 'INFO', null, ctx);
+			const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', ctx, 'INFO', null);
 
 			expect(result.ok).toBe(false);
 			expect(result.run.phase).toBe('GATE_APPROVE');
@@ -584,7 +585,7 @@ describe('Phase B: Fake Gate Assembly — Negative Tests', () => {
 				gateTypes: ['pre_merge', 'security', 'human_approval'],
 			});
 
-			const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', 'INFO', null, ctx);
+			const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', ctx, 'INFO', null);
 
 			expect(result.event.payload?.requiredPhase).toBe('MERGE');
 			expect(result.event.payload?.gateResult).toBeDefined();
@@ -604,7 +605,7 @@ describe('Phase B: Fake Gate Assembly — Negative Tests', () => {
 				gateTypes: ['pre_write', 'evidence_required'],
 			});
 
-			const result = tryTransitionWithGates(run, 'COMMIT', 'Attempt', 'INFO', null, ctx);
+			const result = tryTransitionWithGates(run, 'COMMIT', 'Attempt', ctx, 'INFO', null);
 			assertBlocked(result, 'evidence_required');
 			const evResult = result.gateResult.results.find((r) => r.gateType === 'evidence_required');
 			expect(evResult!.message).toContain('threw');
@@ -640,7 +641,7 @@ describe('Phase B: Fake Gate Assembly — Negative Tests', () => {
 				gateTypes: ['pre_merge', 'security', 'human_approval'],
 			});
 
-			const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', 'INFO', null, ctx);
+			const result = tryTransitionWithGates(run, 'MERGE', 'Attempt merge', ctx, 'INFO', null);
 
 			expect(result.ok).toBe(false);
 			// Both failures should be present:
@@ -780,7 +781,7 @@ describe('Phase B: Fake Gate Assembly — Edge Cases', () => {
 				gateTypes: ['pre_write', 'evidence_required'],
 			});
 
-			const result = tryTransitionWithGates(run, 'COMMIT', 'Attempt', 'INFO', null, ctx);
+			const result = tryTransitionWithGates(run, 'COMMIT', 'Attempt', ctx, 'INFO', null);
 
 			expect(result.ok).toBe(false);
 			expect(result.run.id).toBe(run.id);
@@ -802,9 +803,9 @@ describe('Phase B: Fake Gate Assembly — Edge Cases', () => {
 				run,
 				'VERIFY',
 				'Internal',
+				makeContext({ phase: 'TEST', targetPhase: 'VERIFY', gateTypes: [] }),
 				'INFO',
 				null,
-				makeContext({ phase: 'TEST', targetPhase: 'VERIFY', gateTypes: [] }),
 			);
 
 			expect(result.ok).toBe(true);
@@ -827,13 +828,13 @@ describe('Phase B: Fake Gate Assembly — Edge Cases', () => {
 				gateTypes: ['pre_write', 'evidence_required'],
 			});
 
-			const result = tryTransitionWithGates(run, 'COMMIT', 'Test', 'INFO', null, ctx);
+			const result = tryTransitionWithGates(run, 'COMMIT', 'Test', ctx, 'INFO', null);
 			expect(result.gateResult).toBeDefined();
 			expect(result.gateResult.allPassed).toBe(true);
 
 			// Now make it fail:
 			clearGateEvaluators();
-			const failResult = tryTransitionWithGates(run, 'COMMIT', 'Test', 'INFO', null, ctx);
+			const failResult = tryTransitionWithGates(run, 'COMMIT', 'Test', ctx, 'INFO', null);
 			expect(failResult.gateResult).toBeDefined();
 			expect(failResult.gateResult.allPassed).toBe(false);
 		});
@@ -891,7 +892,7 @@ describe('Phase B: Regression — Gate Enforcement Invariants Preserved', () => 
 			gateTypes: ['pre_write', 'evidence_required'],
 		});
 
-		const result = tryTransitionWithGates(run, 'COMMIT', 'Test', 'INFO', null, ctx);
+		const result = tryTransitionWithGates(run, 'COMMIT', 'Test', ctx, 'INFO', null);
 
 		expect(result).toHaveProperty('ok');
 		expect(result).toHaveProperty('run');
@@ -929,7 +930,7 @@ describe('Issue #321 — DONE Evidence Gate Regression Invariants', () => {
 			gateTypes: ['evidence_required'],
 		});
 
-		const result = tryTransitionWithGates(run, 'DONE', 'Complete', 'INFO', null, ctx);
+		const result = tryTransitionWithGates(run, 'DONE', 'Complete', ctx, 'INFO', null);
 		expect(result.ok).toBe(true);
 		expect(result.run.phase).toBe('DONE');
 	});
@@ -944,7 +945,7 @@ describe('Issue #321 — DONE Evidence Gate Regression Invariants', () => {
 			gateTypes: ['evidence_required'],
 		});
 
-		const result = tryTransitionWithGates(run, 'DONE', 'Attempt done', 'INFO', null, ctx);
+		const result = tryTransitionWithGates(run, 'DONE', 'Attempt done', ctx, 'INFO', null);
 		assertBlocked(result, 'evidence_required');
 	});
 

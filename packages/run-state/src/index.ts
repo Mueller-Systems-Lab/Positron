@@ -44,5 +44,16 @@ export {
 	phaseRequiresGates,
 	PHASE_GATE_REQUIREMENTS,
 	registerFakeGateEvaluators,
+	resolveGateRuntimeMode,
+	assembleGateEvaluators,
+	resolveImplementationOutcome,
+	resolveTestOutcome,
 } from './gate-evaluator.js';
-export type { GateEvaluatorFn, GatedTransitionResult } from './gate-evaluator.js';
+export type {
+	GateEvaluatorFn,
+	GatedTransitionResult,
+	GateRuntimeMode,
+	AdapterModes,
+	ImplementationOutcome,
+	TestOutcome,
+} from './gate-evaluator.js';
