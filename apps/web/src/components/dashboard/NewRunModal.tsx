@@ -66,7 +66,6 @@ export default function NewRunModal({ isOpen, onClose }: NewRunModalProps): Reac
 							value={issueUrl}
 							onChange={(e) => setIssueUrl(e.target.value)}
 							className="input w-full"
-							autoFocus
 						/>
 					</div>
 
