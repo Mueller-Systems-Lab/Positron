@@ -17,6 +17,7 @@ import { sha256Utf8, utf8ByteLength } from './stage3-canonical-manifest.js';
 import type {
 	Stage3BranchReader,
 	Stage3CommitReader,
+	Stage3CompareReader,
 	Stage3ContentReader,
 	Stage3PullRequestReader,
 	Stage3ReadOnlyVerifier,
@@ -131,26 +132,26 @@ function deepFreeze(obj: object): void {
 export interface TrustedBridgeSnapshot {
 	__root: object;
 	baseResolver: object;
-	resolveBase: Function;
+	resolveBase: Stage3BaseResolver['resolveBase'];
 	branchWriter: object;
-	createBranch: Function;
+	createBranch: Stage3BranchWriter['createBranch'];
 	fileCommitWriter: object;
-	commitFile: Function;
+	commitFile: Stage3FileCommitWriter['commitFile'];
 	prWriter: object;
-	createPullRequest: Function;
+	createPullRequest: Stage3PullRequestWriter['createPullRequest'];
 	readOnlyVerifier: object;
 	repositoryReader: object;
-	getDefaultBranch: Function;
+	getDefaultBranch: Stage3RepositoryReader['getDefaultBranch'];
 	branchReader: object;
-	getBranch: Function;
+	getBranch: Stage3BranchReader['getBranch'];
 	contentReader: object;
-	getFileContent: Function;
+	getFileContent: Stage3ContentReader['getFileContent'];
 	commitReader: object;
-	getCommit: Function;
+	getCommit: Stage3CommitReader['getCommit'];
 	pullRequestReader: object;
-	findOpenPr: Function;
+	findOpenPr: Stage3PullRequestReader['findOpenPr'];
 	compareReader: object;
-	compareCommits: Function;
+	compareCommits: Stage3CompareReader['compareCommits'];
 	expectedBaseSha: string;
 }
 
