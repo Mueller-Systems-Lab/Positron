@@ -185,7 +185,12 @@ export default function EvidencePage(): React.ReactElement {
 					icon="🔍"
 					title="No Evidence Yet"
 					description="Evidence artifacts are generated when agent runs execute."
-					action={{ label: 'Start a Run', onClick: () => (window.location.href = '/') }}
+					action={{
+						label: 'Start a Run',
+						onClick: () => {
+							window.location.href = '/';
+						},
+					}}
 				/>
 			)}
 

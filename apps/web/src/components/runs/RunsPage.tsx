@@ -252,7 +252,9 @@ export default function RunsPage(): React.ReactElement {
 								{filtered.map((run) => (
 									<tr
 										key={run.id}
-										onClick={() => (window.location.href = `/runs/${run.id}`)}
+										onClick={() => {
+											window.location.href = `/runs/${run.id}`;
+										}}
 										className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer"
 									>
 										<td className="px-4 py-2.5">
