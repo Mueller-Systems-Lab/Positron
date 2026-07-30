@@ -52,7 +52,9 @@ function httpGet(url) {
 		};
 		const req = http.request(options, (res) => {
 			let data = '';
-			res.on('data', (chunk) => (data += chunk));
+			res.on('data', (chunk) => {
+				data += chunk;
+			});
 			res.on('end', () => resolve({ status: res.statusCode, body: data }));
 		});
 		req.on('error', reject);

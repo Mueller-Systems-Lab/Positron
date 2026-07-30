@@ -57,12 +57,13 @@ function verifyIssue(issueNumber) {
 	// Akzeptanzkriterien extrahieren (Checkboxen)
 	const checkboxRegex = /- \[([ x])\] (.+)/gi;
 	const criteria = [];
-	let match;
-	while ((match = checkboxRegex.exec(body)) !== null) {
+	let match = checkboxRegex.exec(body);
+	while (match !== null) {
 		criteria.push({
 			checked: match[1] === 'x',
 			text: match[2].trim(),
 		});
+		match = checkboxRegex.exec(body);
 	}
 
 	console.log(`Status: ${issue.state}`);
