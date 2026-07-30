@@ -25,7 +25,7 @@ import {
 	resolveTestOutcome,
 } from '../gate-evaluator.js';
 import type { GateRuntimeMode } from '../gate-evaluator.js';
-import { createRun, markFailed, isTerminalPhase, canTransition } from '../state-machine.js';
+import { canTransition, createRun, isTerminalPhase, markFailed } from '../state-machine.js';
 
 describe('Issue #385 — GateRuntimeMode Resolution', () => {
 	it('all fake adapters → fixture mode', () => {

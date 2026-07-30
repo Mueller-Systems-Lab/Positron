@@ -56,7 +56,6 @@ export class RealGitWorkspaceAdapter implements GitWorkspaceAdapter {
 		const defaultBranch = baseBranch ?? 'main';
 		let isNewClone = false;
 		let isNewBranch = false;
-		let headSha: string | undefined;
 
 		if (!fs.existsSync(workspacePath)) {
 			// Repository klonen
@@ -92,7 +91,7 @@ export class RealGitWorkspaceAdapter implements GitWorkspaceAdapter {
 			cwd: workspacePath,
 			timeout: 10_000,
 		});
-		headSha = shaResult.stdout.trim();
+		const headSha = shaResult.stdout.trim();
 
 		return {
 			runId,

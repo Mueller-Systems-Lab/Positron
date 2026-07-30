@@ -223,14 +223,14 @@ function setupStorage(): void {
 	});
 }
 
+import RunDetail from '../components/RunDetail.jsx';
 // ── Imports (after mocks) ──
 import ThemeToggle from '../components/ThemeToggle.js';
 import VoiceControls from '../components/VoiceControls.jsx';
 import VoiceStatusIndicator from '../components/VoiceStatusIndicator.jsx';
-import SystemHealth from '../components/dashboard/SystemHealth.jsx';
 import DashboardPage from '../components/dashboard/DashboardPage.js';
+import SystemHealth from '../components/dashboard/SystemHealth.jsx';
 import SettingsPage from '../components/settings/SettingsPage.js';
-import RunDetail from '../components/RunDetail.jsx';
 
 beforeEach(() => {
 	mockToggleTheme.mockClear();
