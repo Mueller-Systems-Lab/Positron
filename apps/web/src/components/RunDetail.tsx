@@ -225,38 +225,35 @@ export default function RunDetail(): React.ReactElement {
 						</span>
 
 						{/* Cancel Button */}
-						{isRunning && (
-							<>
-								{!showCancelConfirm ? (
+						{isRunning &&
+							(!showCancelConfirm ? (
+								<button
+									type="button"
+									onClick={() => setShowCancelConfirm(true)}
+									className="btn-danger text-xs py-1 px-3"
+								>
+									Cancel Run
+								</button>
+							) : (
+								<div className="flex items-center gap-2">
 									<button
 										type="button"
-										onClick={() => setShowCancelConfirm(true)}
-										className="btn-danger text-xs py-1 px-3"
+										onClick={() => setShowCancelConfirm(false)}
+										className="btn-secondary text-xs py-1 px-3"
+										disabled={cancelling}
 									>
-										Cancel Run
+										Keep
 									</button>
-								) : (
-									<div className="flex items-center gap-2">
-										<button
-											type="button"
-											onClick={() => setShowCancelConfirm(false)}
-											className="btn-secondary text-xs py-1 px-3"
-											disabled={cancelling}
-										>
-											Keep
-										</button>
-										<button
-											type="button"
-											onClick={handleCancel}
-											className="btn-danger text-xs py-1 px-3"
-											disabled={cancelling}
-										>
-											{cancelling ? 'Cancelling...' : 'Confirm Cancel'}
-										</button>
-									</div>
-								)}
-							</>
-						)}
+									<button
+										type="button"
+										onClick={handleCancel}
+										className="btn-danger text-xs py-1 px-3"
+										disabled={cancelling}
+									>
+										{cancelling ? 'Cancelling...' : 'Confirm Cancel'}
+									</button>
+								</div>
+							))}
 
 						{/* Copy Run ID */}
 						<button
