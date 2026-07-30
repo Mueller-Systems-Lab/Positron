@@ -112,9 +112,9 @@ export default function RunsPage(): React.ReactElement {
 			blocked: 0,
 			cancelled: 0,
 		};
-		runs.forEach((r) => {
+		for (const r of runs) {
 			counts[r.status] = (counts[r.status] ?? 0) + 1;
-		});
+		}
 		return counts;
 	}, [runs]);
 

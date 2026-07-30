@@ -290,11 +290,11 @@ describe('Evidence Schema Validation', () => {
 		it('executionMode is always present in valid summary', () => {
 			const summary = createValidSummary();
 			expect(summary.executionMode).toBe('fixture');
-			['dry-run', 'real'].forEach((mode) => {
+			for (const mode of ['dry-run', 'real']) {
 				const s = createValidSummary();
 				s.executionMode = mode as 'fixture';
 				expect(s.executionMode).toBe(mode);
-			});
+			}
 		});
 	});
 
