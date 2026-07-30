@@ -20,12 +20,12 @@ beforeEach(() => {
 			delete store[key];
 		}),
 		clear: vi.fn(() => {
-			Object.keys(store).forEach((k) => delete store[k]);
+			for (const k of Object.keys(store)) delete store[k];
 		}),
 		length: 0,
 		key: vi.fn(() => null),
 	});
-	Object.keys(store).forEach((k) => delete store[k]);
+	for (const k of Object.keys(store)) delete store[k];
 });
 
 describe('voice-settings', () => {

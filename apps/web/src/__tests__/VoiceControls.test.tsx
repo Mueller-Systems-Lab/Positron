@@ -50,7 +50,7 @@ function setupStorage(): void {
 			delete store[key];
 		}),
 		clear: vi.fn(() => {
-			Object.keys(store).forEach((k) => delete store[k]);
+			for (const k of Object.keys(store)) delete store[k];
 		}),
 	});
 }
@@ -58,7 +58,7 @@ function setupStorage(): void {
 beforeEach(() => {
 	mockSpeak.mockClear();
 	mockCancel.mockClear();
-	Object.keys(store).forEach((k) => delete store[k]);
+	for (const k of Object.keys(store)) delete store[k];
 	setupStorage();
 	setupSpeech(true);
 });

@@ -83,9 +83,8 @@ function verifyIssue(issueNumber) {
 					.split('\n')
 					.map((l) => l.trim())
 					.filter((l) => l.startsWith('-') || l.startsWith('*') || /^\d+\./.test(l));
-				lines.forEach((l) =>
-					criteria.push({ checked: false, text: l.replace(/^[-*\d]+\.?\s*/, '').trim() }),
-				);
+				for (const l of lines)
+					criteria.push({ checked: false, text: l.replace(/^[-*\d]+\.?\s*/, '').trim() });
 			}
 		}
 	}

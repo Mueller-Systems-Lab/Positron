@@ -59,7 +59,7 @@ function setupStorage(): void {
 			delete store[key];
 		}),
 		clear: vi.fn(() => {
-			Object.keys(store).forEach((k) => delete store[k]);
+			for (const k of Object.keys(store)) delete store[k];
 		}),
 	});
 }
@@ -80,7 +80,7 @@ function makeEvent(overrides: Partial<RunEvent> = {}): RunEvent {
 beforeEach(() => {
 	mockSpeak.mockClear();
 	mockCancel.mockClear();
-	Object.keys(store).forEach((k) => delete store[k]);
+	for (const k of Object.keys(store)) delete store[k];
 	setupStorage();
 	setupSpeech(true);
 	saveVoiceSettings({ ...DEFAULT_VOICE_SETTINGS, enabled: false });

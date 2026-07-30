@@ -218,7 +218,7 @@ function setupStorage(): void {
 			delete store[key];
 		}),
 		clear: vi.fn(() => {
-			Object.keys(store).forEach((k) => delete store[k]);
+			for (const k of Object.keys(store)) delete store[k];
 		}),
 	});
 }
@@ -235,7 +235,7 @@ import SettingsPage from '../components/settings/SettingsPage.js';
 beforeEach(() => {
 	mockToggleTheme.mockClear();
 	mockTheme = 'dark';
-	Object.keys(store).forEach((k) => delete store[k]);
+	for (const k of Object.keys(store)) delete store[k];
 	setupStorage();
 	setupSpeech();
 });

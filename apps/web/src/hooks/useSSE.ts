@@ -256,7 +256,7 @@ export function useSSE(runId: string | null): UseSSEResult {
 
 		return () => {
 			if (reconnectTimer) clearTimeout(reconnectTimer);
-			cleanupHandlers.forEach((fn) => fn());
+			for (const fn of cleanupHandlers) fn();
 			if (currentEventSource) {
 				currentEventSource.close();
 			}
