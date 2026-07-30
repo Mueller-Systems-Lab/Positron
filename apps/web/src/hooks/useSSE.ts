@@ -241,7 +241,7 @@ export function useSSE(runId: string | null): UseSSEResult {
 
 				// Exponential backoff reconnect
 				const delay = Math.min(
-					RECONNECT_BASE_MS * Math.pow(2, retryCountRef.current),
+					RECONNECT_BASE_MS * 2 ** retryCountRef.current,
 					RECONNECT_MAX_MS,
 				);
 				retryCountRef.current += 1;

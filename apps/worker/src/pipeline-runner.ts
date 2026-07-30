@@ -1509,7 +1509,7 @@ export async function runPipeline(run: RunState, deps: PipelineDeps): Promise<Ru
 				const retryFromPhase =
 					failedPhase && failedPhase !== 'FAILED_TRANSIENT' ? failedPhase : 'TEST';
 
-				const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 30000);
+				const backoffMs = Math.min(1000 * 2 ** (attempt - 1), 30000);
 				const now = Date.now();
 				const timeSinceLastRetry = now - lastRetryTime;
 				if (timeSinceLastRetry < backoffMs) {
