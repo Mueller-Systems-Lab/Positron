@@ -40,8 +40,6 @@ const consoleErrors: string[] = [];
 const consoleWarnings: string[] = [];
 const consoleLogs: string[] = [];
 
-test.use({ trace: 'off' });
-
 // ── Single comprehensive test ──────────────────────────────────
 test.describe('UI Workflow Trace & Network Proof', () => {
 	test.describe.configure({ mode: 'serial', timeout: 300_000 });
@@ -55,8 +53,6 @@ test.describe('UI Workflow Trace & Network Proof', () => {
 		});
 
 		try {
-			await context.tracing.start({ screenshots: true, snapshots: true });
-
 			const page: Page = await context.newPage();
 
 			// ── Capture console output ──────────────────────────
@@ -254,10 +250,6 @@ test.describe('UI Workflow Trace & Network Proof', () => {
 					/* ignore */
 				}
 
-				// Stop tracing
-				const tracePath = `${ARTIFACT_DIR}/trace.zip`;
-				await context.tracing.stop({ path: tracePath });
-
 				// Save network log
 				const hasHealth = apiCalls.some((c) => c.url === '/api/health');
 				const hasRuns = apiCalls.some((c) => c.method === 'GET' && c.url === '/api/runs');
@@ -304,7 +296,7 @@ test.describe('UI Workflow Trace & Network Proof', () => {
 							runId,
 							finalStatus: finalPhase,
 							artifacts: {
-								'trace.zip': fs.existsSync(tracePath),
+								'trace.zip': false, // only created on failure by global retain-on-failure
 								'video.webm': false, // video finalized after context close
 								'network-log.json': true,
 								'console-log.json': true,
