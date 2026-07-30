@@ -9,17 +9,17 @@
 //
 // Uses the worker's runPipeline with instrumented adapters.
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import Database from 'better-sqlite3';
 import { FakeGitHubAdapter } from '@positron/github-adapter';
 import type { GitHubAdapter } from '@positron/github-adapter';
 import { FakeOpenCodeAdapter } from '@positron/opencode-adapter';
-import type { OpenCodeAdapter, SpecKitAdapter } from '@positron/shared';
-import { createRun, clearGateEvaluators, assembleGateEvaluators } from '@positron/run-state';
-import type { RunState, GateRuntimeMode } from '@positron/run-state';
+import { assembleGateEvaluators, clearGateEvaluators, createRun } from '@positron/run-state';
+import type { GateRuntimeMode, RunState } from '@positron/run-state';
 import { FakeGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
+import type { OpenCodeAdapter, SpecKitAdapter } from '@positron/shared';
 import { FakeSpecKitAdapter } from '@positron/speckit-adapter';
+import Database from 'better-sqlite3';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 // Direct import to avoid side effects from @positron/worker's top-level module code
 import { runPipeline } from '../../../worker/src/pipeline-runner.js';
 import type { PipelineDeps } from '../../../worker/src/pipeline-runner.js';

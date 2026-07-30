@@ -12,7 +12,6 @@ export default function HealthIndicator(): React.ReactElement {
 
 	useEffect(() => {
 		let cancelled = false;
-		let interval: ReturnType<typeof setInterval>;
 
 		async function check(): Promise<void> {
 			try {
@@ -37,7 +36,7 @@ export default function HealthIndicator(): React.ReactElement {
 		}
 
 		check();
-		interval = setInterval(check, 30_000);
+		const interval = setInterval(check, 30_000);
 
 		return () => {
 			cancelled = true;
