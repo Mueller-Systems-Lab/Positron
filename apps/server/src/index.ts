@@ -1740,10 +1740,9 @@ async function executePhase(
 	if (result.ok) {
 		storeEvent(result.event);
 		return result.run;
-	} else {
-		storeEvent(result.event);
-		return current;
 	}
+	storeEvent(result.event);
+	return current;
 }
 
 /** Gespeicherte Ziel-Phase für Resume (imported from signals.ts) */
@@ -4257,80 +4256,79 @@ export function createApp(options: ServerOptions = {}) {
 
 			res.json({ ok: true, action, runId, resumeFromPhase: nextPhase });
 			return;
-		} else {
-			if (action === 'retry' && run.phase !== 'FAILED_TRANSIENT') {
-				res.status(409).json({ error: 'Can only retry a FAILED_TRANSIENT run' });
+		}
+		if (action === 'retry' && run.phase !== 'FAILED_TRANSIENT') {
+			res.status(409).json({ error: 'Can only retry a FAILED_TRANSIENT run' });
+			return;
+		}
+		if (action === 'retry' && run.attempt >= MAX_FIX_LOOPS) {
+			res.status(409).json({ error: `Max retries (${MAX_FIX_LOOPS}) reached` });
+			return;
+		}
+
+		// For abort: unify with cancel endpoint — update DB + store event + broadcast (Issue #66)
+		if (action === 'abort') {
+			if (run.status === 'cancelled') {
+				res.json({
+					ok: true,
+					runId,
+					message: 'Run already cancelled',
+					status: 'cancelled',
+				});
 				return;
 			}
-			if (action === 'retry' && run.attempt >= MAX_FIX_LOOPS) {
-				res.status(409).json({ error: `Max retries (${MAX_FIX_LOOPS}) reached` });
+			if (run.status !== 'active' && run.status !== 'blocked') {
+				res.status(409).json({
+					error: `Cannot abort run with status "${run.status}". Only active or blocked runs can be aborted.`,
+				});
 				return;
 			}
 
-			// For abort: unify with cancel endpoint — update DB + store event + broadcast (Issue #66)
-			if (action === 'abort') {
-				if (run.status === 'cancelled') {
-					res.json({
-						ok: true,
-						runId,
-						message: 'Run already cancelled',
-						status: 'cancelled',
-					});
-					return;
-				}
-				if (run.status !== 'active' && run.status !== 'blocked') {
-					res.status(409).json({
-						error: `Cannot abort run with status "${run.status}". Only active or blocked runs can be aborted.`,
-					});
-					return;
-				}
-
-				// Atomic DB update
-				const database = getDb();
-				const updateResult = database
-					.prepare(`
+			// Atomic DB update
+			const database = getDb();
+			const updateResult = database
+				.prepare(`
           UPDATE runs SET status = 'cancelled', finished_at = datetime('now')
           WHERE id = ? AND status IN ('active', 'blocked')
         `)
-					.run(runId);
+				.run(runId);
 
-				if (updateResult.changes === 0) {
-					res.status(409).json({
-						error: 'Run state changed before abort could complete',
-						runId,
-					});
-					return;
-				}
-
-				// Set ABORT signal for pipeline loop
-				setRunSignal(runId, 'ABORT');
-
-				// Store cancel event
-				storeEvent({
-					id: createRunId(),
+			if (updateResult.changes === 0) {
+				res.status(409).json({
+					error: 'Run state changed before abort could complete',
 					runId,
-					phase: run.phase,
-					level: 'HUMAN',
-					message: `Run control: abort requested by user from phase: ${run.phase}`,
-					payload: { action, previousStatus: run.status },
-					createdAt: new Date().toISOString(),
 				});
-
-				broadcastSSE(runId, 'run-cancelled', {
-					runId,
-					phase: run.phase,
-					status: 'cancelled',
-					message: 'Run aborted by user',
-				});
-
-				res.json({ ok: true, action, runId, status: 'cancelled' });
 				return;
 			}
 
-			// Set signal for non-abort actions
-			const signal = action.toUpperCase() as 'PAUSE' | 'RETRY';
-			setRunSignal(runId, signal);
+			// Set ABORT signal for pipeline loop
+			setRunSignal(runId, 'ABORT');
+
+			// Store cancel event
+			storeEvent({
+				id: createRunId(),
+				runId,
+				phase: run.phase,
+				level: 'HUMAN',
+				message: `Run control: abort requested by user from phase: ${run.phase}`,
+				payload: { action, previousStatus: run.status },
+				createdAt: new Date().toISOString(),
+			});
+
+			broadcastSSE(runId, 'run-cancelled', {
+				runId,
+				phase: run.phase,
+				status: 'cancelled',
+				message: 'Run aborted by user',
+			});
+
+			res.json({ ok: true, action, runId, status: 'cancelled' });
+			return;
 		}
+
+		// Set signal for non-abort actions
+		const signal = action.toUpperCase() as 'PAUSE' | 'RETRY';
+		setRunSignal(runId, signal);
 
 		// Log event (abort already logged its own event above)
 		storeEvent({

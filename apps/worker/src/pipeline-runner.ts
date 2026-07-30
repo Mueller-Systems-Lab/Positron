@@ -1369,10 +1369,9 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 	if (result.ok) {
 		storeEvent(result.event, deps);
 		return result.run;
-	} else {
-		storeEvent(result.event, deps);
-		return current;
 	}
+	storeEvent(result.event, deps);
+	return current;
 }
 
 // ---------------------------------------------------------------------------
