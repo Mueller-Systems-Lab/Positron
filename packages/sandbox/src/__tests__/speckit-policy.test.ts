@@ -16,7 +16,7 @@ import {
 const originalEnv = { ...process.env };
 
 beforeEach(() => {
-	delete process.env['POSITRON_SPECKIT_MODE'];
+	Reflect.deleteProperty(process.env, 'POSITRON_SPECKIT_MODE');
 });
 
 afterEach(() => {

@@ -323,13 +323,13 @@ describe('Red Test 19 — Real-Mode without human approval must not start', () =
 	it('real mode without POSITRON_ENABLE_REAL is blocked', () => {
 		const prevValue = process.env['POSITRON_ENABLE_REAL'];
 		try {
-			delete process.env['POSITRON_ENABLE_REAL'];
+			Reflect.deleteProperty(process.env, 'POSITRON_ENABLE_REAL');
 			const realModeEnabled = process.env['POSITRON_ENABLE_REAL'] === 'true';
 			expect(realModeEnabled).toBe(false);
 		} finally {
 			// Restore original value
 			if (prevValue === undefined) {
-				delete process.env['POSITRON_ENABLE_REAL'];
+				Reflect.deleteProperty(process.env, 'POSITRON_ENABLE_REAL');
 			} else {
 				process.env['POSITRON_ENABLE_REAL'] = prevValue;
 			}
@@ -340,20 +340,20 @@ describe('Red Test 19 — Real-Mode without human approval must not start', () =
 		const prevReal = process.env['POSITRON_ENABLE_REAL'];
 		const prevHuman = process.env['HUMAN_APPROVED_REAL'];
 		try {
-			delete process.env['POSITRON_ENABLE_REAL'];
-			delete process.env['HUMAN_APPROVED_REAL'];
+			Reflect.deleteProperty(process.env, 'POSITRON_ENABLE_REAL');
+			Reflect.deleteProperty(process.env, 'HUMAN_APPROVED_REAL');
 			const canProceedReal =
 				process.env['POSITRON_ENABLE_REAL'] === 'true' &&
 				process.env['HUMAN_APPROVED_REAL'] === 'true';
 			expect(canProceedReal).toBe(false);
 		} finally {
 			if (prevReal === undefined) {
-				delete process.env['POSITRON_ENABLE_REAL'];
+				Reflect.deleteProperty(process.env, 'POSITRON_ENABLE_REAL');
 			} else {
 				process.env['POSITRON_ENABLE_REAL'] = prevReal;
 			}
 			if (prevHuman === undefined) {
-				delete process.env['HUMAN_APPROVED_REAL'];
+				Reflect.deleteProperty(process.env, 'HUMAN_APPROVED_REAL');
 			} else {
 				process.env['HUMAN_APPROVED_REAL'] = prevHuman;
 			}
@@ -848,7 +848,7 @@ describe('Red Test 29 — Real mode blocked without HUMAN_APPROVED_REAL', () => 
 	afterEach(() => {
 		for (const [key, value] of Object.entries(envBackup)) {
 			if (value === undefined) {
-				delete process.env[key];
+				Reflect.deleteProperty(process.env, key);
 			} else {
 				process.env[key] = value;
 			}
@@ -856,7 +856,7 @@ describe('Red Test 29 — Real mode blocked without HUMAN_APPROVED_REAL', () => 
 	});
 
 	it('real mode without HUMAN_APPROVED_REAL is BLOCKED', async () => {
-		delete process.env['HUMAN_APPROVED_REAL'];
+		Reflect.deleteProperty(process.env, 'HUMAN_APPROVED_REAL');
 		process.env['POSITRON_ENABLE_REAL'] = 'true';
 		process.env['POSITRON_ENABLE_PUSH'] = 'false';
 		process.env['POSITRON_ENABLE_MERGE'] = 'false';
@@ -869,7 +869,7 @@ describe('Red Test 29 — Real mode blocked without HUMAN_APPROVED_REAL', () => 
 
 	it('real mode without POSITRON_ENABLE_REAL is BLOCKED', async () => {
 		process.env['HUMAN_APPROVED_REAL'] = 'true';
-		delete process.env['POSITRON_ENABLE_REAL'];
+		Reflect.deleteProperty(process.env, 'POSITRON_ENABLE_REAL');
 		process.env['POSITRON_ENABLE_PUSH'] = 'false';
 		process.env['POSITRON_ENABLE_MERGE'] = 'false';
 		process.env['POSITRON_MERGE_KILL_SWITCH'] = 'true';
@@ -892,8 +892,8 @@ describe('Red Test 29 — Real mode blocked without HUMAN_APPROVED_REAL', () => 
 	});
 
 	it('missing approval never results in GREEN', async () => {
-		delete process.env['HUMAN_APPROVED_REAL'];
-		delete process.env['POSITRON_ENABLE_REAL'];
+		Reflect.deleteProperty(process.env, 'HUMAN_APPROVED_REAL');
+		Reflect.deleteProperty(process.env, 'POSITRON_ENABLE_REAL');
 		process.env['POSITRON_ENABLE_PUSH'] = 'false';
 		process.env['POSITRON_ENABLE_MERGE'] = 'false';
 		process.env['POSITRON_MERGE_KILL_SWITCH'] = 'true';
@@ -921,7 +921,7 @@ describe('Red Test 30 — Real mode blocked when push/merge might be active', ()
 	afterEach(() => {
 		for (const [key, value] of Object.entries(envBackup)) {
 			if (value === undefined) {
-				delete process.env[key];
+				Reflect.deleteProperty(process.env, key);
 			} else {
 				process.env[key] = value;
 			}

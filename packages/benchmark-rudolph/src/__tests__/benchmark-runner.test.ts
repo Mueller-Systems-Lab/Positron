@@ -44,7 +44,7 @@ describe('Red Test 12 — Dry-run blocks risky operations', () => {
 	});
 
 	afterEach(() => {
-		delete process.env['POSITRON_ENABLE_DRY_RUN'];
+		Reflect.deleteProperty(process.env, 'POSITRON_ENABLE_DRY_RUN');
 	});
 
 	it('dry-run mode blocks git push', async () => {

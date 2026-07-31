@@ -14,7 +14,7 @@ import {
 const originalEnv = { ...process.env };
 
 beforeEach(() => {
-	delete process.env['POSITRON_OPENCODE_MODE'];
+	Reflect.deleteProperty(process.env, 'POSITRON_OPENCODE_MODE');
 });
 
 afterEach(() => {
