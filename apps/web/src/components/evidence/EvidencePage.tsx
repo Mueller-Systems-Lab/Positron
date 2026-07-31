@@ -273,102 +273,128 @@ export default function EvidencePage(): React.ReactElement {
 							<table className="w-full text-sm">
 								<thead>
 									<tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] text-slate-500 uppercase tracking-wider">
-										<th className="text-left px-4 py-2 font-medium">Kind</th>
-										<th className="text-left px-4 py-2 font-medium">Status</th>
-										<th className="text-left px-4 py-2 font-medium">Summary</th>
-										<th className="text-left px-4 py-2 font-medium">Run</th>
-										<th className="text-left px-4 py-2 font-medium">Time</th>
+										<th scope="col" className="w-10 px-2 py-2 font-medium">
+											<span className="sr-only">Evidence details</span>
+										</th>
+										<th scope="col" className="text-left px-4 py-2 font-medium">
+											Kind
+										</th>
+										<th scope="col" className="text-left px-4 py-2 font-medium">
+											Status
+										</th>
+										<th scope="col" className="text-left px-4 py-2 font-medium">
+											Summary
+										</th>
+										<th scope="col" className="text-left px-4 py-2 font-medium">
+											Run
+										</th>
+										<th scope="col" className="text-left px-4 py-2 font-medium">
+											Time
+										</th>
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/50">
-									{filtered.map((item) => (
-										<React.Fragment key={item.id}>
-											<tr
-												onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
-												className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer"
-											>
-												<td className="px-4 py-2.5">
-													<span
-														className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${KIND_COLORS[item.kind] ?? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700'}`}
-													>
-														{KIND_LABELS[item.kind] ?? item.kind}
-													</span>
-												</td>
-												<td className="px-4 py-2.5">
-													<span
-														className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
-															item.status === 'pass'
-																? 'bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-400'
-																: item.status === 'fail'
-																	? 'bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-400'
-																	: 'bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400'
-														}`}
-													>
-														{item.status.toUpperCase()}
-													</span>
-												</td>
-												<td className="px-4 py-2.5">
-													<span className="text-xs text-slate-600 dark:text-slate-400 truncate max-w-[250px] block">
-														{item.summary}
-													</span>
-												</td>
-												<td className="px-4 py-2.5">
-													<Link
-														to={`/runs/${item.sourceId}`}
-														onClick={(e) => e.stopPropagation()}
-														className="text-[10px] font-mono text-sky-600 dark:text-sky-400 hover:underline"
-													>
-														{item.sourceId.slice(0, 8)}
-													</Link>
-												</td>
-												<td className="px-4 py-2.5">
-													<span className="text-[10px] text-slate-500 dark:text-slate-500">
-														{new Date(item.timestamp).toLocaleString()}
-													</span>
-												</td>
-											</tr>
-											{expandedId === item.id && (
-												<tr className="bg-slate-50 dark:bg-slate-800/20">
-													<td colSpan={5} className="px-4 py-3">
-														<div className="grid grid-cols-2 gap-3 text-xs">
-															<div>
-																<span className="text-slate-500 dark:text-slate-500 block">
-																	Kind
-																</span>
-																<span className="text-slate-700 dark:text-slate-300 font-mono">
-																	{item.kind}
-																</span>
-															</div>
-															<div>
-																<span className="text-slate-500 dark:text-slate-500 block">
-																	Phase
-																</span>
-																<span className="text-slate-700 dark:text-slate-300">
-																	{item.runPhase ?? '-'}
-																</span>
-															</div>
-															<div>
-																<span className="text-slate-500 dark:text-slate-500 block">
-																	Source
-																</span>
-																<span className="text-slate-700 dark:text-slate-300">
-																	{item.source}
-																</span>
-															</div>
-															<div>
-																<span className="text-slate-500 dark:text-slate-500 block">
-																	Timestamp
-																</span>
-																<span className="text-slate-700 dark:text-slate-300">
-																	{new Date(item.timestamp).toLocaleString()}
-																</span>
-															</div>
-														</div>
+									{filtered.map((item) => {
+										const expanded = expandedId === item.id;
+										const detailId = `evidence-detail-${item.id}`;
+
+										return (
+											<React.Fragment key={item.id}>
+												<tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+													<td className="px-2 py-2.5">
+														<button
+															type="button"
+															aria-expanded={expanded}
+															aria-controls={detailId}
+															aria-label={`${expanded ? 'Collapse' : 'Expand'} evidence ${item.id}`}
+															onClick={() => setExpandedId(expanded ? null : item.id)}
+															className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+														>
+															<span aria-hidden="true">{expanded ? '▾' : '▸'}</span>
+														</button>
+													</td>
+													<td className="px-4 py-2.5">
+														<span
+															className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${KIND_COLORS[item.kind] ?? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700'}`}
+														>
+															{KIND_LABELS[item.kind] ?? item.kind}
+														</span>
+													</td>
+													<td className="px-4 py-2.5">
+														<span
+															className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+																item.status === 'pass'
+																	? 'bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-400'
+																	: item.status === 'fail'
+																		? 'bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-400'
+																		: 'bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400'
+															}`}
+														>
+															{item.status.toUpperCase()}
+														</span>
+													</td>
+													<td className="px-4 py-2.5">
+														<span className="text-xs text-slate-600 dark:text-slate-400 truncate max-w-[250px] block">
+															{item.summary}
+														</span>
+													</td>
+													<td className="px-4 py-2.5">
+														<Link
+															to={`/runs/${item.sourceId}`}
+															className="text-[10px] font-mono text-sky-600 dark:text-sky-400 hover:underline"
+														>
+															{item.sourceId.slice(0, 8)}
+														</Link>
+													</td>
+													<td className="px-4 py-2.5">
+														<span className="text-[10px] text-slate-500 dark:text-slate-500">
+															{new Date(item.timestamp).toLocaleString()}
+														</span>
 													</td>
 												</tr>
-											)}
-										</React.Fragment>
-									))}
+												{expanded && (
+													<tr id={detailId} className="bg-slate-50 dark:bg-slate-800/20">
+														<td colSpan={6} className="px-4 py-3">
+															<div className="grid grid-cols-2 gap-3 text-xs">
+																<div>
+																	<span className="text-slate-500 dark:text-slate-500 block">
+																		Kind
+																	</span>
+																	<span className="text-slate-700 dark:text-slate-300 font-mono">
+																		{item.kind}
+																	</span>
+																</div>
+																<div>
+																	<span className="text-slate-500 dark:text-slate-500 block">
+																		Phase
+																	</span>
+																	<span className="text-slate-700 dark:text-slate-300">
+																		{item.runPhase ?? '-'}
+																	</span>
+																</div>
+																<div>
+																	<span className="text-slate-500 dark:text-slate-500 block">
+																		Source
+																	</span>
+																	<span className="text-slate-700 dark:text-slate-300">
+																		{item.source}
+																	</span>
+																</div>
+																<div>
+																	<span className="text-slate-500 dark:text-slate-500 block">
+																		Timestamp
+																	</span>
+																	<span className="text-slate-700 dark:text-slate-300">
+																		{new Date(item.timestamp).toLocaleString()}
+																	</span>
+																</div>
+															</div>
+														</td>
+													</tr>
+												)}
+											</React.Fragment>
+										);
+									})}
 								</tbody>
 							</table>
 						</div>
