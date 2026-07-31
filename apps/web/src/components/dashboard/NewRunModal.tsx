@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api.js';
 
@@ -13,6 +13,20 @@ export default function NewRunModal({ isOpen, onClose }: NewRunModalProps): Reac
 	const [issueUrl, setIssueUrl] = useState('');
 	const [creating, setCreating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+
+	// Escape key dismisses the modal when it is open
+	useEffect(() => {
+		if (!isOpen) return;
+
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				onClose();
+			}
+		};
+
+		document.addEventListener('keydown', handleKeyDown);
+		return () => document.removeEventListener('keydown', handleKeyDown);
+	}, [isOpen, onClose]);
 
 	if (!isOpen) return <></>;
 
@@ -34,7 +48,7 @@ export default function NewRunModal({ isOpen, onClose }: NewRunModalProps): Reac
 
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center">
-			<div className="absolute inset-0 bg-black/50" onClick={onClose} />
+			<div className="absolute inset-0 bg-black/50" />
 			<div className="relative bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg mx-4 p-6">
 				<div className="flex items-center justify-between mb-4">
 					<h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">New Run</h2>
