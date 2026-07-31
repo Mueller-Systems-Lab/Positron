@@ -9,8 +9,8 @@
  *
  * After fix: DashboardPage uses only fields declared in ManagedTargetProject.
  */
-import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import DashboardPage from '../components/dashboard/DashboardPage.js';
 
@@ -265,5 +265,160 @@ describe('DashboardPage — Managed Target Projects Contract', () => {
 
 		// Should still render the dashboard, just without managed projects
 		expect(screen.queryByText('Managed External Projects')).toBeNull();
+	});
+
+	// ── E14: Native card link semantics ───────────────────────────────
+
+	test('internal project link has native link role and navigates to /projects', async () => {
+		let capturedPathname = '';
+
+		function LocationProbe(): null {
+			const location = useLocation();
+			capturedPathname = location.pathname;
+			return null;
+		}
+
+		render(
+			<MemoryRouter initialEntries={['/']}>
+				<Routes>
+					<Route path="/" element={<DashboardPage />} />
+					<Route path="/projects" element={<div data-testid="projects-page">Projects</div>} />
+				</Routes>
+				<LocationProbe />
+			</MemoryRouter>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByText('VoiceWiki')).toBeDefined();
+		});
+
+		const internalLink = screen.getByRole('link', {
+			name: /Open VoiceWiki in managed projects/i,
+		});
+
+		expect(internalLink).toBeDefined();
+		expect(internalLink.getAttribute('href')).toBe('/projects');
+
+		// Click navigates to /projects
+		fireEvent.click(internalLink);
+		await waitFor(() => {
+			expect(screen.getByTestId('projects-page')).toBeDefined();
+		});
+
+		expect(capturedPathname).toBe('/projects');
+	});
+
+	test('external repo link has native anchor semantics', async () => {
+		render(
+			<MemoryRouter>
+				<DashboardPage />
+			</MemoryRouter>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByText('VoiceWiki')).toBeDefined();
+		});
+
+		const externalLink = screen.getByRole('link', {
+			name: /Open VoiceWiki repository in a new tab/i,
+		});
+
+		expect(externalLink).toBeDefined();
+		expect(externalLink.getAttribute('href')).toBe('https://github.com/xxammaxx/VoiceWiki');
+		expect(externalLink.getAttribute('target')).toBe('_blank');
+		expect(externalLink.getAttribute('rel')).toContain('noopener');
+		expect(externalLink.getAttribute('rel')).toContain('noreferrer');
+	});
+
+	test('card container has no role=button and no tabIndex on the wrapper', async () => {
+		render(
+			<MemoryRouter>
+				<DashboardPage />
+			</MemoryRouter>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByText('VoiceWiki')).toBeDefined();
+		});
+
+		// The VoiceWiki name is now inside a link — find its parent card container
+		const voiceWikiLink = screen.getByRole('link', {
+			name: /Open VoiceWiki in managed projects/i,
+		});
+
+		// Walk up to find the card wrapper (the div that used to have role=button)
+		const card = voiceWikiLink.closest('.rounded-xl');
+		expect(card).toBeDefined();
+
+		// Card must NOT have role=button
+		expect(card?.getAttribute('role')).toBeNull();
+
+		// Card must NOT have tabIndex
+		expect(card?.getAttribute('tabindex')).toBeNull();
+	});
+
+	test('no nested interactive elements inside card links', async () => {
+		render(
+			<MemoryRouter>
+				<DashboardPage />
+			</MemoryRouter>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByText('VoiceWiki')).toBeDefined();
+		});
+
+		const internalLink = screen.getByRole('link', {
+			name: /Open VoiceWiki in managed projects/i,
+		});
+		const externalLink = screen.getByRole('link', {
+			name: /Open VoiceWiki repository in a new tab/i,
+		});
+
+		// Internal link does not contain external link
+		expect(internalLink.contains(externalLink)).toBe(false);
+
+		// External link does not contain internal link
+		expect(externalLink.contains(internalLink)).toBe(false);
+
+		// No button contains either link
+		const buttons = screen.queryAllByRole('button');
+		for (const btn of buttons) {
+			expect(btn.contains(internalLink)).toBe(false);
+			expect(btn.contains(externalLink)).toBe(false);
+		}
+
+		// No role=button element contains either link
+		const roleButtons = document.querySelectorAll('[role="button"]');
+		for (const rb of roleButtons) {
+			expect(rb.contains(internalLink)).toBe(false);
+			expect(rb.contains(externalLink)).toBe(false);
+		}
+	});
+
+	test('all project names and repo links are present after refactor', async () => {
+		render(
+			<MemoryRouter>
+				<DashboardPage />
+			</MemoryRouter>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByText('VoiceWiki')).toBeDefined();
+		});
+
+		// Both project names still visible
+		expect(screen.getByText('VoiceWiki')).toBeDefined();
+		expect(screen.getByText('KleinPilot')).toBeDefined();
+
+		// Both Repo links still present (text "Repo ↗")
+		const repoLinks = screen.getAllByText(/Repo/);
+		expect(repoLinks.length).toBeGreaterThanOrEqual(2);
+
+		// Status badges still visible
+		expect(screen.getAllByText('Gates OK').length).toBeGreaterThanOrEqual(1);
+
+		// Blocker count still visible
+		expect(screen.getByText(/1 blocker/)).toBeDefined();
 	});
 });

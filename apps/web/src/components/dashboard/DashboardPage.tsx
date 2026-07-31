@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../api.js';
 import { useDashboardSSE } from '../../hooks/useDashboardSSE.js';
 import type { ManagedTargetProject } from '../../types.js';
@@ -126,23 +126,18 @@ export default function DashboardPage(): React.ReactElement {
 								return (
 									<div
 										key={project.id}
-										className="rounded-xl border border-slate-200/60 bg-slate-50/50 p-4 dark:border-slate-700/60 dark:bg-slate-900/50 cursor-pointer hover:border-sky-300/60 dark:hover:border-sky-700/60 transition-colors"
-										onClick={() => navigate('/projects')}
-										onKeyDown={(e) => {
-											if (e.key === 'Enter' || e.key === ' ') {
-												e.preventDefault();
-												navigate('/projects');
-											}
-										}}
-										role="button"
-										tabIndex={0}
+										className="rounded-xl border border-slate-200/60 bg-slate-50/50 p-4 dark:border-slate-700/60 dark:bg-slate-900/50 transition-colors"
 									>
 										<div className="flex items-start justify-between gap-3 mb-2">
 											<div>
 												<div className="flex items-center gap-2">
-													<span className="font-semibold text-slate-800 dark:text-slate-100">
+													<Link
+														to="/projects"
+														className="font-semibold text-slate-800 dark:text-slate-100 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-500"
+														aria-label={`Open ${project.name} in managed projects`}
+													>
 														{project.name}
-													</span>
+													</Link>
 													<span className="badge border-emerald-400/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[10px]">
 														{statusLabel}
 													</span>
@@ -156,7 +151,7 @@ export default function DashboardPage(): React.ReactElement {
 												target="_blank"
 												rel="noopener noreferrer"
 												className="btn-ghost text-xs shrink-0"
-												onClick={(e) => e.stopPropagation()}
+												aria-label={`Open ${project.name} repository in a new tab`}
 											>
 												Repo ↗
 											</a>
