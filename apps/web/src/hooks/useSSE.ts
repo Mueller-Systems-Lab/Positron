@@ -240,10 +240,7 @@ export function useSSE(runId: string | null): UseSSEResult {
 				es.close();
 
 				// Exponential backoff reconnect
-				const delay = Math.min(
-					RECONNECT_BASE_MS * 2 ** retryCountRef.current,
-					RECONNECT_MAX_MS,
-				);
+				const delay = Math.min(RECONNECT_BASE_MS * 2 ** retryCountRef.current, RECONNECT_MAX_MS);
 				retryCountRef.current += 1;
 
 				setError(`Connection lost. Reconnecting in ${Math.round(delay / 1000)}s...`);
