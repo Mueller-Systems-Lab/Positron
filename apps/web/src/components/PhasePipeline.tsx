@@ -138,10 +138,10 @@ export default function PhasePipeline({
 
 			{/* Main Pipeline */}
 			<div className="overflow-x-auto pb-2 -mx-2 px-2">
-				<ol className="flex items-start gap-1 min-w-max" role="list" aria-label="Pipeline phases">
+				<ol className="flex items-start gap-1 min-w-max" aria-label="Pipeline phases">
 					{mainPhases.map((phase, i) => (
 						<React.Fragment key={phase}>
-							<li role="listitem" aria-label={`Phase ${phase}: ${getStatus(phase)}`}>
+							<li aria-label={`Phase ${phase}: ${getStatus(phase)}`}>
 								<PhaseNode phase={phase} status={getStatus(phase)} onClick={onPhaseClick} />
 							</li>
 							{/* Connector zwischen Phasen */}

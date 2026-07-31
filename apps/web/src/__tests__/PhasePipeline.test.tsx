@@ -16,9 +16,11 @@ describe('PhasePipeline', () => {
 	});
 
 	test('shows all 28 phases as phase nodes', () => {
-		const { container } = render(<PhasePipeline />);
+		render(<PhasePipeline />);
 		// All 18 main phases should be rendered as list items
-		const items = container.querySelectorAll('[role="listitem"]');
+		// Query via accessibility role (implicit `listitem` on <li>) — not the
+		// physical role attribute, which is redundant and removed in Track E12.
+		const items = screen.getAllByRole('listitem');
 		expect(items.length).toBeGreaterThanOrEqual(18);
 	});
 
