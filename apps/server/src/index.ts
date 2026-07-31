@@ -61,7 +61,7 @@ import {
 	transition,
 	tryTransitionWithGates,
 } from '@positron/run-state';
-import type { RunEventData, RunState } from '@positron/run-state';
+import type { RunEventData, RunState, TransitionResult } from '@positron/run-state';
 import { FakeGitWorkspaceAdapter, RealGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
 import { TestCommandDetector, TestRunner } from '@positron/sandbox';
@@ -647,7 +647,7 @@ async function executePhase(
 	syncService?: GitHubStatusSyncService,
 ): Promise<RunState> {
 	const current = run;
-	let result;
+	let result: TransitionResult;
 
 	switch (current.phase) {
 		case 'QUEUED':

@@ -24,7 +24,12 @@ import {
 	transition,
 	tryTransitionWithGates,
 } from '@positron/run-state';
-import type { GateRuntimeMode, RunEventData, RunState } from '@positron/run-state';
+import type {
+	GateRuntimeMode,
+	RunEventData,
+	RunState,
+	TransitionResult,
+} from '@positron/run-state';
 import { TestCommandDetector, TestRunner } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
 import {
@@ -388,7 +393,7 @@ async function generateResearchDocument(
 
 async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState> {
 	const current = run;
-	let result;
+	let result: TransitionResult;
 
 	switch (current.phase) {
 		case 'QUEUED':
