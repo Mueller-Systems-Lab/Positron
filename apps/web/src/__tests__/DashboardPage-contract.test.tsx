@@ -299,13 +299,13 @@ describe('DashboardPage — Managed Target Projects Contract', () => {
 		expect(internalLink).toBeDefined();
 		expect(internalLink.getAttribute('href')).toBe('/projects');
 
-				// Click navigates to /projects
-				fireEvent.click(internalLink);
-				await waitFor(() => {
-					expect(screen.getByTestId('projects-page')).toBeDefined();
-				});
+		// Click navigates to /projects
+		fireEvent.click(internalLink);
+		await waitFor(() => {
+			expect(screen.getByTestId('projects-page')).toBeDefined();
+		});
 
-				expect(capturedPathname).toBe('/projects');
+		expect(capturedPathname).toBe('/projects');
 	});
 
 	test('external repo link has native anchor semantics', async () => {
@@ -350,11 +350,11 @@ describe('DashboardPage — Managed Target Projects Contract', () => {
 		const card = voiceWikiLink.closest('.rounded-xl');
 		expect(card).toBeDefined();
 
-			// Card must NOT have role=button
-			expect(card?.getAttribute('role')).toBeNull();
+		// Card must NOT have role=button
+		expect(card?.getAttribute('role')).toBeNull();
 
-			// Card must NOT have tabIndex
-			expect(card?.getAttribute('tabindex')).toBeNull();
+		// Card must NOT have tabIndex
+		expect(card?.getAttribute('tabindex')).toBeNull();
 	});
 
 	test('no nested interactive elements inside card links', async () => {
