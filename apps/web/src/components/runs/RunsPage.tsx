@@ -252,15 +252,16 @@ export default function RunsPage(): React.ReactElement {
 								{filtered.map((run) => (
 									<tr
 										key={run.id}
-										onClick={() => {
-											window.location.href = `/runs/${run.id}`;
-										}}
-										className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer"
+										className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
 									>
 										<td className="px-4 py-2.5">
-											<span className="text-xs font-mono text-slate-600 dark:text-slate-400">
+											<Link
+												to={`/runs/${run.id}`}
+												aria-label={`Open run ${run.id}`}
+												className="text-xs font-mono text-sky-600 dark:text-sky-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 rounded-sm"
+											>
 												{run.id.slice(0, 12)}
-											</span>
+											</Link>
 										</td>
 										<td className="px-4 py-2.5">
 											<span className="text-[10px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
