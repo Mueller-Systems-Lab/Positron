@@ -255,6 +255,173 @@ describe('NewRunModal.tsx — Label-Control Association', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════
+// TRACK E16 — Escape Dismissal Contract
+// ═══════════════════════════════════════════════════════════════
+describe('E16 — Escape key dismisses modals', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	// ── NewRunModal ──
+
+	test('NewRunModal: Escape calls onClose exactly once', async () => {
+		const onClose = vi.fn();
+		const { default: NewRunModal } = await import('../components/dashboard/NewRunModal.js');
+		renderWithRouter(<NewRunModal isOpen={true} onClose={onClose} />);
+
+		fireEvent.keyDown(document, { key: 'Escape' });
+
+		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+
+	test('NewRunModal: non-Escape key does not call onClose', async () => {
+		const onClose = vi.fn();
+		const { default: NewRunModal } = await import('../components/dashboard/NewRunModal.js');
+		renderWithRouter(<NewRunModal isOpen={true} onClose={onClose} />);
+
+		fireEvent.keyDown(document, { key: 'Enter' });
+		fireEvent.keyDown(document, { key: 'a' });
+
+		expect(onClose).not.toHaveBeenCalled();
+	});
+
+	test('NewRunModal: Escape does not fire after unmount', async () => {
+		const onClose = vi.fn();
+		const { default: NewRunModal } = await import('../components/dashboard/NewRunModal.js');
+		const { unmount } = renderWithRouter(<NewRunModal isOpen={true} onClose={onClose} />);
+
+		unmount();
+
+		fireEvent.keyDown(document, { key: 'Escape' });
+
+		expect(onClose).not.toHaveBeenCalled();
+	});
+
+	test('NewRunModal: Escape does not fire when isOpen=false', async () => {
+		const onClose = vi.fn();
+		const { default: NewRunModal } = await import('../components/dashboard/NewRunModal.js');
+		renderWithRouter(<NewRunModal isOpen={false} onClose={onClose} />);
+
+		fireEvent.keyDown(document, { key: 'Escape' });
+
+		expect(onClose).not.toHaveBeenCalled();
+	});
+
+	test('NewRunModal: close button still works', async () => {
+		const onClose = vi.fn();
+		const { default: NewRunModal } = await import('../components/dashboard/NewRunModal.js');
+		renderWithRouter(<NewRunModal isOpen={true} onClose={onClose} />);
+
+		const closeBtn = screen.getByRole('button', { name: '✕' });
+		fireEvent.click(closeBtn);
+
+		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+
+	// ── Dashboard New-Run Modal ──
+
+	test('Dashboard: Escape closes the new-run modal', async () => {
+		const { default: Dashboard } = await import('../components/Dashboard.js');
+		renderWithRouter(<Dashboard />);
+
+		// Open the modal
+		const newRunBtn = screen.getByRole('button', { name: /new run/i });
+		fireEvent.click(newRunBtn);
+
+		// Modal should be visible
+		expect(screen.getByText('Neuen Run starten')).toBeInTheDocument();
+
+		// Press Escape
+		fireEvent.keyDown(document, { key: 'Escape' });
+
+		await waitFor(() => {
+			expect(screen.queryByText('Neuen Run starten')).not.toBeInTheDocument();
+		});
+	});
+
+	test('Dashboard: Escape after modal closed does nothing unexpected', async () => {
+		const { default: Dashboard } = await import('../components/Dashboard.js');
+		renderWithRouter(<Dashboard />);
+
+		// Open modal
+		const newRunBtn = screen.getByRole('button', { name: /new run/i });
+		fireEvent.click(newRunBtn);
+		expect(screen.getByText('Neuen Run starten')).toBeInTheDocument();
+
+		// Close with Escape
+		fireEvent.keyDown(document, { key: 'Escape' });
+		await waitFor(() => {
+			expect(screen.queryByText('Neuen Run starten')).not.toBeInTheDocument();
+		});
+
+		// Subsequent Escape should not re-open the modal
+		fireEvent.keyDown(document, { key: 'Escape' });
+		expect(screen.queryByText('Neuen Run starten')).not.toBeInTheDocument();
+	});
+
+	test('Dashboard: close button on modal still works', async () => {
+		const { default: Dashboard } = await import('../components/Dashboard.js');
+		renderWithRouter(<Dashboard />);
+
+		// Open the modal
+		const newRunBtn = screen.getByRole('button', { name: /new run/i });
+		fireEvent.click(newRunBtn);
+		expect(screen.getByText('Neuen Run starten')).toBeInTheDocument();
+
+		// Click the close button inside the modal
+		const modalCloseBtn = screen.getByRole('button', { name: '✕' });
+		fireEvent.click(modalCloseBtn);
+
+		await waitFor(() => {
+			expect(screen.queryByText('Neuen Run starten')).not.toBeInTheDocument();
+		});
+	});
+
+	// ── Repositories Add-Repository Modal ──
+
+	test('Repositories: Escape closes the add-repository modal', async () => {
+		const { default: Repositories } = await import('../components/Repositories.js');
+		renderWithRouter(<Repositories />);
+
+		// Open the modal
+		const addBtn = screen.getByRole('button', { name: /add repository/i });
+		fireEvent.click(addBtn);
+
+		// Modal should be visible
+		expect(screen.getByRole('heading', { name: 'Repository hinzufügen' })).toBeInTheDocument();
+
+		// Press Escape
+		fireEvent.keyDown(document, { key: 'Escape' });
+
+		await waitFor(() => {
+			expect(
+				screen.queryByRole('heading', { name: 'Repository hinzufügen' }),
+			).not.toBeInTheDocument();
+		});
+	});
+
+	test('Repositories: close button on modal still works', async () => {
+		const { default: Repositories } = await import('../components/Repositories.js');
+		renderWithRouter(<Repositories />);
+
+		// Open the modal
+		const addBtn = screen.getByRole('button', { name: /add repository/i });
+		fireEvent.click(addBtn);
+		expect(screen.getByRole('heading', { name: 'Repository hinzufügen' })).toBeInTheDocument();
+
+		// Click the close button
+		const closeBtn = screen.getByRole('button', { name: '✕' });
+		fireEvent.click(closeBtn);
+
+		await waitFor(() => {
+			expect(
+				screen.queryByRole('heading', { name: 'Repository hinzufügen' }),
+			).not.toBeInTheDocument();
+		});
+	});
+});
+
+// ═══════════════════════════════════════════════════════════════
 // CLASS E — VoiceControls.tsx "Speak these events" checkbox group
 // ═══════════════════════════════════════════════════════════════
 describe('VoiceControls.tsx — Speak These Events Checkbox Group (Class E)', () => {
