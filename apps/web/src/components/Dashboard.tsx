@@ -67,6 +67,20 @@ export default function Dashboard(): React.ReactElement {
 		return () => clearInterval(interval);
 	}, [fetchRuns]);
 
+	// Escape key dismisses the new-run modal
+	useEffect(() => {
+		if (!isNewRunModalOpen) return;
+
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				setIsNewRunModalOpen(false);
+			}
+		};
+
+		document.addEventListener('keydown', handleKeyDown);
+		return () => document.removeEventListener('keydown', handleKeyDown);
+	}, [isNewRunModalOpen]);
+
 	const filteredRuns = runs.filter((run) => {
 		if (
 			searchTerm &&
@@ -289,10 +303,7 @@ export default function Dashboard(): React.ReactElement {
 			{/* New Run Modal */}
 			{isNewRunModalOpen && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center">
-					<div
-						className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-						onClick={() => setIsNewRunModalOpen(false)}
-					/>
+					<div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 					<div className="relative bg-slate-800 rounded-2xl border border-slate-700 p-6 w-full max-w-md mx-4 shadow-2xl">
 						<div className="flex items-center justify-between mb-4">
 							<h2 className="text-lg font-bold text-white">Neuen Run starten</h2>

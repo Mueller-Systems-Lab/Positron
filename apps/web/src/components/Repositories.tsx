@@ -31,6 +31,20 @@ export default function Repositories(): React.ReactElement {
 		fetchRepos();
 	}, [fetchRepos]);
 
+	// Escape key dismisses the add-repository modal
+	useEffect(() => {
+		if (!isAddModalOpen) return;
+
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				setIsAddModalOpen(false);
+			}
+		};
+
+		document.addEventListener('keydown', handleKeyDown);
+		return () => document.removeEventListener('keydown', handleKeyDown);
+	}, [isAddModalOpen]);
+
 	async function handleAddRepo(): Promise<void> {
 		if (!newOwner || !newName) return;
 		setAdding(true);
@@ -180,10 +194,7 @@ export default function Repositories(): React.ReactElement {
 			{/* Add Repository Modal */}
 			{isAddModalOpen && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center">
-					<div
-						className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-						onClick={() => setIsAddModalOpen(false)}
-					/>
+					<div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 					<div className="relative bg-slate-800 rounded-2xl border border-slate-700 p-6 w-full max-w-md mx-4 shadow-2xl">
 						<div className="flex items-center justify-between mb-4">
 							<h2 className="text-lg font-bold text-white">Repository hinzufügen</h2>
