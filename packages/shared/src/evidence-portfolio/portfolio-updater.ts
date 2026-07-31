@@ -139,7 +139,7 @@ export function planEvidencePortfolioUpdate(
 
 		const detail = processTarget(target, filePath, lines, blocks, input, cfg, result);
 
-		if (detail && detail.updated) {
+		if (detail?.updated) {
 			result.changedFiles.push(filePath);
 			// If apply mode, write the changes
 			if (input.apply) {
