@@ -385,7 +385,7 @@ export async function verifyPostWrite(
 			input.targetBranch,
 			input.baseBranch,
 		);
-		if (pr && pr.exists) {
+		if (pr?.exists) {
 			checks.draftPrExists = pr.draft === true;
 			checks.prStateOpen = pr.state === 'open';
 			checks.prNotMerged = pr.merged === false && pr.mergedAt === null;
