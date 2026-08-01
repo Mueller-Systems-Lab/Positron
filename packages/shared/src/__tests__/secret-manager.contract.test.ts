@@ -67,8 +67,8 @@ describe('EnvSecretProvider contract', () => {
 
 	beforeEach(() => {
 		// Clean up any test keys
-		delete process.env.TEST_CONTRACT_KEY;
-		delete process.env.TEST_CONTRACT_EMPTY;
+		Reflect.deleteProperty(process.env, 'TEST_CONTRACT_KEY');
+		Reflect.deleteProperty(process.env, 'TEST_CONTRACT_EMPTY');
 	});
 
 	afterEach(() => {
@@ -88,7 +88,7 @@ describe('EnvSecretProvider contract', () => {
 	});
 
 	it('returns null when env var is not set', () => {
-		delete process.env.TEST_CONTRACT_KEY;
+		Reflect.deleteProperty(process.env, 'TEST_CONTRACT_KEY');
 		const provider = new EnvSecretProvider();
 		expect(provider.getSecret('TEST_CONTRACT_KEY')).toBeNull();
 	});
@@ -233,8 +233,8 @@ describe('SecretManager contract', () => {
 	const originalEnv = { ...process.env };
 
 	beforeEach(() => {
-		delete process.env.TEST_SECRET_1;
-		delete process.env.TEST_SECRET_2;
+		Reflect.deleteProperty(process.env, 'TEST_SECRET_1');
+		Reflect.deleteProperty(process.env, 'TEST_SECRET_2');
 	});
 
 	afterEach(() => {

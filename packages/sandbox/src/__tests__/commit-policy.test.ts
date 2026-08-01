@@ -68,7 +68,7 @@ describe('evaluatePushPolicy', () => {
 	const originalEnv = { ...process.env };
 
 	beforeEach(() => {
-		delete process.env['POSITRON_ENABLE_PUSH'];
+		Reflect.deleteProperty(process.env, 'POSITRON_ENABLE_PUSH');
 	});
 
 	afterEach(() => {

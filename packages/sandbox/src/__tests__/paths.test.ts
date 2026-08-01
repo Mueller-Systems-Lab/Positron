@@ -16,7 +16,7 @@ import {
 const originalEnv = { ...process.env };
 
 beforeEach(() => {
-	delete process.env['POSITRON_WORKSPACE_ROOT'];
+	Reflect.deleteProperty(process.env, 'POSITRON_WORKSPACE_ROOT');
 });
 
 afterEach(() => {
