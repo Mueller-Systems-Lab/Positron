@@ -397,7 +397,9 @@ describe('OpenCodeDryRunAgent — POSITRON_ENABLE_DRY_RUN Gate', () => {
 
 	it('allows construction in test environment even without explicit env var', () => {
 		process.env['NODE_ENV'] = 'test';
-		delete process.env['POSITRON_ENABLE_DRY_RUN'];
+		Reflect.deleteProperty(process.env, 'POSITRON_ENABLE_DRY_RUN');
+
+		expect(Object.hasOwn(process.env, 'POSITRON_ENABLE_DRY_RUN')).toBe(false);
 
 		expect(() => new OpenCodeDryRunAgent()).not.toThrow();
 	});

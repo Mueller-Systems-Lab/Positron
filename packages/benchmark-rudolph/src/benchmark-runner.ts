@@ -329,7 +329,7 @@ export class BenchmarkRunner {
 		} finally {
 			// Restore previous dry-run setting
 			if (prevDryRun === undefined) {
-				delete process.env['POSITRON_ENABLE_DRY_RUN'];
+				Reflect.deleteProperty(process.env, 'POSITRON_ENABLE_DRY_RUN');
 			} else {
 				process.env['POSITRON_ENABLE_DRY_RUN'] = prevDryRun;
 			}
