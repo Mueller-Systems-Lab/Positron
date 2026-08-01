@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { api } from '../api.js';
 import type { Artifact } from '../types.js';
 
@@ -16,17 +16,22 @@ const TABS: Array<{ kind: ArtifactKind; label: string }> = [
 	{ kind: 'diff', label: 'Diff' },
 ];
 
-function highlightDiffLine(line: string): string {
+function highlightDiffLine(line: string): React.ReactNode {
 	if (line.startsWith('+') && !line.startsWith('+++')) {
-		return `<span class="text-green-400">${line}</span>`;
+		return <span className="text-green-400">{line}</span>;
 	}
 	if (line.startsWith('-') && !line.startsWith('---')) {
-		return `<span class="text-red-400">${line}</span>`;
+		return <span className="text-red-400">{line}</span>;
 	}
 	if (line.startsWith('@@')) {
-		return `<span class="text-slate-500">${line}</span>`;
+		return <span className="text-slate-500">{line}</span>;
 	}
 	return line;
+}
+
+interface DiffSegment {
+	id: number;
+	text: string;
 }
 
 export default function ArtifactPanel({ runId }: ArtifactPanelProps): React.ReactElement {
@@ -67,10 +72,18 @@ export default function ArtifactPanel({ runId }: ArtifactPanelProps): React.Reac
 		URL.revokeObjectURL(url);
 	}
 
-	function renderContent(): string {
+	function renderContent(): React.ReactNode {
 		if (!artifact) return '';
 		if (activeTab === 'diff') {
-			return artifact.content.split('\n').map(highlightDiffLine).join('\n');
+			const segments: DiffSegment[] = artifact.content
+				.split('\n')
+				.map((text, id) => ({ id, text }));
+			return segments.map((segment, index) => (
+				<Fragment key={segment.id}>
+					{highlightDiffLine(segment.text)}
+					{index < segments.length - 1 ? '\n' : ''}
+				</Fragment>
+			));
 		}
 		return artifact.content;
 	}
@@ -116,10 +129,9 @@ export default function ArtifactPanel({ runId }: ArtifactPanelProps): React.Reac
 			) : error ? (
 				<div className="text-xs text-slate-500 text-center py-4">{error}</div>
 			) : artifact ? (
-				<pre
-					className="text-xs text-slate-300 whitespace-pre-wrap overflow-x-auto max-h-[300px] overflow-y-auto bg-slate-900 rounded-lg p-3"
-					dangerouslySetInnerHTML={{ __html: renderContent() }}
-				/>
+				<pre className="text-xs text-slate-300 whitespace-pre-wrap overflow-x-auto max-h-[300px] overflow-y-auto bg-slate-900 rounded-lg p-3">
+					{renderContent()}
+				</pre>
 			) : (
 				<div className="text-xs text-slate-500 text-center py-4">Kein Artefakt verfügbar</div>
 			)}
