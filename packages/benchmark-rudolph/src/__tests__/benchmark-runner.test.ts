@@ -323,3 +323,92 @@ describe('Fixture mode with actual fixtures', () => {
 		}
 	});
 });
+
+// =============================================================================
+// F3 — POSITRON_ENABLE_DRY_RUN restoration contract
+// =============================================================================
+describe('BenchmarkRunner — POSITRON_ENABLE_DRY_RUN restoration', () => {
+	// Each test manages its own env; cleanup after.
+	let prevVal: string | undefined;
+
+	beforeEach(() => {
+		prevVal = process.env.POSITRON_ENABLE_DRY_RUN;
+	});
+
+	afterEach(() => {
+		if (prevVal === undefined) {
+			Reflect.deleteProperty(process.env, 'POSITRON_ENABLE_DRY_RUN');
+		} else {
+			process.env.POSITRON_ENABLE_DRY_RUN = prevVal;
+		}
+		Reflect.deleteProperty(process.env, 'POSITRON_F3_NEIGHBOR');
+	});
+
+	// Pflichtfall 1 — variable originally absent remains absent after execute
+	it('variable originally absent remains absent after execute', async () => {
+		Reflect.deleteProperty(process.env, 'POSITRON_ENABLE_DRY_RUN');
+
+		expect(Object.hasOwn(process.env, 'POSITRON_ENABLE_DRY_RUN')).toBe(false);
+		expect(process.env.POSITRON_ENABLE_DRY_RUN).toBeUndefined();
+
+		const runner = new BenchmarkRunner(
+			createBaseConfig({
+				executionMode: 'dry-run',
+				runId: 'f3-absent-test',
+			}),
+		);
+		await runner.execute();
+
+		expect(Object.hasOwn(process.env, 'POSITRON_ENABLE_DRY_RUN')).toBe(false);
+		expect(process.env.POSITRON_ENABLE_DRY_RUN).toBeUndefined();
+	});
+
+	// Pflichtfall 2 — previous string value is restored exactly
+	it('previous string value is restored exactly', async () => {
+		process.env.POSITRON_ENABLE_DRY_RUN = 'custom-owner-value';
+
+		const runner = new BenchmarkRunner(
+			createBaseConfig({
+				executionMode: 'dry-run',
+				runId: 'f3-restore-test',
+			}),
+		);
+		await runner.execute();
+
+		expect(process.env.POSITRON_ENABLE_DRY_RUN).toBe('custom-owner-value');
+		expect(Object.hasOwn(process.env, 'POSITRON_ENABLE_DRY_RUN')).toBe(true);
+	});
+
+	// Pflichtfall 3 — empty string is restored as empty string
+	it('empty string is restored as empty string', async () => {
+		process.env.POSITRON_ENABLE_DRY_RUN = '';
+
+		const runner = new BenchmarkRunner(
+			createBaseConfig({
+				executionMode: 'dry-run',
+				runId: 'f3-empty-test',
+			}),
+		);
+		await runner.execute();
+
+		expect(process.env.POSITRON_ENABLE_DRY_RUN).toBe('');
+		expect(Object.hasOwn(process.env, 'POSITRON_ENABLE_DRY_RUN')).toBe(true);
+	});
+
+	// Pflichtfall 4 — neighboring variable unchanged
+	it('neighboring variable is unchanged', async () => {
+		Reflect.deleteProperty(process.env, 'POSITRON_ENABLE_DRY_RUN');
+		process.env.POSITRON_F3_NEIGHBOR = 'neighbor-value';
+
+		const runner = new BenchmarkRunner(
+			createBaseConfig({
+				executionMode: 'dry-run',
+				runId: 'f3-neighbor-test',
+			}),
+		);
+		await runner.execute();
+
+		expect(process.env.POSITRON_F3_NEIGHBOR).toBe('neighbor-value');
+		expect(Object.hasOwn(process.env, 'POSITRON_F3_NEIGHBOR')).toBe(true);
+	});
+});
