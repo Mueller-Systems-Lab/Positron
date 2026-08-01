@@ -332,7 +332,7 @@ describe('validateRunSummary — top-level required fields', () => {
 
 	it('rejects missing runId', () => {
 		const s = makeValidSummary();
-		delete (s as unknown as Record<string, unknown>).runId;
+		Reflect.deleteProperty(s as unknown as Record<string, unknown>, 'runId');
 		expect(validateRunSummary(s)).toContain('runId: must be a non-empty string');
 	});
 
@@ -368,7 +368,7 @@ describe('validateRunSummary — top-level required fields', () => {
 describe('validateRunSummary — repo validation', () => {
 	it('rejects missing repo', () => {
 		const s = makeValidSummary();
-		delete (s as unknown as Record<string, unknown>).repo;
+		Reflect.deleteProperty(s as unknown as Record<string, unknown>, 'repo');
 		const errors = validateRunSummary(s);
 		expect(errors.some((e) => e.includes('repo:'))).toBe(true);
 	});
@@ -411,7 +411,7 @@ describe('validateRunSummary — repo validation', () => {
 describe('validateRunSummary — issues array', () => {
 	it('rejects missing issues array', () => {
 		const s = makeValidSummary();
-		delete (s as unknown as Record<string, unknown>).issues;
+		Reflect.deleteProperty(s as unknown as Record<string, unknown>, 'issues');
 		expect(validateRunSummary(s)).toContain('issues: must be an array');
 	});
 
@@ -461,7 +461,7 @@ describe('validateRunSummary — issues array', () => {
 
 	it('rejects issue with missing id', () => {
 		const s = makeValidSummary();
-		delete (s.issues[0] as unknown as Record<string, unknown>).id;
+		Reflect.deleteProperty(s.issues[0] as unknown as Record<string, unknown>, 'id');
 		const errors = validateRunSummary(s);
 		expect(errors.some((e) => e.includes('.id:'))).toBe(true);
 	});
@@ -477,7 +477,7 @@ describe('validateRunSummary — issues array', () => {
 describe('validateRunSummary — commands array', () => {
 	it('rejects missing commands array', () => {
 		const s = makeValidSummary();
-		delete (s as unknown as Record<string, unknown>).commands;
+		Reflect.deleteProperty(s as unknown as Record<string, unknown>, 'commands');
 		expect(validateRunSummary(s)).toContain('commands: must be an array');
 	});
 
@@ -512,7 +512,7 @@ describe('validateRunSummary — commands array', () => {
 describe('validateRunSummary — tests validation', () => {
 	it('rejects missing tests object', () => {
 		const s = makeValidSummary();
-		delete (s as unknown as Record<string, unknown>).tests;
+		Reflect.deleteProperty(s as unknown as Record<string, unknown>, 'tests');
 		const errors = validateRunSummary(s);
 		expect(errors.some((e) => e.includes('tests:'))).toBe(true);
 	});
@@ -533,7 +533,7 @@ describe('validateRunSummary — tests validation', () => {
 
 	it('rejects missing redTestsCovered array', () => {
 		const s = makeValidSummary();
-		delete (s.tests as unknown as Record<string, unknown>).redTestsCovered;
+		Reflect.deleteProperty(s.tests as unknown as Record<string, unknown>, 'redTestsCovered');
 		const errors = validateRunSummary(s);
 		expect(errors.some((e) => e.includes('redTestsCovered'))).toBe(true);
 	});
@@ -542,7 +542,7 @@ describe('validateRunSummary — tests validation', () => {
 describe('validateRunSummary — safety validation', () => {
 	it('rejects missing safety object', () => {
 		const s = makeValidSummary();
-		delete (s as unknown as Record<string, unknown>).safety;
+		Reflect.deleteProperty(s as unknown as Record<string, unknown>, 'safety');
 		const errors = validateRunSummary(s);
 		expect(errors.some((e) => e.includes('safety:'))).toBe(true);
 	});
@@ -556,14 +556,14 @@ describe('validateRunSummary — safety validation', () => {
 
 	it('rejects missing blockedActions array', () => {
 		const s = makeValidSummary();
-		delete (s.safety as unknown as Record<string, unknown>).blockedActions;
+		Reflect.deleteProperty(s.safety as unknown as Record<string, unknown>, 'blockedActions');
 		const errors = validateRunSummary(s);
 		expect(errors.some((e) => e.includes('blockedActions'))).toBe(true);
 	});
 
 	it('rejects missing warnings array', () => {
 		const s = makeValidSummary();
-		delete (s.safety as unknown as Record<string, unknown>).warnings;
+		Reflect.deleteProperty(s.safety as unknown as Record<string, unknown>, 'warnings');
 		const errors = validateRunSummary(s);
 		expect(errors.some((e) => e.includes('warnings'))).toBe(true);
 	});
@@ -572,7 +572,7 @@ describe('validateRunSummary — safety validation', () => {
 describe('validateRunSummary — conclusion validation', () => {
 	it('rejects missing conclusion', () => {
 		const s = makeValidSummary();
-		delete (s as unknown as Record<string, unknown>).conclusion;
+		Reflect.deleteProperty(s as unknown as Record<string, unknown>, 'conclusion');
 		const errors = validateRunSummary(s);
 		expect(errors.some((e) => e.includes('conclusion:'))).toBe(true);
 	});
@@ -618,21 +618,21 @@ describe('validateRunSummary — conclusion validation', () => {
 
 	it('rejects missing whatWorks array', () => {
 		const s = makeValidSummary();
-		delete (s.conclusion as unknown as Record<string, unknown>).whatWorks;
+		Reflect.deleteProperty(s.conclusion as unknown as Record<string, unknown>, 'whatWorks');
 		const errors = validateRunSummary(s);
 		expect(errors.some((e) => e.includes('whatWorks'))).toBe(true);
 	});
 
 	it('rejects missing whatDoesNotWork array', () => {
 		const s = makeValidSummary();
-		delete (s.conclusion as unknown as Record<string, unknown>).whatDoesNotWork;
+		Reflect.deleteProperty(s.conclusion as unknown as Record<string, unknown>, 'whatDoesNotWork');
 		const errors = validateRunSummary(s);
 		expect(errors.some((e) => e.includes('whatDoesNotWork'))).toBe(true);
 	});
 
 	it('rejects missing whatIsUnproven array', () => {
 		const s = makeValidSummary();
-		delete (s.conclusion as unknown as Record<string, unknown>).whatIsUnproven;
+		Reflect.deleteProperty(s.conclusion as unknown as Record<string, unknown>, 'whatIsUnproven');
 		const errors = validateRunSummary(s);
 		expect(errors.some((e) => e.includes('whatIsUnproven'))).toBe(true);
 	});
@@ -641,7 +641,7 @@ describe('validateRunSummary — conclusion validation', () => {
 describe('validateRunSummary — capabilityDelta validation', () => {
 	it('rejects missing capabilityDelta', () => {
 		const s = makeValidSummary();
-		delete (s as unknown as Record<string, unknown>).capabilityDelta;
+		Reflect.deleteProperty(s as unknown as Record<string, unknown>, 'capabilityDelta');
 		const errors = validateRunSummary(s);
 		expect(errors.some((e) => e.includes('capabilityDelta:'))).toBe(true);
 	});
