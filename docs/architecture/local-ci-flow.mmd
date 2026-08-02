@@ -1,21 +1,38 @@
 flowchart TD
     A[Developer / OpenCode Run] --> B[Reality Refresh]
-    B --> C[Local Gates]
+    B --> C[Local Gates — Mandatory]
     C --> C1[git diff --check]
     C --> C2[npx biome format .]
     C --> C3[npm run build]
     C --> C4[npm run typecheck]
-    C --> C5[npm test]
-    C --> C6[npx biome check . advisory]
+    C --> C5[npm test — self-contained]
     C1 --> D{Mandatory gates pass?}
     C2 --> D
     C3 --> D
     C4 --> D
     C5 --> D
-    C6 -. advisory .-> E[Lint Backlog]
-    D -->|yes| F[PR Review / Human Approval]
+    D -->|yes| F[Push Branch + Open PR]
     D -->|no| G[Stop / Evidence Handoff]
-    F --> H[Merge if explicitly approved]
-    H --> I[Evidence Comment / Issue Close]
-    J[GitHub Actions] -. advisory only .-> F
-    J -. tracked by .-> K[Issue #268]
+    F --> H[GitHub Quality Gates — Required]
+    H --> H1[format-check]
+    H --> H2[differential-lint]
+    H --> H3[build]
+    H --> H4[typecheck]
+    H --> H5[unit-tests — npm ci → npm test]
+    H --> H6[observability-config-check]
+    H1 --> J{All required checks pass?}
+    H2 --> J
+    H3 --> J
+    H4 --> J
+    H5 --> J
+    H6 --> J
+    H -. advisory .-> HA[full-lint-report]
+    H -. advisory .-> HB[e2e-playwright]
+    H -. advisory .-> HC[mutation-fast]
+    H -. advisory .-> HD[mutation-safety]
+    H -. advisory .-> HE[tool-gateway-windows]
+    J -->|yes| K[Human Approval]
+    J -->|no| L[Fix / Evidence]
+    K --> M[Protected Merge]
+    M --> N[Post-Merge Verification]
+    C6[npx biome check .] -. advisory .-> E[Lint Backlog #340]

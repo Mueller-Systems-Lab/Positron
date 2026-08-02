@@ -2,7 +2,7 @@
 
 ## Status
 
-Project closeout state as of the latest local verification on main (post PR #309 Portfolio Gap Discovery).
+As of 2026-08-02 at SHA `3a9a116` (post R3-R2 test-truth and documentation synchronization).
 
 ## Local Gates
 
@@ -11,183 +11,129 @@ Project closeout state as of the latest local verification on main (post PR #309
 | `git diff --check` | PASS |
 | `npx biome format .` | PASS |
 | `npm run build` | PASS |
-| `npm run typecheck` | PASS (9 projects up to date) |
-| `npm test` (root/packages) | PASS — **~1897/1897** (78 test files) |
-| `npm test` (apps/web) | PASS — **205/205** (9 test files, JSX/TSX resolved) |
-| **Total Tests** | **2326/2326** (94 test files — Issue #373 auth contract fix + Playwright token injection) |
-| `npx biome check .` | advisory-only (known lint backlog) |
+| `npm run typecheck` | PASS |
+| `npm test` (root) | PASS — **2173/2173** (84 test files, Vitest 4.1.7, node) |
+| `npm test` (web) | PASS — **399/399** (18 test files, Vitest 1.6.1, jsdom) |
+| **Combined Unique Unit** | **2572/2572** (102 files, 0 overlap) |
+| `npx biome check .` | advisory-only (known lint backlog, [#340](https://github.com/xxammaxx/Positron/issues/340)) |
+
+## Required CI Checks (Branch Protection)
+
+6 checks are required for merge to `main`:
+
+| Check | Description |
+|-------|-------------|
+| `format-check` | Biome format — all files |
+| `differential-lint` | Differential Biome lint — new/worsened only |
+| `build` | TypeScript build — all packages |
+| `typecheck` | TypeScript typecheck |
+| `unit-tests` | `npm ci` → `npm test` (self-contained: pretest → build → root + Web Vitest) |
+| `observability-config-check` | Prometheus/Alertmanager config validation |
+
+Advisory CI jobs: `full-lint-report`, `e2e-playwright`, `mutation-fast`, `mutation-safety`, `tool-gateway-windows`.
+
+CI policy: [`.opencode/policies/ci-policy.md`](.opencode/policies/ci-policy.md) (v2, effective 2026-08-02).
 
 ## Implemented Capabilities
 
-### Local CI Policy v1
+### CI Policy v2
 
-- Local gates are mandatory merge gates.
-- GitHub Actions is advisory-only (workflows restored via #296 but remote CI not primary truth).
-- Remote CI is not required for local development decisions.
-- Remote CI can only be re-enabled with explicit approval.
-- Policy document: `.opencode/policies/ci-policy.md`
+- Local gates are mandatory pre-PR gates.
+- Remote CI is required for protected-branch merge (6 required checks).
+- Advisory jobs are explicitly labeled.
+- Manual reruns and workflow edits require authorization.
+- Policy supersedes CI Policy v1 (2026-06-21).
 
 ### Rudolph Beacon Benchmark (#279, CLOSED)
 
 - `packages/benchmark-rudolph/` package on main with controlled real-mode probe.
-- Red-negative tests (36 tests) for safety gate enforcement.
+- Red-negative tests for safety gate enforcement.
 - PR #295 merged; Issue #279 closed.
-- CodeRabbit decommissioned as part of this track (commit `5494851`).
-- Coverage policy (`COVERAGE_POLICY.md`) enforced.
+- CodeRabbit decommissioned as part of this track.
 
 ### CI Recovery (#268, CLOSED)
 
 - PR #296 merged: repaired workflow configuration and formatting gates.
-- GitHub Actions workflows are syntactically valid and partially executable.
-- Remote CI remains advisory-only; local gates are primary truth.
+- PR #415 merged (R3-R1): proved self-contained clean-checkout test contract.
+- GitHub Actions Quality Gates are syntactically valid and executable.
+- Remote CI is now required for merge (branch protection).
 
 ### Post-268 Fixes (#297/#298/#299, CLOSED)
 
 - **#297:** Flaky Playwright E2E test stabilized.
 - **#298:** Biome JSON formatting warnings resolved.
 - **#299:** Windows runner module resolution fixed (PR #303).
-- All three issues closed; evidence trail complete in `docs/evidence/post-268/`.
 
-### Post-Merge Quality Gates Fix (#371/#372/#373, OPEN)
+### Post-Merge Quality Gates Fix (#371/#372/#373, CLOSED)
 
-- **#371:** DashboardPage crash (TypeError on `undefined.replace()`) caused by incomplete `ManagedProject` → `ManagedTargetProject` migration. Repaired 5 field accesses in `DashboardPage.tsx` and added 9 regression tests in `DashboardPage-contract.test.tsx`.
-- **#373 (Auth):** `POST /api/demo-runs` returned 401 because `api.startDemoRun()` used `request()` (no auth headers). Fixed by switching to `adminRequest()` (sends `X-Admin-Token`). Added Playwright token injection in 3 E2E test files and `playwright.config.ts`. Token fixture hardened: centralized in `e2e/fixtures/admin-auth.ts`, fallback defaults removed, CI workflow token aligned to `positron-test-token-dev`.
-- **E2E Runtime Proof (head `1aa2e43`, 2026-07-17):** Local Playwright run with live Server/Redis confirmed auth contract end-to-end: no-token → 401, wrong-token → 401, valid test-token → 201. Demo-workflow verified: `POST /api/demo-runs` 2xx, Run ID created, "Demo run started" visible, navigation to run detail, end state DONE. Suite: 24/26 passed (1 pre-existing full-run-lifecycle timeout, 1 skip). Zero 4xx/5xx on demo-runs. Zero uncaught errors or unhandled rejections.
-- Web tests: 196/196 → 205/205; Total suite: 2141/2141 → 2326/2326 (2121 server + 205 web).
-- Evidence: `docs/evidence/issue-373/run-report.md` (DashboardPage) and `docs/evidence/issue-373/demo-run-admin-auth-contract-repair.md` (Auth + Runtime Proof).
+- **#371:** DashboardPage crash (TypeError on `undefined.replace()`) repaired.
+- **#373:** Auth contract fixed — `startDemoRun()` now uses `adminRequest()`.
+- E2E Runtime Proof (2026-07-17): local Playwright run confirmed auth contract end-to-end.
 
 ### Portfolio Gap Discovery (PR #309, MERGED)
 
 - Comprehensive audit of all 14 open + 91 closed issues.
 - 24 capability areas assessed.
-- 4 new issues created: #305 (Portfolio Auto-Update), #306 (Backlog Hygiene), #307 (Docs Sync), #308 (Full Real Mode Pilot).
-- 14 gaps mapped to existing issues.
+- 4 new issues created: #305, #306, #307, #308.
 
-### DeterministicFixtureAgent
+### DeterministicFixtureAgent / OpenCodeDryRunAgent
 
-- Reproducible fixture-based adapter testing in `packages/opencode-adapter`.
-- No external LLM/network requirement for fixture mode.
-- Fixture inputs produce deterministic evidence outputs.
-
-### OpenCodeDryRunAgent
-
+- Reproducible fixture-based adapter testing.
 - Safe dry-run simulation for risky OpenCode actions.
-- Write/push/merge/PR/worktree/npm operations are blocked or simulated according to the safety policy.
-- Structured classification of commands into simulated reads, blocked writes, and reported info.
-
-### ExecutionMode / EvidenceReport
-
-- Shared execution modes: `fixture`, `dry-run`, and `real` execution.
-- Structured evidence reporting for dry-run/fixture behavior.
-- EvidenceReport provides traceable output for each execution mode.
-
-### Test Stability Improvements
-
-- Tool-Gateway `repo.list_files` fixture mismatch fixed (Issue #272 → PR #273).
-- State-machine property-test chain generator stabilized (Issue #274 → PR #275).
-- Secret Manager property tests bounded for local Windows execution (Issue #276 → PR #277).
 
 ### Tool Gateway with Red Team Tests
 
 - MCP tool gateway enforces: shell injection blocking, path traversal prevention, secret redaction, egress policy, prompt injection detection, autonomy level gating, and approval bypass prevention.
-- 1571 tests pass consistently, including red-team security tests.
-
-### Spec Kit and OpenCode Adapters
-
-- Fake adapter implementations for deterministic testing.
-- Spec Kit adapter with artifact scanning and path safety checks.
-- OpenCode adapter with command policy enforcement (fake/real modes).
 
 ### Safety Architecture
 
-- Kill-switch (`POSITRON_MERGE_KILL_SWITCH`), push gate (`POSITRON_ENABLE_PUSH`).
-- Evidence-gated progression through pipeline phases.
-- Audit trail enforcement with session and decision logging.
+- Kill-switch, push gate, evidence-gated progression, audit trail enforcement.
 - Max fix loops: automatic stop after 3 failed attempts.
 
-### Stage 1: Read-Only GitHub Operations (#308)
+### Stage 1–3: Read-Only → Write → Runtime Foundation (#308)
 
-- Real GitHub adapter read operations validated (7/7 reads, 0 writes).
-- Token lifecycle (set → use → unset) verified.
-- Write boundary enforcement: all write attempts blocked at policy level.
-- Evidence: `docs/evidence/stage1-readonly-dry-run.md`
+- Stage 1: Real GitHub adapter read operations validated (7/7 reads, 0 writes).
+- Stage 2: Single controlled write to `xxammaxx/positron-sandbox#1`.
+- Stage 3: Runtime Foundation implemented with 345 github-adapter tests.
+- Five remediation modules integrated via PR #370.
 
-### Stage 2: Single Sandbox Comment Write (#308)
+## Test Breakdown
 
-- Single controlled write to `xxammaxx/positron-sandbox#1` (Comment ID 4962261394, 2026-07-13).
-- Full Positron harness path: Policy → Harness → Adapter → Octokit → GitHub API.
-- PAT lifecycle: set → used (exactly once) → unset → revoked on GitHub.
-- Kill-switches, idempotency, body hash binding, duplicate detection all enforced.
-- Evidence: `docs/evidence/stage2-write-sandbox-single-comment-closeout-verification.md`
+At SHA `3a9a116` (2026-08-02):
 
-### Stage 3: Runtime Foundation (#308)
+| Suite | Files | Tests | Runner |
+|-------|-------|-------|--------|
+| Root (packages + apps/server) | 84 | 2173 | Vitest 4.1.7 |
+| Web (apps/web) | 18 | 399 | Vitest 1.6.1 |
+| **Combined Unique Unit** | **102** | **2572** | — |
 
-- Stage 3 Runtime Foundation implemented with 345 github-adapter tests passing (10 test files).
-- Stage3SupervisedPilotPolicy validates 20+ gates including repository allowlist, file hash binding, process safety, and quantity limits.
-- Stage3RuntimeHarness orchestrates branch→commit→draft-PR sequence with partial failure detection.
-- **PR #370 integration (July 2026):** Five remediation modules added — `Stage3ApprovalBinding` (cryptographic approval), `Stage3BaseResolver` (TOCTOU protection), `Stage3RuntimeSafetyProbe` (runtime safety), `Stage3ReadOnlyVerifier` (pre/post-write verification), `Stage3RealGitHubBridge` (restricted-transport bridge).
-- `Stage3HarnessInput` is now a discriminated union (`Stage3FakeHarnessInput | Stage3LiveHarnessInput`) with no free booleans in live mode.
-- Fake mode operational; live path implemented but not executed.
-- No real GitHub token used; no sandbox branch created.
+Root and Web test files are provably disjoint (0 overlap).
 
-## GitHub / Remote CI Status
-
-- GitHub Actions workflows restored via PR #296 (Issue #268 CLOSED).
-- Remote CI remains advisory-only; local gates are the primary merge gates.
-- No GitHub-CI reruns are required for local acceptance.
-
-## Active Backlog (Post-Closeout)
+## Active Backlog
 
 | Issue | Title | Risk | Priority |
 |-------|-------|------|----------|
 | #304 | Stabilize Playwright tracing lifecycle in E2E tests | YELLOW | P2 |
 | #305 | Evidence Portfolio: Automate post-run capability updates | GREEN_SAFE | P2 |
 | #306 | Backlog Hygiene: Define milestones, labels, taxonomy | GREEN_SAFE | P2 |
-| #307 | Docs: Sync all status docs with post-closeout reality | GREEN_SAFE | P2 |
 | #308 | Validation: Supervised Full Real Mode pilot | YELLOW | P1 |
+| #340 | Repo hygiene: resolve repo-wide Biome lint backlog | YELLOW | P2 |
 | #229 | MCP Bootstrap Epic | YELLOW | P1 |
 | #243 | Agentic Baseline Epic | YELLOW | P1 |
 | #215 | GATE_APPROVE safety integration | YELLOW | P1 |
-| #251 | api-overview #229 endpoint expansion | GREEN_SAFE | P2 |
+| #416 | Docs: synchronize post-R3 test truth and CI policy | GREEN_SAFE | P2 |
 
 ## Evidence References
 
 <!-- positron:auto-generated:start evidence-refs -->
 | Issue/PR | Description | Status |
 |----------|-------------|--------|
-| #263 / #264 / #265 | Deterministic OpenCode dry-run agents | Merged |
-| #266 / #267 | Portable temp paths in real adapter tests | Merged |
-| #268 | GitHub-CI advisory-only tracker | CLOSED |
-| #269 | LF normalization + Biome format compliance | Merged |
-| #270 / #271 | Local CI policy versioning | Merged |
-| #272 / #273 | Tool-Gateway repo.list_files fixture fix | Merged |
-| #274 / #275 | State-machine property chain stabilization | Merged |
-| #276 / #277 | Secret-manager property test timeout fix | Merged |
+| #268 | CI infrastructure tracker | CLOSED |
 | #279 | Rudolph Beacon benchmark | CLOSED |
 | #296 | CI workflow repair | Merged |
-| #297 | Flaky E2E test stabilization | CLOSED |
-| #298 | Biome JSON formatting | CLOSED |
-| #299 | Windows module resolution | CLOSED |
 | #309 | Portfolio Gap Discovery | Merged |
-| #305 | Portfolio Auto-Update | OPEN |
-| #306 | Backlog Hygiene | OPEN |
-| #307 | Docs Reality Sync | OPEN |
-| #308 | Full Real Mode Pilot | OPEN |
-| #372 / #373 | Demo-Run Admin Auth Contract Repair + DashboardPage Contract Repair + E2E Runtime Proof | OPEN (Draft) |
+| #372 / #373 | Demo-Run Admin Auth Contract Repair | CLOSED |
+| #414 | R3 CI Contract Evidence | CLOSED |
+| #415 | R3-R1 CI Self-Contained Proof | Merged |
+| #416 | R3-R2 Test-Truth and Doc Sync | OPEN |
 <!-- positron:auto-generated:end evidence-refs -->
-
-## Test Breakdown
-
-| Package | Tests | Status |
-|---------|-------|--------|
-| packages/shared | contracts, utils, secrets, types | PASS |
-| packages/sandbox | commit-policy, paths, speckit-policy, opencode-policy, smoke | PASS |
-| packages/github-adapter | sync-templates, contract, templates, stage3-policy, stage3-harness, stage3-remediation, stage2-policy, stage2-harness, readonly, smoke | PASS (345) |
-| packages/run-state | state-machine, smoke, property tests | PASS |
-| packages/speckit-adapter | smoke, artifact-scanner | PASS |
-| packages/opencode-adapter | fake-adapter, smoke, frontend-design-skill | PASS |
-| packages/tool-gateway | red-team (shell-inject, path-traversal, secret-leak, egress, autonomy, approval-bypass), scanner, github tools, evidence tools, repo tools | PASS |
-| packages/benchmark-rudolph | controlled-real-probe, red-negative tests | PASS |
-| apps/server | integration, gate-approve, observability/metrics, observability/instrumentation, observability/queue, observability/telemetry | PASS (2121/2121) |
-| apps/web | voice, voice-output, voice-settings, voice-smoke, smoke, PhasePipeline, BlueprintPanel, VoiceControls, DashboardPage-contract | PASS (205/205) |
-| **Total** | **94 files** | **2326/2326 PASS** (2121 server + 205 web — Issue #373 auth contract repair) |
