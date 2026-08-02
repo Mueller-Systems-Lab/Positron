@@ -148,10 +148,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build (reuse cache)
-        run: npm run build
-
-      - name: Unit Tests
+      - name: Unit Tests — self-contained clean-checkout contract
         run: npm test
 
   # ── Full Repository Lint Report (advisory, transparent baseline) ───
