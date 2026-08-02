@@ -3,10 +3,7 @@
 	"version": "0.1.0",
 	"private": true,
 	"description": "Evidence-Gated GitHub Issue Execution System",
-	"workspaces": [
-		"apps/*",
-		"packages/*"
-	],
+	"workspaces": ["apps/*", "packages/*"],
 	"scripts": {
 		"build": "tsc -b packages/shared packages/sandbox packages/github-adapter packages/run-state packages/speckit-adapter packages/opencode-adapter packages/benchmark-rudolph packages/tool-gateway apps/server apps/worker",
 		"build:watch": "tsc --build --watch",
