@@ -14,7 +14,19 @@
 | TEST_COMMAND_CONTRACT | README, capabilities, contributing | manual steps | T1 execution | Self-contained npm test | SYNCED |
 | BUILD_PRETEST_CONTRACT | Capabilities | not documented | T1 log | pretest → build → vitest | SYNCED |
 
-## Unchanged
+## Corrective Continuation (2026-08-02)
+
+| Claim ID | File | Old Claim | Evidence | New Claim | Status |
+|---|---|---|---|---|---|
+| CORR_304 | capabilities, limitations, README | #304 presented as active/open | GitHub API: CLOSED 2026-07-30 | CLOSED — moved to Resolved/Retired | CORRECTED |
+| CORR_305 | capabilities, limitations | #305 presented as active/open | GitHub API: CLOSED 2026-06-27 | CLOSED — moved to Resolved/Retired | CORRECTED |
+| CORR_306 | capabilities, limitations | #306 presented as active/open | GitHub API: CLOSED 2026-06-27 | CLOSED — moved to Resolved/Retired | CORRECTED |
+| CORR_229 | capabilities, limitations | #229 presented as active/open | GitHub API: CLOSED, state_reason=not_planned | CLOSED — not_planned | CORRECTED |
+| CORR_243 | capabilities, limitations | #243 presented as active/open | GitHub API: CLOSED, state_reason=not_planned | CLOSED — not_planned | CORRECTED |
+| CORR_215 | capabilities | #215 presented as active | GitHub API: CLOSED 2026-06-28 | CLOSED | CORRECTED |
+| CORR_324 | limitations | #324 "Not implemented" | GitHub API: CLOSED 2026-07-30 | CLOSED | CORRECTED |
+| CORR_PR_COUNT | limitations | "No open PRs at audit time" | PR #417 is open | Volatile claim removed; qualified historical reference added | CORRECTED |
+| CORR_CHANGED_FILES | PR body | "7 changed files" | GitHub API: changedFiles=9 | 9 changed files | CORRECTED |
 
 - All application source files: 0 changes
 - All test files: 0 changes

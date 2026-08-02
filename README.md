@@ -135,7 +135,7 @@ npm test   # Self-contained: pretest → build → root + Web Vitest
 - Root Vitest suite (Vitest 4.1.7, node environment): **84 files, 2173 passed, 0 failed, 0 skipped, 0 todo**
 - Web Vitest suite (Vitest 1.6.1, jsdom environment): **18 files, 399 passed, 0 failed, 0 skipped, 0 todo**
 - Combined unique unit suite: **102 files, 2572 passed** (root and Web test files are provably disjoint)
-- E2E tests: Playwright (separate suite, see [Issue #304](https://github.com/xxammaxx/Positron/issues/304))
+- E2E tests: Playwright (separate suite; tracing instability [#304](https://github.com/xxammaxx/Positron/issues/304) was CLOSED 2026-07-30)
 
 `npm test` is self-contained: `pretest` runs `npm run build` (TypeScript compilation of all packages), then root Vitest executes, followed by Web Vitest.
 
@@ -232,7 +232,7 @@ Advisory jobs: `full-lint-report`, `e2e-playwright`, `mutation-fast`, `mutation-
 ### Known limitations
 
 - **Biome lint backlog**: `npx biome check .` remains advisory-only ([#340](https://github.com/xxammaxx/Positron/issues/340)).
-- **E2E tests**: tracing lifecycle instability ([#304](https://github.com/xxammaxx/Positron/issues/304)); not currently required locally.
+- **E2E tests**: tracing lifecycle instability ([#304](https://github.com/xxammaxx/Positron/issues/304), CLOSED 2026-07-30); not currently required locally.
 - **Full Real Mode**: Not yet productively validated ([#308](https://github.com/xxammaxx/Positron/issues/308)).
 
 ### See also

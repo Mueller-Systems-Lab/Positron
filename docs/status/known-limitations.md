@@ -34,12 +34,12 @@ See `docs/evidence/` for full stage evidence reports.
 
 ## E2E Testing
 
-### Playwright E2E Tracing Flake (#304, OPEN)
+### Playwright E2E Tracing Flake (#304, CLOSED)
 
-- E2E Playwright tests have tracing lifecycle instability.
+- E2E Playwright tests had tracing lifecycle instability.
+- Issue [#304](https://github.com/xxammaxx/Positron/issues/304) was closed on 2026-07-30.
 - E2E tests are not currently required locally.
 - CI job `e2e-playwright` is advisory (`continue-on-error: true`).
-- Tracked in Issue [#304](https://github.com/xxammaxx/Positron/issues/304) (YELLOW, P2).
 
 ### E2E Runtime Proof — Auth Contract Verified (Issue #373)
 
@@ -61,9 +61,12 @@ The following frontend API methods use `request()` (no admin token) but hit serv
 
 ## Open Issues / PRs
 
-- No open PRs at audit time (2026-08-02).
-- #229 MCP Bootstrap Epic: Large epic requiring decomposition.
-- #243 Agentic Baseline Epic: Large epic requiring decomposition.
+PR counts are intentionally not embedded because they become stale.
+Use [GitHub's open pull-request view](https://github.com/xxammaxx/Positron/pulls?q=is%3Apr+is%3Aopen) for current state.
+
+At the time of verification (2026-08-02), PR [#417](https://github.com/xxammaxx/Positron/pull/417) was open as the corrective continuation for this documentation run.
+
+Closed epics (not_planned): [#229](https://github.com/xxammaxx/Positron/issues/229), [#243](https://github.com/xxammaxx/Positron/issues/243).
 
 ## Stashes
 
@@ -79,15 +82,16 @@ These must not be applied, popped, or dropped without explicit human instruction
 <!-- positron:auto-generated:start active-limitations -->
 | Item | Status | Issue |
 |------|--------|-------|
-| E2E tracing lifecycle flake | Open | #304 |
-| Portfolio auto-update mechanism | Open | #305 |
-| Backlog hygiene | Open | #306 |
 | Full Real Mode not productively validated | Open | #308 |
 | Stage 3 Full Real Mode | IMPLEMENTED_AND_TESTED_NOT_EXECUTED | #308 |
-| Large epics need decomposition | Open | #229, #243 |
 | Biome lint backlog | Open | #340 |
-| Multi-process workspace lock | Not implemented | #324 |
 | Remaining admin auth mismatches (5 endpoints) | Identified in #373 | — |
+| Large epics closed as not_planned | CLOSED | #229, #243 |
+| E2E tracing lifecycle (was active limitation) | CLOSED | #304 |
+| Portfolio auto-update mechanism | CLOSED | #305 |
+| Backlog hygiene | CLOSED | #306 |
+| Multi-process workspace lock | CLOSED | #324 |
+| PR #417 open (corrective continuation) | In progress | #416 |
 <!-- positron:auto-generated:end active-limitations -->
 
 ## Resolved Limitations (Reference)

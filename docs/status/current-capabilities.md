@@ -111,17 +111,31 @@ Root and Web test files are provably disjoint (0 overlap).
 
 ## Active Backlog
 
+For the live backlog, use the [GitHub open-issues view](https://github.com/xxammaxx/Positron/issues?q=is%3Aissue+is%3Aopen).
+This document lists only limitations directly relevant to the verified
+capability snapshot at SHA `3a9a116`.
+
+Currently open issues relevant to this capability snapshot:
+
 | Issue | Title | Risk | Priority |
 |-------|-------|------|----------|
-| #304 | Stabilize Playwright tracing lifecycle in E2E tests | YELLOW | P2 |
-| #305 | Evidence Portfolio: Automate post-run capability updates | GREEN_SAFE | P2 |
-| #306 | Backlog Hygiene: Define milestones, labels, taxonomy | GREEN_SAFE | P2 |
 | #308 | Validation: Supervised Full Real Mode pilot | YELLOW | P1 |
 | #340 | Repo hygiene: resolve repo-wide Biome lint backlog | YELLOW | P2 |
-| #229 | MCP Bootstrap Epic | YELLOW | P1 |
-| #243 | Agentic Baseline Epic | YELLOW | P1 |
-| #215 | GATE_APPROVE safety integration | YELLOW | P1 |
 | #416 | Docs: synchronize post-R3 test truth and CI policy | GREEN_SAFE | P2 |
+
+## Resolved / Retired
+
+Issues that were previously tracked as active but are now closed:
+
+| Issue | Title | Resolution |
+|-------|-------|------------|
+| #304 | Stabilize Playwright tracing lifecycle | CLOSED (2026-07-30) |
+| #305 | Evidence Portfolio: Automate post-run updates | CLOSED (2026-06-27) |
+| #306 | Backlog Hygiene: milestones, labels, taxonomy | CLOSED (2026-06-27) |
+| #229 | MCP Bootstrap Epic | CLOSED — not_planned (2026-07-30) |
+| #243 | Agentic Baseline Epic | CLOSED — not_planned (2026-07-30) |
+| #215 | GATE_APPROVE safety integration | CLOSED (2026-06-28) |
+| #324 | Multi-process workspace lock | CLOSED (2026-07-30) |
 
 ## Evidence References
 
