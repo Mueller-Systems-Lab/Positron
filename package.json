@@ -12,6 +12,7 @@
 		"dev:web": "vite apps/web",
 		"coverage": "vitest run --coverage",
 		"coverage:safety": "vitest run --config vitest.safety.config.ts --coverage",
+		"pretest": "npm run build",
 		"test": "vitest run && cd apps/web && npx vitest run",
 		"test:benchmark:rudolph": "vitest run packages/benchmark-rudolph/src",
 		"test:benchmark:rudolph:coverage": "vitest run packages/benchmark-rudolph/src --coverage",

@@ -7,6 +7,7 @@
 		"dev": "vite",
 		"build": "tsc && vite build",
 		"preview": "vite preview",
+		"pretest": "npm --prefix ../.. run build",
 		"test": "vitest run --environment jsdom",
 		"typecheck": "tsc --noEmit"
 	},
