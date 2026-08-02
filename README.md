@@ -1,13 +1,13 @@
 # Positron — Evidence-Gated AI Agent for Autonomous GitHub Issue Resolution
 
 [![Version](https://img.shields.io/badge/version-v0.3.0-blue.svg)](https://github.com/xxammaxx/Positron/releases)
-[![Tests](https://img.shields.io/badge/tests-1571%20passing-brightgreen.svg)](https://github.com/xxammaxx/Positron/actions)
+[![Tests](https://img.shields.io/badge/tests-2572%20passing-brightgreen.svg)](https://github.com/xxammaxx/Positron/actions)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker)](https://github.com/xxammaxx/Positron)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178C6?logo=typescript)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite)](https://vitejs.dev/)
-[![Node.js](https://img.shields.io/badge/Node.js-24-339933?logo=node.js)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-22%20(CI)%20%7C%2024%20(dev)-339933?logo=node.js)](https://nodejs.org/)
 
 **Positron** is an evidence-gated AI agent execution system for GitHub Issues. It runs a **28-phase pipeline** (QUEUED → CLAIMED → SPECIFY → PLAN → TASKS → IMPLEMENT → REVIEW → MERGE → DONE → CLEANUP) where every phase produces verifiable artifacts. A happy-path run progresses through ~17 execution phases. Each step is auditable, replayable, and gated by evidence requirements.
 
@@ -126,13 +126,20 @@ All settings via environment variables or `apps/server/.env`:
 
 ## Tests
 
+At SHA `3a9a116` on 2026-08-02:
+
 ```bash
-npx vitest run                  # 1375 core/package tests (64 test files)
-cd apps/web && npx vitest run   # 196 frontend tests (8 test files, JSX/TSX resolved)
-npx playwright test             # E2E tests (advisory-only, see Issue #304)
+npm test   # Self-contained: pretest → build → root + Web Vitest
 ```
 
-Core/packages: **1375/1375 passing** (64 test files). Web: **196/196 passing** (8 test files). **Total: 1571/1571**. See [Current Project Status](#current-project-status) for the latest local gate results.
+- Root Vitest suite (Vitest 4.1.7, node environment): **84 files, 2173 passed, 0 failed, 0 skipped, 0 todo**
+- Web Vitest suite (Vitest 1.6.1, jsdom environment): **18 files, 399 passed, 0 failed, 0 skipped, 0 todo**
+- Combined unique unit suite: **102 files, 2572 passed** (root and Web test files are provably disjoint)
+- E2E tests: Playwright (separate suite; tracing instability [#304](https://github.com/xxammaxx/Positron/issues/304) was CLOSED 2026-07-30)
+
+`npm test` is self-contained: `pretest` runs `npm run build` (TypeScript compilation of all packages), then root Vitest executes, followed by Web Vitest.
+
+See [Current Project Status](#current-project-status) for local gate results and required CI checks.
 
 ---
 
@@ -170,22 +177,23 @@ Positron/
 
 | Layer | Technology |
 |-------|-----------|
-| **Runtime** | Node.js 24, TypeScript 5.9 |
+| **Runtime** | Node.js 22 (CI-pinned) / 24 (development verified) |
+| **Language** | TypeScript 5.4 |
 | **Frontend** | React 18, Vite 5.4, Tailwind CSS 3 |
 | **Backend** | Express 4, SQLite (better-sqlite3) |
 | **State Machine** | Custom pipeline engine (28 phases) |
 | **E2E Testing** | Playwright 1.60 |
-| **Unit Testing** | Vitest 4.1 (core) / 1.6 (web) |
+| **Unit Testing** | Vitest 4.1 (root) / 1.6 (web) |
 | **Container** | Docker + docker-compose |
 
 ---
 
 ## Dogfood Results (v0.1.0+)
 
-Positron successfully completed a **full dogfood run** on its own repository:
+Historical reference — counts reflect the state at their respective SHAs:
 
+At the v0.1.0/v0.2.0 dogfood SHAs:
 - **28-Phase State Machine**: Happy path (CLAIMED → DONE) completed in **13.7 seconds**
-- **1571 Tests**: All green (core + apps/web)
 - **Rudolph Beacon Benchmark**: Controlled real-mode probe with safety gate validation ([#279](https://github.com/xxammaxx/Positron/issues/279))
 - **CI Recovery**: Workflow configuration repaired ([#268](https://github.com/xxammaxx/Positron/issues/268), [#296](https://github.com/xxammaxx/Positron/pull/296))
 - **SSE Live Updates**: Dashboard + Event Timeline functional
@@ -198,21 +206,33 @@ Positron successfully completed a **full dogfood run** on its own repository:
 
 ## Current Project Status
 
-Positron currently uses **local gates as the source of truth** for merge decisions.
-
 ### Mandatory local gates
 
 - `git diff --check`
 - `npx biome format .`
 - `npm run build`
 - `npm run typecheck`
-- `npm test` — **1571/1571 passing** (72 test files)
+- `npm test` — **2572/2572 passing** (102 test files: 84 root + 18 Web, 0 overlap)
+
+### Required CI checks (branch protection)
+
+6 checks are required for merge to `main`:
+
+| Check | Description |
+|-------|-------------|
+| `format-check` | Biome format (all files) |
+| `differential-lint` | Differential Biome lint (new/worsened only) |
+| `build` | TypeScript build (all packages) |
+| `typecheck` | TypeScript typecheck |
+| `unit-tests` | `npm ci` → `npm test` (self-contained) |
+| `observability-config-check` | Prometheus/Alertmanager config validation |
+
+Advisory jobs: `full-lint-report`, `e2e-playwright`, `mutation-fast`, `mutation-safety`, `tool-gateway-windows`.
 
 ### Known limitations
 
-- **GitHub Actions**: advisory-only (workflows restored via [#268](https://github.com/xxammaxx/Positron/issues/268), remote CI not primary truth).
-- **`npx biome check .`**: lint backlog with known warnings/errors — triaged separately.
-- **E2E tests**: tracing lifecycle instability ([#304](https://github.com/xxammaxx/Positron/issues/304)); advisory-only.
+- **Biome lint backlog**: `npx biome check .` remains advisory-only ([#340](https://github.com/xxammaxx/Positron/issues/340)).
+- **E2E tests**: tracing lifecycle instability ([#304](https://github.com/xxammaxx/Positron/issues/304), CLOSED 2026-07-30); not currently required locally.
 - **Full Real Mode**: Not yet productively validated ([#308](https://github.com/xxammaxx/Positron/issues/308)).
 
 ### See also
