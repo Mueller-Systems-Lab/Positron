@@ -18,9 +18,11 @@ npm run typecheck
 npm test
 ```
 
-`npx biome check .` is currently advisory-only because a known lint backlog exists.
+`npx biome check .` is currently advisory-only because a known lint backlog exists ([#340](https://github.com/xxammaxx/Positron/issues/340)).
 
-GitHub Actions is advisory-only and tracked separately in Issue [#268](https://github.com/xxammaxx/Positron/issues/268).
+## CI Gates
+
+GitHub Actions Quality Gates are required for merge to `main` (6 required checks: `format-check`, `differential-lint`, `build`, `typecheck`, `unit-tests`, `observability-config-check`). See [CI Policy](.opencode/policies/ci-policy.md) for details.
 
 ## Label Convention
 
