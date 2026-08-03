@@ -4543,6 +4543,83 @@ export function createApp(options: ServerOptions = {}) {
 		}
 	});
 
+	// ── R5: Startup Recovery — discover and resume incomplete runs after controller restart ──
+	// After a controlled crash (fault injection), the server restarts and must
+	// automatically discover incomplete runs, reconcile with GitHub, adopt existing
+	// PRs, and resume the original run — without manual intervention.
+	async function recoverIncompleteRunsOnStartup(): Promise<void> {
+		const database = getDb();
+		const rows = database
+			.prepare(
+				`SELECT id FROM runs
+				 WHERE status = 'active'
+				   AND phase NOT IN ('DONE', 'FAILED_BLOCKED', 'FAILED')
+				   AND finished_at IS NULL
+				 ORDER BY started_at ASC`,
+			)
+			.all() as Array<{ id: string }>;
+
+		if (rows.length === 0) return;
+
+		log.info(
+			`R5 Recovery: Discovered ${rows.length} incomplete run(s) on startup — resuming automatically`,
+		);
+
+		for (const { id } of rows) {
+			const run = loadRunFromDb(id);
+			if (!run) {
+				log.warn(`R5 Recovery: Run ${id} not found in DB — skipping`);
+				continue;
+			}
+
+			log.info(
+				`R5 Recovery: Resuming run ${run.id} (repo=${run.repoId}, issue=${run.issueNumber}, phase=${run.phase})`,
+			);
+
+			// Fire-and-forget: resume each incomplete run asynchronously
+			runFullPipeline(
+				run,
+				repository,
+				activeWorkspaceAdapter,
+				activeSpecKitAdapter,
+				instrumentedOpenCodeAdapter,
+				github,
+				syncService,
+				{ startFromPhase: run.phase },
+			)
+				.then((finalRun) => {
+					saveRunToDb(finalRun);
+					log.info(
+						`R5 Recovery: Run ${finalRun.id} resumed and completed — phase=${finalRun.phase}, status=${finalRun.status}`,
+					);
+					broadcastSSE(finalRun.id, 'run-update', {
+						phase: finalRun.phase,
+						status: finalRun.status,
+						branch: finalRun.branch,
+					});
+				})
+				.catch((err) => {
+					log.error(`R5 Recovery: Run ${run.id} failed during resume`, err);
+					storeEvent({
+						id: createRunId(),
+						runId: run.id,
+						phase: run.phase,
+						level: 'ERROR',
+						message: `Startup recovery failed: ${String(err).slice(0, 200)}`,
+						payload: null,
+						createdAt: new Date().toISOString(),
+					});
+				});
+		}
+	}
+
+	// Schedule recovery shortly after server start (non-blocking)
+	setTimeout(() => {
+		recoverIncompleteRunsOnStartup().catch((err) => {
+			log.error('R5 Recovery: Startup recovery failed', err);
+		});
+	}, 3000);
+
 	return app;
 }
 
