@@ -1,0 +1,38 @@
+{
+	"run_id": "POS-NORTHSTAR-R4",
+	"phase": "NO_OP_HYPOTHESIS",
+	"evaluated_at": "2026-08-03T06:29:10Z",
+	"checks": {
+		"trilogy_manifest_exists": {
+			"result": false,
+			"detail": "09-trilogy-integrity-manifest.json does not exist"
+		},
+		"sha256sums_over_r1_r3": {
+			"result": false,
+			"detail": "SHA256SUMS does not exist"
+		},
+		"cross_run_sha_mapping": {
+			"result": false,
+			"detail": "07-cross-run-sha-map.json does not exist"
+		},
+		"capability_matrix": {
+			"result": false,
+			"detail": "12-capability-matrix.md does not exist"
+		},
+		"issue_308_scope_reconciled": {
+			"result": false,
+			"detail": "14-controller-issue-scope-reconciliation.md does not exist"
+		},
+		"independent_trilogy_verification": {
+			"result": false,
+			"detail": "17-independent-verifier.json does not exist"
+		},
+		"next_capability_decision": {
+			"result": false,
+			"detail": "16-next-capability-decision.json does not exist"
+		}
+	},
+	"all_previously_satisfied": false,
+	"classification": "GREEN_R4_CHANGE_REQUIRED_CONFIRMED",
+	"reason": "No prior trilogy freeze exists. R4 must create all baseline artefacts from scratch."
+}

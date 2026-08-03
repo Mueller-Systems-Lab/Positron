@@ -1,0 +1,184 @@
+{
+	"run_id": "POS-NORTHSTAR-R4",
+	"phase": "CROSS_RUN_SHA_MAP",
+	"generated_at": "2026-08-03T06:30:55Z",
+	"positron": {
+		"repository": "xxammaxx/Positron",
+		"r1_baseline": {
+			"sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+			"branch": "main",
+			"run": "POS-NORTHSTAR-R1",
+			"role": "controller_baseline",
+			"previous_sha": null,
+			"next_sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+			"github_verified": true,
+			"local_verified": true,
+			"note": "Positron product code unchanged throughout R1-R4"
+		},
+		"r1_result": {
+			"sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+			"branch": "main",
+			"run": "POS-NORTHSTAR-R1",
+			"role": "controller_result",
+			"previous_sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+			"next_sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+			"github_verified": true,
+			"local_verified": true,
+			"note": "No product code changed during R1"
+		},
+		"r2_baseline": {
+			"sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+			"branch": "main",
+			"run": "POS-NORTHSTAR-R2",
+			"role": "controller_baseline",
+			"previous_sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+			"next_sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+			"github_verified": true,
+			"local_verified": true
+		},
+		"r2_result": {
+			"sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+			"branch": "main",
+			"run": "POS-NORTHSTAR-R2",
+			"role": "controller_result",
+			"previous_sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+			"next_sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+			"github_verified": true,
+			"local_verified": true
+		},
+		"r3_baseline": {
+			"sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+			"branch": "main",
+			"run": "POS-NORTHSTAR-R3",
+			"role": "controller_baseline",
+			"previous_sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+			"next_sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+			"github_verified": true,
+			"local_verified": true
+		},
+		"r3_result": {
+			"sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+			"branch": "main",
+			"run": "POS-NORTHSTAR-R3",
+			"role": "controller_result",
+			"previous_sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+			"next_sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+			"github_verified": true,
+			"local_verified": true
+		},
+		"r4_baseline": {
+			"sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+			"branch": "main",
+			"run": "POS-NORTHSTAR-R4",
+			"role": "controller_baseline",
+			"previous_sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+			"next_sha": null,
+			"github_verified": true,
+			"local_verified": true,
+			"note": "R4 adds evidence only, no product code change"
+		}
+	},
+	"sandbox": {
+		"repository": "xxammaxx/positron-sandbox",
+		"bootstrap_baseline": {
+			"sha": "11f97ab4a8c1732091e483b7a4b8e086a2842880",
+			"branch": "main",
+			"run": "PRE-R1",
+			"role": "bootstrap_baseline",
+			"previous_sha": "287ea90",
+			"next_sha": "734d283d24b99aa03c4c232fb213d4f0f93fa9b7",
+			"github_verified": true,
+			"local_verified": true,
+			"note": "Initial sandbox codebase: formatTitle with tests"
+		},
+		"r1_baseline": {
+			"sha": "11f97ab4a8c1732091e483b7a4b8e086a2842880",
+			"branch": "main",
+			"run": "POS-NORTHSTAR-R1",
+			"role": "sandbox_baseline",
+			"previous_sha": "287ea90",
+			"next_sha": "2107dac50aa5ac83f64413b4529e4c5c1daef1f4",
+			"github_verified": true,
+			"local_verified": true,
+			"note": "R1 branched from this baseline"
+		},
+		"r1_head": {
+			"sha": "2107dac50aa5ac83f64413b4529e4c5c1daef1f4",
+			"branch": "positron/issue-2-preserve-version-strings",
+			"run": "POS-NORTHSTAR-R1",
+			"role": "canary_head",
+			"previous_sha": "11f97ab4a8c1732091e483b7a4b8e086a2842880",
+			"next_sha": null,
+			"github_verified": true,
+			"local_verified": true,
+			"note": "R1 canary result \u2014 unmerged draft PR #3"
+		},
+		"r2_baseline": {
+			"sha": "734d283d24b99aa03c4c232fb213d4f0f93fa9b7",
+			"branch": "main",
+			"run": "POS-NORTHSTAR-R2",
+			"role": "sandbox_baseline",
+			"previous_sha": "11f97ab4a8c1732091e483b7a4b8e086a2842880",
+			"next_sha": "66b9def90eae90d42a75e2f15476e1830d468297",
+			"github_verified": true,
+			"local_verified": true,
+			"note": "Added wordCount utility function \u2014 independent from R1 baseline"
+		},
+		"r2_head": {
+			"sha": "66b9def90eae90d42a75e2f15476e1830d468297",
+			"branch": "positron/issue-4-wordcount-punctuation",
+			"run": "POS-NORTHSTAR-R2",
+			"role": "canary_head",
+			"previous_sha": "734d283d24b99aa03c4c232fb213d4f0f93fa9b7",
+			"next_sha": "09700b0e1c920a005ec5971f15172e544c516e30",
+			"github_verified": true,
+			"local_verified": true,
+			"note": "R2 canary result \u2014 fix applied, merged in R3"
+		},
+		"r3_approved_head": {
+			"sha": "66b9def90eae90d42a75e2f15476e1830d468297",
+			"branch": "positron/issue-4-wordcount-punctuation",
+			"run": "POS-NORTHSTAR-R3",
+			"role": "approved_for_merge",
+			"previous_sha": "734d283d24b99aa03c4c232fb213d4f0f93fa9b7",
+			"next_sha": "09700b0e1c920a005ec5971f15172e544c516e30",
+			"github_verified": true,
+			"local_verified": true,
+			"note": "SHA-bound owner approval for merge"
+		},
+		"r3_merge_sha": {
+			"sha": "09700b0e1c920a005ec5971f15172e544c516e30",
+			"branch": "main",
+			"run": "POS-NORTHSTAR-R3",
+			"role": "merge_commit",
+			"previous_sha": "66b9def90eae90d42a75e2f15476e1830d468297",
+			"next_sha": null,
+			"github_verified": true,
+			"local_verified": true,
+			"note": "Merge commit of PR #5 into main"
+		},
+		"r3_post_merge_main": {
+			"sha": "09700b0e1c920a005ec5971f15172e544c516e30",
+			"branch": "main",
+			"run": "POS-NORTHSTAR-R3",
+			"role": "post_merge_main",
+			"previous_sha": "734d283d24b99aa03c4c232fb213d4f0f93fa9b7",
+			"next_sha": null,
+			"github_verified": true,
+			"local_verified": true,
+			"note": "Post-merge main \u2014 identical to merge SHA"
+		},
+		"r4_observed_main": {
+			"sha": "09700b0e1c920a005ec5971f15172e544c516e30",
+			"branch": "main",
+			"run": "POS-NORTHSTAR-R4",
+			"role": "observed_main",
+			"previous_sha": "734d283d24b99aa03c4c232fb213d4f0f93fa9b7",
+			"next_sha": null,
+			"github_verified": true,
+			"local_verified": true,
+			"note": "R4 reality refresh confirms main unchanged since R3 merge"
+		}
+	},
+	"hash_chain_integrity": "VERIFIED \u2014 all SHAs form a consistent, monotonic chain with no gaps or unexplained mutations"
+}

@@ -1,0 +1,57 @@
+{
+	"run_id": "POS-NORTHSTAR-R4",
+	"phase": "CROSS_RUN_PROVENANCE_AUDIT",
+	"audited_at": "2026-08-03T06:30:55Z",
+	"checks": {
+		"unique_actor_ids": {
+			"status": "PASS",
+			"detail": "R1, R2, R3 each have distinct run IDs; actors (BUILDER_AGENT, VERIFIER_AGENT, HUMAN_OWNER) consistently identified"
+		},
+		"unique_run_ids": {
+			"status": "PASS",
+			"detail": "POS-NORTHSTAR-R1, POS-NORTHSTAR-R2, POS-NORTHSTAR-R3 are unique and non-overlapping"
+		},
+		"monotonic_event_sequences": {
+			"status": "PASS",
+			"detail": "Each run's event sequence is monotonic (R1: bootstrap\u2192canary\u2192draft PR; R2: baseline\u2192RED\u2192FIX\u2192GREEN\u2192draft PR; R3: approval\u2192merge\u2192verify\u2192close\u2192reconcile)"
+		},
+		"valid_hash_chains": {
+			"status": "PASS",
+			"detail": "Sandbox SHA chain: 287ea90\u219211f97ab\u2192734d283\u219266b9def\u219209700b0 \u2014 all parent-child relationships verified via git"
+		},
+		"no_unattributed_github_mutations": {
+			"status": "PASS",
+			"detail": "All GitHub mutations (PR creation, merge, issue closure) are attributed to specific runs and actors"
+		},
+		"no_mutation_outside_approved_repo": {
+			"status": "PASS",
+			"detail": "All mutations confined to xxammaxx/positron-sandbox (canary repo). No mutations to xxammaxx/Positron (controller repo)"
+		},
+		"human_gates_referenced": {
+			"status": "PASS",
+			"detail": "R3 merge gate: explicit AUTHORIZE MERGE with SHA-bound approval. R1/R2: Human Gates documented for PR creation"
+		},
+		"no_simulated_owner_approval": {
+			"status": "PASS",
+			"detail": "R3 owner approval is externally verifiable via GitHub merge event (2026-08-02T20:08:07Z)"
+		},
+		"no_manual_substitution": {
+			"status": "PASS",
+			"detail": "All code changes produced by automated agent pipeline; no evidence of human code injection or evidence fabrication"
+		},
+		"no_retroactive_evidence": {
+			"status": "PASS",
+			"detail": "R1-R3 evidence timestamps are consistent with run execution order. No backdated or post-hoc evidence creation detected"
+		},
+		"reverification_marked": {
+			"status": "PASS",
+			"detail": "Post-merge verification in R3 and independent verifier steps are correctly marked as reverification, not initial validation"
+		},
+		"builder_verifier_separation": {
+			"status": "PASS",
+			"detail": "R2 and R3 independent verifier used fresh clones (/tmp/positron-sandbox-verify) separate from builder workspace"
+		}
+	},
+	"classification": "GREEN_TRILOGY_PROVENANCE_VERIFIED",
+	"notes": "Provenance chain is complete and trustworthy across all three runs. Actor, tool, and timeline attribution is consistent and externally verifiable via GitHub audit log."
+}
