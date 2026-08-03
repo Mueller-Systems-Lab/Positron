@@ -1,0 +1,7 @@
+{
+  "timestamp": "2026-08-03T20:25:25Z",
+  "positron_servers_running": 0,
+  "workers_running": 0,
+  "db_state": "~/.positron/positron.db (existing, with history)",
+  "note": "No active Positron processes before live canary start"
+}

@@ -1,0 +1,10 @@
+{
+  "timestamp": "2026-08-03T20:43:45Z",
+  "worker": "Server A",
+  "pid": 2465171,
+  "exit_code": 1,
+  "cause": "Fault injection triggered after PR #15 creation",
+  "run_a_state_persisted": true,
+  "run_a_phase": "PR_CREATE",
+  "run_a_status": "active"
+}

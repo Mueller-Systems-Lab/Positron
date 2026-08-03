@@ -1,0 +1,15 @@
+{
+  "timestamp": "2026-08-03T20:25:25Z",
+  "db_path": "~/.positron/positron.db",
+  "db_size_bytes": 2310144,
+  "wal_file": true,
+  "shm_file": true,
+  "recovery_query": "SELECT id FROM runs WHERE status = 'active' AND phase NOT IN ('DONE', 'FAILED_BLOCKED', 'FAILED') AND finished_at IS NULL ORDER BY started_at ASC",
+  "fault_injection": {
+    "env_var": "POSITRON_FAULT_INJECTION_POINT",
+    "value": "AFTER_REMOTE_DRAFT_PR_CREATE_BEFORE_LOCAL_SUCCESS_CHECKPOINT",
+    "run_scoped": true,
+    "run_scoping_env_var": "POSITRON_FAULT_RUN_ID",
+    "scoping_logic": "(!faultRunId || String(current.issueNumber) === faultRunId)"
+  }
+}

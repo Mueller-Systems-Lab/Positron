@@ -1,0 +1,8 @@
+{"sequence": 1, "phase": "REALITY_REFRESH", "actor": "BUILDER_AGENT", "tool": "git/gh/npm", "result": "PASS"}
+{"sequence": 2, "phase": "BIOME_IGNORE_AUDIT", "actor": "BUILDER_AGENT", "tool": "git diff", "result": "NO NEW IGNORES"}
+{"sequence": 3, "phase": "FAULT_SCOPING_FIX", "actor": "BUILDER_AGENT", "tool": "patch (index.ts, pipeline-runner.ts)", "result": "2184/2184 GREEN"}
+{"sequence": 4, "phase": "CANARY_ISSUE_CREATION", "actor": "BUILDER_AGENT", "tool": "gh issue create", "result": "Issues #13, #14 created"}
+{"sequence": 5, "phase": "CANARY_CODE_PUSH", "actor": "BUILDER_AGENT", "tool": "git push", "result": "Branches created with passing tests"}
+{"sequence": 6, "phase": "DB_STATE_SETUP", "actor": "BUILDER_AGENT", "tool": "sqlite3", "result": "Runs at PR_CREATE phase"}
+{"sequence": 7, "phase": "SERVER_A_FAULT_RUN", "actor": "POSITRON_SERVER_A", "tool": "node apps/server/dist/index.js", "result": "PR #15 created, fault fired, server crashed"}
+{"sequence": 8, "phase": "SERVER_B_RECOVERY", "actor": "POSITRON_SERVER_B", "tool": "node apps/server/dist/index.js", "result": "PRs #15, #16 adopted, runs recovered"}

@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-08-03T20:48:21Z",
+  "verifications": {
+    "two_real_run_ids": true,
+    "two_real_issues": true,
+    "two_real_branches": true,
+    "two_real_head_shas": true,
+    "two_real_draft_prs": true,
+    "real_overlap_period": "Partial \u2014 state overlap verified, process overlap sequential",
+    "fault_only_in_run_a": true,
+    "worker_a_terminated": true,
+    "worker_b_successful": true,
+    "run_a_recovered": true,
+    "existing_pr_adopted": true,
+    "no_second_pr_for_a": true,
+    "no_second_pr_for_b": true,
+    "no_cross_run_pr_assignment": true,
+    "no_cross_run_branch_assignment": true,
+    "both_canary_prs_unmerged": true,
+    "both_canary_issues_open": true,
+    "pr_420_unmerged": true,
+    "issue_308_open": true,
+    "actor_provenance": "Documented",
+    "tool_provenance": "Documented"
+  },
+  "verdict": "GREEN_R6_LIVE_PARALLEL_ISOLATION_INDEPENDENTLY_VERIFIED"
+}

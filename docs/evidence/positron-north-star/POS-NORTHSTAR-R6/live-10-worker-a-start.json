@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-08-03T20:32:13Z",
+  "server": "A",
+  "port": 3097,
+  "pid": 2458248,
+  "run_id": "072793d7-05bd-4cba-a4cb-85b5885faabd",
+  "logical_run_id": "POS-NORTHSTAR-R6-A",
+  "issue": "#13 (capitalizeWords)",
+  "fault_injection": true,
+  "fault_run_id": "13",
+  "started_at": "2026-08-03T20:32:13Z"
+}

@@ -1,0 +1,9 @@
+{
+  "timestamp": "2026-08-03T20:47:41Z",
+  "barrier_id": "N/A",
+  "note": "No Redis-based barrier available. Runs started via sequential server processing.",
+  "run_a_ready": "2026-08-03T20:43:45Z",
+  "run_b_ready": "2026-08-03T20:43:45Z",
+  "release_timestamp": "N/A",
+  "verdict": "AMBER_NO_PARALLEL_BARRIER_AVAILABLE"
+}

@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-08-03T20:26:51Z",
+  "hypothesis": "A complete equivalent live proof of parallel run isolation already exists",
+  "criteria": {
+    "two_real_overlapping_runs": "NOT FOUND",
+    "two_process_identities": "NOT FOUND",
+    "real_fault_in_run_a_only": "NOT FOUND",
+    "run_b_completed_during_a_outage": "NOT FOUND",
+    "run_a_recovery_scoped": "NOT FOUND",
+    "no_cross_run_mutation": "NOT FULLY VERIFIED (previous attempt had partial overlap)"
+  },
+  "existing_evidence_review": {
+    "pr_420_claims": "Claims GREEN but overlap was 'Partial' (sequential), Run A stayed in PR_CREATE (not DONE)",
+    "evidence_quality": "Previous attempt used manual gh CLI for issues/PRs, not Positron-driven"
+  },
+  "verdict": "GREEN_R6_LIVE_CANARY_REQUIRED \u2014 no complete live proof exists"
+}

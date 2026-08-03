@@ -1,0 +1,23 @@
+{
+  "run_id": "POS-NORTHSTAR-R6",
+  "controller_issue": "xxammaxx/Positron#308",
+  "positron_pr": 420,
+  "target_repository": "xxammaxx/positron-sandbox",
+  "execution_mode": "CONTINUOUS_PREAUTHORIZED_RUN",
+  "parallel_run_count": 2,
+  "required_real_processes": 2,
+  "required_real_overlap": true,
+  "required_fault_run": "POS-NORTHSTAR-R6-A",
+  "fault_in_run_b_authorized": false,
+  "required_run_b_completion_during_run_a_outage": true,
+  "required_run_a_recovery": true,
+  "required_no_cross_run_mutation": true,
+  "required_no_duplicate_remote_objects": true,
+  "sandbox_pr_merge_authorized": false,
+  "positron_pr_merge_authorized": false,
+  "sandbox_issue_closure_authorized": false,
+  "controller_issue_closure_authorized": false,
+  "manual_substitution_authorized": false,
+  "required_independent_verifier": true,
+  "frozen_at": "2026-08-03T20:16:59Z"
+}

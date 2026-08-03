@@ -1,0 +1,10 @@
+{
+  "timestamp": "2026-08-03T20:16:59Z",
+  "result": "GREEN_BIOME_IGNORE_NO_NEW_PATTERNS",
+  "detail": "R6 branch (feat/positron-north-star-r6-parallel-isolation) introduces zero changes to biome.json. No ignore patterns added, modified, or removed.",
+  "production_code_affected": false,
+  "test_code_affected": false,
+  "r6_test_code_affected": false,
+  "hidden_problematic_files": 0,
+  "verdict": "No ignore audit required \u2014 no biome.json delta"
+}

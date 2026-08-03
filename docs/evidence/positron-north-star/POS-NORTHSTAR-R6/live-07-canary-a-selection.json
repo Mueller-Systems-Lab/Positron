@@ -1,0 +1,16 @@
+{
+  "run": "POS-NORTHSTAR-R6-A",
+  "function": "capitalizeWords",
+  "description": "Capitalize first letter of each word in a string",
+  "edge_cases": [
+    "empty string returns empty",
+    "single word is capitalized",
+    "multiple spaces between words handled",
+    "mixed case input",
+    "single character"
+  ],
+  "files": {
+    "src": "src/capitalizeWords.ts",
+    "test": "tests/capitalizeWords.test.ts"
+  }
+}

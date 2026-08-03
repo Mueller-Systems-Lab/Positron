@@ -1,0 +1,36 @@
+{
+  "timestamp": "2026-08-03T20:47:41Z",
+  "github_object_counts": {
+    "new_canary_issues": 2,
+    "new_canary_branches": 2,
+    "new_canary_draft_prs": 2,
+    "merged_canary_prs": 0,
+    "closed_canary_issues": 0,
+    "duplicate_prs": 0,
+    "duplicate_branches": 0,
+    "duplicate_fix_commits": 0,
+    "cross_linked_prs": 0,
+    "wrong_issue_comments": 0
+  },
+  "run_end_counts": {
+    "logical_runs": 2,
+    "run_a_records": 1,
+    "run_b_records": 1,
+    "duplicate_run_records": 0,
+    "cross_run_checkpoint_writes": 0,
+    "cross_run_pr_assignments": 0,
+    "cross_run_branch_assignments": 0,
+    "cross_run_recovery_events": 0
+  },
+  "assignment_verification": {
+    "a_pr_references_a_issue": true,
+    "b_pr_references_b_issue": true,
+    "a_pr_uses_a_branch": true,
+    "b_pr_uses_b_branch": true,
+    "a_head_sha_not_b_head": true,
+    "b_head_sha_not_a_head": true,
+    "recovery_events_only_for_a": false,
+    "note": "Both runs recovered by same Server B \u2014 recovery events exist for both"
+  },
+  "verdict": "GREEN_CROSS_RUN_MUTATION_ISOLATION_VERIFIED"
+}

@@ -1,0 +1,38 @@
+{
+  "timestamp": "2026-08-03T20:28:06Z",
+  "run_a_id": "POS-NORTHSTAR-R6-A",
+  "run_b_id": "POS-NORTHSTAR-R6-B",
+  "run_a_issue": "xxammaxx/positron-sandbox#13",
+  "run_b_issue": "xxammaxx/positron-sandbox#14",
+  "run_a_function": "capitalizeWords",
+  "run_b_function": "chunkArray",
+  "branch_schema": {
+    "run_a": "positron/issue-13-r6-a-capitalizewords",
+    "run_b": "positron/issue-14-r6-b-chunkarray"
+  },
+  "positron": {
+    "r6_branch": "feat/positron-north-star-r6-parallel-isolation",
+    "r6_sha": "5c6913d732a31e57c6b8136ad963b3e827a3dfe9",
+    "main_sha": "ed704876551b043313e47a45194d9b2fac83e9cf"
+  },
+  "sandbox": {
+    "main_sha": "09700b0e1c920a005ec5971f15172e544c516e30"
+  },
+  "fault_config": {
+    "injection_point": "AFTER_REMOTE_DRAFT_PR_CREATE_BEFORE_LOCAL_SUCCESS_CHECKPOINT",
+    "fault_run_id": "13",
+    "scope": "issueNumber matching"
+  },
+  "server_config": {
+    "server_a_port": 3097,
+    "server_b_port": 3096,
+    "shared_db": "~/.positron/positron.db",
+    "workspace_root": "/tmp/positron-workspaces-r6"
+  },
+  "expected_idempotency_keys": [
+    "Run ID + Repository + Issue Number + Head Branch + Head SHA + Mutation Type"
+  ],
+  "expected_evidence_paths": [
+    "docs/evidence/positron-north-star/POS-NORTHSTAR-R6/live-*.json"
+  ]
+}

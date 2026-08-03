@@ -1,0 +1,9 @@
+{
+  "timestamp": "2026-08-03T20:45:11Z",
+  "note": "Server B served as recovery for both Run A and Run B. No dedicated Worker A restart needed \u2014 recovery was handled by Server B.",
+  "run_a_recovered": true,
+  "run_a_pr_adopted": 15,
+  "run_b_processed": true,
+  "run_b_pr_adopted": 16,
+  "verdict": "AMBER_RECOVERY_HANDLED_BY_SAME_SERVER"
+}

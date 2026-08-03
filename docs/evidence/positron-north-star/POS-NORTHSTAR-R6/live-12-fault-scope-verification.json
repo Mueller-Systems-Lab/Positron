@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-08-03T20:32:13Z",
+  "fault_condition": "!prWasAdopted && faultPoint === 'AFTER_REMOTE_DRAFT_PR_CREATE_BEFORE_LOCAL_SUCCESS_CHECKPOINT' && (!faultRunId || String(current.issueNumber) === faultRunId)",
+  "server_a_config": {
+    "POSITRON_FAULT_INJECTION_POINT": "AFTER_REMOTE_DRAFT_PR_CREATE_BEFORE_LOCAL_SUCCESS_CHECKPOINT",
+    "POSITRON_FAULT_RUN_ID": "13"
+  },
+  "server_b_config": {
+    "POSITRON_FAULT_INJECTION_POINT": "NOT SET",
+    "POSITRON_FAULT_RUN_ID": "NOT SET"
+  },
+  "verdict": "GREEN_FAULT_SCOPED_TO_RUN_A \u2014 Server B has no fault injection env vars, Server A scoped to issue #13"
+}

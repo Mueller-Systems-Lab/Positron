@@ -1266,11 +1266,13 @@ async function executePhase(
 					});
 				}
 
-				// --- R5: Fault Injection Hook ---
+				// --- R5/R6: Fault Injection Hook (run-scoped via POSITRON_FAULT_RUN_ID) ---
 				const faultPoint = process.env.POSITRON_FAULT_INJECTION_POINT;
+				const faultRunId = process.env.POSITRON_FAULT_RUN_ID;
 				if (
 					!prWasAdopted &&
-					faultPoint === 'AFTER_REMOTE_DRAFT_PR_CREATE_BEFORE_LOCAL_SUCCESS_CHECKPOINT'
+					faultPoint === 'AFTER_REMOTE_DRAFT_PR_CREATE_BEFORE_LOCAL_SUCCESS_CHECKPOINT' &&
+					(!faultRunId || String(current.issueNumber) === faultRunId)
 				) {
 					storeEvent({
 						id: createRunId(),

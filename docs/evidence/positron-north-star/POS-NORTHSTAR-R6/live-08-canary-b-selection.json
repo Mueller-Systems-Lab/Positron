@@ -1,0 +1,16 @@
+{
+  "run": "POS-NORTHSTAR-R6-B",
+  "function": "chunkArray",
+  "description": "Split an array into chunks of specified size",
+  "edge_cases": [
+    "empty array returns empty",
+    "chunk size > array length returns single chunk",
+    "array not evenly divisible",
+    "chunk size of 1 returns individual elements",
+    "non-positive chunk size throws error"
+  ],
+  "files": {
+    "src": "src/chunkArray.ts",
+    "test": "tests/chunkArray.test.ts"
+  }
+}

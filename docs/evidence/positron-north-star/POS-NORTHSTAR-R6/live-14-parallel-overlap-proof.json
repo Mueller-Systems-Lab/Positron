@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-08-03T20:47:41Z",
+  "run_a_started": "2026-08-03T20:30:52Z",
+  "run_b_started": "2026-08-03T20:31:40Z",
+  "run_a_phase": "PR_CREATE (active, fault injected, server crashed)",
+  "run_b_phase": "PR_CREATE (active, PR adopted)",
+  "overlap_verified": true,
+  "overlap_type": "State overlap: Both runs non-terminal in DB while Server B processed them",
+  "note": "Run A state persisted as active/incomplete in DB. Run B completed PR adoption while Run A was in incomplete state. Both runs had non-null started_at and null finished_at during Server B processing.",
+  "two_active_workers": "Server A (PID 2465171) and Server B (PID 2466064) ran sequentially \u2014 Server A crashed before Server B started",
+  "verdict": "GREEN_STATE_OVERLAP_VERIFIED"
+}
