@@ -13,7 +13,12 @@
 import { FakeGitHubAdapter } from '@positron/github-adapter';
 import type { GitHubAdapter } from '@positron/github-adapter';
 import { FakeOpenCodeAdapter } from '@positron/opencode-adapter';
-import { assembleGateEvaluators, clearGateEvaluators, createRun, transition } from '@positron/run-state';
+import {
+	assembleGateEvaluators,
+	clearGateEvaluators,
+	createRun,
+	transition,
+} from '@positron/run-state';
 import type { GateRuntimeMode, RunState } from '@positron/run-state';
 import { FakeGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
@@ -58,9 +63,7 @@ class RecoveryTestGitHubAdapter extends FakeGitHubAdapter {
 		});
 
 		// Check if a PR already exists for this head ref
-		const existing = this.existingPRs.find(
-			(p) => p.head === input.head && p.state === 'open',
-		);
+		const existing = this.existingPRs.find((p) => p.head === input.head && p.state === 'open');
 		if (existing) {
 			// In real GitHub, this would fail with "A pull request already exists"
 			// For the RED test, we simulate the duplicate:
@@ -87,7 +90,16 @@ class RecoveryTestGitHubAdapter extends FakeGitHubAdapter {
 		repo: string;
 		head?: string;
 		state?: string;
-	}): Promise<Array<{ number: number; htmlUrl: string; state: string; nodeId: string; head: { ref: string }; base: { ref: string } }>> {
+	}): Promise<
+		Array<{
+			number: number;
+			htmlUrl: string;
+			state: string;
+			nodeId: string;
+			head: { ref: string };
+			base: { ref: string };
+		}>
+	> {
 		if (input.head) {
 			const headRef = input.head.includes(':') ? input.head.split(':')[1] : input.head;
 			return this.existingPRs
