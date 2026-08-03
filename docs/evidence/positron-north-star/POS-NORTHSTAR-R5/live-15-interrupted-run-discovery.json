@@ -1,0 +1,9 @@
+{
+	"phase": "H",
+	"timestamp": "2026-08-03T13:37:49Z",
+	"runs_discovered": 1,
+	"original_run_id": "fault-canary-001",
+	"run_id_unchanged": true,
+	"no_new_run_id": true,
+	"discovery_method": "startup recovery (R5 \u2014 recoverIncompleteRunsOnStartup)"
+}

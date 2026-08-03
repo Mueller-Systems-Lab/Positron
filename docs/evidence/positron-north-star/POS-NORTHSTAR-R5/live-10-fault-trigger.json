@@ -1,0 +1,11 @@
+{
+	"phase": "E",
+	"timestamp": "2026-08-03T13:36:51Z",
+	"fault_point": "AFTER_REMOTE_DRAFT_PR_CREATE_BEFORE_LOCAL_SUCCESS_CHECKPOINT",
+	"pr_was_adopted": false,
+	"pr_number": 8,
+	"action": "process.exit(1)",
+	"run_saved_before_exit": true,
+	"run_phase_saved": "PR_CREATE",
+	"run_status_saved": "active"
+}

@@ -1,0 +1,11 @@
+{
+	"phase": "I",
+	"timestamp": "2026-08-03T13:37:50Z",
+	"github_queried": true,
+	"matching_pr_found": true,
+	"pr_number": 8,
+	"pr_state": "OPEN",
+	"pr_head": "positron/issue-6-truncate-text",
+	"pr_base": "main",
+	"decision": "REMOTE_MUTATION_ALREADY_SUCCEEDED"
+}

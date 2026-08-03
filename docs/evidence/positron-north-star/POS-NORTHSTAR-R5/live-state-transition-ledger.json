@@ -1,0 +1,34 @@
+{
+	"transitions": [
+		{
+			"from": "(none)",
+			"to": "PR_CREATE/active",
+			"cause": "pre-seeded in DB",
+			"timestamp": "2026-08-03T13:36:26Z"
+		},
+		{
+			"from": "PR_CREATE/active",
+			"to": "PR_CREATE/active (server crash)",
+			"cause": "fault injection: process.exit(1)",
+			"timestamp": "2026-08-03T13:36:52Z"
+		},
+		{
+			"from": "PR_CREATE/active",
+			"to": "PR_CREATE/active (re-discovered)",
+			"cause": "startup recovery",
+			"timestamp": "2026-08-03T13:37:49Z"
+		},
+		{
+			"from": "PR_CREATE/active",
+			"to": "MERGE/active",
+			"cause": "PR adopted, phase transition",
+			"timestamp": "2026-08-03T13:39:25Z"
+		},
+		{
+			"from": "MERGE/active",
+			"to": "FAILED_BLOCKED/blocked",
+			"cause": "merge gates blocked (pre_merge, security, human_approval)",
+			"timestamp": "2026-08-03T13:39:25Z"
+		}
+	]
+}

@@ -1,0 +1,10 @@
+{
+	"phase": "PR_CREATE",
+	"timestamp": "2026-08-03T13:36:26Z",
+	"run_id": "fault-canary-001",
+	"repo": "xxammaxx/positron-sandbox",
+	"issue": 6,
+	"branch": "positron/issue-6-truncate-text",
+	"status": "active",
+	"method": "pre-seeded in DB for recovery testing"
+}

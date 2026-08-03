@@ -1,0 +1,12 @@
+{
+	"phase": "E",
+	"timestamp": "2026-08-03T13:36:51Z",
+	"pr_number": 8,
+	"pr_url": "https://github.com/xxammaxx/positron-sandbox/pull/8",
+	"pr_state": "OPEN",
+	"is_draft": false,
+	"head_ref": "positron/issue-6-truncate-text",
+	"base_ref": "main",
+	"head_sha": "74202cdb2f532e1f20ed8dfeb93d7c933f7813fc",
+	"title": "Positron: Issue #6 \u2014 Automated changes"
+}

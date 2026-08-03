@@ -1,0 +1,19 @@
+{
+	"phase": "K",
+	"timestamp": "2026-08-03T13:40:00Z",
+	"sandbox_prs_for_head": [
+		{
+			"number": 8,
+			"state": "OPEN",
+			"head": "positron/issue-6-truncate-text"
+		},
+		{
+			"number": 7,
+			"state": "CLOSED",
+			"head": "positron/issue-6-truncate-text",
+			"note": "leftover cleaned before canary"
+		}
+	],
+	"active_canary_prs": 1,
+	"duplicate_prs": 0
+}

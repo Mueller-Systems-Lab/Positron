@@ -1,0 +1,34 @@
+{
+	"tools_used": [
+		{
+			"name": "git",
+			"version": "system",
+			"actions": ["checkout", "commit", "push"]
+		},
+		{
+			"name": "gh",
+			"version": "system",
+			"actions": ["pr close", "pr list", "pr view", "auth token"]
+		},
+		{
+			"name": "npm/node",
+			"version": "v22.22.0",
+			"actions": ["build", "test"]
+		},
+		{
+			"name": "sqlite3",
+			"version": "system",
+			"actions": ["db query", "db update"]
+		},
+		{
+			"name": "curl",
+			"version": "system",
+			"actions": ["api calls"]
+		},
+		{
+			"name": "python3",
+			"version": "system",
+			"actions": ["json processing", "evidence generation"]
+		}
+	]
+}

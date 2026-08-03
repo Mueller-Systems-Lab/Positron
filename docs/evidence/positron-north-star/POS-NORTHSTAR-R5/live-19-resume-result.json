@@ -1,0 +1,14 @@
+{
+	"phase": "J",
+	"timestamp": "2026-08-03T13:37:51Z",
+	"run_id": "fault-canary-001",
+	"pr_adopted": 8,
+	"no_second_pr": true,
+	"no_second_branch": true,
+	"no_second_commit": true,
+	"merge_blocked_by_gates": true,
+	"merge_gates_failed": ["pre_merge", "security", "human_approval"],
+	"final_run_phase": "FAILED_BLOCKED",
+	"final_run_status": "blocked",
+	"note": "MERGE blocked by safety gates \u2014 expected canary behavior"
+}

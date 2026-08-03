@@ -1,0 +1,16 @@
+{
+	"run_id": "POS-NORTHSTAR-R5",
+	"phase": "RECOVERY_FIX",
+	"files_changed": [
+		"apps/worker/src/pipeline-runner.ts \u2014 PR pre-existence check + fault injection hook",
+		"apps/server/src/index.ts \u2014 same: PR pre-existence check + fault injection hook"
+	],
+	"test_files_added": [
+		"apps/server/src/__tests__/recovery-resume.test.ts \u2014 2 RED\u2192GREEN recovery tests"
+	],
+	"new_dependencies": 0,
+	"new_runtime_components": 0,
+	"new_agent_roles": 0,
+	"all_tests": "2175/2175 GREEN",
+	"classification": "GREEN_RECOVERY_FIX_MINIMAL"
+}
