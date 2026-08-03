@@ -1,12 +1,12 @@
 {
-  "algorithm": "sha256",
-  "canonical_sort": "run_id_ascending_then_relative_path_ascending_utf8",
-  "leaf_construction": "SHA256(run_id + ':' + relative_path + ':' + file_sha256)",
-  "tree_construction": "binary merkle tree, SHA256(left_child + right_child), padded to power of 2 with SHA256('')",
-  "leaf_count": 25,
-  "padded_size": 32,
-  "root": "5487a119d3d8a14c140455128f9741119e8a0569574420e4de7701085b57234f",
-  "manifest_sha256": "d6732c728264af6c585aa7351216b8e8fb1a3c5b329a2a527637d9c59631b7f6",
-  "reproducible": true,
-  "reproduction_command": "python3 build_merkle.py --manifest 09-trilogy-integrity-manifest.json"
+	"algorithm": "sha256",
+	"canonical_sort": "run_id_ascending_then_relative_path_ascending_utf8",
+	"leaf_construction": "SHA256(run_id + ':' + relative_path + ':' + file_sha256)",
+	"tree_construction": "binary merkle tree, SHA256(left_child + right_child), padded to power of 2 with SHA256('')",
+	"leaf_count": 25,
+	"padded_size": 32,
+	"root": "5487a119d3d8a14c140455128f9741119e8a0569574420e4de7701085b57234f",
+	"manifest_sha256": "d6732c728264af6c585aa7351216b8e8fb1a3c5b329a2a527637d9c59631b7f6",
+	"reproducible": true,
+	"reproduction_command": "python3 build_merkle.py --manifest 09-trilogy-integrity-manifest.json"
 }

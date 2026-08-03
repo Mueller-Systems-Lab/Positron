@@ -1,281 +1,281 @@
 {
-  "run_id": "POS-NORTHSTAR-R4",
-  "phase": "CAPABILITY_BASELINE",
-  "generated_at": "2026-08-03T06:32:10Z",
-  "baseline_version": "v1.0.0",
-  "summary": {
-    "supervised_validated": 21,
-    "test_validated_only": 6,
-    "not_implemented": 13,
-    "out_of_scope": 4,
-    "total": 44
-  },
-  "capabilities": [
-    {
-      "capability": "Issue-Ingestion",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "R1: Issue #2 read; R2: Issue #4 read; R3: #308 reconciled",
-      "run": "R1,R2,R3"
-    },
-    {
-      "capability": "Repository-Reconciliation",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "R3: Controller reconciled sandbox state with GitHub API",
-      "run": "R3"
-    },
-    {
-      "capability": "Specification",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "R1/R2: ADRs produced, issue analysis documented",
-      "run": "R1,R2"
-    },
-    {
-      "capability": "Planning",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "R1/R2: Task breakdown, phase planning in evidence",
-      "run": "R1,R2"
-    },
-    {
-      "capability": "Task-Erzeugung",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "R1/R2: Granular task creation from plan",
-      "run": "R1,R2"
-    },
-    {
-      "capability": "RED-before-GREEN",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "R1: RED tests before fix; R2: '3 failures (punctuation tokens counted)'",
-      "run": "R1,R2"
-    },
-    {
-      "capability": "Minimale Implementierung",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "R1: formatTitle fix; R2: wordCount fix \u2014 minimal changes",
-      "run": "R1,R2"
-    },
-    {
-      "capability": "Vollstaendige Tests",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "R1: 11 tests; R2: 21 tests; all GREEN after fix",
-      "run": "R1,R2"
-    },
-    {
-      "capability": "Seeded-Fault-Pruefung",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "R2: Seeded fault methodology validated \u2014 fault detected, removed, GREEN confirmed",
-      "run": "R2"
-    },
-    {
-      "capability": "Independent Verification",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "R2/R3: Fresh clone verification with SHA match, test rerun, secret scan",
-      "run": "R2,R3"
-    },
-    {
-      "capability": "Branch-Erstellung",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "R1: positron/issue-2-preserve-version-strings; R2: positron/issue-4-wordcount-punctuation",
-      "run": "R1,R2"
-    },
-    {
-      "capability": "Commit",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "R1: commit on branch; R2: commit on branch (66b9def)",
-      "run": "R1,R2"
-    },
-    {
-      "capability": "Push",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "Both canary branches pushed to GitHub origin",
-      "run": "R1,R2"
-    },
-    {
-      "capability": "Draft-PR",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "PR #3 (DRAFT), PR #5 (DRAFT\u2192merged)",
-      "run": "R1,R2"
-    },
-    {
-      "capability": "Wiederholbarkeit",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "R2 repeated the full lifecycle independently from R1, from fresh baseline",
-      "run": "R2"
-    },
-    {
-      "capability": "Actor-Provenienz",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "R2: Structured provenance events with actor_type, tool_name, sha_before/after",
-      "run": "R2"
-    },
-    {
-      "capability": "Tool-Provenienz",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "R2: Tool usage tracked (vitest, gh CLI, git, OpenCode adapter)",
-      "run": "R2"
-    },
-    {
-      "capability": "Human-Gate-Merge",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "R3: Owner AUTHORIZE MERGE with SHA-bound approval before PR #5 merge",
-      "run": "R3"
-    },
-    {
-      "capability": "Post-Merge-Fresh-Clone",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "R3: Post-merge verification from fresh clone, not builder workspace",
-      "run": "R3"
-    },
-    {
-      "capability": "Issue-Schliessung",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "R3: Issue #4 closed only after post-merge GREEN verification",
-      "run": "R3"
-    },
-    {
-      "capability": "Controller-Reconcile",
-      "status": "SUPERVISED_VALIDATED",
-      "evidence": "R3: Final controller-state-to-GitHub reconciliation",
-      "run": "R3"
-    },
-    {
-      "capability": "Secret-Leakage-Prevention",
-      "status": "TEST_VALIDATED_ONLY",
-      "evidence": "Positron test suite: secret-leakage.test.ts (84 test files, 2173 tests)",
-      "run": "N/A"
-    },
-    {
-      "capability": "Autonomy-Level-Enforcement",
-      "status": "TEST_VALIDATED_ONLY",
-      "evidence": "Positron test suite: autonomy-violation.test.ts",
-      "run": "N/A"
-    },
-    {
-      "capability": "Run-State-Machine",
-      "status": "TEST_VALIDATED_ONLY",
-      "evidence": "Positron test suite: smoke.test.ts (state transitions)",
-      "run": "N/A"
-    },
-    {
-      "capability": "Queue-Metrics",
-      "status": "TEST_VALIDATED_ONLY",
-      "evidence": "Positron test suite: queue.test.ts",
-      "run": "N/A"
-    },
-    {
-      "capability": "Tool-Gateway-Policy",
-      "status": "TEST_VALIDATED_ONLY",
-      "evidence": "Positron test suite: tool gateway tests",
-      "run": "N/A"
-    },
-    {
-      "capability": "Sandbox-Isolation",
-      "status": "TEST_VALIDATED_ONLY",
-      "evidence": "Sandbox package tests; no real multi-tenant isolation run",
-      "run": "N/A"
-    },
-    {
-      "capability": "Unbeaufsichtigter Betrieb",
-      "status": "NOT_IMPLEMENTED",
-      "evidence": "All R1-R3 runs required Human Gates at critical junctures",
-      "run": "N/A"
-    },
-    {
-      "capability": "Parallele Runs",
-      "status": "NOT_IMPLEMENTED",
-      "evidence": "No parallel run isolation demonstrated; runcard explicitly excludes parallel runs",
-      "run": "N/A"
-    },
-    {
-      "capability": "Multi-Repository-Betrieb",
-      "status": "NOT_IMPLEMENTED",
-      "evidence": "Only single sandbox repo used; no cross-repo coordination",
-      "run": "N/A"
-    },
-    {
-      "capability": "Produktive Fremdrepositories",
-      "status": "OUT_OF_SCOPE",
-      "evidence": "Safety boundary: productive external repos require new runcard",
-      "run": "N/A"
-    },
-    {
-      "capability": "Merge-Konfliktloesung",
-      "status": "NOT_IMPLEMENTED",
-      "evidence": "No merge conflicts encountered \u2014 happy path only",
-      "run": "N/A"
-    },
-    {
-      "capability": "PR-Review-Feedback-Schleife",
-      "status": "NOT_IMPLEMENTED",
-      "evidence": "No PR review feedback loop demonstrated",
-      "run": "N/A"
-    },
-    {
-      "capability": "Fehlgeschlagene CI-Recovery",
-      "status": "NOT_IMPLEMENTED",
-      "evidence": "No CI failure encountered \u2014 happy path only",
-      "run": "N/A"
-    },
-    {
-      "capability": "Post-Merge-Fehler",
-      "status": "NOT_IMPLEMENTED",
-      "evidence": "Post-merge verification passed on first attempt",
-      "run": "N/A"
-    },
-    {
-      "capability": "Automatischer Revert",
-      "status": "NOT_IMPLEMENTED",
-      "evidence": "No revert mechanism demonstrated",
-      "run": "N/A"
-    },
-    {
-      "capability": "Crash Recovery",
-      "status": "NOT_IMPLEMENTED",
-      "evidence": "No crash/resume cycle demonstrated",
-      "run": "N/A"
-    },
-    {
-      "capability": "Controller-Neustart-Resume",
-      "status": "NOT_IMPLEMENTED",
-      "evidence": "No controller restart demonstrated",
-      "run": "N/A"
-    },
-    {
-      "capability": "Rate-Limit-Recovery",
-      "status": "NOT_IMPLEMENTED",
-      "evidence": "No GitHub rate limiting encountered",
-      "run": "N/A"
-    },
-    {
-      "capability": "Netzwerkfehler-Recovery",
-      "status": "NOT_IMPLEMENTED",
-      "evidence": "No network failures encountered",
-      "run": "N/A"
-    },
-    {
-      "capability": "Policy-Verstoss-Recovery",
-      "status": "NOT_IMPLEMENTED",
-      "evidence": "No policy violations triggered",
-      "run": "N/A"
-    },
-    {
-      "capability": "Auto-Merge",
-      "status": "OUT_OF_SCOPE",
-      "evidence": "Safety boundary: auto-merge requires new architecture decision",
-      "run": "N/A"
-    },
-    {
-      "capability": "Unbeaufsichtigte Issue-Schliessung",
-      "status": "OUT_OF_SCOPE",
-      "evidence": "Safety boundary: issue closure requires Human Gate per R3 pattern",
-      "run": "N/A"
-    },
-    {
-      "capability": "Hoehere Autonomiestufen",
-      "status": "OUT_OF_SCOPE",
-      "evidence": "Safety boundary: higher autonomy requires new architecture decision",
-      "run": "N/A"
-    }
-  ],
-  "evidence_base": "POS-NORTHSTAR-R1, POS-NORTHSTAR-R2, POS-NORTHSTAR-R3 real execution evidence",
-  "note": "No capability is classified as REAL_WORLD_VALIDATED because all runs were supervised with Human Gates. SUPERVISED_VALIDATED is the highest classification achieved."
+	"run_id": "POS-NORTHSTAR-R4",
+	"phase": "CAPABILITY_BASELINE",
+	"generated_at": "2026-08-03T06:32:10Z",
+	"baseline_version": "v1.0.0",
+	"summary": {
+		"supervised_validated": 21,
+		"test_validated_only": 6,
+		"not_implemented": 13,
+		"out_of_scope": 4,
+		"total": 44
+	},
+	"capabilities": [
+		{
+			"capability": "Issue-Ingestion",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "R1: Issue #2 read; R2: Issue #4 read; R3: #308 reconciled",
+			"run": "R1,R2,R3"
+		},
+		{
+			"capability": "Repository-Reconciliation",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "R3: Controller reconciled sandbox state with GitHub API",
+			"run": "R3"
+		},
+		{
+			"capability": "Specification",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "R1/R2: ADRs produced, issue analysis documented",
+			"run": "R1,R2"
+		},
+		{
+			"capability": "Planning",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "R1/R2: Task breakdown, phase planning in evidence",
+			"run": "R1,R2"
+		},
+		{
+			"capability": "Task-Erzeugung",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "R1/R2: Granular task creation from plan",
+			"run": "R1,R2"
+		},
+		{
+			"capability": "RED-before-GREEN",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "R1: RED tests before fix; R2: '3 failures (punctuation tokens counted)'",
+			"run": "R1,R2"
+		},
+		{
+			"capability": "Minimale Implementierung",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "R1: formatTitle fix; R2: wordCount fix \u2014 minimal changes",
+			"run": "R1,R2"
+		},
+		{
+			"capability": "Vollstaendige Tests",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "R1: 11 tests; R2: 21 tests; all GREEN after fix",
+			"run": "R1,R2"
+		},
+		{
+			"capability": "Seeded-Fault-Pruefung",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "R2: Seeded fault methodology validated \u2014 fault detected, removed, GREEN confirmed",
+			"run": "R2"
+		},
+		{
+			"capability": "Independent Verification",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "R2/R3: Fresh clone verification with SHA match, test rerun, secret scan",
+			"run": "R2,R3"
+		},
+		{
+			"capability": "Branch-Erstellung",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "R1: positron/issue-2-preserve-version-strings; R2: positron/issue-4-wordcount-punctuation",
+			"run": "R1,R2"
+		},
+		{
+			"capability": "Commit",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "R1: commit on branch; R2: commit on branch (66b9def)",
+			"run": "R1,R2"
+		},
+		{
+			"capability": "Push",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "Both canary branches pushed to GitHub origin",
+			"run": "R1,R2"
+		},
+		{
+			"capability": "Draft-PR",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "PR #3 (DRAFT), PR #5 (DRAFT\u2192merged)",
+			"run": "R1,R2"
+		},
+		{
+			"capability": "Wiederholbarkeit",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "R2 repeated the full lifecycle independently from R1, from fresh baseline",
+			"run": "R2"
+		},
+		{
+			"capability": "Actor-Provenienz",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "R2: Structured provenance events with actor_type, tool_name, sha_before/after",
+			"run": "R2"
+		},
+		{
+			"capability": "Tool-Provenienz",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "R2: Tool usage tracked (vitest, gh CLI, git, OpenCode adapter)",
+			"run": "R2"
+		},
+		{
+			"capability": "Human-Gate-Merge",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "R3: Owner AUTHORIZE MERGE with SHA-bound approval before PR #5 merge",
+			"run": "R3"
+		},
+		{
+			"capability": "Post-Merge-Fresh-Clone",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "R3: Post-merge verification from fresh clone, not builder workspace",
+			"run": "R3"
+		},
+		{
+			"capability": "Issue-Schliessung",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "R3: Issue #4 closed only after post-merge GREEN verification",
+			"run": "R3"
+		},
+		{
+			"capability": "Controller-Reconcile",
+			"status": "SUPERVISED_VALIDATED",
+			"evidence": "R3: Final controller-state-to-GitHub reconciliation",
+			"run": "R3"
+		},
+		{
+			"capability": "Secret-Leakage-Prevention",
+			"status": "TEST_VALIDATED_ONLY",
+			"evidence": "Positron test suite: secret-leakage.test.ts (84 test files, 2173 tests)",
+			"run": "N/A"
+		},
+		{
+			"capability": "Autonomy-Level-Enforcement",
+			"status": "TEST_VALIDATED_ONLY",
+			"evidence": "Positron test suite: autonomy-violation.test.ts",
+			"run": "N/A"
+		},
+		{
+			"capability": "Run-State-Machine",
+			"status": "TEST_VALIDATED_ONLY",
+			"evidence": "Positron test suite: smoke.test.ts (state transitions)",
+			"run": "N/A"
+		},
+		{
+			"capability": "Queue-Metrics",
+			"status": "TEST_VALIDATED_ONLY",
+			"evidence": "Positron test suite: queue.test.ts",
+			"run": "N/A"
+		},
+		{
+			"capability": "Tool-Gateway-Policy",
+			"status": "TEST_VALIDATED_ONLY",
+			"evidence": "Positron test suite: tool gateway tests",
+			"run": "N/A"
+		},
+		{
+			"capability": "Sandbox-Isolation",
+			"status": "TEST_VALIDATED_ONLY",
+			"evidence": "Sandbox package tests; no real multi-tenant isolation run",
+			"run": "N/A"
+		},
+		{
+			"capability": "Unbeaufsichtigter Betrieb",
+			"status": "NOT_IMPLEMENTED",
+			"evidence": "All R1-R3 runs required Human Gates at critical junctures",
+			"run": "N/A"
+		},
+		{
+			"capability": "Parallele Runs",
+			"status": "NOT_IMPLEMENTED",
+			"evidence": "No parallel run isolation demonstrated; runcard explicitly excludes parallel runs",
+			"run": "N/A"
+		},
+		{
+			"capability": "Multi-Repository-Betrieb",
+			"status": "NOT_IMPLEMENTED",
+			"evidence": "Only single sandbox repo used; no cross-repo coordination",
+			"run": "N/A"
+		},
+		{
+			"capability": "Produktive Fremdrepositories",
+			"status": "OUT_OF_SCOPE",
+			"evidence": "Safety boundary: productive external repos require new runcard",
+			"run": "N/A"
+		},
+		{
+			"capability": "Merge-Konfliktloesung",
+			"status": "NOT_IMPLEMENTED",
+			"evidence": "No merge conflicts encountered \u2014 happy path only",
+			"run": "N/A"
+		},
+		{
+			"capability": "PR-Review-Feedback-Schleife",
+			"status": "NOT_IMPLEMENTED",
+			"evidence": "No PR review feedback loop demonstrated",
+			"run": "N/A"
+		},
+		{
+			"capability": "Fehlgeschlagene CI-Recovery",
+			"status": "NOT_IMPLEMENTED",
+			"evidence": "No CI failure encountered \u2014 happy path only",
+			"run": "N/A"
+		},
+		{
+			"capability": "Post-Merge-Fehler",
+			"status": "NOT_IMPLEMENTED",
+			"evidence": "Post-merge verification passed on first attempt",
+			"run": "N/A"
+		},
+		{
+			"capability": "Automatischer Revert",
+			"status": "NOT_IMPLEMENTED",
+			"evidence": "No revert mechanism demonstrated",
+			"run": "N/A"
+		},
+		{
+			"capability": "Crash Recovery",
+			"status": "NOT_IMPLEMENTED",
+			"evidence": "No crash/resume cycle demonstrated",
+			"run": "N/A"
+		},
+		{
+			"capability": "Controller-Neustart-Resume",
+			"status": "NOT_IMPLEMENTED",
+			"evidence": "No controller restart demonstrated",
+			"run": "N/A"
+		},
+		{
+			"capability": "Rate-Limit-Recovery",
+			"status": "NOT_IMPLEMENTED",
+			"evidence": "No GitHub rate limiting encountered",
+			"run": "N/A"
+		},
+		{
+			"capability": "Netzwerkfehler-Recovery",
+			"status": "NOT_IMPLEMENTED",
+			"evidence": "No network failures encountered",
+			"run": "N/A"
+		},
+		{
+			"capability": "Policy-Verstoss-Recovery",
+			"status": "NOT_IMPLEMENTED",
+			"evidence": "No policy violations triggered",
+			"run": "N/A"
+		},
+		{
+			"capability": "Auto-Merge",
+			"status": "OUT_OF_SCOPE",
+			"evidence": "Safety boundary: auto-merge requires new architecture decision",
+			"run": "N/A"
+		},
+		{
+			"capability": "Unbeaufsichtigte Issue-Schliessung",
+			"status": "OUT_OF_SCOPE",
+			"evidence": "Safety boundary: issue closure requires Human Gate per R3 pattern",
+			"run": "N/A"
+		},
+		{
+			"capability": "Hoehere Autonomiestufen",
+			"status": "OUT_OF_SCOPE",
+			"evidence": "Safety boundary: higher autonomy requires new architecture decision",
+			"run": "N/A"
+		}
+	],
+	"evidence_base": "POS-NORTHSTAR-R1, POS-NORTHSTAR-R2, POS-NORTHSTAR-R3 real execution evidence",
+	"note": "No capability is classified as REAL_WORLD_VALIDATED because all runs were supervised with Human Gates. SUPERVISED_VALIDATED is the highest classification achieved."
 }

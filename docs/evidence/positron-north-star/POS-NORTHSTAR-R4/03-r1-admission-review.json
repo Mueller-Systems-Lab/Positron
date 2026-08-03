@@ -1,60 +1,60 @@
 {
-  "run_id": "POS-NORTHSTAR-R4",
-  "phase": "R1_ADMISSION_REVIEW",
-  "reviewed_at": "2026-08-03T06:30:01Z",
-  "target_run": "POS-NORTHSTAR-R1",
-  "criteria": {
-    "actual_canary": {
-      "status": "PASS",
-      "evidence": "PR #3 created in xxammaxx/positron-sandbox with real code changes to formatTitle.ts",
-      "detail": "Branch positron/issue-2-preserve-version-strings, SHA 2107dac"
-    },
-    "real_code_issue": {
-      "status": "PASS",
-      "evidence": "Issue #2: 'fix: preserve version strings in formatTitle (e.g., V2.0 \u2192 V2.0 not V2.0)' \u2014 real functional bug",
-      "detail": "formatTitle was uppercasing version strings like 'V2.0' to 'V2.0'"
-    },
-    "red_phase": {
-      "status": "PASS",
-      "evidence": "R1 FINAL-REPORT.md documents RED state with failing tests",
-      "detail": "Tests failed before fix was applied"
-    },
-    "fix_applied": {
-      "status": "PASS",
-      "evidence": "Code changes on branch positron/issue-2-preserve-version-strings",
-      "detail": "formatTitle.ts modified to preserve version strings and acronyms"
-    },
-    "green_phase": {
-      "status": "PASS",
-      "evidence": "R1 FINAL-REPORT.md confirms GREEN after fix",
-      "detail": "All tests passing after fix applied"
-    },
-    "seeded_fault_or_equivalent": {
-      "status": "PASS",
-      "evidence": "R1 FINAL-REPORT.md references seeded fault check",
-      "detail": "Test quality validated via seeded fault methodology"
-    },
-    "independent_verifier": {
-      "status": "PASS",
-      "evidence": "R1 evidence references independent verification step",
-      "detail": "Fresh clone verification performed"
-    },
-    "draft_pr_3": {
-      "status": "PASS",
-      "evidence": "GitHub: PR #3 exists, state=DRAFT, branch=positron/issue-2-preserve-version-strings",
-      "detail": "PR #3 created as draft, never merged"
-    },
-    "pr_3_unmerged": {
-      "status": "PASS",
-      "evidence": "GitHub confirms PR #3 is still OPEN/DRAFT as of 2026-08-03",
-      "detail": "PR #3 remains unmerged per R4 scope lock"
-    },
-    "no_manual_substitution": {
-      "status": "PASS",
-      "evidence": "All R1 evidence files are consistent with automated agent workflow",
-      "detail": "No evidence of manual code substitution or evidence fabrication"
-    }
-  },
-  "classification": "GREEN_R1_ADMITTED_TO_TRILOGY",
-  "notes": "R1 demonstrates the first real supervised Code-Issue-to-PR canary. All criteria met."
+	"run_id": "POS-NORTHSTAR-R4",
+	"phase": "R1_ADMISSION_REVIEW",
+	"reviewed_at": "2026-08-03T06:30:01Z",
+	"target_run": "POS-NORTHSTAR-R1",
+	"criteria": {
+		"actual_canary": {
+			"status": "PASS",
+			"evidence": "PR #3 created in xxammaxx/positron-sandbox with real code changes to formatTitle.ts",
+			"detail": "Branch positron/issue-2-preserve-version-strings, SHA 2107dac"
+		},
+		"real_code_issue": {
+			"status": "PASS",
+			"evidence": "Issue #2: 'fix: preserve version strings in formatTitle (e.g., V2.0 \u2192 V2.0 not V2.0)' \u2014 real functional bug",
+			"detail": "formatTitle was uppercasing version strings like 'V2.0' to 'V2.0'"
+		},
+		"red_phase": {
+			"status": "PASS",
+			"evidence": "R1 FINAL-REPORT.md documents RED state with failing tests",
+			"detail": "Tests failed before fix was applied"
+		},
+		"fix_applied": {
+			"status": "PASS",
+			"evidence": "Code changes on branch positron/issue-2-preserve-version-strings",
+			"detail": "formatTitle.ts modified to preserve version strings and acronyms"
+		},
+		"green_phase": {
+			"status": "PASS",
+			"evidence": "R1 FINAL-REPORT.md confirms GREEN after fix",
+			"detail": "All tests passing after fix applied"
+		},
+		"seeded_fault_or_equivalent": {
+			"status": "PASS",
+			"evidence": "R1 FINAL-REPORT.md references seeded fault check",
+			"detail": "Test quality validated via seeded fault methodology"
+		},
+		"independent_verifier": {
+			"status": "PASS",
+			"evidence": "R1 evidence references independent verification step",
+			"detail": "Fresh clone verification performed"
+		},
+		"draft_pr_3": {
+			"status": "PASS",
+			"evidence": "GitHub: PR #3 exists, state=DRAFT, branch=positron/issue-2-preserve-version-strings",
+			"detail": "PR #3 created as draft, never merged"
+		},
+		"pr_3_unmerged": {
+			"status": "PASS",
+			"evidence": "GitHub confirms PR #3 is still OPEN/DRAFT as of 2026-08-03",
+			"detail": "PR #3 remains unmerged per R4 scope lock"
+		},
+		"no_manual_substitution": {
+			"status": "PASS",
+			"evidence": "All R1 evidence files are consistent with automated agent workflow",
+			"detail": "No evidence of manual code substitution or evidence fabrication"
+		}
+	},
+	"classification": "GREEN_R1_ADMITTED_TO_TRILOGY",
+	"notes": "R1 demonstrates the first real supervised Code-Issue-to-PR canary. All criteria met."
 }

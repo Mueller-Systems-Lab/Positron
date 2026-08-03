@@ -1,217 +1,217 @@
 {
-  "created_at": "2026-08-03T06:31:15Z",
-  "excluded_files": [],
-  "exclusion_reasons": [],
-  "files": [
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R1/00-reality-refresh.json",
-      "run_id": "POS-NORTHSTAR-R1",
-      "sha256": "044f3f6c6a30b2c1b68a9e9206461adb7ca47334905c73d66565b135a2398a78",
-      "size_bytes": 4425
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R1/02-skill-tool-preflight.json",
-      "run_id": "POS-NORTHSTAR-R1",
-      "sha256": "bac0dca55fbad9c65d9fd04404b915ea3e34a7d3ed10c4d6fcc8d67dac87166a",
-      "size_bytes": 2851
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R1/03-adr-stack-ratification.md",
-      "run_id": "POS-NORTHSTAR-R1",
-      "sha256": "e11a04a938b2712de26345b75f3511a4910ee06c05bcdb6144b11223bb511ad6",
-      "size_bytes": 3860
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R1/03-drift-and-goal-decision.md",
-      "run_id": "POS-NORTHSTAR-R1",
-      "sha256": "d7e91c02898d90685417378a40755a547b37175dd57cd22eb4d8e7ded7c84f04",
-      "size_bytes": 1699
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R1/03-product-goal.md",
-      "run_id": "POS-NORTHSTAR-R1",
-      "sha256": "27c8b92824eeace7e5b71a9874ca98290bc78cca1f5d55a92a9cbde2d7d9d76e",
-      "size_bytes": 3352
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R1/04-acceptance-contract.json",
-      "run_id": "POS-NORTHSTAR-R1",
-      "sha256": "451c8f1643ea8531b3c2615c57d75d11ba45af4219800b940dce6994b4db4417",
-      "size_bytes": 2211
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R1/04-canary-selection.json",
-      "run_id": "POS-NORTHSTAR-R1",
-      "sha256": "47217ba8c5958557cc025768117c10485b1a57469c54950f6bf41aefa5b4f6ed",
-      "size_bytes": 1400
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R1/05-dry-run-result.json",
-      "run_id": "POS-NORTHSTAR-R1",
-      "sha256": "27979070870cc7b54e39dedc85885dcc8f68e780e66897f51148e2bb2f0739ad",
-      "size_bytes": 2179
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R1/06-control-path-check.json",
-      "run_id": "POS-NORTHSTAR-R1",
-      "sha256": "3a98bbf1a85eac7ea0f03570edebd77f2152c934f4c089b05ace999f1d8cbeb2",
-      "size_bytes": 2491
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R1/FINAL-REPORT.md",
-      "run_id": "POS-NORTHSTAR-R1",
-      "sha256": "f52ed96ebf7035644a203032b2b3248e9fe0a167e26acefd6e240a9193538fa8",
-      "size_bytes": 5580
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R2/00-frozen-acceptance-contract.json",
-      "run_id": "POS-NORTHSTAR-R2",
-      "sha256": "be6a7f5787c9f678fd1a15210da40b629f480f40eb72072420aeefbad8c245b9",
-      "size_bytes": 1308
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R2/01-r1-closure-review.json",
-      "run_id": "POS-NORTHSTAR-R2",
-      "sha256": "5ca54612fef5749095075f7f4a227110efc46612a116aa418af9e9120da30ead",
-      "size_bytes": 2129
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R2/02-skill-inventory.json",
-      "run_id": "POS-NORTHSTAR-R2",
-      "sha256": "bc115d8883e10b6697a3c680fdf633bfb6652cf059b216ed0672315aee6a7be5",
-      "size_bytes": 2338
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R2/03-tool-capability-matrix.json",
-      "run_id": "POS-NORTHSTAR-R2",
-      "sha256": "d6bcd846ef13cb808e005346dd11ed478004032d04b956a1226f3140ed4a2dc5",
-      "size_bytes": 1759
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R2/04-skill-gap-decision.json",
-      "run_id": "POS-NORTHSTAR-R2",
-      "sha256": "1598dca1f8adc1949ea29d0e443659d428e2bb65a77806acad72a2ddad3ae427",
-      "size_bytes": 846
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R2/05-canary-selection.json",
-      "run_id": "POS-NORTHSTAR-R2",
-      "sha256": "4898b693924523fb0b9863f2ddcaa7f016d9ac63bb30fcedd7210ab176d5e396",
-      "size_bytes": 1102
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R2/05-noop-hypothesis.json",
-      "run_id": "POS-NORTHSTAR-R2",
-      "sha256": "35b2e056690f3fd5590ff74bb23fc7c880233df9a630d3158900e40be5fc51a2",
-      "size_bytes": 539
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R2/07-reality-refresh.json",
-      "run_id": "POS-NORTHSTAR-R2",
-      "sha256": "99e997e634524eabe7a7c39c5687952b1977417e97a2b6432834e347d2dc1a44",
-      "size_bytes": 1722
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R2/FINAL-REPORT.md",
-      "run_id": "POS-NORTHSTAR-R2",
-      "sha256": "3498ba2407849f84a462672de4f1b95568edddbedf95ba107422e5fab60746ac",
-      "size_bytes": 3643
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R3/01-reality-refresh.json",
-      "run_id": "POS-NORTHSTAR-R3",
-      "sha256": "8deaaca523b449a4ead81cd7d1d03eb77837b718e6da429a81ff1d680653e822",
-      "size_bytes": 1309
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R3/04-noop-result.json",
-      "run_id": "POS-NORTHSTAR-R3",
-      "sha256": "390ea3d46f1f5a6648b0ff9e1f52e3a3dfdc334f09e6ae1eb4b06f03679ffea2",
-      "size_bytes": 566
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R3/04-r2-admission-review.json",
-      "run_id": "POS-NORTHSTAR-R3",
-      "sha256": "a69ffa254da176fca88b29fcb8844762e23d16bb29ce80ed8d83bc600cd192f6",
-      "size_bytes": 1183
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R3/08-pr-readiness.json",
-      "run_id": "POS-NORTHSTAR-R3",
-      "sha256": "0db079f42a65bf611faf97a11c0970f8c72955cfa72cc07ecaa4b5c3a037d494",
-      "size_bytes": 1180
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R3/12-pre-merge-independent-verifier.json",
-      "run_id": "POS-NORTHSTAR-R3",
-      "sha256": "e2b50b7ce13725cc57a39d04d5918c773b6f288608a3418f861f2f1f9484276f",
-      "size_bytes": 604
-    },
-    {
-      "admission_status": "ADMITTED",
-      "evidence_role": "evidence",
-      "relative_path": "POS-NORTHSTAR-R3/FINAL-REPORT.md",
-      "run_id": "POS-NORTHSTAR-R3",
-      "sha256": "ab072e6b55298904f56d52c2954065ebb943ef8eb691405b3b2e74179abfe30e",
-      "size_bytes": 2758
-    }
-  ],
-  "manifest_version": "1.0.0",
-  "positron_baseline_sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
-  "r1_admission": "GREEN_R1_ADMITTED_TO_TRILOGY",
-  "r2_admission": "GREEN_R2_ADMITTED_TO_TRILOGY",
-  "r3_admission": "GREEN_R3_ADMITTED_TO_TRILOGY",
-  "repository": "xxammaxx/Positron",
-  "run_id": "POS-NORTHSTAR-R4",
-  "sandbox_end_state_sha": "09700b0e1c920a005ec5971f15172e544c516e30",
-  "total_bytes": 53034,
-  "total_files": 25
+	"created_at": "2026-08-03T06:31:15Z",
+	"excluded_files": [],
+	"exclusion_reasons": [],
+	"files": [
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R1/00-reality-refresh.json",
+			"run_id": "POS-NORTHSTAR-R1",
+			"sha256": "044f3f6c6a30b2c1b68a9e9206461adb7ca47334905c73d66565b135a2398a78",
+			"size_bytes": 4425
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R1/02-skill-tool-preflight.json",
+			"run_id": "POS-NORTHSTAR-R1",
+			"sha256": "bac0dca55fbad9c65d9fd04404b915ea3e34a7d3ed10c4d6fcc8d67dac87166a",
+			"size_bytes": 2851
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R1/03-adr-stack-ratification.md",
+			"run_id": "POS-NORTHSTAR-R1",
+			"sha256": "e11a04a938b2712de26345b75f3511a4910ee06c05bcdb6144b11223bb511ad6",
+			"size_bytes": 3860
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R1/03-drift-and-goal-decision.md",
+			"run_id": "POS-NORTHSTAR-R1",
+			"sha256": "d7e91c02898d90685417378a40755a547b37175dd57cd22eb4d8e7ded7c84f04",
+			"size_bytes": 1699
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R1/03-product-goal.md",
+			"run_id": "POS-NORTHSTAR-R1",
+			"sha256": "27c8b92824eeace7e5b71a9874ca98290bc78cca1f5d55a92a9cbde2d7d9d76e",
+			"size_bytes": 3352
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R1/04-acceptance-contract.json",
+			"run_id": "POS-NORTHSTAR-R1",
+			"sha256": "451c8f1643ea8531b3c2615c57d75d11ba45af4219800b940dce6994b4db4417",
+			"size_bytes": 2211
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R1/04-canary-selection.json",
+			"run_id": "POS-NORTHSTAR-R1",
+			"sha256": "47217ba8c5958557cc025768117c10485b1a57469c54950f6bf41aefa5b4f6ed",
+			"size_bytes": 1400
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R1/05-dry-run-result.json",
+			"run_id": "POS-NORTHSTAR-R1",
+			"sha256": "27979070870cc7b54e39dedc85885dcc8f68e780e66897f51148e2bb2f0739ad",
+			"size_bytes": 2179
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R1/06-control-path-check.json",
+			"run_id": "POS-NORTHSTAR-R1",
+			"sha256": "3a98bbf1a85eac7ea0f03570edebd77f2152c934f4c089b05ace999f1d8cbeb2",
+			"size_bytes": 2491
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R1/FINAL-REPORT.md",
+			"run_id": "POS-NORTHSTAR-R1",
+			"sha256": "f52ed96ebf7035644a203032b2b3248e9fe0a167e26acefd6e240a9193538fa8",
+			"size_bytes": 5580
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R2/00-frozen-acceptance-contract.json",
+			"run_id": "POS-NORTHSTAR-R2",
+			"sha256": "be6a7f5787c9f678fd1a15210da40b629f480f40eb72072420aeefbad8c245b9",
+			"size_bytes": 1308
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R2/01-r1-closure-review.json",
+			"run_id": "POS-NORTHSTAR-R2",
+			"sha256": "5ca54612fef5749095075f7f4a227110efc46612a116aa418af9e9120da30ead",
+			"size_bytes": 2129
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R2/02-skill-inventory.json",
+			"run_id": "POS-NORTHSTAR-R2",
+			"sha256": "bc115d8883e10b6697a3c680fdf633bfb6652cf059b216ed0672315aee6a7be5",
+			"size_bytes": 2338
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R2/03-tool-capability-matrix.json",
+			"run_id": "POS-NORTHSTAR-R2",
+			"sha256": "d6bcd846ef13cb808e005346dd11ed478004032d04b956a1226f3140ed4a2dc5",
+			"size_bytes": 1759
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R2/04-skill-gap-decision.json",
+			"run_id": "POS-NORTHSTAR-R2",
+			"sha256": "1598dca1f8adc1949ea29d0e443659d428e2bb65a77806acad72a2ddad3ae427",
+			"size_bytes": 846
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R2/05-canary-selection.json",
+			"run_id": "POS-NORTHSTAR-R2",
+			"sha256": "4898b693924523fb0b9863f2ddcaa7f016d9ac63bb30fcedd7210ab176d5e396",
+			"size_bytes": 1102
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R2/05-noop-hypothesis.json",
+			"run_id": "POS-NORTHSTAR-R2",
+			"sha256": "35b2e056690f3fd5590ff74bb23fc7c880233df9a630d3158900e40be5fc51a2",
+			"size_bytes": 539
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R2/07-reality-refresh.json",
+			"run_id": "POS-NORTHSTAR-R2",
+			"sha256": "99e997e634524eabe7a7c39c5687952b1977417e97a2b6432834e347d2dc1a44",
+			"size_bytes": 1722
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R2/FINAL-REPORT.md",
+			"run_id": "POS-NORTHSTAR-R2",
+			"sha256": "3498ba2407849f84a462672de4f1b95568edddbedf95ba107422e5fab60746ac",
+			"size_bytes": 3643
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R3/01-reality-refresh.json",
+			"run_id": "POS-NORTHSTAR-R3",
+			"sha256": "8deaaca523b449a4ead81cd7d1d03eb77837b718e6da429a81ff1d680653e822",
+			"size_bytes": 1309
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R3/04-noop-result.json",
+			"run_id": "POS-NORTHSTAR-R3",
+			"sha256": "390ea3d46f1f5a6648b0ff9e1f52e3a3dfdc334f09e6ae1eb4b06f03679ffea2",
+			"size_bytes": 566
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R3/04-r2-admission-review.json",
+			"run_id": "POS-NORTHSTAR-R3",
+			"sha256": "a69ffa254da176fca88b29fcb8844762e23d16bb29ce80ed8d83bc600cd192f6",
+			"size_bytes": 1183
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R3/08-pr-readiness.json",
+			"run_id": "POS-NORTHSTAR-R3",
+			"sha256": "0db079f42a65bf611faf97a11c0970f8c72955cfa72cc07ecaa4b5c3a037d494",
+			"size_bytes": 1180
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R3/12-pre-merge-independent-verifier.json",
+			"run_id": "POS-NORTHSTAR-R3",
+			"sha256": "e2b50b7ce13725cc57a39d04d5918c773b6f288608a3418f861f2f1f9484276f",
+			"size_bytes": 604
+		},
+		{
+			"admission_status": "ADMITTED",
+			"evidence_role": "evidence",
+			"relative_path": "POS-NORTHSTAR-R3/FINAL-REPORT.md",
+			"run_id": "POS-NORTHSTAR-R3",
+			"sha256": "ab072e6b55298904f56d52c2954065ebb943ef8eb691405b3b2e74179abfe30e",
+			"size_bytes": 2758
+		}
+	],
+	"manifest_version": "1.0.0",
+	"positron_baseline_sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+	"r1_admission": "GREEN_R1_ADMITTED_TO_TRILOGY",
+	"r2_admission": "GREEN_R2_ADMITTED_TO_TRILOGY",
+	"r3_admission": "GREEN_R3_ADMITTED_TO_TRILOGY",
+	"repository": "xxammaxx/Positron",
+	"run_id": "POS-NORTHSTAR-R4",
+	"sandbox_end_state_sha": "09700b0e1c920a005ec5971f15172e544c516e30",
+	"total_bytes": 53034,
+	"total_files": 25
 }
