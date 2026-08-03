@@ -1,12 +1,12 @@
 {
-  "phase": "C",
-  "timestamp": "2026-08-03T13:36:46Z",
-  "pid": 2247671,
-  "branch": "positron/issue-308-r5-recovery-resume",
-  "sha": "766017f25f93f3ba1f56fae3a1d6e4034f518ae4",
-  "fault_injection": "AFTER_REMOTE_DRAFT_PR_CREATE_BEFORE_LOCAL_SUCCESS_CHECKPOINT",
-  "github_mode": "real",
-  "admin_token_set": true,
-  "port": 3199,
-  "workspace_root": "/tmp/positron-r5-workspaces"
+	"phase": "C",
+	"timestamp": "2026-08-03T13:36:46Z",
+	"pid": 2247671,
+	"branch": "positron/issue-308-r5-recovery-resume",
+	"sha": "766017f25f93f3ba1f56fae3a1d6e4034f518ae4",
+	"fault_injection": "AFTER_REMOTE_DRAFT_PR_CREATE_BEFORE_LOCAL_SUCCESS_CHECKPOINT",
+	"github_mode": "real",
+	"admin_token_set": true,
+	"port": 3199,
+	"workspace_root": "/tmp/positron-r5-workspaces"
 }

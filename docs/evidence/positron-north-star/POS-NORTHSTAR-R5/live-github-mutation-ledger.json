@@ -1,42 +1,42 @@
 {
-  "mutations": [
-    {
-      "sequence": 1,
-      "type": "PR_CLOSE",
-      "target": "xxammaxx/positron-sandbox#7",
-      "reason": "leftover cleanup before canary",
-      "timestamp": "2026-08-03T13:20:00Z"
-    },
-    {
-      "sequence": 2,
-      "type": "BRANCH_DELETE",
-      "target": "xxammaxx/positron-sandbox:positron/issue-6-truncate-text",
-      "reason": "leftover cleanup before canary",
-      "timestamp": "2026-08-03T13:20:00Z"
-    },
-    {
-      "sequence": 3,
-      "type": "BRANCH_CREATE",
-      "target": "xxammaxx/positron-sandbox:positron/issue-6-truncate-text",
-      "reason": "re-create canary branch for live test",
-      "sha": "74202cdb2f532e1f20ed8dfeb93d7c933f7813fc",
-      "timestamp": "2026-08-03T13:23:00Z"
-    },
-    {
-      "sequence": 4,
-      "type": "PR_CREATE",
-      "target": "xxammaxx/positron-sandbox#8",
-      "reason": "Positron automated PR creation (fault injection canary)",
-      "actor": "POSITRON_CONTROLLER",
-      "timestamp": "2026-08-03T13:36:51Z"
-    },
-    {
-      "sequence": 5,
-      "type": "PR_ADOPT",
-      "target": "xxammaxx/positron-sandbox#8",
-      "reason": "Recovery after restart \u2014 adopted existing PR",
-      "actor": "POSITRON_RECOVERY",
-      "timestamp": "2026-08-03T13:39:25Z"
-    }
-  ]
+	"mutations": [
+		{
+			"sequence": 1,
+			"type": "PR_CLOSE",
+			"target": "xxammaxx/positron-sandbox#7",
+			"reason": "leftover cleanup before canary",
+			"timestamp": "2026-08-03T13:20:00Z"
+		},
+		{
+			"sequence": 2,
+			"type": "BRANCH_DELETE",
+			"target": "xxammaxx/positron-sandbox:positron/issue-6-truncate-text",
+			"reason": "leftover cleanup before canary",
+			"timestamp": "2026-08-03T13:20:00Z"
+		},
+		{
+			"sequence": 3,
+			"type": "BRANCH_CREATE",
+			"target": "xxammaxx/positron-sandbox:positron/issue-6-truncate-text",
+			"reason": "re-create canary branch for live test",
+			"sha": "74202cdb2f532e1f20ed8dfeb93d7c933f7813fc",
+			"timestamp": "2026-08-03T13:23:00Z"
+		},
+		{
+			"sequence": 4,
+			"type": "PR_CREATE",
+			"target": "xxammaxx/positron-sandbox#8",
+			"reason": "Positron automated PR creation (fault injection canary)",
+			"actor": "POSITRON_CONTROLLER",
+			"timestamp": "2026-08-03T13:36:51Z"
+		},
+		{
+			"sequence": 5,
+			"type": "PR_ADOPT",
+			"target": "xxammaxx/positron-sandbox#8",
+			"reason": "Recovery after restart \u2014 adopted existing PR",
+			"actor": "POSITRON_RECOVERY",
+			"timestamp": "2026-08-03T13:39:25Z"
+		}
+	]
 }

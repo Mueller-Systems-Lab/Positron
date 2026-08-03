@@ -1,20 +1,20 @@
 {
-  "phase": "A",
-  "timestamp": "2026-08-03T13:40:00Z",
-  "positron_pr_419": "DRAFT, existing",
-  "sandbox_prs": [
-    {
-      "number": 3,
-      "state": "DRAFT",
-      "branch": "positron/issue-2-preserve-version-strings"
-    },
-    {
-      "number": 5,
-      "state": "MERGED",
-      "branch": "positron/issue-4-wordcount-punctuation"
-    }
-  ],
-  "sandbox_issue_6": "OPEN",
-  "positron_issue_308": "OPEN",
-  "no_existing_canary_pr": true
+	"phase": "A",
+	"timestamp": "2026-08-03T13:40:00Z",
+	"positron_pr_419": "DRAFT, existing",
+	"sandbox_prs": [
+		{
+			"number": 3,
+			"state": "DRAFT",
+			"branch": "positron/issue-2-preserve-version-strings"
+		},
+		{
+			"number": 5,
+			"state": "MERGED",
+			"branch": "positron/issue-4-wordcount-punctuation"
+		}
+	],
+	"sandbox_issue_6": "OPEN",
+	"positron_issue_308": "OPEN",
+	"no_existing_canary_pr": true
 }

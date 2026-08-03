@@ -1,8 +1,8 @@
 {
-  "phase": "PR_CREATE",
-  "timestamp": "2026-08-03T13:37:00Z",
-  "run_id": "fault-canary-001",
-  "status": "active",
-  "finished_at": null,
-  "branch": "positron/issue-6-truncate-text"
+	"phase": "PR_CREATE",
+	"timestamp": "2026-08-03T13:37:00Z",
+	"run_id": "fault-canary-001",
+	"status": "active",
+	"finished_at": null,
+	"branch": "positron/issue-6-truncate-text"
 }

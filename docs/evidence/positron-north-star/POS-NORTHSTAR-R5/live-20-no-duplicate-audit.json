@@ -1,17 +1,17 @@
 {
-  "phase": "K",
-  "timestamp": "2026-08-03T13:40:00Z",
-  "object_counts": {
-    "logical_runs": 1,
-    "canary_issues": 1,
-    "canary_branches": 1,
-    "matching_fix_commits": 1,
-    "matching_draft_prs": 1,
-    "duplicate_issue_comments": 0,
-    "merged_canary_prs": 0
-  },
-  "pr_create_attempts": 1,
-  "recovery_adoptions": 1,
-  "adoption_is_not_create": true,
-  "classification": "GREEN_NO_DUPLICATE_MUTATION_VERIFIED"
+	"phase": "K",
+	"timestamp": "2026-08-03T13:40:00Z",
+	"object_counts": {
+		"logical_runs": 1,
+		"canary_issues": 1,
+		"canary_branches": 1,
+		"matching_fix_commits": 1,
+		"matching_draft_prs": 1,
+		"duplicate_issue_comments": 0,
+		"merged_canary_prs": 0
+	},
+	"pr_create_attempts": 1,
+	"recovery_adoptions": 1,
+	"adoption_is_not_create": true,
+	"classification": "GREEN_NO_DUPLICATE_MUTATION_VERIFIED"
 }

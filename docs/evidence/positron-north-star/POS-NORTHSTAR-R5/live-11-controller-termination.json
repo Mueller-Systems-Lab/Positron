@@ -1,9 +1,9 @@
 {
-  "phase": "F",
-  "timestamp": "2026-08-03T13:36:52Z",
-  "pid": 2247671,
-  "exit_type": "process.exit(1) from fault injection",
-  "process_confirmed_dead": true,
-  "state_db_persisted": true,
-  "github_pr_persisted": true
+	"phase": "F",
+	"timestamp": "2026-08-03T13:36:52Z",
+	"pid": 2247671,
+	"exit_type": "process.exit(1) from fault injection",
+	"process_confirmed_dead": true,
+	"state_db_persisted": true,
+	"github_pr_persisted": true
 }

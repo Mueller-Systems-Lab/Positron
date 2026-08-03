@@ -1,12 +1,12 @@
 {
-  "phase": "G",
-  "timestamp": "2026-08-03T13:37:46Z",
-  "new_pid": 2248477,
-  "old_pid": 2247671,
-  "pids_different": true,
-  "code_sha": "766017f25f93f3ba1f56fae3a1d6e4034f518ae4",
-  "code_sha_unchanged": true,
-  "state_db_path": "/home/xxammaxx/.positron/positron.db",
-  "state_db_unchanged": true,
-  "fault_injection": "NOT SET"
+	"phase": "G",
+	"timestamp": "2026-08-03T13:37:46Z",
+	"new_pid": 2248477,
+	"old_pid": 2247671,
+	"pids_different": true,
+	"code_sha": "766017f25f93f3ba1f56fae3a1d6e4034f518ae4",
+	"code_sha_unchanged": true,
+	"state_db_path": "/home/xxammaxx/.positron/positron.db",
+	"state_db_unchanged": true,
+	"fault_injection": "NOT SET"
 }

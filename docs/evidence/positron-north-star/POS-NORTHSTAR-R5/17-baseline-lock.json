@@ -1,12 +1,12 @@
 {
-  "run_id": "POS-NORTHSTAR-R5",
-  "phase": "BASELINE_LOCK",
-  "positron": {
-    "main_sha": "4876d2c9dd16e29ec37b3fba779d3356e29e20a5",
-    "tests": "2175/2175 GREEN"
-  },
-  "sandbox": {
-    "main_sha": "09700b0e1c920a005ec5971f15172e544c516e30",
-    "tests": "28 passed + 1 skipped"
-  }
+	"run_id": "POS-NORTHSTAR-R5",
+	"phase": "BASELINE_LOCK",
+	"positron": {
+		"main_sha": "4876d2c9dd16e29ec37b3fba779d3356e29e20a5",
+		"tests": "2175/2175 GREEN"
+	},
+	"sandbox": {
+		"main_sha": "09700b0e1c920a005ec5971f15172e544c516e30",
+		"tests": "28 passed + 1 skipped"
+	}
 }

@@ -1,37 +1,37 @@
 {
-  "run_id": "POS-NORTHSTAR-R5",
-  "phase": "EXISTING_RECOVERY_CAPABILITIES",
-  "findings": {
-    "run_persistence": {
-      "status": "PRESENT",
-      "detail": "Runs persisted in SQLite via better-sqlite3. saveRunToDb/loadRunFromDb/listRunsFromDb exist.",
-      "gap": "No startup hook to scan for incomplete runs and resume them"
-    },
-    "state_machine": {
-      "status": "PARTIAL",
-      "detail": "resumeFromEvents() exists but does not preserve branch name. RESUME_PENDING phase defined but no code transitions TO it.",
-      "gap": "RESUME_PENDING is unused. branch is set to null in resumeFromEvents."
-    },
-    "github_reconciliation": {
-      "status": "ABSENT",
-      "detail": "No code checks GitHub for existing PRs/branches before creating new ones. PR_CREATE phase always creates a new PR.",
-      "gap": "No idempotency key, no pre-check for existing PR matching branch name"
-    },
-    "crash_recovery": {
-      "status": "ABSENT",
-      "detail": "No fault injection hooks. No mechanism to detect that a run was interrupted between remote mutation and local checkpoint.",
-      "gap": "Complete absence of crash detection and resume logic"
-    },
-    "duplicate_prevention": {
-      "status": "PARTIAL",
-      "detail": "GitHub watcher has issue-level duplicate prevention. But PR_CREATE has no branch-level duplicate check.",
-      "gap": "After crash restart, PR_CREATE would create a second PR for the same branch"
-    },
-    "fault_injection": {
-      "status": "ABSENT",
-      "detail": "No POSITRON_FAULT_INJECTION_POINT env var or equivalent mechanism",
-      "gap": "No way to trigger controlled failure between remote mutation and local checkpoint"
-    }
-  },
-  "classification": "RED_RECOVERY_CAPABILITIES_INSUFFICIENT_FOR_R5_SCENARIO"
+	"run_id": "POS-NORTHSTAR-R5",
+	"phase": "EXISTING_RECOVERY_CAPABILITIES",
+	"findings": {
+		"run_persistence": {
+			"status": "PRESENT",
+			"detail": "Runs persisted in SQLite via better-sqlite3. saveRunToDb/loadRunFromDb/listRunsFromDb exist.",
+			"gap": "No startup hook to scan for incomplete runs and resume them"
+		},
+		"state_machine": {
+			"status": "PARTIAL",
+			"detail": "resumeFromEvents() exists but does not preserve branch name. RESUME_PENDING phase defined but no code transitions TO it.",
+			"gap": "RESUME_PENDING is unused. branch is set to null in resumeFromEvents."
+		},
+		"github_reconciliation": {
+			"status": "ABSENT",
+			"detail": "No code checks GitHub for existing PRs/branches before creating new ones. PR_CREATE phase always creates a new PR.",
+			"gap": "No idempotency key, no pre-check for existing PR matching branch name"
+		},
+		"crash_recovery": {
+			"status": "ABSENT",
+			"detail": "No fault injection hooks. No mechanism to detect that a run was interrupted between remote mutation and local checkpoint.",
+			"gap": "Complete absence of crash detection and resume logic"
+		},
+		"duplicate_prevention": {
+			"status": "PARTIAL",
+			"detail": "GitHub watcher has issue-level duplicate prevention. But PR_CREATE has no branch-level duplicate check.",
+			"gap": "After crash restart, PR_CREATE would create a second PR for the same branch"
+		},
+		"fault_injection": {
+			"status": "ABSENT",
+			"detail": "No POSITRON_FAULT_INJECTION_POINT env var or equivalent mechanism",
+			"gap": "No way to trigger controlled failure between remote mutation and local checkpoint"
+		}
+	},
+	"classification": "RED_RECOVERY_CAPABILITIES_INSUFFICIENT_FOR_R5_SCENARIO"
 }

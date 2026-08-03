@@ -1,21 +1,21 @@
 {
-  "phase": "A",
-  "run_id": "POS-NORTHSTAR-R5",
-  "timestamp": "2026-08-03T13:40:00Z",
-  "positron": {
-    "main_sha": "4876d2c9dd16e29ec37b3fba779d3356e29e20a5",
-    "r5_branch_sha": "766017f25f93f3ba1f56fae3a1d6e4034f518ae4",
-    "tests": "2175/2175 PASS",
-    "test_files": 85,
-    "build": "PASS",
-    "branch": "positron/issue-308-r5-recovery-resume"
-  },
-  "sandbox": {
-    "main_sha": "09700b0e1c920a005ec5971f15172e544c516e30",
-    "canary_branch": "positron/issue-6-truncate-text",
-    "canary_head_sha": "74202cdb2f532e1f20ed8dfeb93d7c933f7813fc",
-    "issue_6_state": "OPEN",
-    "tests": "28/28 PASS",
-    "existing_prs_before_canary": 0
-  }
+	"phase": "A",
+	"run_id": "POS-NORTHSTAR-R5",
+	"timestamp": "2026-08-03T13:40:00Z",
+	"positron": {
+		"main_sha": "4876d2c9dd16e29ec37b3fba779d3356e29e20a5",
+		"r5_branch_sha": "766017f25f93f3ba1f56fae3a1d6e4034f518ae4",
+		"tests": "2175/2175 PASS",
+		"test_files": 85,
+		"build": "PASS",
+		"branch": "positron/issue-308-r5-recovery-resume"
+	},
+	"sandbox": {
+		"main_sha": "09700b0e1c920a005ec5971f15172e544c516e30",
+		"canary_branch": "positron/issue-6-truncate-text",
+		"canary_head_sha": "74202cdb2f532e1f20ed8dfeb93d7c933f7813fc",
+		"issue_6_state": "OPEN",
+		"tests": "28/28 PASS",
+		"existing_prs_before_canary": 0
+	}
 }

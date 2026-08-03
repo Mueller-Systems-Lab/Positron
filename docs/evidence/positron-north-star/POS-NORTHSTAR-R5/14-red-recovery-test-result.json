@@ -1,18 +1,18 @@
 {
-  "run_id": "POS-NORTHSTAR-R5",
-  "phase": "RED_RECOVERY_TEST",
-  "test_file": "apps/server/src/__tests__/recovery-resume.test.ts",
-  "tests": [
-    {
-      "name": "RED-1: creates a second PR when pipeline re-runs PR_CREATE with existing remote PR",
-      "status": "RED_CONFIRMED",
-      "detail": "expected createPRCalls=0 but got 1 \u2014 duplicate PR created"
-    },
-    {
-      "name": "RED-2: does not check for existing PR before creating a new one",
-      "status": "RED_CONFIRMED",
-      "detail": "expected createPRCalls=0 but got 1 \u2014 no pre-check exists"
-    }
-  ],
-  "classification": "GREEN_RECOVERY_FAILURE_REPRODUCED"
+	"run_id": "POS-NORTHSTAR-R5",
+	"phase": "RED_RECOVERY_TEST",
+	"test_file": "apps/server/src/__tests__/recovery-resume.test.ts",
+	"tests": [
+		{
+			"name": "RED-1: creates a second PR when pipeline re-runs PR_CREATE with existing remote PR",
+			"status": "RED_CONFIRMED",
+			"detail": "expected createPRCalls=0 but got 1 \u2014 duplicate PR created"
+		},
+		{
+			"name": "RED-2: does not check for existing PR before creating a new one",
+			"status": "RED_CONFIRMED",
+			"detail": "expected createPRCalls=0 but got 1 \u2014 no pre-check exists"
+		}
+	],
+	"classification": "GREEN_RECOVERY_FAILURE_REPRODUCED"
 }

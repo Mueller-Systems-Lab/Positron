@@ -1,43 +1,39 @@
 {
-  "run_id": "POS-NORTHSTAR-R5",
-  "phase": "NO_DUPLICATE_MUTATION",
-  "github_objects": {
-    "canary_issue": {
-      "count": 1,
-      "numbers": [
-        6
-      ]
-    },
-    "canary_branch": {
-      "count": 1,
-      "name": "positron/issue-6-truncate-text"
-    },
-    "draft_pr": {
-      "count": 1,
-      "numbers": [
-        7
-      ]
-    },
-    "duplicate_prs": {
-      "count": 0
-    },
-    "duplicate_branches": {
-      "count": 0
-    },
-    "duplicate_commits": {
-      "count": 0
-    }
-  },
-  "idempotency_ledger": [
-    {
-      "logical_mutation_id": "create-draft-pr-positron-issue-6-truncate-text",
-      "mutation_type": "CREATE_DRAFT_PR",
-      "attempt_count": 1,
-      "remote_object_count": 1,
-      "remote_object_id": 7,
-      "reconciled_after_restart": true,
-      "duplicate_prevented": true
-    }
-  ],
-  "classification": "GREEN_NO_DUPLICATE_MUTATION_VERIFIED"
+	"run_id": "POS-NORTHSTAR-R5",
+	"phase": "NO_DUPLICATE_MUTATION",
+	"github_objects": {
+		"canary_issue": {
+			"count": 1,
+			"numbers": [6]
+		},
+		"canary_branch": {
+			"count": 1,
+			"name": "positron/issue-6-truncate-text"
+		},
+		"draft_pr": {
+			"count": 1,
+			"numbers": [7]
+		},
+		"duplicate_prs": {
+			"count": 0
+		},
+		"duplicate_branches": {
+			"count": 0
+		},
+		"duplicate_commits": {
+			"count": 0
+		}
+	},
+	"idempotency_ledger": [
+		{
+			"logical_mutation_id": "create-draft-pr-positron-issue-6-truncate-text",
+			"mutation_type": "CREATE_DRAFT_PR",
+			"attempt_count": 1,
+			"remote_object_count": 1,
+			"remote_object_id": 7,
+			"reconciled_after_restart": true,
+			"duplicate_prevented": true
+		}
+	],
+	"classification": "GREEN_NO_DUPLICATE_MUTATION_VERIFIED"
 }
