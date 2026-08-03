@@ -65,6 +65,6 @@
 	},
 	"files": {
 		"ignoreUnknown": true,
-		"ignore": [".positron/**"]
+		"ignore": [".positron/**", ".hermes/enforcement/**", "docs/evidence/e2e-playwright-mcp/**"]
 	}
 }
