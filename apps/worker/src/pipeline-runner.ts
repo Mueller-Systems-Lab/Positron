@@ -1041,7 +1041,10 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				// --- R5: Fault Injection Hook ---
 				// Only fires when PR was newly created (not adopted) and env var is set
 				const faultPoint = process.env.POSITRON_FAULT_INJECTION_POINT;
-				if (!prWasAdopted && faultPoint === 'AFTER_REMOTE_DRAFT_PR_CREATE_BEFORE_LOCAL_SUCCESS_CHECKPOINT') {
+				if (
+					!prWasAdopted &&
+					faultPoint === 'AFTER_REMOTE_DRAFT_PR_CREATE_BEFORE_LOCAL_SUCCESS_CHECKPOINT'
+				) {
 					storeEvent(
 						{
 							id: createRunId(),
