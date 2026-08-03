@@ -1,0 +1,15 @@
+{
+	"timestamp": "2026-08-03T19:20:17Z",
+	"pr_419": {
+		"number": 419,
+		"title": "feat: validate restart recovery without duplicate GitHub mutations",
+		"merge_method": "squash",
+		"head_sha_before_merge": "e7a2771c3618c4bb1d5b10b1f5364e95be5270d8",
+		"merge_sha": "ed704876551b043313e47a45194d9b2fac83e9cf",
+		"post_merge_main_sha": "ed704876551b043313e47a45194d9b2fac83e9cf",
+		"base_sha": "4876d2c9dd16e29ec37b3fba779d3356e29e20a5",
+		"branch_deleted": true,
+		"all_checks_passed": true,
+		"classification": "GREEN_POSITRON_FAILURE_RECOVERY_RESTART_RESUME_NO_DUPLICATE_MUTATION_VALIDATED"
+	}
+}

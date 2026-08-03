@@ -1,0 +1,5 @@
+{
+	"timestamp": "2026-08-03T19:30:20Z",
+	"result": "GREEN",
+	"verification": "Dry run confirms: different IDs, branches, idempotency keys, evidence paths"
+}

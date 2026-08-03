@@ -1,0 +1,12 @@
+{
+	"run": "POS-NORTHSTAR-R6-A",
+	"issue": {
+		"number": 9,
+		"title": "feat: add countVowels utility",
+		"url": "https://github.com/xxammaxx/positron-sandbox/issues/9"
+	},
+	"module": "countVowels",
+	"file": "src/countVowels.ts",
+	"test_file": "tests/countVowels.test.ts",
+	"independent_from": "Run B (removeDuplicates) \u2014 separate module, file, tests"
+}

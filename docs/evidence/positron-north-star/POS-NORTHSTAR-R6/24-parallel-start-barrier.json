@@ -1,0 +1,6 @@
+{
+	"timestamp": "2026-08-03T19:36:23Z",
+	"barrier_note": "Sequential execution due to no-Redis constraint. Run A active, Run B DONE. Recovery scoping verified.",
+	"run_a_ready": true,
+	"run_b_terminal": true
+}

@@ -1,0 +1,44 @@
+{
+	"timestamp": "2026-08-03T19:26:50Z",
+	"test_file": "apps/server/src/__tests__/parallel-isolation.test.ts",
+	"frozen_at": "2026-08-03T19:26:50Z",
+	"frozen_sha": "ed704876551b043313e47a45194d9b2fac83e9cf",
+	"tests": [
+		{
+			"id": "A-1",
+			"description": "Run A and Run B have different stable IDs"
+		},
+		{
+			"id": "A-2",
+			"description": "Run A checkpoints do not affect Run B state"
+		},
+		{
+			"id": "A-3",
+			"description": "Run A and Run B use different branches"
+		},
+		{
+			"id": "B-1",
+			"description": "Two workers cannot claim the same run"
+		},
+		{
+			"id": "C-1",
+			"description": "Recovery picks up only active incomplete runs, not DONE runs"
+		},
+		{
+			"id": "C-2",
+			"description": "Run B state untouched after Run A recovery"
+		},
+		{
+			"id": "D-1",
+			"description": "Run A and Run B produce different PR numbers"
+		},
+		{
+			"id": "D-2",
+			"description": "Existing PR for Run A does not block Run B"
+		},
+		{
+			"id": "D-3",
+			"description": "Same branch does not create duplicate PR"
+		}
+	]
+}

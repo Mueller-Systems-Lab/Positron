@@ -1,0 +1,48 @@
+{
+	"timestamp": "2026-08-03T19:05:55Z",
+	"recovery": {
+		"mechanism": "recoverIncompleteRunsOnStartup() \u2014 startup auto-discovery",
+		"query": "SELECT id FROM runs WHERE status = 'active' AND phase NOT IN ('DONE', 'FAILED_BLOCKED', 'FAILED') AND finished_at IS NULL ORDER BY started_at ASC",
+		"scoping": "QUERIES ALL ACTIVE INCOMPLETE RUNS \u2014 no per-run filter beyond status/phase/finished_at",
+		"resume": "Fire-and-forget: runFullPipeline() with startFromPhase",
+		"cross_run_risk": "If Run B is still 'active' at recovery time, it WILL be picked up as incomplete alongside Run A \u2014 potential cross-contamination"
+	},
+	"worker": {
+		"concurrency": 2,
+		"lock_duration_ms": 600000,
+		"queue": "BullMQ (Redis-backed)",
+		"claim_mechanism": "BullMQ job claiming \u2014 atomic by design",
+		"note": "Redis ECONNREFUSED on local dev => queue inactive, runs execute synchronously"
+	},
+	"persistence": {
+		"type": "SQLite",
+		"location": "~/.positron/positron.db",
+		"tables": ["runs", "run_events", "artifacts", "run_signals"],
+		"foreign_keys": "run_events.run_id, artifacts.run_id, run_signals.run_id all reference runs.id",
+		"indices": ["idx_run_events_run_id", "idx_artifacts_run_id", "idx_run_signals_run_id"],
+		"wal_mode": "WAL (Write-Ahead Logging) \u2014 PRAGMA wal_checkpoint(TRUNCATE) required after external writes"
+	},
+	"state_isolation": {
+		"run_id_propagation": "Every DB write scoped by run_id",
+		"global_state_risks": [
+			"recoverIncompleteRunsOnStartup() iterates ALL active incomplete runs (fire-and-forget)",
+			"No 'current run' singleton found \u2014 good",
+			"Evidence paths: docs/evidence/positron-north-star/<RUN_ID>/ \u2014 scoped by RUN_ID",
+			"Checkpoint writes: scoped by run_id in DB"
+		],
+		"idempotency": {
+			"pr_creation": "listPullRequests before createPullRequest (in pipeline-runner + RealGitHubAdapter)",
+			"keys": "Based on head branch match"
+		},
+		"locking": {
+			"worker_level": "BullMQ lockDuration: 600s per job",
+			"db_level": "No explicit DB-level row locking found",
+			"file_level": "No explicit file locks found"
+		}
+	},
+	"concurrency_settings": {
+		"bullmq_concurrency": 2,
+		"max_fix_loops": "POSITRON_MAX_FIX_LOOPS (env var, default from MAX_FIX_LOOPS constant)",
+		"parallel_run_risk": "2 concurrent workers + recovery iterates all active runs = potential for 2+ simultaneous pipeline executions"
+	}
+}

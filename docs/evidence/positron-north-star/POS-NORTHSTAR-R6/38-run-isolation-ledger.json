@@ -1,0 +1,7 @@
+{
+	"run_a_pr": 11,
+	"run_a_branch": "positron/issue-9-r6-a-countvowels",
+	"run_b_pr": 12,
+	"run_b_branch": "positron/issue-10-r6-b-removeduplicates",
+	"cross_contamination": "NONE"
+}

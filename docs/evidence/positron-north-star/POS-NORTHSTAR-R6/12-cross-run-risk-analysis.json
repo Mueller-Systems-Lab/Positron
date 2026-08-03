@@ -1,0 +1,42 @@
+{
+	"timestamp": "2026-08-03T19:22:23Z",
+	"risks": [
+		{
+			"id": "RISK-001",
+			"area": "Recovery Scoping",
+			"description": "recoverIncompleteRunsOnStartup() queries ALL active incomplete runs without per-run filtering",
+			"severity": "MEDIUM",
+			"impact": "If Run B is still 'active' during Run A recovery, both get recovered (fire-and-forget). However, PR pre-existence check prevents duplicate PRs.",
+			"mitigation": "Ensure Run B reaches 'DONE' (finished_at set) before Run A recovery scan",
+			"verified": "Run B's state machine path completes to DONE, setting finished_at"
+		},
+		{
+			"id": "RISK-002",
+			"area": "Module-Level Singletons",
+			"description": "Global 'let' variables (db, adapters) shared within same process",
+			"severity": "LOW",
+			"impact": "Without Redis (synchronous execution), no concurrency risk. With Redis, BullMQ isolates jobs.",
+			"mitigation": "BullMQ job isolation; without Redis, runs are sequential",
+			"verified": "Worker concurrency=2 with Redis, but local dev has no Redis"
+		},
+		{
+			"id": "RISK-003",
+			"area": "Shared Evidence Directory",
+			"description": "Evidence written to per-run directories",
+			"severity": "LOW",
+			"impact": "Properly scoped \u2014 each run gets its own directory",
+			"mitigation": "Per-RUN_ID directory pattern",
+			"verified": "Evidence path pattern verified"
+		},
+		{
+			"id": "RISK-004",
+			"area": "DB WAL Mode",
+			"description": "External writes to SQLite require WAL checkpoint before server sees them",
+			"severity": "LOW",
+			"impact": "If DB is modified externally between runs, server may not see changes",
+			"mitigation": "Always run PRAGMA wal_checkpoint(TRUNCATE) after external writes",
+			"verified": "Covered in pitfall documentation"
+		}
+	],
+	"overall_risk": "AMBER \u2014 manageable with proper run sequencing (Run B completes before recovery scan)"
+}

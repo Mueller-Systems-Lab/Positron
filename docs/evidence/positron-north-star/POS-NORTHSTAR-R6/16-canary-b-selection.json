@@ -1,0 +1,12 @@
+{
+	"run": "POS-NORTHSTAR-R6-B",
+	"issue": {
+		"number": 10,
+		"title": "feat: add removeDuplicates utility",
+		"url": "https://github.com/xxammaxx/positron-sandbox/issues/10"
+	},
+	"module": "removeDuplicates",
+	"file": "src/removeDuplicates.ts",
+	"test_file": "tests/removeDuplicates.test.ts",
+	"independent_from": "Run A (countVowels) \u2014 separate module, file, tests"
+}

@@ -1,0 +1,86 @@
+{
+	"timestamp": "2026-08-03T19:05:55Z",
+	"positron": {
+		"branch": "positron/issue-308-r5-recovery-resume",
+		"head_sha": "a1dd04e03e46898a0bfe14c31957bc320c26d647",
+		"main_sha": "4876d2c9dd16e29ec37b3fba779d3356e29e20a5",
+		"build": "PASS",
+		"typecheck": "PASS (all up to date)",
+		"tests": {
+			"files": 85,
+			"passed": 2175,
+			"failed": 0,
+			"skipped": 0,
+			"result": "GREEN"
+		},
+		"working_tree": "52 untracked files (evidence/docs, no staged changes)",
+		"r5_pr_419": {
+			"number": 419,
+			"title": "feat: validate restart recovery without duplicate GitHub mutations",
+			"state": "OPEN",
+			"draft": true,
+			"head_ref": "positron/issue-308-r5-recovery-resume",
+			"head_sha": "a1dd04e03e46898a0bfe14c31957bc320c26d647",
+			"base_ref": "main",
+			"mergeable": "MERGEABLE",
+			"merge_state": "BLOCKED",
+			"reviews": 0,
+			"review_decision": "",
+			"diff_lines": 1929,
+			"production_files_changed": 3,
+			"test_files_changed": 1,
+			"evidence_files_changed": 42,
+			"new_dependencies": 0
+		}
+	},
+	"sandbox": {
+		"main_sha": "09700b0e1c920a005ec5971f15172e544c516e30",
+		"open_issues": [
+			{
+				"number": 6,
+				"title": "feat: add truncateText utility",
+				"state": "OPEN"
+			},
+			{
+				"number": 2,
+				"title": "fix: preserve version strings in formatTitle",
+				"state": "OPEN"
+			},
+			{
+				"number": 1,
+				"title": "Positron Stage 2 Write Sandbox",
+				"state": "OPEN"
+			}
+		],
+		"open_prs": [
+			{
+				"number": 8,
+				"title": "Positron: Issue #6 \u2014 Automated changes",
+				"head": "positron/issue-6-truncate-text",
+				"head_sha": "74202cdb2f532e1f20ed8dfeb93d7c933f7813fc",
+				"state": "OPEN",
+				"mergeable": "MERGEABLE"
+			},
+			{
+				"number": 3,
+				"title": "fix(issue-2): preserve version strings and acronyms in formatTitle",
+				"head": "positron/issue-2-preserve-version-strings",
+				"head_sha": "2107dac50aa5ac83f64413b4529e4c5c1daef1f4",
+				"state": "OPEN"
+			}
+		],
+		"tests": {
+			"files": 3,
+			"passed": 21,
+			"failed": 0,
+			"skipped": 1,
+			"total": 22,
+			"result": "GREEN"
+		}
+	},
+	"issue_308": {
+		"number": 308,
+		"title": "[RESEARCH] Validation: Supervised Full Real Mode pilot",
+		"state": "OPEN"
+	}
+}

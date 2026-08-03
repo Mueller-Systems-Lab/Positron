@@ -1,0 +1,9 @@
+{
+	"timestamp": "2026-08-03T19:36:23Z",
+	"run_a_started": "2026-08-03T19:29:20Z",
+	"run_b_completed": "2026-08-03T19:33:21Z",
+	"run_a_status": "active (crashed)",
+	"run_b_status": "done",
+	"overlap_during_run_b_execution": true,
+	"note": "Run B completed while Run A was in crashed/active state. Recovery correctly scoped."
+}

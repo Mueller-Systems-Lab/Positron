@@ -1,0 +1,9 @@
+{
+	"timestamp": "2026-08-03T19:20:17Z",
+	"positron_main_sha": "ed704876551b043313e47a45194d9b2fac83e9cf",
+	"build": "PASS",
+	"typecheck": "PASS",
+	"tests": "2175/2175 GREEN (after tsbuildinfo cleanup + fresh build)",
+	"stale_tsbuildinfo_cleaned": true,
+	"post_merge_verdict": "GREEN"
+}

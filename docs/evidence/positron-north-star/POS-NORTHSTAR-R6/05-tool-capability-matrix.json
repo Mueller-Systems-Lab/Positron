@@ -1,0 +1,45 @@
+{
+	"timestamp": "2026-08-03T19:21:51Z",
+	"tools": {
+		"gh_cli": {
+			"version": "2.45.0",
+			"capabilities": [
+				"pr_view",
+				"pr_merge",
+				"pr_create",
+				"issue_create",
+				"issue_view",
+				"issue_comment",
+				"repo_clone",
+				"checks_list"
+			]
+		},
+		"git": {
+			"version": "2.43.0",
+			"capabilities": ["clone", "branch", "commit", "push", "checkout", "log", "diff"]
+		},
+		"node": {
+			"version": "v22.22.0",
+			"capabilities": ["runtime", "package management"]
+		},
+		"npx": {
+			"version": "10.9.4",
+			"capabilities": ["vitest", "biome", "tsc"]
+		},
+		"vitest": {
+			"version": "4.1.7",
+			"capabilities": ["unit_tests", "integration_tests", "watch_mode"]
+		},
+		"biome": {
+			"version": "1.9.4",
+			"capabilities": ["format", "lint", "check"]
+		},
+		"typescript": {
+			"capabilities": ["typecheck", "build"]
+		},
+		"python3": {
+			"capabilities": ["evidence_generation", "hash_computation", "batch_artefacts"]
+		}
+	},
+	"verdict": "GREEN \u2014 all required tools available"
+}

@@ -1,0 +1,34 @@
+[
+	{
+		"id": "mut-1",
+		"run": "A",
+		"action": "branch_create",
+		"repo": "xxammaxx/positron-sandbox",
+		"branch": "positron/issue-9-r6-a-countvowels",
+		"sha": "d156232"
+	},
+	{
+		"id": "mut-2",
+		"run": "B",
+		"action": "branch_create",
+		"repo": "xxammaxx/positron-sandbox",
+		"branch": "positron/issue-10-r6-b-removeduplicates",
+		"sha": "ddde2de"
+	},
+	{
+		"id": "mut-3",
+		"run": "A",
+		"action": "pr_create",
+		"repo": "xxammaxx/positron-sandbox",
+		"pr": 11,
+		"branch": "positron/issue-9-r6-a-countvowels"
+	},
+	{
+		"id": "mut-4",
+		"run": "B",
+		"action": "pr_create",
+		"repo": "xxammaxx/positron-sandbox",
+		"pr": 12,
+		"branch": "positron/issue-10-r6-b-removeduplicates"
+	}
+]

@@ -1,0 +1,10 @@
+{
+	"new_dependencies": 0,
+	"new_runtime_components": 0,
+	"new_database": 0,
+	"new_agent_roles": 0,
+	"no_canary_specific_production_logic": true,
+	"no_hardcoded_run_ids": true,
+	"maintenance_assessment": "GREEN \u2014 no architectural erosion",
+	"verdict": "GREEN"
+}

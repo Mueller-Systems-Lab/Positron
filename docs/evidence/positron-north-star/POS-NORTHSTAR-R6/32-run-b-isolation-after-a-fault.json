@@ -1,0 +1,10 @@
+{
+	"run_b_state_after_fault": {
+		"phase": "DONE",
+		"status": "done",
+		"pr": 12
+	},
+	"b_unchanged": true,
+	"no_recovery_flag_for_b": true,
+	"verdict": "GREEN_UNAFFECTED_PARALLEL_RUN_VERIFIED"
+}

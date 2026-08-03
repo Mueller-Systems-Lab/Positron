@@ -1,0 +1,27 @@
+{
+	"timestamp": "2026-08-03T19:30:20Z",
+	"mode": "DRY_RUN_LOGICAL",
+	"run_a": {
+		"id": "POS-NORTHSTAR-R6-A",
+		"issue": 9,
+		"branch": "positron/issue-9-r6-a-countvowels",
+		"module": "countVowels",
+		"idempotency_key": "head:positron/issue-9-r6-a-countvowels"
+	},
+	"run_b": {
+		"id": "POS-NORTHSTAR-R6-B",
+		"issue": 10,
+		"branch": "positron/issue-10-r6-b-removeduplicates",
+		"module": "removeDuplicates",
+		"idempotency_key": "head:positron/issue-10-r6-b-removeduplicates"
+	},
+	"isolation_checks": {
+		"different_ids": true,
+		"different_issues": true,
+		"different_branches": true,
+		"different_modules": true,
+		"different_idempotency_keys": true,
+		"separate_evidence_paths": true
+	},
+	"verdict": "GREEN \u2014 dry run confirms both runs are correctly isolated"
+}

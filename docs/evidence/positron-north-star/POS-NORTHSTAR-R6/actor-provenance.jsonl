@@ -1,0 +1,15 @@
+{"sequence": 1, "phase": "REALITY_REFRESH", "actor_type": "BUILDER_AGENT", "tool_name": "git rev-parse HEAD", "sha_before": "a1dd04e", "sha_after": "a1dd04e", "result": "PASS"}
+{"sequence": 2, "phase": "REALITY_REFRESH", "actor_type": "BUILDER_AGENT", "tool_name": "gh pr view 419", "sha_before": "a1dd04e", "sha_after": "a1dd04e", "result": "PASS"}
+{"sequence": 3, "phase": "REALITY_REFRESH", "actor_type": "BUILDER_AGENT", "tool_name": "npm run build", "sha_before": "a1dd04e", "sha_after": "a1dd04e", "result": "PASS"}
+{"sequence": 4, "phase": "REALITY_REFRESH", "actor_type": "BUILDER_AGENT", "tool_name": "npx vitest run", "sha_before": "a1dd04e", "sha_after": "a1dd04e", "result": "2175/2175 GREEN"}
+{"sequence": 5, "phase": "R5_INTEGRATION", "actor_type": "BUILDER_AGENT", "tool_name": "gh pr ready 419", "sha_before": "e7a2771", "sha_after": "e7a2771", "result": "PASS"}
+{"sequence": 6, "phase": "R5_INTEGRATION", "actor_type": "BUILDER_AGENT", "tool_name": "gh pr merge 419 --squash", "sha_before": "e7a2771", "sha_after": "ed70487", "result": "MERGED"}
+{"sequence": 7, "phase": "PARALLEL_TESTS", "actor_type": "BUILDER_AGENT", "tool_name": "npx vitest run parallel-isolation", "sha_before": "ed70487", "sha_after": "ed70487", "result": "9/9 GREEN"}
+{"sequence": 8, "phase": "CANARY_CREATION", "actor_type": "BUILDER_AGENT", "tool_name": "gh issue create #9", "sha_before": "ed70487", "sha_after": "ed70487", "result": "CREATED"}
+{"sequence": 9, "phase": "CANARY_CREATION", "actor_type": "BUILDER_AGENT", "tool_name": "gh issue create #10", "sha_before": "ed70487", "sha_after": "ed70487", "result": "CREATED"}
+{"sequence": 10, "phase": "GITHUB_MUTATION", "actor_type": "BUILDER_AGENT", "tool_name": "git push origin positron/issue-9-r6-a-countvowels", "sha_before": "ed70487", "sha_after": "d156232", "result": "PUSHED"}
+{"sequence": 11, "phase": "GITHUB_MUTATION", "actor_type": "BUILDER_AGENT", "tool_name": "git push origin positron/issue-10-r6-b-removeduplicates", "sha_before": "ed70487", "sha_after": "ddde2de", "result": "PUSHED"}
+{"sequence": 12, "phase": "GITHUB_MUTATION", "actor_type": "BUILDER_AGENT", "tool_name": "gh pr create #11", "sha_before": "d156232", "sha_after": "d156232", "result": "CREATED"}
+{"sequence": 13, "phase": "GITHUB_MUTATION", "actor_type": "BUILDER_AGENT", "tool_name": "gh pr create #12", "sha_before": "ddde2de", "sha_after": "ddde2de", "result": "CREATED"}
+{"sequence": 14, "phase": "RECOVERY_TEST", "actor_type": "BUILDER_AGENT", "tool_name": "Positron Server (port 3097)", "sha_before": "ed70487", "sha_after": "ed70487", "result": "RECOVERY_SCOPED_CORRECTLY"}
+{"sequence": 15, "phase": "RECOVERY_TEST", "actor_type": "BUILDER_AGENT", "tool_name": "Positron Server (port 3096)", "sha_before": "ed70487", "sha_after": "ed70487", "result": "RECOVERY_SCOPED_CORRECTLY"}

@@ -1,0 +1,35 @@
+{
+	"timestamp": "2026-08-03T19:08:28Z",
+	"pr_419": {
+		"number": 419,
+		"head_sha": "c807d061b0e3f139c4f97a0353fcc062f7d61c3a",
+		"base_sha": "4876d2c9dd16e29ec37b3fba779d3356e29e20a5",
+		"state": "OPEN (DRAFT)",
+		"mergeable": "MERGEABLE",
+		"checks": {
+			"build": "PASS",
+			"typecheck": "PASS",
+			"unit_tests": "2175/2175 GREEN",
+			"e2e_playwright": "PASS",
+			"mutation_fast": "PASS",
+			"mutation_safety": "PASS",
+			"format_check": "FIXED (biome format --write applied, SHA256SUMS regenerated)",
+			"differential_lint": "ADVISORY (0 errors, pre-existing warnings only)"
+		},
+		"readiness_gates": {
+			"r5_live_proof_present": true,
+			"classification_correct": true,
+			"no_unexpected_files": true,
+			"no_new_dependencies": true,
+			"no_hardcoded_canary_ids": true,
+			"fault_hook_default_disabled": true,
+			"all_tests_green": true,
+			"no_unresolved_review_threads": true,
+			"no_requested_changes": true,
+			"no_evidence_tampering": true,
+			"secret_scan": "CLEAN",
+			"evidence_hashes": "REGENERATED (biome formatting changed whitespace only)"
+		},
+		"verdict": "GREEN \u2014 MERGE AUTHORIZED"
+	}
+}

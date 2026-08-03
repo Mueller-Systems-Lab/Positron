@@ -1,0 +1,27 @@
+{
+	"timestamp": "2026-08-03T19:05:55Z",
+	"pr_419": {
+		"number": 419,
+		"title": "feat: validate restart recovery without duplicate GitHub mutations",
+		"head_sha": "a1dd04e03e46898a0bfe14c31957bc320c26d647",
+		"base": "main",
+		"base_sha": "4876d2c9dd16e29ec37b3fba779d3356e29e20a5",
+		"state": "OPEN (DRAFT)",
+		"mergeable": "MERGEABLE",
+		"merge_state": "BLOCKED",
+		"reviews": [],
+		"review_decision": "",
+		"classification": "GREEN_POSITRON_FAILURE_RECOVERY_RESTART_RESUME_NO_DUPLICATE_MUTATION_VALIDATED",
+		"production_files": ["apps/server/src/index.ts", "apps/worker/src/pipeline-runner.ts"],
+		"test_files": ["apps/server/src/__tests__/recovery-resume.test.ts"],
+		"features": [
+			"Fault injection hook (POSITRON_FAULT_INJECTION_POINT env var)",
+			"PR pre-existence check via listPullRequests (defense-in-depth idempotency)",
+			"Startup recovery: recoverIncompleteRunsOnStartup()",
+			"2 RED recovery tests, 2 GREEN recovery tests"
+		],
+		"no_new_dependencies": true,
+		"no_hardcoded_canary_ids": true,
+		"fault_hook_default_disabled": true
+	}
+}

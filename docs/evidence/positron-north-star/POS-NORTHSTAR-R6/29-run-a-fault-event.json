@@ -1,0 +1,5 @@
+{
+	"fault_point": "AFTER_REMOTE_DRAFT_PR_CREATE_BEFORE_LOCAL_SUCCESS_CHECKPOINT",
+	"pr": 11,
+	"worker_exit": true
+}

@@ -1,0 +1,56 @@
+{
+	"timestamp": "2026-08-03T19:21:51Z",
+	"relevant_skills": [
+		{
+			"name": "positron-runcard-execution",
+			"category": "software-development",
+			"relevance": "CORE \u2014 run card execution with evidence gates"
+		},
+		{
+			"name": "positron-development",
+			"category": "software-development",
+			"relevance": "CORE \u2014 Positron conventions, pitfalls, test patterns"
+		},
+		{
+			"name": "positron-development-workflows",
+			"category": "software-development",
+			"relevance": "CORE \u2014 server, canary, runcard development"
+		},
+		{
+			"name": "test-driven-development",
+			"category": "software-development",
+			"relevance": "REQUIRED \u2014 RED\u2192GREEN pattern for parallel isolation tests"
+		},
+		{
+			"name": "systematic-debugging",
+			"category": "software-development",
+			"relevance": "REQUIRED \u2014 fault injection debugging"
+		},
+		{
+			"name": "verification-before-completion",
+			"category": "software-development",
+			"relevance": "REQUIRED \u2014 evidence before claims"
+		},
+		{
+			"name": "github-pr-workflow",
+			"category": "github",
+			"relevance": "REQUIRED \u2014 PR creation, merge, status checks"
+		},
+		{
+			"name": "github-issues",
+			"category": "github",
+			"relevance": "REQUIRED \u2014 issue creation, commenting"
+		},
+		{
+			"name": "github-repo-management",
+			"category": "github",
+			"relevance": "REQUIRED \u2014 sandbox repo operations"
+		}
+	],
+	"all_skills_available": 105,
+	"skill_gaps": [
+		"No explicit concurrency/parallelism testing skill",
+		"No explicit fault-injection skill (covered by R5 patterns in runcard skill)"
+	],
+	"verdict": "GREEN \u2014 all required skills available"
+}

@@ -1,0 +1,7 @@
+{
+	"timestamp": "2026-08-03T19:36:23Z",
+	"run": "POS-NORTHSTAR-R6-A",
+	"server_port": 3097,
+	"fault_injection": "AFTER_REMOTE_DRAFT_PR_CREATE_BEFORE_LOCAL_SUCCESS_CHECKPOINT",
+	"db_path": "/tmp/positron-r6-recovery.db"
+}

@@ -1,0 +1,12 @@
+{
+	"new_canary_issues": 2,
+	"new_canary_branches": 2,
+	"new_canary_draft_prs": 2,
+	"merged_canary_prs": 0,
+	"closed_canary_issues": 0,
+	"duplicate_prs": 0,
+	"duplicate_branches": 0,
+	"duplicate_fix_commits": 0,
+	"cross_linked_prs": 0,
+	"wrong_issue_comments": 0
+}

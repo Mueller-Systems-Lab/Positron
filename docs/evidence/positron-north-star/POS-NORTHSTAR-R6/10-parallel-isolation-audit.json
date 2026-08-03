@@ -1,0 +1,70 @@
+{
+	"timestamp": "2026-08-03T19:21:51Z",
+	"positron_main_sha": "ed704876551b043313e47a45194d9b2fac83e9cf",
+	"architecture_areas": {
+		"run_id_generation": {
+			"mechanism": "crypto.randomUUID()",
+			"uniqueness": "collision-resistant (cryptographic random)",
+			"risk": "LOW"
+		},
+		"state_persistence": {
+			"type": "SQLite (WAL mode)",
+			"tables": ["runs", "run_events", "artifacts", "run_signals"],
+			"foreign_keys": "all child tables reference runs.id (run_id)",
+			"risk": "LOW \u2014 properly foreign-keyed"
+		},
+		"worker_claiming": {
+			"mechanism": "BullMQ job claiming (atomic by design)",
+			"concurrency": 2,
+			"lock_duration_ms": 600000,
+			"without_redis": "synchronous in-process execution \u2014 no concurrent claiming",
+			"risk": "LOW (with Redis) / N/A (without Redis, synchronous)"
+		},
+		"checkpoint_scoping": {
+			"mechanism": "saveRunToDb() uses ON CONFLICT(id) DO UPDATE",
+			"scoping": "per-run (id = run ID)",
+			"risk": "LOW"
+		},
+		"github_mutation_scoping": {
+			"pr_creation": "listPullRequests(head branch) before createPullRequest \u2014 defense-in-depth idempotency",
+			"branch_context": "per-run branch stored in runs.branch",
+			"issue_context": "per-run issue stored in runs.issue_number",
+			"risk": "LOW \u2014 properly scoped"
+		},
+		"evidence_paths": {
+			"pattern": "docs/evidence/positron-north-star/<RUN_ID>/",
+			"scoping": "per-RUN_ID directory",
+			"risk": "LOW"
+		},
+		"recovery_scoping": {
+			"query": "SELECT id FROM runs WHERE status = 'active' AND phase NOT IN ('DONE', 'FAILED_BLOCKED', 'FAILED') AND finished_at IS NULL ORDER BY started_at ASC",
+			"scoping": "ALL active incomplete runs \u2014 NO per-run filter beyond status/phase",
+			"cross_run_risk": "HIGH \u2014 if Run B is 'active' at recovery time, it WILL be recovered alongside Run A",
+			"mitigation": "Run B should reach 'DONE' (finished_at set) BEFORE recovery scans. If Run B is still active, both get recovered \u2014 but each recovers independently since PR pre-existence check prevents duplicates."
+		},
+		"global_mutable_state": {
+			"singletons": [
+				"let db",
+				"let workspaceAdapter",
+				"let speckitAdapter",
+				"let opencodeAdapter",
+				"let gateRuntimeMode"
+			],
+			"risk": "MEDIUM \u2014 within same process, adapters are shared. With BullMQ (Redis) job isolation mitigates this. Without Redis, runs are synchronous so no concurrency risk."
+		},
+		"locked_keys": {
+			"bullmq_level": "lockDuration: 600s per job",
+			"db_level": "no explicit row-level locking",
+			"risk": "LOW \u2014 BullMQ provides job-level exclusivity"
+		},
+		"idempotency_keys": {
+			"pr_creation": "head branch matching",
+			"run_db_writes": "ON CONFLICT(id) DO UPDATE",
+			"risk": "LOW"
+		}
+	},
+	"high_risk_findings": [
+		"Recovery queries ALL active incomplete runs \u2014 parallel recovery risk if Run B is still active during Run A recovery"
+	],
+	"verdict": "AMBER \u2014 recovery scoping needs Run B to reach DONE before Run A recovery scan; otherwise both get recovered (but no duplicates due to PR pre-existence check)"
+}

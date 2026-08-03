@@ -1,0 +1,14 @@
+{
+	"tools_used": [
+		"gh CLI 2.45.0",
+		"git 2.43.0",
+		"node v22.22.0",
+		"npx 10.9.4",
+		"vitest 4.1.7",
+		"biome 1.9.4",
+		"typescript 5.x",
+		"sqlite3",
+		"Positron Server"
+	],
+	"all_tools_verified": true
+}

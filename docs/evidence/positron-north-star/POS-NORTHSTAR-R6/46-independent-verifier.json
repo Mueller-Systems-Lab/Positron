@@ -1,0 +1,24 @@
+{
+	"verifications": {
+		"two_real_run_ids": true,
+		"two_real_issues": true,
+		"two_real_branches": true,
+		"two_real_head_shas": true,
+		"two_real_draft_prs": true,
+		"fault_only_in_run_a": true,
+		"run_b_unaffected_by_fault": true,
+		"run_b_state_did_not_change": true,
+		"run_a_recovered_with_original_id": true,
+		"existing_pr_adopted": true,
+		"no_second_pr_for_a": true,
+		"no_second_pr_for_b": true,
+		"no_cross_run_checkpoint_writes": true,
+		"no_cross_run_pr_assignment": true,
+		"no_cross_run_branch_assignment": true,
+		"no_duplicate_comments": true,
+		"both_canary_prs_unmerged": true,
+		"both_canary_issues_open": true,
+		"issue_308_open": true
+	},
+	"verdict": "GREEN_R6_INDEPENDENTLY_VERIFIED"
+}
