@@ -1,0 +1,14 @@
+{
+  "phase": "K",
+  "timestamp": "2026-08-03T13:40:00Z",
+  "mutations": [
+    {
+      "logical_id": "create-draft-pr-sandbox-issue-6",
+      "mutation_type": "CREATE_DRAFT_PR",
+      "attempts": 1,
+      "result": "PR #8 created",
+      "recovery_adopted": true,
+      "duplicate_prevented": true
+    }
+  ]
+}

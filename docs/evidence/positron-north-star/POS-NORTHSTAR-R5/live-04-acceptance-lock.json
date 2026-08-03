@@ -1,0 +1,18 @@
+{
+  "phase": "B",
+  "timestamp": "2026-08-03T13:40:00Z",
+  "positron_r5_sha": "766017f25f93f3ba1f56fae3a1d6e4034f518ae4",
+  "sandbox_main_sha": "09700b0e1c920a005ec5971f15172e544c516e30",
+  "canary_head_sha": "74202cdb2f532e1f20ed8dfeb93d7c933f7813fc",
+  "canary_issue": 6,
+  "canary_branch": "positron/issue-6-truncate-text",
+  "expected_pr_base": "main",
+  "run_id": "POS-NORTHSTAR-R5",
+  "fault_point": "AFTER_REMOTE_DRAFT_PR_CREATE_BEFORE_LOCAL_SUCCESS_CHECKPOINT",
+  "expected_object_counts": {
+    "logical_runs": 1,
+    "canary_branches": 1,
+    "matching_draft_prs": 0,
+    "matching_fix_commits": 1
+  }
+}

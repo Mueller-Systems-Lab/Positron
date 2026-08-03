@@ -1,0 +1,18 @@
+{
+  "phase": "M",
+  "timestamp": "2026-08-03T13:40:00Z",
+  "new_dependencies": 0,
+  "new_runtime_components": 0,
+  "new_database": 0,
+  "new_agent_roles": 0,
+  "production_files_changed": 3,
+  "recovery_logic": "general, not canary-specific",
+  "hardcoded_pr_number": false,
+  "hardcoded_issue_number": false,
+  "hardcoded_branch": false,
+  "fault_injection_default_disabled": true,
+  "recovery_path_understandable": true,
+  "code_duplication": "server (index.ts) and worker (pipeline-runner.ts) have parallel fault injection hooks \u2014 both are independent runtime paths",
+  "architecture_delta": "MINIMAL",
+  "classification": "GREEN \u2014 minimal architecture impact"
+}

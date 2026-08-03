@@ -1,0 +1,9 @@
+{
+  "phase": "I",
+  "timestamp": "2026-08-03T13:37:50Z",
+  "pr_number": 8,
+  "adopted": true,
+  "pr_was_adopted": true,
+  "second_pr_not_created": true,
+  "event_message": "Adopted existing PR #8 (recovery after restart)"
+}

@@ -1,0 +1,7 @@
+{
+  "phase": "E",
+  "timestamp": "2026-08-03T13:36:51Z",
+  "remote_pr_exists": true,
+  "local_checkpoint_written": false,
+  "state_split": "REMOTE_PR_EXISTS / LOCAL_PENDING"
+}
