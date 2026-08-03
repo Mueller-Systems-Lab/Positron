@@ -1,0 +1,15 @@
+{
+  "run_id": "POS-NORTHSTAR-R5",
+  "phase": "R4_PR_SNAPSHOT",
+  "pr_418": {
+    "number": 418,
+    "head_sha_pre_rebase": "6fb8c00db236840a1929f1f02b3e5d6b0d427bc7",
+    "head_sha_post_format": "457f483f91e613f75236e2c8f23214dd3e962b2b",
+    "head_sha_post_rebase": "a6d0e38",
+    "diff_verified": "Only R4 evidence + status docs. No product code, no dependency changes, no R1-R3 evidence modifications.",
+    "r1_r3_evidence_unchanged": true,
+    "no_product_code_change": true,
+    "no_dependency_change": true,
+    "merge_authorized_by": "POS-NORTHSTAR-R5 run card Section 2"
+  }
+}

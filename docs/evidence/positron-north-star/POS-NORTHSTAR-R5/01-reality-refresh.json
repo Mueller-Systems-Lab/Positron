@@ -1,0 +1,56 @@
+{
+  "run_id": "POS-NORTHSTAR-R5",
+  "captured_at": "2026-08-03T06:52:44Z",
+  "positron": {
+    "main_sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+    "pr_418": {
+      "number": 418,
+      "state": "OPEN",
+      "draft": true,
+      "head_sha": "a6d0e38",
+      "title": "docs: freeze Positron North Star Trilogy capability baseline",
+      "mergeable": "MERGEABLE",
+      "checks": "format-check PASS, all required PASS, e2e IN_PROGRESS (rebased on latest main)"
+    },
+    "issue_308": {
+      "number": 308,
+      "state": "OPEN"
+    },
+    "tests": {
+      "files": 84,
+      "passed": 2173,
+      "failed": 0,
+      "status": "GREEN"
+    },
+    "build": "PASS",
+    "typecheck": "PASS (advisory TS6305 pre-existing)",
+    "working_tree": "clean (48 untracked)",
+    "node_version": "v22.22.0",
+    "npm_version": "10.9.4"
+  },
+  "sandbox": {
+    "main_sha": "09700b0e1c920a005ec5971f15172e544c516e30",
+    "pr_3": {
+      "state": "DRAFT",
+      "merged": false
+    },
+    "pr_5": {
+      "state": "MERGED"
+    },
+    "open_issues": [
+      "#1",
+      "#2"
+    ],
+    "branches_preserved": [
+      "positron/issue-2-preserve-version-strings",
+      "positron/issue-4-wordcount-punctuation"
+    ],
+    "tests": {
+      "files": 3,
+      "passed": 21,
+      "skipped": 1,
+      "status": "GREEN"
+    }
+  },
+  "classification": "GREEN_REALITY_REFRESH_MATCHES_EXPECTED"
+}

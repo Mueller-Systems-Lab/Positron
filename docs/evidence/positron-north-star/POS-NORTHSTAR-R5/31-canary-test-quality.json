@@ -1,0 +1,16 @@
+{
+  "run_id": "POS-NORTHSTAR-R5",
+  "canary_tests": {
+    "files": 4,
+    "passed": 28,
+    "skipped": 1,
+    "status": "GREEN"
+  },
+  "positron_tests": {
+    "files": 85,
+    "passed": 2175,
+    "status": "GREEN",
+    "new_recovery_tests": 2
+  },
+  "seeded_fault": "Recovery test (recovery-resume.test.ts) validates that duplicate PR is prevented \u2014 fault simulated via fake adapter"
+}

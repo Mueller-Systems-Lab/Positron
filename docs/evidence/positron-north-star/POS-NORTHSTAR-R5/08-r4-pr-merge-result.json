@@ -1,0 +1,13 @@
+{
+  "run_id": "POS-NORTHSTAR-R5",
+  "phase": "R4_PR_MERGE",
+  "pr_418": {
+    "merge_sha": "4876d2c9dd16e29ec37b3fba779d3356e29e20a5",
+    "merged_at": "2026-08-03T06:53:54Z",
+    "merge_method": "squash",
+    "post_merge_positron_main": "4876d2c9dd16e29ec37b3fba779d3356e29e20a5",
+    "r4_integrity_verified": true,
+    "all_gates_passed": true
+  },
+  "classification": "GREEN_R4_EVIDENCE_BASELINE_PUBLISHED"
+}

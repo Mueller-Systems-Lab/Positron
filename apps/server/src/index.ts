@@ -1217,14 +1217,70 @@ async function executePhase(
 			const body = renderPRBody(current, repository, evidence, branch);
 
 			try {
-				const pr = await github.createPullRequest({
-					owner: repository.owner,
-					repo: repository.repo,
-					title: `Positron: ${current.issueNumber ? `Issue #${current.issueNumber} — ` : ''}Automated changes`,
-					head: branch,
-					base: repository.defaultBranch ?? 'main',
-					body,
-				});
+				// --- R5: Check for existing PR before creating a new one (Idempotency) ---
+				let pr: Awaited<ReturnType<typeof github.createPullRequest>>;
+				let prWasAdopted = false;
+
+				try {
+					const existingPRs = await github.listPullRequests({
+						owner: repository.owner,
+						repo: repository.repo,
+						head: `${repository.owner}:${branch}`,
+						state: 'open',
+					});
+					if (existingPRs.length > 0 && existingPRs[0]) {
+						const existing = existingPRs[0];
+						pr = {
+							number: existing.number,
+							htmlUrl: existing.htmlUrl,
+							state: existing.state,
+						} as typeof pr;
+						prWasAdopted = true;
+						storeEvent({
+							id: createRunId(),
+							runId: current.id,
+							phase: 'PR_CREATE',
+							level: 'INFO',
+							message: `Adopted existing PR #${pr.number} (recovery after restart)`,
+							payload: { prNumber: pr.number, adopted: true, prUrl: pr.htmlUrl },
+							createdAt: new Date().toISOString(),
+						});
+					} else {
+						pr = await github.createPullRequest({
+							owner: repository.owner,
+							repo: repository.repo,
+							title: `Positron: ${current.issueNumber ? `Issue #${current.issueNumber} — ` : ''}Automated changes`,
+							head: branch,
+							base: repository.defaultBranch ?? 'main',
+							body,
+						});
+					}
+				} catch (listErr) {
+					pr = await github.createPullRequest({
+						owner: repository.owner,
+						repo: repository.repo,
+						title: `Positron: ${current.issueNumber ? `Issue #${current.issueNumber} — ` : ''}Automated changes`,
+						head: branch,
+						base: repository.defaultBranch ?? 'main',
+						body,
+					});
+				}
+
+				// --- R5: Fault Injection Hook ---
+				const faultPoint = process.env.POSITRON_FAULT_INJECTION_POINT;
+				if (!prWasAdopted && faultPoint === 'AFTER_REMOTE_DRAFT_PR_CREATE_BEFORE_LOCAL_SUCCESS_CHECKPOINT') {
+					storeEvent({
+						id: createRunId(),
+						runId: current.id,
+						phase: 'PR_CREATE',
+						level: 'WARN',
+						message: `FAULT INJECTED: Terminating after PR #${pr.number} creation, before local checkpoint`,
+						payload: { prNumber: pr.number, faultPoint, prWasAdopted: false },
+						createdAt: new Date().toISOString(),
+					});
+					saveRunToDb({ ...current, phase: 'PR_CREATE', status: 'active' });
+					process.exit(1);
+				}
 
 				if (syncService) {
 					const syncInput: GitHubStatusSyncInput = {

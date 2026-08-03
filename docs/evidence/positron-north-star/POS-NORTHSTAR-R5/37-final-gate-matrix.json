@@ -1,0 +1,73 @@
+{
+  "run_id": "POS-NORTHSTAR-R5",
+  "gates": [
+    {
+      "gate": "R4 Evidence Merge",
+      "result": "PASS"
+    },
+    {
+      "gate": "Reality Refresh",
+      "result": "PASS"
+    },
+    {
+      "gate": "NO_OP Hypothesis",
+      "result": "PASS (change required)"
+    },
+    {
+      "gate": "Recovery Architecture Audit",
+      "result": "PASS (gaps identified)"
+    },
+    {
+      "gate": "RED Recovery Test",
+      "result": "PASS (bug reproduced)"
+    },
+    {
+      "gate": "Recovery Fix",
+      "result": "PASS (minimal, 2 files)"
+    },
+    {
+      "gate": "Canary Issue",
+      "result": "PASS (#6 created)"
+    },
+    {
+      "gate": "Baseline Lock",
+      "result": "PASS"
+    },
+    {
+      "gate": "RED-before-GREEN",
+      "result": "PASS"
+    },
+    {
+      "gate": "Canary Tests",
+      "result": "PASS (28/28)"
+    },
+    {
+      "gate": "Positron Tests",
+      "result": "PASS (2175/2175)"
+    },
+    {
+      "gate": "No Duplicate Mutation",
+      "result": "PASS (1 PR, 0 duplicates)"
+    },
+    {
+      "gate": "Independent Verifier",
+      "result": "PASS"
+    },
+    {
+      "gate": "Evolution Health",
+      "result": "PASS (0 new deps, 0 new components)"
+    },
+    {
+      "gate": "No Merge",
+      "result": "PASS (PR #7 is DRAFT)"
+    },
+    {
+      "gate": "Issue #308 Open",
+      "result": "PASS"
+    },
+    {
+      "gate": "Secret Scan",
+      "result": "PASS"
+    }
+  ]
+}

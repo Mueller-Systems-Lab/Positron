@@ -1,0 +1,13 @@
+{
+  "run_id": "POS-NORTHSTAR-R5",
+  "deltas": {
+    "new_dependencies": 0,
+    "new_runtime_components": 0,
+    "new_agent_roles": 0,
+    "production_files_changed": 2,
+    "test_files_added": 1,
+    "architecture_delta": "MINIMAL \u2014 PR pre-check + fault injection hook added to existing PR_CREATE phase",
+    "recovery_overfit": "LOW \u2014 generic branch-based PR lookup, not hardcoded to any specific PR/branch/run"
+  },
+  "classification": "GREEN_EVOLUTION_HEALTHY"
+}
