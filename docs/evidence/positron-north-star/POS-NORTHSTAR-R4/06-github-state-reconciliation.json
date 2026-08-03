@@ -1,0 +1,102 @@
+{
+  "run_id": "POS-NORTHSTAR-R4",
+  "phase": "GITHUB_STATE_RECONCILIATION",
+  "reconciled_at": "2026-08-03T06:30:55Z",
+  "objects": [
+    {
+      "object": "Positron Issue #308",
+      "repository": "xxammaxx/Positron",
+      "expected_state": "OPEN",
+      "actual_state": "OPEN",
+      "expected_evolution": "Remains open \u2014 scope extends beyond validated supervised sandbox capability",
+      "unexpected_deviation": null,
+      "source": "gh issue view 308 --repo xxammaxx/Positron",
+      "timestamp": "2026-08-03T06:30:55Z",
+      "classification": "MATCH"
+    },
+    {
+      "object": "Sandbox PR #3",
+      "repository": "xxammaxx/positron-sandbox",
+      "expected_state": "OPEN, unmerged",
+      "actual_state": "DRAFT, unmerged",
+      "expected_evolution": "Remains unmerged \u2014 R1 canary, out of R4 scope",
+      "unexpected_deviation": null,
+      "source": "gh pr view 3 --repo xxammaxx/positron-sandbox",
+      "timestamp": "2026-08-03T06:30:55Z",
+      "classification": "MATCH"
+    },
+    {
+      "object": "Sandbox PR #5",
+      "repository": "xxammaxx/positron-sandbox",
+      "expected_state": "MERGED",
+      "actual_state": "MERGED (2026-08-02T20:08:07Z)",
+      "expected_evolution": "Merged in R3, merge commit is 09700b0 on main",
+      "unexpected_deviation": null,
+      "source": "gh pr view 5 --repo xxammaxx/positron-sandbox",
+      "timestamp": "2026-08-03T06:30:55Z",
+      "classification": "MATCH"
+    },
+    {
+      "object": "Sandbox Issue #4",
+      "repository": "xxammaxx/positron-sandbox",
+      "expected_state": "CLOSED",
+      "actual_state": "CLOSED (2026-08-03T01:00:19Z)",
+      "expected_evolution": "Closed after post-merge verification in R3",
+      "unexpected_deviation": null,
+      "source": "gh issue view 4 --repo xxammaxx/positron-sandbox",
+      "timestamp": "2026-08-03T06:30:55Z",
+      "classification": "MATCH"
+    },
+    {
+      "object": "R1 Branch (positron/issue-2-preserve-version-strings)",
+      "repository": "xxammaxx/positron-sandbox",
+      "expected_state": "PRESERVED",
+      "actual_state": "PRESERVED (SHA 2107dac)",
+      "expected_evolution": "Remains preserved \u2014 R1 canary evidence branch",
+      "unexpected_deviation": null,
+      "source": "git ls-remote origin positron/issue-2-preserve-version-strings",
+      "timestamp": "2026-08-03T06:30:55Z",
+      "classification": "MATCH"
+    },
+    {
+      "object": "R2 Branch (positron/issue-4-wordcount-punctuation)",
+      "repository": "xxammaxx/positron-sandbox",
+      "expected_state": "PRESERVED",
+      "actual_state": "PRESERVED (SHA 66b9def)",
+      "expected_evolution": "Remains preserved \u2014 R2 canary evidence branch",
+      "unexpected_deviation": null,
+      "source": "git ls-remote origin positron/issue-4-wordcount-punctuation",
+      "timestamp": "2026-08-03T06:30:55Z",
+      "classification": "MATCH"
+    },
+    {
+      "object": "Sandbox main",
+      "repository": "xxammaxx/positron-sandbox",
+      "expected_state": "Contains R2 fix (merge of PR #5)",
+      "actual_state": "SHA 09700b0 \u2014 merge commit of PR #5, contains R1 bootstrap + R2 fix",
+      "expected_evolution": "Stable, no further changes from R4",
+      "unexpected_deviation": null,
+      "source": "git log origin/main --oneline",
+      "timestamp": "2026-08-03T06:30:55Z",
+      "classification": "MATCH"
+    },
+    {
+      "object": "Sandbox Tests on main",
+      "repository": "xxammaxx/positron-sandbox",
+      "expected_state": "GREEN",
+      "actual_state": "21 passed, 1 skipped, 0 failed \u2014 GREEN",
+      "expected_evolution": "Stable, no regressions",
+      "unexpected_deviation": null,
+      "source": "NODE_ENV=test npx vitest run",
+      "timestamp": "2026-08-03T06:30:55Z",
+      "classification": "MATCH"
+    }
+  ],
+  "summary": {
+    "total_objects": 8,
+    "matches": 8,
+    "deviations": 0,
+    "unconfirmed": 0
+  },
+  "classification": "GREEN_GITHUB_STATE_RECONCILED"
+}

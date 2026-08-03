@@ -1,0 +1,70 @@
+{
+  "run_id": "POS-NORTHSTAR-R4",
+  "phase": "NEXT_CAPABILITY_DECISION",
+  "evaluated_at": "2026-08-03T06:33:08Z",
+  "candidates": [
+    {
+      "id": "POS-NORTHSTAR-R5",
+      "title": "Failure Recovery, Restart Resume & No-Duplicate-Mutation Canary",
+      "scores": {
+        "risk": "MEDIUM \u2014 controlled failure injection in sandbox",
+        "insight_value": "VERY_HIGH \u2014 addresses the largest capability gap after Happy Path",
+        "product_proximity": "HIGH \u2014 recovery/resume is critical for real supervised operation",
+        "security_relevance": "HIGH \u2014 ensures safe failure modes (no data loss, no duplicate mutations)",
+        "architecture_impact": "LOW-MEDIUM \u2014 may require run-state persistence enhancements",
+        "testability": "HIGH \u2014 failures can be injected and verified deterministically",
+        "reversibility": "HIGH \u2014 sandbox-only, no production impact",
+        "required_permissions": "Sandbox repo write (+ possibly controller restart simulation)",
+        "manual_substitution_risk": "LOW \u2014 failure injection is deterministic and verifiable"
+      },
+      "recommended": true,
+      "rationale": "After successful Happy Path validation (R1-R3), the highest-value next step is proving Positron handles failure gracefully: safe stop, state preservation, correct reconciliation on restart, and no duplicate mutations."
+    },
+    {
+      "id": "POS-NORTHSTAR-R5-ALT1",
+      "title": "Merge Conflict Handling",
+      "scores": {
+        "risk": "LOW",
+        "insight_value": "MEDIUM",
+        "product_proximity": "MEDIUM",
+        "security_relevance": "LOW",
+        "architecture_impact": "LOW",
+        "testability": "MEDIUM",
+        "reversibility": "HIGH",
+        "required_permissions": "Sandbox repo write",
+        "manual_substitution_risk": "LOW"
+      },
+      "recommended": false,
+      "rationale": "Merge conflicts are a natural next step but less critical than failure recovery. Can be deferred to R6 or later."
+    },
+    {
+      "id": "POS-NORTHSTAR-R5-ALT2",
+      "title": "Productive External Repository Pilot",
+      "scores": {
+        "risk": "HIGH \u2014 external repo, real consequences",
+        "insight_value": "VERY_HIGH",
+        "product_proximity": "VERY_HIGH",
+        "security_relevance": "CRITICAL",
+        "architecture_impact": "HIGH \u2014 new adapter, new policy gates",
+        "testability": "LOW \u2014 external repo state not fully controllable",
+        "reversibility": "MEDIUM \u2014 PR can be closed but repo history remains",
+        "required_permissions": "External repo write access",
+        "manual_substitution_risk": "HIGH \u2014 external repo may require manual intervention"
+      },
+      "recommended": false,
+      "rationale": "Too risky before recovery/resume is proven. Premature external repo access could cause real harm without recovery capability."
+    }
+  ],
+  "decision": {
+    "selected": "POS-NORTHSTAR-R5",
+    "full_title": "POS-NORTHSTAR-R5 \u2014 Failure Recovery, Restart Resume & No-Duplicate-Mutation Canary",
+    "priority": "HIGHEST",
+    "blocked_by": [],
+    "prerequisites": [
+      "R4 complete with GREEN classification",
+      "R1-R3 evidence frozen and hash-verified",
+      "Capability baseline published"
+    ]
+  },
+  "note": "R4 recommends R5 but does NOT execute it. R5 execution requires a separate run card and Human Gate."
+}

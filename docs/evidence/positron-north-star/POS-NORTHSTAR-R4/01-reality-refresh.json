@@ -1,0 +1,140 @@
+{
+  "run_id": "POS-NORTHSTAR-R4",
+  "captured_at": "2026-08-03T06:28:42Z",
+  "positron": {
+    "repository": "xxammaxx/Positron",
+    "main_sha": "4e7093b9062b46be00c030c362ce99fd41a02420",
+    "branch": "main",
+    "working_tree": "clean (47 untracked files, no modifications to tracked files)",
+    "open_prs": [],
+    "issue_308_state": "OPEN",
+    "issue_308_title": "[RESEARCH] Validation: Supervised Full Real Mode pilot with combined approval gates",
+    "evidence_directories": {
+      "POS-NORTHSTAR-R1": "12 files in docs/evidence/positron-north-star/POS-NORTHSTAR-R1/",
+      "POS-NORTHSTAR-R2": "9 files in docs/evidence/positron-north-star/POS-NORTHSTAR-R2/",
+      "POS-NORTHSTAR-R3": "8 files in docs/evidence/positron-north-star/POS-NORTHSTAR-R3/",
+      "POS-NORTHSTAR-R4": "newly created"
+    },
+    "tests": {
+      "files": 84,
+      "passed": 2173,
+      "failed": 0,
+      "status": "GREEN"
+    },
+    "build": "PASS (tsc -b all packages)",
+    "typecheck": "PASS with advisory: TS6305 in benchmark-rudolph (pre-existing dist mismatch, not caused by R4)",
+    "git_status": "clean working tree, 47 untracked files",
+    "node_version": "v22.22.0",
+    "npm_version": "10.9.4",
+    "verifier_tools": [
+      "git",
+      "gh CLI v2.x",
+      "sha256sum",
+      "python3",
+      "vitest v4.1.7"
+    ]
+  },
+  "sandbox": {
+    "repository": "xxammaxx/positron-sandbox",
+    "local_path": "/tmp/positron-sandbox",
+    "main_sha": "09700b0e1c920a005ec5971f15172e544c516e30",
+    "branch": "main",
+    "working_tree": "clean",
+    "pr_3": {
+      "number": 3,
+      "title": "fix(issue-2): preserve version strings and acronyms in formatTitle",
+      "state": "OPEN",
+      "draft": true,
+      "merged": false,
+      "branch": "positron/issue-2-preserve-version-strings",
+      "branch_sha": "2107dac50aa5ac83f64413b4529e4c5c1daef1f4"
+    },
+    "pr_5": {
+      "number": 5,
+      "title": "fix(issue-4): exclude punctuation-only tokens from wordCount",
+      "state": "MERGED",
+      "merged_at": "2026-08-02T20:08:07Z",
+      "merge_sha": "09700b0e1c920a005ec5971f15172e544c516e30",
+      "branch": "positron/issue-4-wordcount-punctuation",
+      "branch_sha": "66b9def90eae90d42a75e2f15476e1830d468297"
+    },
+    "issue_4": {
+      "number": 4,
+      "state": "CLOSED",
+      "title": "fix: wordCount should not count punctuation-only tokens as words"
+    },
+    "branches": {
+      "r1_branch": {
+        "name": "positron/issue-2-preserve-version-strings",
+        "preserved": true,
+        "sha": "2107dac50aa5ac83f64413b4529e4c5c1daef1f4"
+      },
+      "r2_branch": {
+        "name": "positron/issue-4-wordcount-punctuation",
+        "preserved": true,
+        "sha": "66b9def90eae90d42a75e2f15476e1830d468297"
+      }
+    },
+    "tests": {
+      "files": 3,
+      "passed": 21,
+      "skipped": 1,
+      "status": "GREEN"
+    },
+    "build": "N/A (no build step)",
+    "typecheck": "N/A"
+  },
+  "expected_vs_actual": {
+    "sandbox_main_sha": {
+      "expected": "09700b0",
+      "actual": "09700b0e1c920a005ec5971f15172e544c516e30",
+      "match": true
+    },
+    "pr_5_merged": {
+      "expected": "MERGED",
+      "actual": "MERGED",
+      "match": true
+    },
+    "issue_4_closed": {
+      "expected": "CLOSED",
+      "actual": "CLOSED",
+      "match": true
+    },
+    "pr_3_open": {
+      "expected": "OPEN/DRAFT",
+      "actual": "DRAFT",
+      "match": true
+    },
+    "sandbox_tests": {
+      "expected": "21/21 GREEN",
+      "actual": "21 passed + 1 skipped GREEN",
+      "match": true
+    },
+    "positron_tests": {
+      "expected": "2173/2173 GREEN",
+      "actual": "2173/2173 GREEN",
+      "match": true
+    },
+    "positron_issue_308": {
+      "expected": "OPEN",
+      "actual": "OPEN",
+      "match": true
+    },
+    "r1_branch_preserved": {
+      "expected": true,
+      "actual": true,
+      "match": true
+    },
+    "r2_branch_preserved": {
+      "expected": true,
+      "actual": true,
+      "match": true
+    }
+  },
+  "deviations_explained": [
+    "Sandbox local clone at /tmp/positron-sandbox was behind origin/main \u2014 fetched and reset to origin/main (09700b0) before tests",
+    "Sandbox test count: 21 passed + 1 skipped. The skipped test is pre-existing in formatTitle.edge.test.ts ('handles empty string')",
+    "Positron typecheck: TS6305 in benchmark-rudolph is pre-existing (dist/ has stale .d.ts files), not caused by R4"
+  ],
+  "classification": "GREEN_REALITY_REFRESH_MATCHES_EXPECTED"
+}
