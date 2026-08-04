@@ -1,0 +1,52 @@
+{
+  "timestamp": "2026-08-04T17:49:29Z",
+  "previous_classification": "GREEN_POSITRON_PARALLEL_RUN_ISOLATION_AND_CROSS_RUN_MUTATION_SAFETY_VALIDATED",
+  "corrected_classification": "AMBER_ISOLATION_AUDIT_REQUIRED",
+  "reason": "Operational core of R6 run card NOT executed. Observed two workers pulling jobs from a single shared BullMQ queue \u2014 indistinguishable from sequential job distribution. No per-worker run scoping, no parallel start barrier, no seeded fault, DONE not reachable.",
+  "gaps": [
+    {
+      "gap": "NO_PARALLEL_START_BARRIER",
+      "run_card_requirement": "Both workers started BEFORE releasing runs, shared barrier released simultaneously",
+      "what_happened": "Jobs enqueued to single BullMQ queue. Workers competed via standard Redis queue. No barrier mechanism used.",
+      "impact": "Cannot distinguish true parallel isolation from sequential BullMQ job distribution"
+    },
+    {
+      "gap": "NO_WORKER_SCOPING",
+      "run_card_requirement": "POSITRON_RECOVERY_RUN_ID or equivalent to scope workers to specific runs",
+      "what_happened": "Only fault injection was scoped. Worker job claiming had NO run-scoping. Any worker could claim any run.",
+      "impact": "Isolation proof depends entirely on BullMQ's built-in job lock, not on Positron's own run isolation"
+    },
+    {
+      "gap": "GATE_DONE_NOT_REACHABLE",
+      "run_card_requirement": "Both runs reach DONE state per target state machine",
+      "what_happened": "Both runs blocked at MERGE gate (pre_merge, security, human_approval). DONE unreachable without human.",
+      "impact": "GREEN validation requires DONE. Gate configuration blocks automated completion."
+    },
+    {
+      "gap": "PROOF_NOT_FALSIFIABLE",
+      "run_card_requirement": "Seeded fault in isolated verifier workspace must cause isolation test failure",
+      "what_happened": "No isolated verifier workspace used. No seeded fault to prove tests detect isolation violations.",
+      "impact": "Cannot verify isolation tests protect against real cross-run contamination"
+    },
+    {
+      "gap": "SINGLE_QUEUE_NO_ISOLATION",
+      "run_card_requirement": "Separate evidence streams, checkpoints, recovery states per run with independent worker processes",
+      "what_happened": "Both runs shared same BullMQ queue, same DB, same worker pool. No per-run queue or worker assignment.",
+      "impact": "Observed 'isolation' is indistinguishable from sequential processing with different run IDs"
+    }
+  ],
+  "what_was_actually_proven": [
+    "BullMQ workers can process two jobs from the same queue",
+    "POSITRON_FAULT_RUN_ID scoping fires correctly (FAULT INJECTED event logged)",
+    "process.exit(1) terminates the worker process",
+    "Pipeline adopts existing PRs when run is resumed (idempotency)",
+    "No duplicate GitHub objects were created (2 PRs, 2 branches, 0 duplicates)"
+  ],
+  "required_for_GREEN": [
+    "Implement POSITRON_RECOVERY_RUN_ID or per-worker run scoping",
+    "Start both workers BEFORE enqueuing runs, with shared release barrier",
+    "Prove Worker B does NOT claim Run A's job during Worker A outage",
+    "Execute seeded fault in isolated verifier workspace \u2192 prove tests detect isolation breaks",
+    "Configure gates to allow DONE state in canary context (or accept PR_CREATE as terminal)"
+  ]
+}
