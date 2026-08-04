@@ -1,10 +1,9 @@
 {
-  "timestamp": "2026-08-03T20:43:45Z",
-  "run_id": "072793d7-05bd-4cba-a4cb-85b5885faabd",
-  "fault_point": "AFTER_REMOTE_DRAFT_PR_CREATE_BEFORE_LOCAL_SUCCESS_CHECKPOINT",
-  "pr_number": 15,
-  "pr_was_adopted": false,
-  "event": "FAULT INJECTED: Terminating after PR #15 creation, before local checkpoint",
-  "server_exit_code": 1,
-  "server_pid": 2465171
+  "timestamp": "2026-08-04T06:56:15Z",
+  "run_a_fault": {
+    "pr_number": 20,
+    "fault_event": "FAULT INJECTED: Terminating after PR #20 creation, before local checkpoint",
+    "worker_exit": "process.exit(1)",
+    "fault_scoping": "POSITRON_FAULT_RUN_ID=13 matched issueNumber=13"
+  }
 }
