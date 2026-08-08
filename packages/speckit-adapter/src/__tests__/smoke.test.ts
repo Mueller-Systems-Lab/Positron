@@ -90,24 +90,32 @@ describe('artifact-scanner', () => {
 			const results = scanWorkspace(tmp);
 
 			// spec
-			const specResult = results.find(r => r.kind === 'spec' && r.path === '.positron/artifacts/specify.md');
+			const specResult = results.find(
+				(r) => r.kind === 'spec' && r.path === '.positron/artifacts/specify.md',
+			);
 			expect(specResult).toBeDefined();
 			expect(specResult!.exists).toBe(true);
 
 			// plan
-			const planResult = results.find(r => r.kind === 'plan' && r.path === '.positron/artifacts/plan.md');
+			const planResult = results.find(
+				(r) => r.kind === 'plan' && r.path === '.positron/artifacts/plan.md',
+			);
 			expect(planResult).toBeDefined();
 			expect(planResult!.exists).toBe(true);
 
 			// tasks
-			const tasksResult = results.find(r => r.kind === 'tasks' && r.path === '.positron/artifacts/tasks.md');
+			const tasksResult = results.find(
+				(r) => r.kind === 'tasks' && r.path === '.positron/artifacts/tasks.md',
+			);
 			expect(tasksResult).toBeDefined();
 			expect(tasksResult!.exists).toBe(true);
 
 			// Verify speckit.* variants (worker path compatibility)
 			fs.writeFileSync(`${artifactsDir}/speckit.specify.md`, '# Worker spec', 'utf-8');
 			const results2 = scanWorkspace(tmp);
-			const workerSpecResult = results2.find(r => r.kind === 'spec' && r.path === '.positron/artifacts/speckit.specify.md');
+			const workerSpecResult = results2.find(
+				(r) => r.kind === 'spec' && r.path === '.positron/artifacts/speckit.specify.md',
+			);
 			expect(workerSpecResult).toBeDefined();
 			expect(workerSpecResult!.exists).toBe(true);
 		} finally {
