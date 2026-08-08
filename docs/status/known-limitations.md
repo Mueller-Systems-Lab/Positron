@@ -47,17 +47,19 @@ See `docs/evidence/` for full stage evidence reports.
 - Auth contract confirmed end-to-end with live Server/Redis.
 - CI Playwright: 26/26 PASS.
 
-### Pending Admin Auth Mismatches
+### Auth Contract — RESOLVED (Issue #373)
 
-The following frontend API methods use `request()` (no admin token) but hit server endpoints protected by `requireAdmin`:
+All 5 frontend admin operations now use `adminRequest()` with the `X-Admin-Token` header:
 
-| Frontend Method | Endpoint | Server Middleware |
-|----------------|----------|-------------------|
-| `createRepo` | `POST /api/repos` | `requireAdmin` |
-| `startRun` | `POST /api/repos/:repoId/runs` | `requireAdmin` |
-| `saveEvidence` | `POST /api/evidence` | `requireAdmin` |
-| `updateSafety` | `POST /api/safety` | `requireAdmin` |
-| `cancelRun` | `POST /api/runs/:id/cancel` | `requireAdmin` |
+| Frontend Method | Endpoint | Status |
+|----------------|----------|--------|
+| `createRepo` | `POST /api/repos` | ✅ Uses adminRequest() |
+| `startRun` | `POST /api/repos/:repoId/runs` | ✅ Uses adminRequest() |
+| `saveEvidence` | `POST /api/evidence` | ✅ Uses adminRequest() |
+| `updateSafety` | `POST /api/safety` | ✅ Uses adminRequest() |
+| `cancelRun` | `POST /api/runs/:id/cancel` | ✅ Uses adminRequest() |
+
+Verified via dedicated auth contract test: `apps/web/src/__tests__/api-createRun-auth.test.ts` (163 lines, 5 test cases).
 
 ## Open Issues / PRs
 
@@ -85,7 +87,7 @@ These must not be applied, popped, or dropped without explicit human instruction
 | Full Real Mode not productively validated | Open | #308 |
 | Stage 3 Full Real Mode | IMPLEMENTED_AND_TESTED_NOT_EXECUTED | #308 |
 | Biome lint backlog | Open | #340 |
-| Remaining admin auth mismatches (5 endpoints) | Identified in #373 | — |
+| Admin auth contract mismatches (5 endpoints) | RESOLVED (#373) | — |
 | Large epics closed as not_planned | CLOSED | #229, #243 |
 | E2E tracing lifecycle (was active limitation) | CLOSED | #304 |
 | Portfolio auto-update mechanism | CLOSED | #305 |

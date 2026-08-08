@@ -1,7 +1,7 @@
 # Positron — Evidence-Gated AI Agent for Autonomous GitHub Issue Resolution
 
-[![Version](https://img.shields.io/badge/version-v0.3.0-blue.svg)](https://github.com/xxammaxx/Positron/releases)
-[![Tests](https://img.shields.io/badge/tests-2572%20passing-brightgreen.svg)](https://github.com/xxammaxx/Positron/actions)
+[![Version](https://img.shields.io/badge/version-v0.2.0--rc.1-blue.svg)](https://github.com/xxammaxx/Positron/releases)
+[![Tests](https://img.shields.io/badge/tests-2598%20passing-brightgreen.svg)](https://github.com/xxammaxx/Positron/actions)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker)](https://github.com/xxammaxx/Positron)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178C6?logo=typescript)](https://www.typescriptlang.org/)
@@ -126,15 +126,15 @@ All settings via environment variables or `apps/server/.env`:
 
 ## Tests
 
-At SHA `3a9a116` on 2026-08-02:
+At SHA `ed70487` on 2026-08-08:
 
 ```bash
 npm test   # Self-contained: pretest → build → root + Web Vitest
 ```
 
-- Root Vitest suite (Vitest 4.1.7, node environment): **84 files, 2173 passed, 0 failed, 0 skipped, 0 todo**
+- Root Vitest suite (Vitest 4.1.7, node environment): **88 files, 2199 passed, 0 failed, 0 skipped, 0 todo**
 - Web Vitest suite (Vitest 1.6.1, jsdom environment): **18 files, 399 passed, 0 failed, 0 skipped, 0 todo**
-- Combined unique unit suite: **102 files, 2572 passed** (root and Web test files are provably disjoint)
+- Combined unique unit suite: **106 files, 2598 passed** (root and Web test files are provably disjoint)
 - E2E tests: Playwright (separate suite; tracing instability [#304](https://github.com/xxammaxx/Positron/issues/304) was CLOSED 2026-07-30)
 
 `npm test` is self-contained: `pretest` runs `npm run build` (TypeScript compilation of all packages), then root Vitest executes, followed by Web Vitest.
@@ -180,7 +180,7 @@ Positron/
 | **Runtime** | Node.js 22 (CI-pinned) / 24 (development verified) |
 | **Language** | TypeScript 5.4 |
 | **Frontend** | React 18, Vite 5.4, Tailwind CSS 3 |
-| **Backend** | Express 4, SQLite (better-sqlite3) |
+| **Backend** | Express 5, SQLite (better-sqlite3) |
 | **State Machine** | Custom pipeline engine (28 phases) |
 | **E2E Testing** | Playwright 1.60 |
 | **Unit Testing** | Vitest 4.1 (root) / 1.6 (web) |
@@ -212,7 +212,7 @@ At the v0.1.0/v0.2.0 dogfood SHAs:
 - `npx biome format .`
 - `npm run build`
 - `npm run typecheck`
-- `npm test` — **2572/2572 passing** (102 test files: 84 root + 18 Web, 0 overlap)
+- `npm test` — **2598/2598 passing** (106 test files: 88 root + 18 Web, 0 overlap)
 
 ### Required CI checks (branch protection)
 

@@ -2,19 +2,19 @@
 
 ## Status
 
-As of 2026-08-02 at SHA `3a9a116` (post R3-R2 test-truth and documentation synchronization).
+As of 2026-08-08 at SHA `ed70487` (post drift recovery audit).
 
 ## Local Gates
 
 | Gate | Result |
 |------|--------|
-| `git diff --check` | PASS |
-| `npx biome format .` | PASS |
+| `git diff --check` | Not measured |
+| `npx biome format .` | Not measured |
 | `npm run build` | PASS |
-| `npm run typecheck` | PASS |
-| `npm test` (root) | PASS — **2173/2173** (84 test files, Vitest 4.1.7, node) |
+| `npm run typecheck` | PASS (dry) |
+| `npm test` (root) | PASS — **2199/2199** (88 test files, Vitest 4.1.7, node) |
 | `npm test` (web) | PASS — **399/399** (18 test files, Vitest 1.6.1, jsdom) |
-| **Combined Unique Unit** | **2572/2572** (102 files, 0 overlap) |
+| **Combined Unique Unit** | **2598/2598** (106 files, 0 overlap) |
 | `npx biome check .` | advisory-only (known lint backlog, [#340](https://github.com/xxammaxx/Positron/issues/340)) |
 
 ## Required CI Checks (Branch Protection)
@@ -99,13 +99,13 @@ CI policy: [`.opencode/policies/ci-policy.md`](.opencode/policies/ci-policy.md) 
 
 ## Test Breakdown
 
-At SHA `3a9a116` (2026-08-02):
+At SHA `ed70487` (2026-08-08):
 
 | Suite | Files | Tests | Runner |
 |-------|-------|-------|--------|
-| Root (packages + apps/server) | 84 | 2173 | Vitest 4.1.7 |
+| Root (packages + apps/server) | 88 | 2199 | Vitest 4.1.7 |
 | Web (apps/web) | 18 | 399 | Vitest 1.6.1 |
-| **Combined Unique Unit** | **102** | **2572** | — |
+| **Combined Unique Unit** | **106** | **2598** | — |
 
 Root and Web test files are provably disjoint (0 overlap).
 
