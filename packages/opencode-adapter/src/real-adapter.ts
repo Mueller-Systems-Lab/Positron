@@ -150,7 +150,7 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 				exitCode: result.exitCode,
 				durationMs: Date.now() - startTime,
 				summary: isSuccess
-					? `Command "${commandName}" phase "${phaseName}" completed (${extractedText ? extractedText.length + ' chars' : 'no text output'})`
+					? `Command "${commandName}" phase "${phaseName}" completed (${extractedText ? `${extractedText.length} chars` : 'no text output'})`
 					: `Command "${commandName}" phase "${phaseName}" failed: ${errorMessage ?? result.stderr.slice(0, 200)}`,
 				stdoutPath: evidencePaths.stdoutPath,
 				stderrPath: evidencePaths.stderrPath,
@@ -179,7 +179,6 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 	 * aber keine Source-Code-Änderungen vornimmt.
 	 */
 	async runImplement(input: OpenCodeRunInput): Promise<OpenCodeCommandResult> {
-		const startTime = Date.now();
 
 		// Verify native speckit.implement command is available
 		if (input.workspacePath) {
@@ -201,6 +200,7 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 			// Pre-run Spec Kit prerequisite scripts so native speckit commands
 			// don't need bash permissions (which opencode auto-rejects).
 			// This provides the FEATURE_DIR context that speckit.implement expects.
+			let effectiveInput = input;
 			try {
 				const prereqScript = path.join(input.workspacePath, '.specify', 'scripts', 'bash', 'check-prerequisites.sh');
 				if (fs.existsSync(prereqScript)) {
@@ -217,7 +217,7 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 							if (parsed.FEATURE_DIR) {
 								// Inject FEATURE_DIR into the context so speckit.implement
 								// doesn't need to run the script itself
-								input = {
+								effectiveInput = {
 									...input,
 									issueBody: input.issueBody
 										? `${input.issueBody}\n\nFEATURE_DIR=${parsed.FEATURE_DIR}`
@@ -232,6 +232,11 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 			} catch {
 				// Prerequisite check is best-effort; proceed with command anyway
 			}
+
+			return this.runSlashCommand('speckit.implement', {
+				...effectiveInput,
+				phaseName: 'implement',
+			});
 		}
 
 		return this.runSlashCommand('speckit.implement', {
