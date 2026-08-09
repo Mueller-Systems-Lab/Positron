@@ -757,6 +757,7 @@ async function executePhase(
 							`OpenCode: ${specResult.summary}`,
 							specResult.status === 'success' ? 'INFO' : 'WARN',
 						);
+						saveArtifact(current.id, 'spec', specResult.summary);
 						break;
 					}
 				} catch (err) {
@@ -811,6 +812,7 @@ async function executePhase(
 						`OpenCode: ${planResult.summary}`,
 						planResult.status === 'success' ? 'INFO' : 'WARN',
 					);
+					saveArtifact(current.id, 'plan', planResult.summary);
 					break;
 				} catch (err) {
 					storeEvent({
@@ -868,6 +870,7 @@ async function executePhase(
 						`OpenCode: ${tasksResult.summary}`,
 						tasksResult.status === 'success' ? 'INFO' : 'WARN',
 					);
+					saveArtifact(current.id, 'tasks', tasksResult.summary);
 					break;
 				} catch (err) {
 					storeEvent({
