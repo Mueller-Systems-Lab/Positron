@@ -174,13 +174,67 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 
 	/**
 	 * Führt OpenCode für die IMPLEMENT-Phase aus (Code-Änderungen).
-	 * Nutzt spec-driven-development mit Phase "implement".
+	 * Nutzt den nativen Spec Kit implement command (speckit.implement)
+	 * statt spec-driven-development, da letzteres nur Artifakte generiert
+	 * aber keine Source-Code-Änderungen vornimmt.
 	 */
 	async runImplement(input: OpenCodeRunInput): Promise<OpenCodeCommandResult> {
 		const startTime = Date.now();
 
-		// Use spec-driven-development with "implement" phase
-		return this.runSlashCommand('spec-driven-development', {
+		// Verify native speckit.implement command is available
+		if (input.workspacePath) {
+			const cmdFile = path.join(input.workspacePath, '.opencode', 'commands', 'speckit.implement.md');
+			if (!fs.existsSync(cmdFile)) {
+				return {
+					phase: 'implement',
+					status: 'blocked',
+					command: 'opencode run --command speckit.implement',
+					args: [],
+					cwd: input.workspacePath,
+					exitCode: null,
+					durationMs: 0,
+					summary: 'Native speckit.implement command not available — run specify init --integration opencode first',
+					blockedReason: 'IMPLEMENT_COMMAND_UNAVAILABLE: .opencode/commands/speckit.implement.md missing',
+				};
+			}
+
+			// Pre-run Spec Kit prerequisite scripts so native speckit commands
+			// don't need bash permissions (which opencode auto-rejects).
+			// This provides the FEATURE_DIR context that speckit.implement expects.
+			try {
+				const prereqScript = path.join(input.workspacePath, '.specify', 'scripts', 'bash', 'check-prerequisites.sh');
+				if (fs.existsSync(prereqScript)) {
+					const prereqResult = await runCommand('bash', [
+						prereqScript,
+						'--json',
+						'--require-tasks',
+						'--include-tasks',
+					], { cwd: input.workspacePath, timeout: 15_000 });
+
+					if (prereqResult.exitCode === 0 && prereqResult.stdout) {
+						try {
+							const parsed = JSON.parse(prereqResult.stdout);
+							if (parsed.FEATURE_DIR) {
+								// Inject FEATURE_DIR into the context so speckit.implement
+								// doesn't need to run the script itself
+								input = {
+									...input,
+									issueBody: input.issueBody
+										? `${input.issueBody}\n\nFEATURE_DIR=${parsed.FEATURE_DIR}`
+										: `FEATURE_DIR=${parsed.FEATURE_DIR}`,
+								};
+							}
+						} catch {
+							// Non-JSON output, skip injection
+						}
+					}
+				}
+			} catch {
+				// Prerequisite check is best-effort; proceed with command anyway
+			}
+		}
+
+		return this.runSlashCommand('speckit.implement', {
 			...input,
 			phaseName: 'implement',
 		});

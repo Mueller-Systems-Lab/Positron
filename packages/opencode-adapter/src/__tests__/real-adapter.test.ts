@@ -75,8 +75,14 @@ describe('RealOpenCodeAdapter', () => {
 		expect(result.command).toContain('spec-driven-development');
 	});
 
-	test('runImplement delegates to runSlashCommand with implement phase', async () => {
+	test('runImplement uses native speckit.implement command', async () => {
 		const adapter = new RealOpenCodeAdapter(tmpEvidence);
+
+		// Create mock command file to satisfy the capability check
+		const commandsDir = path.join(tmpWorkspace, '.opencode', 'commands');
+		fs.mkdirSync(commandsDir, { recursive: true });
+		fs.writeFileSync(path.join(commandsDir, 'speckit.implement.md'), '# implement');
+
 		const result = await adapter.runImplement({
 			runId: 'test-run',
 			workspacePath: tmpWorkspace,
@@ -85,9 +91,27 @@ describe('RealOpenCodeAdapter', () => {
 			autonomyLevel: 2,
 		});
 
-		expect(['blocked', 'failed', 'success']).toContain(result.status);
+		// With mock runCommand, native command returns error
+		expect(['blocked', 'failed']).toContain(result.status);
 		expect(result.durationMs).toBeGreaterThanOrEqual(0);
 		expect(result.cwd).toBe(tmpWorkspace);
+	});
+
+	test('runImplement blocks when speckit.implement command is missing', async () => {
+		const adapter = new RealOpenCodeAdapter(tmpEvidence);
+		// No .opencode/commands/speckit.implement.md created
+
+		const result = await adapter.runImplement({
+			runId: 'test-run',
+			workspacePath: tmpWorkspace,
+			issueTitle: 'Implement test feature',
+			issueNumber: 99,
+			autonomyLevel: 2,
+		});
+
+		expect(result.status).toBe('blocked');
+		expect(result.blockedReason).toContain('IMPLEMENT_COMMAND_UNAVAILABLE');
+		expect(result.command).toContain('speckit.implement');
 	});
 
 	test('extractTextFromOutput parses text events from JSON lines', () => {
