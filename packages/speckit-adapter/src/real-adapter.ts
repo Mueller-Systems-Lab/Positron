@@ -70,7 +70,7 @@ export class RealSpecKitAdapter implements SpecKitAdapter {
 		try {
 			const result = await runCommand(
 				'specify',
-				['init', '--integration', input.aiAgent ?? 'generic'],
+				['init', '--here', '--force', '--integration', input.aiAgent ?? 'generic'],
 				{
 					cwd: input.workspacePath,
 					timeout: 60_000,
