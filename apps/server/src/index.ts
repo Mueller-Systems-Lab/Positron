@@ -749,6 +749,8 @@ async function executePhase(
 							workspacePath: wsPath,
 							issueTitle: `Issue #${current.issueNumber}`,
 							issueNumber: current.issueNumber,
+							repoOwner: repository.owner,
+							repoName: repository.repo,
 							phaseName: 'specify',
 						});
 						result = transition(
@@ -804,6 +806,8 @@ async function executePhase(
 						workspacePath: wsPath,
 						issueTitle: `Issue #${current.issueNumber}`,
 						issueNumber: current.issueNumber,
+						repoOwner: repository.owner,
+						repoName: repository.repo,
 						phaseName: 'plan',
 					});
 					result = transition(
@@ -862,6 +866,8 @@ async function executePhase(
 						workspacePath: wsPath,
 						issueTitle: `Issue #${current.issueNumber}`,
 						issueNumber: current.issueNumber,
+						repoOwner: repository.owner,
+						repoName: repository.repo,
 						phaseName: 'tasks',
 					});
 					result = transition(
@@ -965,6 +971,8 @@ async function executePhase(
 				workspacePath: wsPath,
 				issueTitle: `Issue #${current.issueNumber}`,
 				issueNumber: current.issueNumber,
+				repoOwner: repository.owner,
+				repoName: repository.repo,
 				mode: 'safe-cli' as const,
 				autonomyLevel: current.autonomyLevel,
 			};

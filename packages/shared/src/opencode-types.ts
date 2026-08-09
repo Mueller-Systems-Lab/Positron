@@ -77,6 +77,10 @@ export interface OpenCodeRunInput {
 	issueBody?: string;
 	/** Issue-Nummer */
 	issueNumber?: number;
+	/** Target repository owner (e.g. "xxammaxx") */
+	repoOwner?: string;
+	/** Target repository name (e.g. "positron-sandbox") */
+	repoName?: string;
 	/** Adapter-Modus */
 	mode?: 'detect-only' | 'safe-cli';
 	/** OpenCode Modell (provider/model) */

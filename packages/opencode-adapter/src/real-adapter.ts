@@ -88,9 +88,14 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 		}
 
 		// Build message: phase name plus issue context
-		const contextMsg = input.issueBody
+		let contextMsg = input.issueBody
 			? `${phaseName}\n\nIssue #${input.issueNumber ?? '?'}: ${input.issueTitle}\n\n${input.issueBody.slice(0, 2000)}`
 			: `${phaseName}\n\nIssue #${input.issueNumber ?? '?'}: ${input.issueTitle}`;
+
+		// Include target repository context so the agent scopes to the correct repo
+		if (input.repoOwner && input.repoName) {
+			contextMsg = `Target repository: ${input.repoOwner}/${input.repoName}\n\n${contextMsg}`;
+		}
 
 		const args = ['run', '--command', commandName, '--format', 'json', contextMsg];
 
