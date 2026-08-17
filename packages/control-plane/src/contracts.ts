@@ -296,8 +296,7 @@ const CONTRACT_REGISTRY: Record<ContractId, ContractSchema> = {
 			findings: {
 				type: 'any',
 				required: true,
-				validate: (value) =>
-					Array.isArray(value) ? [] : ['findings must be an array'],
+				validate: (value) => (Array.isArray(value) ? [] : ['findings must be an array']),
 			},
 		},
 	},
@@ -405,7 +404,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function typeMismatch(field: string, constraint: FieldConstraint, value: unknown): boolean {
+function typeMismatch(constraint: FieldConstraint, value: unknown): boolean {
 	switch (constraint.type) {
 		case 'string':
 			return typeof value !== 'string';
@@ -422,7 +421,11 @@ function typeMismatch(field: string, constraint: FieldConstraint, value: unknown
 	}
 }
 
-function validateField(field: string, constraint: FieldConstraint, doc: Record<string, unknown>): string[] {
+function validateField(
+	field: string,
+	constraint: FieldConstraint,
+	doc: Record<string, unknown>,
+): string[] {
 	const errors: string[] = [];
 	const value = doc[field];
 
@@ -433,18 +436,26 @@ function validateField(field: string, constraint: FieldConstraint, doc: Record<s
 		return errors;
 	}
 
-	if (typeMismatch(field, constraint, value)) {
+	if (typeMismatch(constraint, value)) {
 		errors.push(`${field} must be of type ${constraint.type}`);
 		return errors;
 	}
 
-	if (typeof value === 'string' && constraint.minLength !== undefined && value.length < constraint.minLength) {
+	if (
+		typeof value === 'string' &&
+		constraint.minLength !== undefined &&
+		value.length < constraint.minLength
+	) {
 		errors.push(`${field} must have at least ${constraint.minLength} characters`);
 	}
 	if (typeof value === 'string' && constraint.pattern && !constraint.pattern.test(value)) {
 		errors.push(`${field} does not match pattern ${constraint.pattern}`);
 	}
-	if (Array.isArray(value) && constraint.minLength !== undefined && value.length < constraint.minLength) {
+	if (
+		Array.isArray(value) &&
+		constraint.minLength !== undefined &&
+		value.length < constraint.minLength
+	) {
 		errors.push(`${field} must have at least ${constraint.minLength} entries`);
 	}
 	if (isPlainObject(value)) {
@@ -493,7 +504,9 @@ export function validateContract(
 			ok: false,
 			contract: contractId,
 			version: version,
-			errors: [`UNKNOWN_VERSION: ${contractId} version ${version} is not supported (latest: ${schema.version})`],
+			errors: [
+				`UNKNOWN_VERSION: ${contractId} version ${version} is not supported (latest: ${schema.version})`,
+			],
 		};
 	}
 
@@ -508,7 +521,7 @@ export function validateContract(
 
 	const errors: string[] = [];
 
-	if (document['contract'] !== contractId) {
+	if (document.contract !== contractId) {
 		errors.push(`contract field must be "${contractId}"`);
 	}
 

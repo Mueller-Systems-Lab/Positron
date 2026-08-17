@@ -98,7 +98,10 @@ export function classifyFailure(input: {
 	}
 
 	if (SECURITY_PATTERNS.some((p) => p.test(combined))) {
-		return { signature: 'SECURITY_BLOCK', evidence: 'security-sensitive pattern detected in output' };
+		return {
+			signature: 'SECURITY_BLOCK',
+			evidence: 'security-sensitive pattern detected in output',
+		};
 	}
 
 	if (PROVIDER_PATTERNS.some((p) => p.test(combined))) {
@@ -106,7 +109,10 @@ export function classifyFailure(input: {
 	}
 
 	if (INFRA_PATTERNS.some((p) => p.test(combined))) {
-		return { signature: 'INFRA_FAILURE', evidence: 'infrastructure/workspace error pattern detected' };
+		return {
+			signature: 'INFRA_FAILURE',
+			evidence: 'infrastructure/workspace error pattern detected',
+		};
 	}
 
 	if (TYPECHECK_PATTERNS.some((p) => p.test(combined))) {
@@ -123,7 +129,7 @@ export function classifyFailure(input: {
 
 	if (input.exitCode !== null && input.exitCode !== undefined && input.exitCode !== 0) {
 		return {
-			signature: `TEST_FAILURE`,
+			signature: 'TEST_FAILURE',
 			evidence: `exit code ${input.exitCode}`,
 		};
 	}

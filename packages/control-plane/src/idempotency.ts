@@ -68,34 +68,28 @@ export class IdempotencyRegistry {
 	 * Führt eine mutierende Operation genau einmal aus.
 	 * Duplikate bekommen `duplicate: true` und die Operation läuft NICHT erneut.
 	 */
-	runOnce<T>(
-		key: string,
-		operation: () => T,
-	): { duplicate: boolean; result: T | null } {
+	runOnce<T>(key: string, operation: () => T): { duplicate: boolean; result: T | null } {
 		if (!this.claim(key)) {
 			return { duplicate: true, result: null };
 		}
-		try {
-			const result = operation();
-			return { duplicate: false, result };
-		} catch (err) {
-			// Key bleibt claimed — ein erneuter Versuch mit gleichem Key ist
-			// damit ebenfalls ein Duplikat und wird nicht erneut ausgeführt.
-			throw err;
-		}
+			// Der Key bleibt claimed — ein erneuter Versuch mit gleichem Key ist
+		// damit ebenfalls ein Duplikat und wird nicht erneut ausgeführt.
+		// Fehler der Operation propagieren (der Key bleibt claimed).
+		const result = operation();
+		return { duplicate: false, result };
 	}
 
 	isCompleted(key: string): boolean {
-		const row = this.db
-			.prepare('SELECT state FROM cp_idempotency WHERE idem_key = ?')
-			.get(key) as { state: string } | undefined;
+		const row = this.db.prepare('SELECT state FROM cp_idempotency WHERE idem_key = ?').get(key) as
+			| { state: string }
+			| undefined;
 		return row?.state === 'completed';
 	}
 
 	isClaimed(key: string): boolean {
-		const row = this.db
-			.prepare('SELECT state FROM cp_idempotency WHERE idem_key = ?')
-			.get(key) as { state: string } | undefined;
+		const row = this.db.prepare('SELECT state FROM cp_idempotency WHERE idem_key = ?').get(key) as
+			| { state: string }
+			| undefined;
 		return row !== undefined;
 	}
 

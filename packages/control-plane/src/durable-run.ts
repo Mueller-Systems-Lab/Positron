@@ -14,32 +14,10 @@
 // - Recovery: abgeschlossene Jobs werden nicht erneut ausgeführt
 // - Entscheidung kommt ausschließlich aus der Decision Policy
 
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
 import type Database from 'better-sqlite3';
-import { applyControlPlaneMigrations } from './schema.js';
-import {
-	completeAttempt,
-	createAttempt,
-	createJob,
-	getAttempt,
-	getJob,
-	listAttempts,
-	listDecisions,
-	listJobAttempts,
-	listJobs,
-	storeDecision,
-	storeTransition,
-	updateJobState,
-	createId,
-} from './store.js';
-import type { JobRecord, AttemptRecord } from './store.js';
-import { IdempotencyRegistry, idempotencyKey } from './idempotency.js';
-import { fingerprint } from './fingerprint.js';
-import { evaluatePlanGate } from './plan-gate.js';
-import { evaluateRetry } from './retry-policy.js';
-import { buildDecision } from './decision-policy.js';
 import { validateContract } from './contracts.js';
 import type {
 	BuildInputContract,
@@ -50,8 +28,30 @@ import type {
 	RunEventContract,
 	VerificationContract,
 } from './contracts.js';
-import { buildVerificationContract } from './verification.js';
 import type { VerificationCheck } from './contracts.js';
+import { buildDecision } from './decision-policy.js';
+import { fingerprint } from './fingerprint.js';
+import { IdempotencyRegistry, idempotencyKey } from './idempotency.js';
+import { evaluatePlanGate } from './plan-gate.js';
+import { evaluateRetry } from './retry-policy.js';
+import { applyControlPlaneMigrations } from './schema.js';
+import {
+	completeAttempt,
+	createAttempt,
+	createId,
+	createJob,
+	getAttempt,
+	getJob,
+	listAttempts,
+	listDecisions,
+	listJobAttempts,
+	listJobs,
+	storeDecision,
+	storeTransition,
+	updateJobState,
+} from './store.js';
+import type { AttemptRecord, JobRecord } from './store.js';
+import { buildVerificationContract } from './verification.js';
 
 // ---------------------------------------------------------------------------
 // Issue Contract (Typ) — Struktur gemäß positron.issue.v1
@@ -81,7 +81,9 @@ export interface BuildWorker {
 	 * im Workspace vornehmen (oder scheitern). Positron bewertet das Ergebnis
 	 * ausschließlich über die anschließende deterministische Verification.
 	 */
-	implement(input: BuildInputContract & { strategyDelta?: string | null }): Promise<BuildResultContract>;
+	implement(
+		input: BuildInputContract & { strategyDelta?: string | null },
+	): Promise<BuildResultContract>;
 }
 
 export interface VerificationTool {
@@ -131,17 +133,6 @@ export interface DurableRunInput {
 	crashAfterJob?: string;
 }
 
-const RUN_STATES = [
-	'INTAKE',
-	'BASELINE',
-	'PLAN',
-	'PLAN_GATE',
-	'BUILD',
-	'VERIFY',
-	'REVIEW',
-	'DECIDE',
-] as const;
-
 function readRepositoryHead(workspacePath: string): string {
 	try {
 		return execFileSync('git', ['rev-parse', 'HEAD'], {
@@ -153,7 +144,7 @@ function readRepositoryHead(workspacePath: string): string {
 	}
 }
 
-function emitEvent(db: Database.Database, event: RunEventContract): void {
+function emitEvent(event: RunEventContract): void {
 	// run-events werden über den bestehenden run_events-Mechanismus der Pipeline
 	// gespeichert; hier nur strukturiert erfasst (contract validated).
 	const result = validateContract('positron.run-event.v1', event);
@@ -183,19 +174,22 @@ function emitEvent(db: Database.Database, event: RunEventContract): void {
  * Information Gain, ob ein neuer Attempt startet (immer neuer attempt_id,
  * Historie bleibt vollständig).
  */
-export async function runDurableRun(deps: DurableRunDeps, input: DurableRunInput): Promise<DurableRunResult> {
+export async function runDurableRun(
+	deps: DurableRunDeps,
+	input: DurableRunInput,
+): Promise<DurableRunResult> {
 	const db = deps.db;
 	applyControlPlaneMigrations(db);
 	const idem = new IdempotencyRegistry(db);
 
 	const runId = input.issue.run_id;
 	const transitions: DurableRunResult['transitions'] = [];
-	let lastState: string = 'INTAKE';
+	let lastState = 'INTAKE';
 
 	const trackTransition = (next: string, reasonCode: string): void => {
 		storeTransition(db, runId, lastState, next, reasonCode);
 		transitions.push({ previous: lastState, next, reason_code: reasonCode });
-		emitEvent(db, {
+		emitEvent({
 			contract: 'positron.run-event.v1',
 			run_id: runId,
 			timestamp: new Date().toISOString(),
@@ -266,7 +260,6 @@ export async function runDurableRun(deps: DurableRunDeps, input: DurableRunInput
 	let decision: DecisionContract | null = null;
 	let workerInvocations = 0;
 	let verification: VerificationContract | null = null;
-	let verificationReused = false; // eslint-disable-line prefer-const
 	// Von der Control Plane deterministisch abgeleitetes Strategie-Delta:
 	// die neue Evidenz des letzten fehlgeschlagenen Verify (kein LLM-Urteil).
 	let lastFailureEvidence: string | null = null;
@@ -283,7 +276,6 @@ export async function runDurableRun(deps: DurableRunDeps, input: DurableRunInput
 			if (verifiedAttempt?.output_json) {
 				try {
 					verification = JSON.parse(verifiedAttempt.output_json) as VerificationContract;
-					verificationReused = true;
 				} catch {
 					verification = null;
 				}
@@ -324,7 +316,10 @@ export async function runDurableRun(deps: DurableRunDeps, input: DurableRunInput
 		const idemKey = idempotencyKey(runId, buildJob.job_id, attempt.attempt_id);
 		if (!idem.claim(idemKey)) {
 			// Duplikat (Recovery-Szenario): kein zweiter Worker-Aufruf
-			completeAttempt(db, attempt.attempt_id, { status: 'denied', result_ref: 'duplicate-dispatch' });
+			completeAttempt(db, attempt.attempt_id, {
+				status: 'denied',
+				result_ref: 'duplicate-dispatch',
+			});
 			continue;
 		}
 
@@ -363,14 +358,20 @@ export async function runDurableRun(deps: DurableRunDeps, input: DurableRunInput
 			result_ref: buildResult.result_ref ?? null,
 		});
 		idem.complete(idemKey, buildResult.result_ref ?? buildResult.summary);
-		trackTransition('BUILD', buildResult.status === 'success' ? 'BUILD_RESULT_OK' : 'BUILD_RESULT_FAILED');
+		trackTransition(
+			'BUILD',
+			buildResult.status === 'success' ? 'BUILD_RESULT_OK' : 'BUILD_RESULT_FAILED',
+		);
 
 		// ── VERIFY: deterministische Tools ───────────────────────────────────
 		const verifyJob = createJob(db, runId, 'verify', buildJob.job_id);
 		const verifyAttempt = createAttempt(db, runId, verifyJob.job_id, {
 			worker_type: 'deterministic-tools',
 			input_contract: 'positron.verification.v1',
-			input_fingerprint: fingerprint({ attempt: attempt.attempt_id, workspace: deps.workspace.path }),
+			input_fingerprint: fingerprint({
+				attempt: attempt.attempt_id,
+				workspace: deps.workspace.path,
+			}),
 		});
 		const verifyOut = await deps.verifyTool.run({
 			run_id: runId,
@@ -431,13 +432,19 @@ export async function runDurableRun(deps: DurableRunDeps, input: DurableRunInput
 			(input.crashAfterJob === verifyJob.job_id || input.crashAfterJob === 'verify')
 		) {
 			updateJobState(db, buildJob.job_id, 'succeeded');
-			return finishRun(db, runId, {
-				contract: 'positron.decision.v1',
-				run_id: runId,
-				decision: 'BLOCKED',
-				reason_code: 'CRASH_INJECTED',
-				basis: { boundary: 'verify', message: 'controlled crash after completed verify job' },
-			}, transitions, workerInvocations);
+			return finishRun(
+				db,
+				runId,
+				{
+					contract: 'positron.decision.v1',
+					run_id: runId,
+					decision: 'BLOCKED',
+					reason_code: 'CRASH_INJECTED',
+					basis: { boundary: 'verify', message: 'controlled crash after completed verify job' },
+				},
+				transitions,
+				workerInvocations,
+			);
 		}
 
 		// ── FIX-Zyklus: Retry nur bei Information Gain ──────────────────────
@@ -472,7 +479,11 @@ export async function runDurableRun(deps: DurableRunDeps, input: DurableRunInput
 	// ── DECIDE: Positron entscheidet (deterministisch) ──────────────────────
 	const latestBuildAttempt = listJobAttempts(db, buildJob.job_id).at(-1) ?? null;
 	const retry = !verification
-		? { verdict: 'DENIED' as const, reason_code: 'RETRY_DENIED_ATTEMPT_LIMIT' as const, delta: [] as string[] }
+		? {
+				verdict: 'DENIED' as const,
+				reason_code: 'RETRY_DENIED_ATTEMPT_LIMIT' as const,
+				delta: [] as string[],
+			}
 		: verification.passed
 			? null
 			: evaluateRetry({
@@ -541,7 +552,10 @@ export function isJobCompleted(db: Database.Database, jobId: string): boolean {
  * Ermittelt die nächste valide Boundary nach einem Crash.
  * Returns: { jobId, state } für den letzten abgeschlossenen Job.
  */
-export function recoveryBoundary(db: Database.Database, runId: string): { jobId: string; state: string } | null {
+export function recoveryBoundary(
+	db: Database.Database,
+	runId: string,
+): { jobId: string; state: string } | null {
 	const jobs = listJobs(db, runId);
 	if (jobs.length === 0) return null;
 	const lastCompleted = [...jobs].reverse().find((j) => j.state === 'succeeded');

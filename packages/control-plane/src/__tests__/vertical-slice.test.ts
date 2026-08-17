@@ -6,20 +6,20 @@
 // - RECOVERY: Crash nach completed job → kein Rerun, valide Boundary
 // - BLIND_RETRY_CANARY: identischer Versuch → RETRY_DENIED_NO_STRATEGY_DELTA, kein 2. Worker-Call
 
+import { TestCommandDetector, TestRunner } from '@positron/sandbox';
 import { afterEach, describe, expect, it } from 'vitest';
-import { runDurableRun, isJobCompleted, recoveryBoundary } from '../durable-run.js';
 import type { PlanContract } from '../contracts.js';
+import { isJobCompleted, recoveryBoundary, runDurableRun } from '../durable-run.js';
+import type { VerificationTool } from '../durable-run.js';
 import {
+	ScriptedBuildWorker,
 	cleanupWorkspace,
 	createTestDb,
 	createTestWorkspace,
 	makeNodeTestVerifyTool,
 	readFile,
-	ScriptedBuildWorker,
 } from './vertical-slice-helpers.js';
 import type { TestWorkspace } from './vertical-slice-helpers.js';
-import type { VerificationTool } from '../durable-run.js';
-import { TestCommandDetector, TestRunner } from '@positron/sandbox';
 
 let ws: TestWorkspace | null = null;
 
@@ -45,7 +45,14 @@ function makePlan(runId: string, workspace: TestWorkspace): PlanContract {
 	};
 }
 
-function makeIssue(runId: string): { contract: 'positron.issue.v1'; run_id: string; source_type: string; source_ref: string; repository_ref: string; title: string } {
+function makeIssue(runId: string): {
+	contract: 'positron.issue.v1';
+	run_id: string;
+	source_type: string;
+	source_ref: string;
+	repository_ref: string;
+	title: string;
+} {
 	return {
 		contract: 'positron.issue.v1',
 		run_id: runId,
@@ -71,7 +78,11 @@ describe('FULL_HAPPY_PATH', () => {
 		const result = await runDurableRun(
 			{
 				db,
-				workspace: { path: ws.dir, repositoryRef: 'xxammaxx/vslice-workspace', readHead: ws.readHead },
+				workspace: {
+					path: ws.dir,
+					repositoryRef: 'xxammaxx/vslice-workspace',
+					readHead: ws.readHead,
+				},
 				buildWorker: worker,
 				verifyTool,
 				reviewFindings: async () => [],
@@ -119,7 +130,11 @@ describe('FULL_FIX_PATH', () => {
 		const result = await runDurableRun(
 			{
 				db,
-				workspace: { path: ws.dir, repositoryRef: 'xxammaxx/vslice-workspace', readHead: ws.readHead },
+				workspace: {
+					path: ws.dir,
+					repositoryRef: 'xxammaxx/vslice-workspace',
+					readHead: ws.readHead,
+				},
 				buildWorker: worker,
 				verifyTool,
 				reviewFindings: async () => [],
@@ -170,7 +185,11 @@ describe('RECOVERY', () => {
 		const crashRun = await runDurableRun(
 			{
 				db,
-				workspace: { path: ws.dir, repositoryRef: 'xxammaxx/vslice-workspace', readHead: ws.readHead },
+				workspace: {
+					path: ws.dir,
+					repositoryRef: 'xxammaxx/vslice-workspace',
+					readHead: ws.readHead,
+				},
 				buildWorker: worker,
 				verifyTool,
 				reviewFindings: async () => [],
@@ -196,7 +215,11 @@ describe('RECOVERY', () => {
 		const resumeRun = await runDurableRun(
 			{
 				db,
-				workspace: { path: ws.dir, repositoryRef: 'xxammaxx/vslice-workspace', readHead: ws.readHead },
+				workspace: {
+					path: ws.dir,
+					repositoryRef: 'xxammaxx/vslice-workspace',
+					readHead: ws.readHead,
+				},
 				buildWorker: worker,
 				verifyTool,
 				reviewFindings: async () => [],
@@ -249,7 +272,11 @@ describe('BLIND_RETRY_CANARY', () => {
 		const result = await runDurableRun(
 			{
 				db,
-				workspace: { path: ws.dir, repositoryRef: 'xxammaxx/vslice-workspace', readHead: ws.readHead },
+				workspace: {
+					path: ws.dir,
+					repositoryRef: 'xxammaxx/vslice-workspace',
+					readHead: ws.readHead,
+				},
 				buildWorker: worker,
 				verifyTool: silentVerifyTool,
 				reviewFindings: async () => [],

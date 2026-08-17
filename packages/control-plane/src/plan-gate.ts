@@ -86,7 +86,9 @@ export function evaluatePlanGate(
 	if (!HEX_SHA.test(plan.repository_head)) {
 		errors.push(`repository_head is not a valid 40-char hex SHA: "${plan.repository_head}"`);
 	} else if (expectedHead && plan.repository_head !== expectedHead) {
-		errors.push(`repository_head mismatch: expected "${expectedHead}", got "${plan.repository_head}"`);
+		errors.push(
+			`repository_head mismatch: expected "${expectedHead}", got "${plan.repository_head}"`,
+		);
 	}
 
 	// 5. Acceptance Criteria

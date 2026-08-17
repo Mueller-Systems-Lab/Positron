@@ -56,10 +56,7 @@ export function buildDecision(input: DecisionInput): DecisionContract {
 
 	// 3. Security Hard Block — kein Mehrheitsvotum
 	const blockingSecurityFindings = input.findings.filter(
-		(f) =>
-			f.category === 'security' &&
-			f.blocking &&
-			SECURITY_BLOCKING_SEVERITIES.has(f.severity),
+		(f) => f.category === 'security' && f.blocking && SECURITY_BLOCKING_SEVERITIES.has(f.severity),
 	);
 	if (blockingSecurityFindings.length > 0) {
 		return {

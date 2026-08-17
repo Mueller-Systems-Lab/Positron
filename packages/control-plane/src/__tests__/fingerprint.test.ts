@@ -61,13 +61,18 @@ describe('FINGERPRINT_STABILITY', () => {
 
 	it('semanticallyEqual detects drift', () => {
 		expect(semanticallyEqual(basePlan, { ...basePlan })).toBe(true);
-		expect(semanticallyEqual(basePlan, { ...basePlan, repository_head: 'b'.repeat(40) })).toBe(false);
+		expect(semanticallyEqual(basePlan, { ...basePlan, repository_head: 'b'.repeat(40) })).toBe(
+			false,
+		);
 	});
 
 	it('undefined values are neutral', () => {
 		const withUndefined = { ...basePlan, risks: undefined };
-		const withMissing = { ...basePlan };
-		delete (withMissing as Record<string, unknown>)['risks'];
+		const withMissing: Record<string, unknown> = {};
+		for (const [key, value] of Object.entries(basePlan)) {
+			if (key === 'risks') continue;
+			withMissing[key] = value;
+		}
 		expect(fingerprint(withUndefined)).toBe(fingerprint(withMissing));
 	});
 

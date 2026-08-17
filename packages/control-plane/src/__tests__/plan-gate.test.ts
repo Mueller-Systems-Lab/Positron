@@ -2,7 +2,7 @@
 // PLAN_GATE_APPROVE / PLAN_GATE_REJECT / deterministische Fehlerliste
 
 import { describe, expect, it } from 'vitest';
-import { evaluatePlanGate, planGateBlocked, isPlanApproved } from '../plan-gate.js';
+import { evaluatePlanGate, isPlanApproved, planGateBlocked } from '../plan-gate.js';
 
 const HEAD = 'a'.repeat(40);
 

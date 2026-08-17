@@ -94,7 +94,15 @@ export function createJob(
 	db.prepare(
 		`INSERT INTO cp_jobs (job_id, run_id, job_type, state, parent_job_id, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-	).run(job.job_id, job.run_id, job.job_type, job.state, job.parent_job_id, job.created_at, job.updated_at);
+	).run(
+		job.job_id,
+		job.run_id,
+		job.job_type,
+		job.state,
+		job.parent_job_id,
+		job.created_at,
+		job.updated_at,
+	);
 	return job;
 }
 
@@ -117,9 +125,11 @@ export function updateJobState(
 	jobId: string,
 	state: JobState,
 ): JobRecord | null {
-	db.prepare(
-		'UPDATE cp_jobs SET state = ?, updated_at = ? WHERE job_id = ?',
-	).run(state, nowIso(), jobId);
+	db.prepare('UPDATE cp_jobs SET state = ?, updated_at = ? WHERE job_id = ?').run(
+		state,
+		nowIso(),
+		jobId,
+	);
 	return getJob(db, jobId);
 }
 

@@ -2,8 +2,8 @@
 // SECURITY_HARD_BLOCK / deterministische Entscheidungen mit reason_code
 
 import { describe, expect, it } from 'vitest';
-import { buildDecision } from '../decision-policy.js';
 import type { FindingContract, VerificationContract } from '../contracts.js';
+import { buildDecision } from '../decision-policy.js';
 
 function makeVerification(passed: boolean, checks: Array<{ name: string }>): VerificationContract {
 	return {
@@ -52,9 +52,7 @@ describe('SECURITY_HARD_BLOCK', () => {
 		const decision = buildDecision({
 			...base,
 			verification: makeVerification(true, [{ name: 'unit' }]),
-			findings: [
-				makeFinding({ category: 'security', severity: 'HIGH', blocking: true }),
-			],
+			findings: [makeFinding({ category: 'security', severity: 'HIGH', blocking: true })],
 		});
 		expect(decision.decision).toBe('BLOCKED');
 	});
@@ -116,7 +114,11 @@ describe('deterministic decisions', () => {
 			...base,
 			verification: makeVerification(false, [{ name: 'unit' }]),
 			findings: [],
-			retry: { verdict: 'ALLOWED', reason_code: 'RETRY_ALLOWED_WITH_DELTA', delta: ['new_evidence'] },
+			retry: {
+				verdict: 'ALLOWED',
+				reason_code: 'RETRY_ALLOWED_WITH_DELTA',
+				delta: ['new_evidence'],
+			},
 		});
 		expect(decision.decision).toBe('FIX');
 		expect(decision.reason_code).toBe('VERIFY_FAILED_WITH_DELTA');

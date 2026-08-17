@@ -2,19 +2,19 @@
 // DURABLE_RUN_MODEL: run → job → attempt persistent; Historie unveränderlich
 
 import Database from 'better-sqlite3';
-import { describe, expect, it, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { applyControlPlaneMigrations } from '../schema.js';
 import {
-	createJob,
-	createAttempt,
 	completeAttempt,
+	createAttempt,
+	createJob,
 	listAttempts,
-	listJobs,
-	updateJobState,
-	storeDecision,
 	listDecisions,
-	storeTransition,
+	listJobs,
 	listTransitions,
+	storeDecision,
+	storeTransition,
+	updateJobState,
 } from '../store.js';
 
 let db: Database.Database;

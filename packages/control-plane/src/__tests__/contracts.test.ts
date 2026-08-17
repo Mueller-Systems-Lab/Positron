@@ -140,7 +140,12 @@ describe('CONTRACT_INVALID', () => {
 	});
 
 	it('rejects a split without subtasks', () => {
-		const doc = { contract: 'positron.split.v1', parent_run_id: 'run_1', reason: 'x', subtasks: [] };
+		const doc = {
+			contract: 'positron.split.v1',
+			parent_run_id: 'run_1',
+			reason: 'x',
+			subtasks: [],
+		};
 		const result = validateContract('positron.split.v1', doc);
 		expect(result.ok).toBe(false);
 		expect(result.errors.some((e) => e.includes('subtasks'))).toBe(true);

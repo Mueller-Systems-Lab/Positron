@@ -9,14 +9,12 @@
 // - RETRY_DENIAL: identischer Fehlversuch ohne Delta → FAILED_BLOCKED
 //   (RETRY_DENIED_NO_STRATEGY_DELTA), kein zweiter Worker-Aufruf
 
-import Database from 'better-sqlite3';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { FakeGitHubAdapter } from '@positron/github-adapter';
 import type { GitHubAdapter } from '@positron/github-adapter';
 import { FakeOpenCodeAdapter } from '@positron/opencode-adapter';
 import {
-	assembleGateEvaluators,
 	applyMigrations,
+	assembleGateEvaluators,
 	clearGateEvaluators,
 	createRun,
 	transition,
@@ -24,8 +22,15 @@ import {
 import type { GateRuntimeMode, RunState } from '@positron/run-state';
 import { FakeGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
-import type { SpecKitCommandResult, SpecKitRunInput, OpenCodeAdapter, SpecKitAdapter } from '@positron/shared';
+import type {
+	OpenCodeAdapter,
+	SpecKitAdapter,
+	SpecKitCommandResult,
+	SpecKitRunInput,
+} from '@positron/shared';
 import { FakeSpecKitAdapter } from '@positron/speckit-adapter';
+import Database from 'better-sqlite3';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runPipeline } from '../../../worker/src/pipeline-runner.js';
 import type { PipelineDeps } from '../../../worker/src/pipeline-runner.js';
 
@@ -145,7 +150,9 @@ describe('PLAN_GATE in worker pipeline', () => {
 		// Gate passiert → Build freigegeben (nicht wegen PLAN_GATE geblockt)
 		expect(result.lastError).not.toContain('PLAN_GATE');
 		const gateEvent = db
-			.prepare("SELECT message FROM run_events WHERE run_id = ? AND message LIKE 'PLAN_GATE_APPROVED%'")
+			.prepare(
+				"SELECT message FROM run_events WHERE run_id = ? AND message LIKE 'PLAN_GATE_APPROVED%'",
+			)
 			.get(run.id) as { message: string } | undefined;
 		expect(gateEvent).toBeTruthy();
 		expect(gateEvent!.message).toContain('PLAN_GATE_APPROVED');
@@ -227,7 +234,7 @@ describe('RETRY_DENIAL in worker fix loop', () => {
 			// Erster Lauf: Build-Attempt erfolgreich, TEST schlägt fehl (Fixture).
 			// Der zweite Fix-Loop-Durchlauf hat denselben Input-Fingerprint,
 			// dieselbe Failure-Signatur und kein Delta → RETRY_DENIED.
-			const result = await runPipeline(run, makeDeps(db, speckit, opencode));
+			await runPipeline(run, makeDeps(db, speckit, opencode));
 
 			// Der Run endet im FAILED_BLOCKED oder FAILED_TRANSIENT —
 			// entscheidend: KEIN zweiter Worker-Aufruf ohne Delta.
@@ -244,7 +251,7 @@ describe('RETRY_DENIAL in worker fix loop', () => {
 			expect(buildAttempts.length).toBeLessThanOrEqual(1);
 		} finally {
 			if (oldEnv === undefined) {
-				delete process.env.POSITRON_ENABLE_FIX_LOOP;
+				process.env.POSITRON_ENABLE_FIX_LOOP = '';
 			} else {
 				process.env.POSITRON_ENABLE_FIX_LOOP = oldEnv;
 			}

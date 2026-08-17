@@ -4,17 +4,17 @@
 // Funktion, kontrolliert rotem Test, deterministischem Build-Worker
 // (LLM-Stellvertreter mit echten Dateiänderungen) und echtem TestRunner.
 
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { TestCommandDetector, TestRunner } from '@positron/sandbox';
 import type Database from 'better-sqlite3';
 import DatabaseConstructor from 'better-sqlite3';
-import { TestCommandDetector, TestRunner } from '@positron/sandbox';
-import { applyControlPlaneMigrations } from '../schema.js';
-import { classifyFailure } from '../failure.js';
 import type { BuildResultContract, VerificationContract } from '../contracts.js';
 import type { BuildWorker, VerificationTool } from '../durable-run.js';
+import { classifyFailure } from '../failure.js';
+import { applyControlPlaneMigrations } from '../schema.js';
 
 export const BROKEN_SUM = `
 // sum.js — fehlerhafte Implementierung (subtrahiert statt addiert)
@@ -70,9 +70,9 @@ export function createTestWorkspace(initialSum: string = BROKEN_SUM): TestWorksp
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'positron-vslice-'));
 	fs.mkdirSync(path.join(dir, 'src'));
 	fs.mkdirSync(path.join(dir, 'test'));
-	fs.writeFileSync(path.join(dir, 'package.json'), PACKAGE_JSON.trim() + '\n');
-	fs.writeFileSync(path.join(dir, 'src', 'sum.js'), initialSum.trim() + '\n');
-	fs.writeFileSync(path.join(dir, 'test', 'sum.test.js'), SUM_TEST.trim() + '\n');
+	fs.writeFileSync(path.join(dir, 'package.json'), `${PACKAGE_JSON.trim()}\n`);
+	fs.writeFileSync(path.join(dir, 'src', 'sum.js'), `${initialSum.trim()}\n`);
+	fs.writeFileSync(path.join(dir, 'test', 'sum.test.js'), `${SUM_TEST.trim()}\n`);
 
 	runGit(dir, ['init', '-q']);
 	runGit(dir, ['config', 'user.email', 'positron@test.local']);
@@ -141,7 +141,7 @@ export class ScriptedBuildWorker implements BuildWorker {
 		const impl = this.script[this.invocations - 1] ?? this.script[this.script.length - 1]!;
 		fs.writeFileSync(
 			path.join(this.workspace.dir, 'src', 'sum.js'),
-			IMPLEMENTATIONS[impl].trim() + '\n',
+			`${IMPLEMENTATIONS[impl].trim()}\n`,
 		);
 		const changed = `src/sum.js (implementation=${impl})`;
 		return {
@@ -225,7 +225,9 @@ export function createTestDb(): Database.Database {
 	return db;
 }
 
-export function verifyContractOf(attempts: Array<{ output_json: string | null }>): VerificationContract | null {
+export function verifyContractOf(
+	attempts: Array<{ output_json: string | null }>,
+): VerificationContract | null {
 	for (const a of attempts) {
 		if (a.output_json) {
 			try {

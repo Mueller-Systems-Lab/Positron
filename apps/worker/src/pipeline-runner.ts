@@ -6,6 +6,22 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+	IdempotencyRegistry,
+	applyControlPlaneMigrations,
+	buildVerificationContract,
+	classifyFailure,
+	completeAttempt,
+	createAttempt,
+	createJob,
+	evaluatePlanGate,
+	evaluateRetry,
+	fingerprint,
+	idempotencyKey,
+	updateJobState,
+} from '@positron/control-plane';
+import type { AttemptRecord, JobRecord } from '@positron/control-plane';
+import type { VerificationContract } from '@positron/control-plane';
 import type { GitHubStatusSyncService } from '@positron/github-adapter';
 import type {
 	EvidenceItem,
@@ -49,22 +65,6 @@ import type {
 	SpecKitAdapter,
 } from '@positron/shared';
 import type { GatewayService } from '@positron/tool-gateway';
-import {
-	applyControlPlaneMigrations,
-	buildVerificationContract,
-	classifyFailure,
-	completeAttempt,
-	createAttempt,
-	createJob,
-	evaluatePlanGate,
-	evaluateRetry,
-	fingerprint,
-	IdempotencyRegistry,
-	idempotencyKey,
-	updateJobState,
-} from '@positron/control-plane';
-import type { AttemptRecord, JobRecord } from '@positron/control-plane';
-import type { VerificationContract } from '@positron/control-plane';
 import type Database from 'better-sqlite3';
 
 // ---------------------------------------------------------------------------
@@ -278,7 +278,9 @@ function trackJobAttempt(
 	ensureControlPlane(db);
 
 	let job = db
-		.prepare('SELECT * FROM cp_jobs WHERE run_id = ? AND job_type = ? ORDER BY created_at ASC LIMIT 1')
+		.prepare(
+			'SELECT * FROM cp_jobs WHERE run_id = ? AND job_type = ? ORDER BY created_at ASC LIMIT 1',
+		)
 		.get(run.id, jobType) as Record<string, unknown> | undefined;
 	if (!job) {
 		job = {
@@ -382,7 +384,9 @@ function loadLastAttempt(runId: string, jobType: string, deps: PipelineDeps): At
 function loadArtifact(runId: string, kind: string, deps: PipelineDeps): string | null {
 	try {
 		const row = getDb(deps)
-			.prepare('SELECT content FROM artifacts WHERE run_id = ? AND kind = ? ORDER BY created_at DESC LIMIT 1')
+			.prepare(
+				'SELECT content FROM artifacts WHERE run_id = ? AND kind = ? ORDER BY created_at DESC LIMIT 1',
+			)
 			.get(runId, kind) as { content: string } | undefined;
 		return row?.content ?? null;
 	} catch {
@@ -1023,18 +1027,14 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				const outcome = resolveImplementationOutcome(ir.status);
 
 				if (outcome === 'FAILED_BLOCKED') {
-					completeTrackedAttempt(
-						tracking,
-						deps,
-						{
-							status: 'blocked',
-							output_contract: 'positron.build-result.v1',
-							output_fingerprint: fingerprint({ phase: 'implement', status: ir.status }),
-							failure_class: 'CONTEXT_FAILURE',
-							failure_signature: `blocked:${ir.blockedReason ?? 'policy'}`,
-							result_ref: `opencode:${ir.sessionId ?? 'none'}`,
-						},
-					);
+					completeTrackedAttempt(tracking, deps, {
+						status: 'blocked',
+						output_contract: 'positron.build-result.v1',
+						output_fingerprint: fingerprint({ phase: 'implement', status: ir.status }),
+						failure_class: 'CONTEXT_FAILURE',
+						failure_signature: `blocked:${ir.blockedReason ?? 'policy'}`,
+						result_ref: `opencode:${ir.sessionId ?? 'none'}`,
+					});
 					storeEvent(
 						{
 							id: createRunId(),
@@ -1059,31 +1059,23 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						stderr: ir.summary,
 						exitCode: ir.exitCode ?? 1,
 					});
-					completeTrackedAttempt(
-						tracking,
-						deps,
-						{
-							status: 'failed',
-							output_contract: 'positron.build-result.v1',
-							output_fingerprint: fingerprint({ phase: 'implement', status: ir.status }),
-							failure_class: classified.signature as AttemptRecord['failure_class'],
-							failure_signature: `implement:${classified.signature}`,
-							new_evidence: ir.summary.slice(0, 500),
-							result_ref: `opencode:${ir.sessionId ?? 'none'}`,
-						},
-					);
+					completeTrackedAttempt(tracking, deps, {
+						status: 'failed',
+						output_contract: 'positron.build-result.v1',
+						output_fingerprint: fingerprint({ phase: 'implement', status: ir.status }),
+						failure_class: classified.signature as AttemptRecord['failure_class'],
+						failure_signature: `implement:${classified.signature}`,
+						new_evidence: ir.summary.slice(0, 500),
+						result_ref: `opencode:${ir.sessionId ?? 'none'}`,
+					});
 					result = markFailed(current, 'FAILED_TRANSIENT', `Implement failed: ${ir.summary}`);
 				} else {
-					completeTrackedAttempt(
-						tracking,
-						deps,
-						{
-							status: 'succeeded',
-							output_contract: 'positron.build-result.v1',
-							output_fingerprint: fingerprint({ phase: 'implement', status: ir.status }),
-							result_ref: `opencode:${ir.sessionId ?? 'none'}`,
-						},
-					);
+					completeTrackedAttempt(tracking, deps, {
+						status: 'succeeded',
+						output_contract: 'positron.build-result.v1',
+						output_fingerprint: fingerprint({ phase: 'implement', status: ir.status }),
+						result_ref: `opencode:${ir.sessionId ?? 'none'}`,
+					});
 					updateJobState(getDb(deps), tracking.job.job_id, 'succeeded');
 					result = transition(
 						current,
@@ -1094,15 +1086,11 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				}
 			} catch (err) {
 				const implErrMsg = `Implement error: ${String(err).slice(0, 200)}`;
-				completeTrackedAttempt(
-					tracking,
-					deps,
-					{
-						status: 'failed',
-						failure_class: 'INFRA_FAILURE',
-						failure_signature: `implement-error:${implErrMsg}`,
-					},
-				);
+				completeTrackedAttempt(tracking, deps, {
+					status: 'failed',
+					failure_class: 'INFRA_FAILURE',
+					failure_signature: `implement-error:${implErrMsg}`,
+				});
 				result = markFailed(current, 'FAILED_TRANSIENT', implErrMsg);
 			}
 			break;
@@ -1229,9 +1217,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 								: undefined,
 					});
 					if (!verification.passed) {
-						const output = (report.details ?? [])
-							.map((d) => `${d.stdout}\n${d.stderr}`)
-							.join('\n');
+						const output = (report.details ?? []).map((d) => `${d.stdout}\n${d.stderr}`).join('\n');
 						const classified = classifyFailure({
 							stderr: output,
 							exitCode: report.failed > 0 ? 1 : 0,
@@ -1246,19 +1232,15 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 								: `test:${classified.signature}`;
 					}
 					if (!verifyTracking.duplicate) {
-						completeTrackedAttempt(
-							verifyTracking,
-							deps,
-							{
-								status: verification.passed ? 'succeeded' : 'failed',
-								output_contract: 'positron.verification.v1',
-								output_fingerprint: fingerprint(verification),
-								output_json: JSON.stringify(verification),
-								failure_class: verification.failure_class ?? null,
-								failure_signature: verification.failure_signature ?? null,
-								new_evidence: verification.new_evidence ?? null,
-							},
-						);
+						completeTrackedAttempt(verifyTracking, deps, {
+							status: verification.passed ? 'succeeded' : 'failed',
+							output_contract: 'positron.verification.v1',
+							output_fingerprint: fingerprint(verification),
+							output_json: JSON.stringify(verification),
+							failure_class: verification.failure_class ?? null,
+							failure_signature: verification.failure_signature ?? null,
+							new_evidence: verification.new_evidence ?? null,
+						});
 						updateJobState(
 							getDb(deps),
 							verifyTracking.job.job_id,

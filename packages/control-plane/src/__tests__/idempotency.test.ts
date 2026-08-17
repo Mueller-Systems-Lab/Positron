@@ -3,7 +3,7 @@
 // DUPLICATE_COMPLETION: doppeltes Completion-Event → sicher.
 
 import Database from 'better-sqlite3';
-import { describe, expect, it, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { IdempotencyRegistry, idempotencyKey } from '../idempotency.js';
 import { applyControlPlaneMigrations } from '../schema.js';
 

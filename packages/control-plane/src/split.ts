@@ -38,7 +38,7 @@ export interface SplitDecision {
 export function evaluateSplit(
 	doc: unknown,
 	limits: SplitLimits = DEFAULT_SPLIT_LIMITS,
-	parentDepth: number = 0,
+	parentDepth = 0,
 ): SplitDecision {
 	if (parentDepth >= limits.max_split_depth) {
 		return {
@@ -55,9 +55,9 @@ export function evaluateSplit(
 		doc !== null &&
 		!Array.isArray(doc) &&
 		'contract' in doc &&
-		(doc as Record<string, unknown>)['contract'] === 'positron.split.v1' &&
-		Array.isArray((doc as Record<string, unknown>)['subtasks']) &&
-		((doc as Record<string, unknown>)['subtasks'] as unknown[]).length === 0
+		(doc as Record<string, unknown>).contract === 'positron.split.v1' &&
+		Array.isArray((doc as Record<string, unknown>).subtasks) &&
+		((doc as Record<string, unknown>).subtasks as unknown[]).length === 0
 	) {
 		return {
 			verdict: 'SPLIT_DENIED',

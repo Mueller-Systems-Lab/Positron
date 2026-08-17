@@ -2,7 +2,7 @@
 // SPLIT_PATH mit Limits (max_split_depth, max_subtasks) — keine Task-Explosion
 
 import { describe, expect, it } from 'vitest';
-import { evaluateSplit, DEFAULT_SPLIT_LIMITS } from '../split.js';
+import { DEFAULT_SPLIT_LIMITS, evaluateSplit } from '../split.js';
 
 const validSplit = {
 	contract: 'positron.split.v1',
