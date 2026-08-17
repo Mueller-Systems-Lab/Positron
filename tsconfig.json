@@ -23,6 +23,7 @@
 		{ "path": "./packages/opencode-adapter" },
 		{ "path": "./packages/tool-gateway" },
 		{ "path": "./packages/benchmark-rudolph" },
+		{ "path": "./packages/control-plane" },
 		{ "path": "./apps/server" },
 		{ "path": "./apps/worker" }
 	]

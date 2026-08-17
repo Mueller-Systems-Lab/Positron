@@ -16,7 +16,8 @@ import { assembleGateEvaluators, clearGateEvaluators, createRun } from '@positro
 import type { GateRuntimeMode, RunState } from '@positron/run-state';
 import { FakeGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
-import type { OpenCodeAdapter, SpecKitAdapter } from '@positron/shared';
+import type { GitStatusSummary } from '@positron/shared';
+import type { OpenCodeAdapter, OpenCodeCommandResult, SpecKitAdapter } from '@positron/shared';
 import { FakeSpecKitAdapter } from '@positron/speckit-adapter';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -48,7 +49,7 @@ class ThrowingCommitWorkspaceAdapter extends FakeGitWorkspaceAdapter {
 		throw new Error('SIMULATED_COMMIT_FAILURE: disk full');
 	}
 
-	async push(_input: { workspacePath: string; branch: string }): Promise<void> {
+	async push(_options: { workspacePath: string; branch: string }): Promise<{ pushed: boolean; ref: string }> {
 		this.counters.pushCalls++;
 		throw new Error('PUSH_SHOULD_NEVER_BE_CALLED_AFTER_COMMIT_FAILURE');
 	}
@@ -72,13 +73,13 @@ class CountingGitHubAdapter extends FakeGitHubAdapter {
 		throw new Error('CREATE_PR_SHOULD_NEVER_BE_CALLED_AFTER_COMMIT_FAILURE');
 	}
 
-	async mergePullRequest(_input: {
+	async mergePullRequest(_options: {
 		owner: string;
 		repo: string;
 		prNumber: number;
-		strategy: string;
-		commitTitle: string;
-		commitMessage: string;
+		strategy?: string;
+		commitTitle?: string;
+		commitMessage?: string;
 	}): ReturnType<GitHubAdapter['mergePullRequest']> {
 		this.counters.mergeCalls++;
 		throw new Error('MERGE_SHOULD_NEVER_BE_CALLED_AFTER_COMMIT_FAILURE');
@@ -161,12 +162,16 @@ function makeCommitPhaseRun(): RunState {
 // We subvert commit() to throw. This simulates a commit failure in good state.
 
 class DirtyWorkspaceForCommitAdapter extends ThrowingCommitWorkspaceAdapter {
-	async getStatus(_workspacePath: string) {
+	async getStatus(_workspacePath: string): Promise<GitStatusSummary> {
 		return {
+			branch: 'positron/test-branch',
 			isClean: false,
-			staged: [{ path: 'src/index.ts', status: 'modified' }],
+			ahead: 1,
+			behind: 0,
+			staged: ['src/index.ts'],
 			unstaged: [],
 			untracked: [],
+			conflicted: [],
 		};
 	}
 }
@@ -239,10 +244,17 @@ describe('Issue #385 — COMMIT exception → FAILED_BLOCKED (Worker Pipeline)',
 // ---------------------------------------------------------------------------
 
 class BlockedImplementAdapter extends FakeOpenCodeAdapter {
-	async runImplement(_input: Parameters<OpenCodeAdapter['runImplement']>[0]) {
+	async runImplement(
+		_input: Parameters<OpenCodeAdapter['runImplement']>[0],
+	): Promise<OpenCodeCommandResult> {
 		return {
+			phase: 'implement',
 			command: 'implement',
-			status: 'blocked' as const,
+			args: [],
+			cwd: _input.workspacePath,
+			exitCode: null,
+			durationMs: 0,
+			status: 'blocked',
 			blockedReason: 'IMPLEMENT_BLOCKED_BY_POLICY',
 			summary: 'Policy blocked implementation',
 		};
@@ -250,12 +262,16 @@ class BlockedImplementAdapter extends FakeOpenCodeAdapter {
 }
 
 class CleanWorkspaceAdapter extends FakeGitWorkspaceAdapter {
-	async getStatus(_workspacePath: string) {
+	async getStatus(_workspacePath: string): Promise<GitStatusSummary> {
 		return {
+			branch: 'positron/test-branch',
 			isClean: false,
-			staged: [{ path: 'modified.ts', status: 'modified' }],
+			ahead: 0,
+			behind: 0,
+			staged: ['modified.ts'],
 			unstaged: [],
 			untracked: [],
+			conflicted: [],
 		};
 	}
 }
@@ -276,7 +292,8 @@ describe('Issue #385 — IMPLEMENT blocked → no mutation (Worker Pipeline)', (
 
 		// Start a run from IMPLEMENT phase
 		const run: RunState = {
-			...createRun('test-repo', 42, 1, 'positron/issue-42-fix'),
+			...createRun('test-repo', 42, 1),
+			branch: 'positron/issue-42-fix',
 			phase: 'IMPLEMENT',
 			status: 'active',
 			workspacePath: '/tmp/positron-ws-test',
@@ -300,7 +317,8 @@ describe('Issue #385 — IMPLEMENT blocked → no mutation (Worker Pipeline)', (
 		};
 
 		const run: RunState = {
-			...createRun('test-repo', 42, 1, 'positron/issue-42-fix'),
+			...createRun('test-repo', 42, 1),
+			branch: 'positron/issue-42-fix',
 			phase: 'TEST',
 			status: 'active',
 			workspacePath: '/tmp/no-tests-ws',
@@ -364,7 +382,8 @@ describe('Issue #385 — Restart/Resume: blocked runs stay blocked', () => {
 
 		// Load the run from DB — but phase is FAILED_BLOCKED (terminal)
 		const loadedRun: RunState = {
-			...createRun('test-repo', 42, 1, 'positron/issue-42-fix'),
+			...createRun('test-repo', 42, 1),
+			branch: 'positron/issue-42-fix',
 			id: firstRun.id,
 			phase: 'FAILED_BLOCKED',
 			status: 'blocked',

@@ -1,0 +1,78 @@
+// Positron Control Plane — DB-Schema (Migrationen auf bestehender SQLite-DB)
+
+import type Database from 'better-sqlite3';
+
+/**
+ * Control-Plane-Migrationen. Laufen auf der SELBEN SQLite-DB wie run-state
+ * (keine neue Datenbank). Wird via `applyControlPlaneMigrations(db)` angewendet.
+ */
+export const CONTROL_PLANE_SCHEMA_V1 = `
+CREATE TABLE IF NOT EXISTS cp_jobs (
+  job_id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL,
+  job_type TEXT NOT NULL,
+  state TEXT NOT NULL DEFAULT 'pending',
+  parent_job_id TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cp_attempts (
+  attempt_id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL,
+  job_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'running',
+  input_contract TEXT,
+  input_fingerprint TEXT,
+  output_contract TEXT,
+  output_fingerprint TEXT,
+  output_json TEXT,
+  worker_type TEXT,
+  provider TEXT,
+  model TEXT,
+  started_at TEXT,
+  ended_at TEXT,
+  failure_class TEXT,
+  failure_signature TEXT,
+  new_evidence TEXT,
+  strategy_delta TEXT,
+  result_ref TEXT,
+  tokens INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS cp_decisions (
+  decision_id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL,
+  decision TEXT NOT NULL,
+  reason_code TEXT NOT NULL,
+  contract_json TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cp_idempotency (
+  idem_key TEXT PRIMARY KEY,
+  state TEXT NOT NULL DEFAULT 'claimed',
+  result_ref TEXT,
+  created_at TEXT NOT NULL,
+  completed_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS cp_transitions (
+  transition_id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL,
+  previous_state TEXT NOT NULL,
+  new_state TEXT NOT NULL,
+  reason_code TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_cp_jobs_run_id ON cp_jobs(run_id);
+CREATE INDEX IF NOT EXISTS idx_cp_attempts_run_id ON cp_attempts(run_id);
+CREATE INDEX IF NOT EXISTS idx_cp_attempts_job_id ON cp_attempts(job_id);
+CREATE INDEX IF NOT EXISTS idx_cp_decisions_run_id ON cp_decisions(run_id);
+CREATE INDEX IF NOT EXISTS idx_cp_transitions_run_id ON cp_transitions(run_id);
+`;
+
+export function applyControlPlaneMigrations(db: Database.Database): void {
+	db.exec(CONTROL_PLANE_SCHEMA_V1);
+}
