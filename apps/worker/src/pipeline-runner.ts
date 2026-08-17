@@ -49,6 +49,22 @@ import type {
 	SpecKitAdapter,
 } from '@positron/shared';
 import type { GatewayService } from '@positron/tool-gateway';
+import {
+	applyControlPlaneMigrations,
+	buildVerificationContract,
+	classifyFailure,
+	completeAttempt,
+	createAttempt,
+	createJob,
+	evaluatePlanGate,
+	evaluateRetry,
+	fingerprint,
+	IdempotencyRegistry,
+	idempotencyKey,
+	updateJobState,
+} from '@positron/control-plane';
+import type { AttemptRecord, JobRecord } from '@positron/control-plane';
+import type { VerificationContract } from '@positron/control-plane';
 import type Database from 'better-sqlite3';
 
 // ---------------------------------------------------------------------------
@@ -67,6 +83,26 @@ export interface PipelineDeps {
 	gateway?: GatewayService;
 	/** Issue #385: Gate runtime mode for pipeline outcome resolution */
 	gateRuntimeMode: GateRuntimeMode;
+}
+
+export function isRunInWorkerScope(workerRunScope: string | undefined, runId: string): boolean {
+	return !workerRunScope || workerRunScope === runId;
+}
+
+export function isFaultTargetedToRun(
+	faultRunId: string | undefined,
+	run: Pick<RunState, 'id' | 'issueNumber'>,
+): boolean {
+	if (!faultRunId?.trim()) return false;
+	const target = faultRunId.trim();
+	return target === run.id || target === String(run.issueNumber);
+}
+
+export function isTerminalRunRecord(run: Pick<RunState, 'phase' | 'finishedAt'>): boolean {
+	return (
+		Boolean(run.finishedAt) ||
+		['DONE', 'FAILED', 'FAILED_BLOCKED', 'FAILED_UNSAFE', 'CLEANUP'].includes(run.phase)
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -194,6 +230,163 @@ function getEvents(runId: string, deps: PipelineDeps): RunEventData[] {
 	} catch (err) {
 		console.error(`[Worker] getEvents failed for run ${runId}`, err);
 		return [];
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Control Plane Integration (Issue #421)
+//
+// Die Worker-Pipeline schreibt ihre Versuche in die persistente
+// run → job → attempt Hierarchie (cp_jobs / cp_attempts). Jeder mutierende
+// Versuch ist idempotent (run:job:attempt Key). Die deterministische
+// Verification (TEST) erzeugt einen positron.verification.v1 Contract.
+// ---------------------------------------------------------------------------
+
+function ensureControlPlane(db: Database.Database): void {
+	try {
+		applyControlPlaneMigrations(db);
+	} catch (err) {
+		console.error(`[Worker] control-plane migrations failed: ${String(err).slice(0, 200)}`);
+	}
+}
+
+interface JobAttemptTracking {
+	job: JobRecord;
+	attempt: AttemptRecord;
+	/** true wenn dieser Dispatch bereits behandelt wurde (kein zweiter Worker-Call) */
+	duplicate: boolean;
+	registry: IdempotencyRegistry;
+	idemKey: string;
+}
+
+/**
+ * Erstellt (oder findet) den Job eines Typs für einen Run und öffnet einen
+ * neuen Attempt. Idempotenz: Wurde der Dispatch bereits geclaimed, gilt der
+ * Versuch als Duplikat und wird NICHT erneut ausgeführt.
+ */
+function trackJobAttempt(
+	run: RunState,
+	deps: PipelineDeps,
+	jobType: 'plan' | 'build' | 'verify' | 'decide',
+	workerType: string,
+	provider: string | null,
+	model: string | null,
+	inputContract: string | null,
+	inputFingerprint: string | null,
+): JobAttemptTracking {
+	const db = getDb(deps);
+	ensureControlPlane(db);
+
+	let job = db
+		.prepare('SELECT * FROM cp_jobs WHERE run_id = ? AND job_type = ? ORDER BY created_at ASC LIMIT 1')
+		.get(run.id, jobType) as Record<string, unknown> | undefined;
+	if (!job) {
+		job = {
+			job_id: `job_${crypto.randomUUID()}`,
+			run_id: run.id,
+			job_type: jobType,
+			state: 'pending',
+			parent_job_id: null,
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString(),
+		};
+		db.prepare(
+			`INSERT INTO cp_jobs (job_id, run_id, job_type, state, parent_job_id, created_at, updated_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		).run(
+			job.job_id,
+			job.run_id,
+			job.job_type,
+			job.state,
+			job.parent_job_id,
+			job.created_at,
+			job.updated_at,
+		);
+	}
+
+	const registry = new IdempotencyRegistry(db);
+	const attempt = createAttempt(db, run.id, String(job.job_id), {
+		worker_type: workerType,
+		provider,
+		model,
+		input_contract: inputContract,
+		input_fingerprint: inputFingerprint,
+	});
+	const idemKey = idempotencyKey(run.id, String(job.job_id), attempt.attempt_id);
+	const duplicate = !registry.claim(idemKey);
+	if (duplicate) {
+		completeAttempt(db, attempt.attempt_id, { status: 'denied', result_ref: 'duplicate-dispatch' });
+	}
+	return {
+		job: job as unknown as JobRecord,
+		attempt,
+		duplicate,
+		registry,
+		idemKey,
+	};
+}
+
+function completeTrackedAttempt(
+	tracking: JobAttemptTracking,
+	deps: PipelineDeps,
+	update: Partial<AttemptRecord>,
+): void {
+	completeAttempt(getDb(deps), tracking.attempt.attempt_id, update);
+	if (!tracking.duplicate) {
+		tracking.registry.complete(tracking.idemKey, update.result_ref ?? null);
+	}
+}
+
+/** Lädt den letzten Attempt eines Job-Typs (für Retry-/Delta-Bewertung). */
+function loadLastAttempt(runId: string, jobType: string, deps: PipelineDeps): AttemptRecord | null {
+	try {
+		const rows = getDb(deps)
+			.prepare(
+				`SELECT a.* FROM cp_attempts a
+				 JOIN cp_jobs j ON j.job_id = a.job_id
+				 WHERE a.run_id = ? AND j.job_type = ?
+				 ORDER BY a.started_at ASC`,
+			)
+			.all(runId, jobType) as Array<Record<string, unknown>>;
+		if (rows.length === 0) return null;
+		const last = rows[rows.length - 1]!;
+		return {
+			attempt_id: String(last.attempt_id),
+			run_id: String(last.run_id),
+			job_id: String(last.job_id),
+			status: String(last.status) as AttemptRecord['status'],
+			input_contract: last.input_contract ? String(last.input_contract) : null,
+			input_fingerprint: last.input_fingerprint ? String(last.input_fingerprint) : null,
+			output_contract: last.output_contract ? String(last.output_contract) : null,
+			output_fingerprint: last.output_fingerprint ? String(last.output_fingerprint) : null,
+			output_json: last.output_json ? String(last.output_json) : null,
+			worker_type: last.worker_type ? String(last.worker_type) : null,
+			provider: last.provider ? String(last.provider) : null,
+			model: last.model ? String(last.model) : null,
+			started_at: String(last.started_at),
+			ended_at: last.ended_at ? String(last.ended_at) : null,
+			failure_class: last.failure_class ? String(last.failure_class) : null,
+			failure_signature: last.failure_signature ? String(last.failure_signature) : null,
+			new_evidence: last.new_evidence ? String(last.new_evidence) : null,
+			strategy_delta: last.strategy_delta ? String(last.strategy_delta) : null,
+			result_ref: last.result_ref ? String(last.result_ref) : null,
+			tokens: last.tokens !== null && last.tokens !== undefined ? Number(last.tokens) : null,
+		};
+	} catch (err) {
+		console.error(`[Worker] loadLastAttempt failed: ${String(err).slice(0, 200)}`);
+		return null;
+	}
+}
+
+/** Lädt das neueste Artifact eines Typs als Text. */
+function loadArtifact(runId: string, kind: string, deps: PipelineDeps): string | null {
+	try {
+		const row = getDb(deps)
+			.prepare('SELECT content FROM artifacts WHERE run_id = ? AND kind = ? ORDER BY created_at DESC LIMIT 1')
+			.get(runId, kind) as { content: string } | undefined;
+		return row?.content ?? null;
+	} catch {
+		return null;
 	}
 }
 
@@ -597,6 +790,63 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				if (pr.status === 'success' || pr.status === 'skipped') {
 					saveArtifact(current.id, 'plan', pr.summary, deps);
 				}
+
+				// Issue #421: Deterministisches Plan Gate.
+				// Wenn ein strukturierter positron.plan.v1-Contract vorliegt,
+				// entscheidet ausschließlich das Gate: nur APPROVED gibt den
+				// Build frei. Kein LLM-Urteil über den Plan.
+				const planArtifact = loadArtifact(current.id, 'plan', deps);
+				let planGateApproved = false;
+				if (planArtifact) {
+					try {
+						const parsed = JSON.parse(planArtifact) as Record<string, unknown>;
+						if (parsed && typeof parsed === 'object' && parsed['contract'] === 'positron.plan.v1') {
+							const gateResult = evaluatePlanGate(
+								parsed,
+								`${deps.repository.owner}/${deps.repository.repo}`,
+							);
+							if (gateResult.status !== 'APPROVED') {
+								storeEvent(
+									{
+										id: createRunId(),
+										runId: current.id,
+										phase: 'PLAN',
+										level: 'ERROR',
+										message: `PLAN_GATE_${gateResult.status}: ${gateResult.reason_code}`,
+										payload: { gate: gateResult, reasonCode: gateResult.reason_code },
+										createdAt: new Date().toISOString(),
+									},
+									deps,
+								);
+								result = markFailed(
+									current,
+									'FAILED_BLOCKED',
+									`PLAN_GATE_${gateResult.status}: ${gateResult.reason_code} — ${gateResult.errors.join('; ')}`,
+								);
+								break;
+							}
+							planGateApproved = true;
+						}
+					} catch {
+						// Nicht-strukturierter Plan (z. B. Markdown) → bisheriger Pfad
+					}
+				}
+
+				if (planGateApproved) {
+					storeEvent(
+						{
+							id: createRunId(),
+							runId: current.id,
+							phase: 'PLAN',
+							level: 'GATE' as EventLevel,
+							message: 'PLAN_GATE_APPROVED — build released',
+							payload: { reasonCode: 'PLAN_GATE_APPROVED' },
+							createdAt: new Date().toISOString(),
+						},
+						deps,
+					);
+				}
+
 				result = transition(
 					current,
 					'TASKS',
@@ -731,6 +981,41 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				autonomyLevel: current.autonomyLevel,
 			};
 
+			// Issue #421: Persistent Attempt-Tracking mit Idempotenz.
+			// Jeder mutierende Versuch ist an run:job:attempt gebunden —
+			// doppelter Dispatch führt zu KEINEM zweiten Worker-Aufruf.
+			const tracking = trackJobAttempt(
+				current,
+				deps,
+				'build',
+				'opencode',
+				process.env.POSITRON_OPENCODE_PROVIDER ?? null,
+				process.env.POSITRON_OPENCODE_MODEL ?? null,
+				'positron.build-input.v1',
+				fingerprint({ runId: current.id, workspacePath: wsPath, issueNumber: current.issueNumber }),
+			);
+
+			if (tracking.duplicate) {
+				storeEvent(
+					{
+						id: createRunId(),
+						runId: current.id,
+						phase: 'IMPLEMENT',
+						level: 'WARN',
+						message: 'Duplicate dispatch blocked (idempotency) — no second worker call',
+						payload: { idemKey: tracking.idemKey },
+						createdAt: new Date().toISOString(),
+					},
+					deps,
+				);
+				result = markFailed(
+					current,
+					'FAILED_BLOCKED',
+					'Duplicate dispatch blocked (idempotency) — run:job:attempt already claimed',
+				);
+				break;
+			}
+
 			try {
 				const ir = await deps.opencode.runImplement(input);
 
@@ -738,6 +1023,18 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				const outcome = resolveImplementationOutcome(ir.status);
 
 				if (outcome === 'FAILED_BLOCKED') {
+					completeTrackedAttempt(
+						tracking,
+						deps,
+						{
+							status: 'blocked',
+							output_contract: 'positron.build-result.v1',
+							output_fingerprint: fingerprint({ phase: 'implement', status: ir.status }),
+							failure_class: 'CONTEXT_FAILURE',
+							failure_signature: `blocked:${ir.blockedReason ?? 'policy'}`,
+							result_ref: `opencode:${ir.sessionId ?? 'none'}`,
+						},
+					);
 					storeEvent(
 						{
 							id: createRunId(),
@@ -756,8 +1053,38 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						`Implement blocked: ${ir.blockedReason ?? 'policy'}`,
 					);
 				} else if (outcome === 'RETRY') {
+					// Provider-/Infrastruktur-Fehler werden klassifiziert —
+					// NIE als Modellunfähigkeit gewertet.
+					const classified = classifyFailure({
+						stderr: ir.summary,
+						exitCode: ir.exitCode ?? 1,
+					});
+					completeTrackedAttempt(
+						tracking,
+						deps,
+						{
+							status: 'failed',
+							output_contract: 'positron.build-result.v1',
+							output_fingerprint: fingerprint({ phase: 'implement', status: ir.status }),
+							failure_class: classified.signature as AttemptRecord['failure_class'],
+							failure_signature: `implement:${classified.signature}`,
+							new_evidence: ir.summary.slice(0, 500),
+							result_ref: `opencode:${ir.sessionId ?? 'none'}`,
+						},
+					);
 					result = markFailed(current, 'FAILED_TRANSIENT', `Implement failed: ${ir.summary}`);
 				} else {
+					completeTrackedAttempt(
+						tracking,
+						deps,
+						{
+							status: 'succeeded',
+							output_contract: 'positron.build-result.v1',
+							output_fingerprint: fingerprint({ phase: 'implement', status: ir.status }),
+							result_ref: `opencode:${ir.sessionId ?? 'none'}`,
+						},
+					);
+					updateJobState(getDb(deps), tracking.job.job_id, 'succeeded');
 					result = transition(
 						current,
 						'TEST',
@@ -767,6 +1094,15 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				}
 			} catch (err) {
 				const implErrMsg = `Implement error: ${String(err).slice(0, 200)}`;
+				completeTrackedAttempt(
+					tracking,
+					deps,
+					{
+						status: 'failed',
+						failure_class: 'INFRA_FAILURE',
+						failure_signature: `implement-error:${implErrMsg}`,
+					},
+				);
 				result = markFailed(current, 'FAILED_TRANSIENT', implErrMsg);
 			}
 			break;
@@ -853,6 +1189,81 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 								deps,
 							);
 						}
+					}
+
+					// Issue #421: Deterministische Verification.
+					// Messbare Ergebnisse werden von Tools gemessen, nicht von
+					// einem LLM beurteilt. Der Verification-Contract wird in den
+					// persistente Attempt der Control Plane geschrieben.
+					const verifyTracking = trackJobAttempt(
+						current,
+						deps,
+						'verify',
+						'deterministic-tools',
+						null,
+						null,
+						'positron.verification.v1',
+						fingerprint({
+							runId: current.id,
+							workspacePath: wsPath,
+							testCommands: detection.commands.map((c) => `${c.command} ${c.args.join(' ')}`),
+						}),
+					);
+					const verification = buildVerificationContract({
+						run_id: current.id,
+						job_id: verifyTracking.job.job_id,
+						attempt_id: verifyTracking.attempt.attempt_id,
+						checks: detection.commands.map((c) => ({
+							name: `${c.command} ${c.args.join(' ')}`,
+							passed: report.status === 'passed',
+							kind: 'unit' as const,
+							duration_ms: report.durationMs,
+							detail: report.summary,
+						})),
+						new_evidence:
+							report.status === 'failed'
+								? `test output: ${(report.details ?? [])
+										.map((d) => `${d.stdout}\n${d.stderr}`)
+										.join('\n')
+										.slice(0, 500)}`
+								: undefined,
+					});
+					if (!verification.passed) {
+						const output = (report.details ?? [])
+							.map((d) => `${d.stdout}\n${d.stderr}`)
+							.join('\n');
+						const classified = classifyFailure({
+							stderr: output,
+							exitCode: report.failed > 0 ? 1 : 0,
+						});
+						verification.failure_class =
+							classified.signature === 'UNKNOWN'
+								? 'TEST_FAILURE'
+								: (classified.signature as VerificationContract['failure_class']);
+						verification.failure_signature =
+							classified.signature === 'TEST_FAILURE'
+								? (verification.failure_signature ?? 'test:failed')
+								: `test:${classified.signature}`;
+					}
+					if (!verifyTracking.duplicate) {
+						completeTrackedAttempt(
+							verifyTracking,
+							deps,
+							{
+								status: verification.passed ? 'succeeded' : 'failed',
+								output_contract: 'positron.verification.v1',
+								output_fingerprint: fingerprint(verification),
+								output_json: JSON.stringify(verification),
+								failure_class: verification.failure_class ?? null,
+								failure_signature: verification.failure_signature ?? null,
+								new_evidence: verification.new_evidence ?? null,
+							},
+						);
+						updateJobState(
+							getDb(deps),
+							verifyTracking.job.job_id,
+							verification.passed ? 'succeeded' : 'failed',
+						);
 					}
 
 					// Issue #385: Explicit outcome resolution — failed/blocked must NOT reach VERIFY
@@ -1041,8 +1452,10 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				// --- R5: Fault Injection Hook ---
 				// Only fires when PR was newly created (not adopted) and env var is set
 				const faultPoint = process.env.POSITRON_FAULT_INJECTION_POINT;
+				const faultRunId = process.env.POSITRON_FAULT_RUN_ID;
 				if (
 					!prWasAdopted &&
+					isFaultTargetedToRun(faultRunId, current) &&
 					faultPoint === 'AFTER_REMOTE_DRAFT_PR_CREATE_BEFORE_LOCAL_SUCCESS_CHECKPOINT'
 				) {
 					storeEvent(
@@ -1495,6 +1908,12 @@ export async function runPipeline(run: RunState, deps: PipelineDeps): Promise<Ru
 	const maxSteps = 20;
 	let attempt = 0;
 
+	// Issue #421: Der Run wird VOR der ersten Phase persistiert, damit alle
+	// nachfolgenden Artefakte/Jobs an einen existierenden Run gebunden sind
+	// (FK-Integrität) und ein Crash in der ersten Phase einen sichtbaren
+	// durable Run hinterlässt.
+	saveRunToDb(run, deps);
+
 	const envMaxRetries = process.env.POSITRON_MAX_FIX_LOOPS
 		? Number.parseInt(process.env.POSITRON_MAX_FIX_LOOPS, 10)
 		: undefined;
@@ -1568,50 +1987,94 @@ export async function runPipeline(run: RunState, deps: PipelineDeps): Promise<Ru
 			}
 		}
 
-		const next = await executePhase(current, deps);
+		let next = await executePhase(current, deps);
 		if (next.phase === current.phase || next.phase === 'DONE' || next.phase.startsWith('FAILED')) {
-			// --- Fix-Loop ---
+			// --- Fix-Loop (Issue #421: delta-based retry policy) ---
 			if (fixLoopEnabled && next.phase === 'FAILED_TRANSIENT' && attempt < maxAttempts) {
-				attempt++;
+				// Retry nur bei Information Gain. Wenn ein Build-Attempt
+				// existiert, entscheidet die Retry Policy — identische
+				// Versuche (gleiches Input-Fingerprint, gleiche Signatur,
+				// gleiches Modell, kein Delta) werden abgelehnt:
+				// kein zweiter LLM-Aufruf für identische Versuche.
+				const lastBuildAttempt = loadLastAttempt(next.id, 'build', deps);
+				const retryDecision = lastBuildAttempt
+					? evaluateRetry({
+							attemptNumber: attempt + 1,
+							maxAttempts,
+							previousAttempt: lastBuildAttempt,
+							inputFingerprint: lastBuildAttempt.input_fingerprint ?? '',
+							worker: {
+								workerType: lastBuildAttempt.worker_type ?? 'opencode',
+								provider: lastBuildAttempt.provider,
+								model: lastBuildAttempt.model,
+							},
+							newEvidence: lastBuildAttempt.new_evidence ?? null,
+							strategyDelta: lastBuildAttempt.strategy_delta ?? null,
+							contextFingerprint: null,
+						})
+					: null;
 
-				const allTransient = getEvents(next.id, deps).filter(
-					(e: RunEventData) => e.phase === 'FAILED_TRANSIENT',
-				);
-				const transientEvent = allTransient[allTransient.length - 1];
-				const failedPhase = (transientEvent?.payload as Record<string, unknown> | null)
-					?.failedPhase as string | undefined;
-				const retryFromPhase =
-					failedPhase && failedPhase !== 'FAILED_TRANSIENT' ? failedPhase : 'TEST';
+				if (retryDecision && retryDecision.verdict === 'DENIED') {
+					// Kein Information Gain → hart blockiert, kein weiterer
+					// API-Verbrauch für identische Versuche.
+					const denied = markFailed(next, 'FAILED_BLOCKED', retryDecision.reason_code);
+					storeEvent(denied.event, deps);
+					storeEvent(
+						{
+							id: createRunId(),
+							runId: next.id,
+							phase: 'FAILED_BLOCKED',
+							level: 'ERROR',
+							message: `Retry denied: ${retryDecision.reason_code}`,
+							payload: { reasonCode: retryDecision.reason_code, delta: retryDecision.delta },
+							createdAt: new Date().toISOString(),
+						},
+						deps,
+					);
+					next = denied.run;
+					// fällt in den Terminal-Pfad unten (Sync/Save/Cleanup)
+				} else {
+					attempt++;
 
-				const backoffMs = Math.min(1000 * 2 ** (attempt - 1), 30000);
-				const now = Date.now();
-				const timeSinceLastRetry = now - lastRetryTime;
-				if (timeSinceLastRetry < backoffMs) {
-					await new Promise((r) => setTimeout(r, backoffMs - timeSinceLastRetry));
-				}
-				lastRetryTime = Date.now();
+					const allTransient = getEvents(next.id, deps).filter(
+						(e: RunEventData) => e.phase === 'FAILED_TRANSIENT',
+					);
+					const transientEvent = allTransient[allTransient.length - 1];
+					const failedPhase = (transientEvent?.payload as Record<string, unknown> | null)
+						?.failedPhase as string | undefined;
+					const retryFromPhase =
+						failedPhase && failedPhase !== 'FAILED_TRANSIENT' ? failedPhase : 'TEST';
 
-				storeEvent(
-					{
-						id: createRunId(),
-						runId: next.id,
+					const backoffMs = Math.min(1000 * 2 ** (attempt - 1), 30000);
+					const now = Date.now();
+					const timeSinceLastRetry = now - lastRetryTime;
+					if (timeSinceLastRetry < backoffMs) {
+						await new Promise((r) => setTimeout(r, backoffMs - timeSinceLastRetry));
+					}
+					lastRetryTime = Date.now();
+
+					storeEvent(
+						{
+							id: createRunId(),
+							runId: next.id,
+							phase: retryFromPhase as Phase,
+							level: 'WARN',
+							message: `Fix-Loop retry ${attempt}/${maxAttempts} — phase: ${retryFromPhase}, backoff: ${backoffMs}ms`,
+							payload: { attempt, maxAttempts, retryFromPhase, backoffMs },
+							createdAt: new Date().toISOString(),
+						},
+						deps,
+					);
+
+					current = {
+						...next,
 						phase: retryFromPhase as Phase,
-						level: 'WARN',
-						message: `Fix-Loop retry ${attempt}/${maxAttempts} — phase: ${retryFromPhase}, backoff: ${backoffMs}ms`,
-						payload: { attempt, maxAttempts, retryFromPhase, backoffMs },
-						createdAt: new Date().toISOString(),
-					},
-					deps,
-				);
-
-				current = {
-					...next,
-					phase: retryFromPhase as Phase,
-					status: 'active',
-					attempt,
-					lastError: null,
-				};
-				continue;
+						status: 'active',
+						attempt,
+						lastError: null,
+					};
+					continue;
+				}
 			}
 
 			// Sync terminal state
