@@ -197,3 +197,26 @@ Zielzustand (nicht implementiert, dokumentiert): reale Fan-out/Join
 (Research/Review-Parallelität), KPI-Dashboard, UI-Anreicherung (Active Run
 View), Kosten-Analytik. Diese Punkte sind bewusst P1 — sie gefährden P0
 nicht und werden nachgereicht, wenn die Datenbasis belastbar ist.
+
+## P1-Status (implementiert in Folgearbeit)
+
+- **Real Fan-out/Join (Reviews)**: `runParallelReviews` führt
+  correctness/security/quality-Reviews als echte parallele Worker aus.
+  Parallelität wird über die tatsächliche zeitliche Überschneidung der
+  Ausführungen bewiesen (`assertRealParallelism`: started_at/ended_at je
+  Review, paarweiser Overlap) — Ergebnis `PARALLELISM_PROVEN` oder
+  `PARALLELISM_NOT_PROVEN`, nie aus Code-Struktur behauptet. Jeder
+  Review-Worker läuft in einem eigenen Attempt (Telemetrie). Das Verdict
+  wird in die Decision-Basis geschrieben.
+- **KPIs** (`computeKpis`): deterministische Metriken aus
+  cp_attempts/cp_decisions/cp_transitions — first-pass success rate, mean
+  attempts to DONE, blind retry rate, duplicate mutation rate, contract
+  validation failure rate, plan gate rejection rate, security block
+  enforcement rate, useful retry rate, trace completeness, p50/p95 stage
+  durations. Kern-Invarianten (verifiziert per Test über reale Daten):
+  Blind-Retry-Rate = 0, Duplicate-Mutation-Rate = 0,
+  Security-Hard-Block-Enforcement = 100 %.
+- **Backend-Truth zuerst**: `GET /api/runs/:id/control-plane` (jobs,
+  attempts, decisions, transitions) und `GET /api/kpis` (Metriken +
+  Invarianten-Violations) — read-only Grundlage für die spätere
+  Active-Run-View. Keine simulierte UI.

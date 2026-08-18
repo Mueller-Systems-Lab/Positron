@@ -34,6 +34,8 @@ import { fingerprint } from './fingerprint.js';
 import { IdempotencyRegistry, idempotencyKey } from './idempotency.js';
 import { evaluatePlanGate } from './plan-gate.js';
 import { evaluateRetry } from './retry-policy.js';
+import { runParallelReviews } from './review.js';
+import type { ParallelismVerdict, ReviewWorker } from './review.js';
 import { applyControlPlaneMigrations } from './schema.js';
 import {
 	completeAttempt,
@@ -109,6 +111,8 @@ export interface DurableRunDeps {
 	verifyTool: VerificationTool;
 	/** Findings werden von einem deterministischen/strukturierten Review geliefert */
 	reviewFindings: () => Promise<FindingContract[]>;
+	/** Optional: echte parallele Review-Worker (Fan-out/Join mit Parallelitäts-Beweis) */
+	reviewWorkers?: ReviewWorker[];
 	maxAttempts: number;
 }
 
@@ -472,8 +476,34 @@ export async function runDurableRun(
 	}
 
 	// ── REVIEW (strukturierte Findings) — immer nach Build/Verify ───────────
+	// P1: echte parallele Review-Worker (Fan-out/Join). Parallelität wird
+	// über reale Zeitüberschneidung bewiesen (PARALLELISM_PROVEN), nie über
+	// Code-Struktur behauptet. Ohne Worker: einfacher Review-Pfad.
 	const reviewJob = createJob(db, runId, 'review', buildJob.job_id);
-	const findings = await deps.reviewFindings();
+	let findings: FindingContract[] = [];
+	let parallelismVerdict: ParallelismVerdict | null = null;
+	if (deps.reviewWorkers && deps.reviewWorkers.length > 0) {
+		const reviewOutcome = await runParallelReviews(
+			db,
+			{ run_id: runId, job_id: reviewJob.job_id, workspacePath: deps.workspace.path },
+			deps.reviewWorkers,
+		);
+		findings = reviewOutcome.reviewBatch.findings;
+		parallelismVerdict = reviewOutcome.verdict;
+		storeTransition(db, runId, 'VERIFY', 'REVIEW', 'REVIEW_PARALLEL');
+		emitEvent({
+			contract: 'positron.run-event.v1',
+			run_id: runId,
+			job_id: reviewJob.job_id,
+			timestamp: new Date().toISOString(),
+			previous_state: 'VERIFY',
+			new_state: 'REVIEW',
+			reason_code: parallelismVerdict,
+			level: 'INFO',
+		});
+	} else {
+		findings = await deps.reviewFindings();
+	}
 	updateJobState(db, reviewJob.job_id, 'succeeded');
 
 	// ── DECIDE: Positron entscheidet (deterministisch) ──────────────────────
@@ -505,6 +535,9 @@ export async function runDurableRun(
 		planGateStatus: 'APPROVED',
 		splitDepth: 0,
 	});
+	if (parallelismVerdict) {
+		decision.basis.parallelism = parallelismVerdict;
+	}
 
 	storeDecision(db, runId, decision.decision, decision.reason_code, JSON.stringify(decision));
 	trackTransition('DECIDE', decision.reason_code);

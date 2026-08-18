@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { PlanContract } from '../contracts.js';
 import { isJobCompleted, recoveryBoundary, runDurableRun } from '../durable-run.js';
 import type { VerificationTool } from '../durable-run.js';
+import type { ReviewWorker } from '../review.js';
 import {
 	ScriptedBuildWorker,
 	cleanupWorkspace,
@@ -289,6 +290,118 @@ describe('BLIND_RETRY_CANARY', () => {
 		expect(worker.invocations).toBe(1);
 		expect(result.decision.decision).toBe('SPLIT');
 		expect(result.decision.reason_code).toBe('RETRY_DENIED_NO_STRATEGY_DELTA');
+		db.close();
+	});
+});
+
+describe('SECURITY_HARD_BLOCK (E2E durch die Orchestrierung)', () => {
+	it('blocking CRITICAL security finding blocks DONE even when tests are green', async () => {
+		ws = createTestWorkspace();
+		const db = createTestDb();
+		const worker = new ScriptedBuildWorker(ws, ['correct']);
+		const verifyTool = makeNodeTestVerifyTool(ws);
+
+		const securityReviewer: ReviewWorker = {
+			kind: 'security',
+			workerType: 'review-security-deterministic',
+			async run() {
+				return [
+					{
+						contract: 'positron.finding.v1',
+						category: 'security',
+						severity: 'CRITICAL',
+						confidence: 'HIGH',
+						blocking: true,
+						rule: 'SECRET_LEAK',
+						evidence: { file: 'src/sum.js', symbol: 'add', line_range: [1, 3] },
+						recommendation: 'Remove embedded secret',
+					},
+				];
+			},
+		};
+		const qualityReviewer: ReviewWorker = {
+			kind: 'quality',
+			workerType: 'review-quality-deterministic',
+			async run() {
+				return [];
+			},
+		};
+
+		const issue = makeIssue('run_vslice_security');
+		const result = await runDurableRun(
+			{
+				db,
+				workspace: {
+					path: ws.dir,
+					repositoryRef: 'xxammaxx/vslice-workspace',
+					readHead: ws.readHead,
+				},
+				buildWorker: worker,
+				verifyTool,
+				reviewFindings: async () => [],
+				reviewWorkers: [securityReviewer, qualityReviewer],
+				maxAttempts: 3,
+			},
+			{ issue, plan: makePlan(issue.run_id, ws) },
+		);
+
+		// Tests waren grün — aber Security blockt hart (kein Mehrheitsvotum)
+		expect(result.decision.decision).toBe('BLOCKED');
+		expect(result.decision.reason_code).toBe('SECURITY_BLOCK');
+		const basis = result.decision.basis as { blocking_findings?: Array<{ severity: string }> };
+		expect(basis.blocking_findings?.[0]?.severity).toBe('CRITICAL');
+		db.close();
+	});
+});
+
+describe('REVIEW_PARALLELISM (E2E durch die Orchestrierung)', () => {
+	it('parallel review workers prove real overlap and record the verdict in the decision basis', async () => {
+		ws = createTestWorkspace();
+		const db = createTestDb();
+		const worker = new ScriptedBuildWorker(ws, ['correct']);
+		const verifyTool = makeNodeTestVerifyTool(ws);
+
+		const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+		const makeReviewer = (kind: 'correctness' | 'quality', label: string): ReviewWorker => ({
+			kind,
+			workerType: label,
+			async run() {
+				await sleep(60);
+				return [];
+			},
+		});
+
+		const issue = makeIssue('run_vslice_parallel');
+		const result = await runDurableRun(
+			{
+				db,
+				workspace: {
+					path: ws.dir,
+					repositoryRef: 'xxammaxx/vslice-workspace',
+					readHead: ws.readHead,
+				},
+				buildWorker: worker,
+				verifyTool,
+				reviewFindings: async () => [],
+				reviewWorkers: [
+					makeReviewer('correctness', 'review-c'),
+					makeReviewer('quality', 'review-q'),
+				],
+				maxAttempts: 3,
+			},
+			{ issue, plan: makePlan(issue.run_id, ws) },
+		);
+
+		expect(result.decision.decision).toBe('DONE');
+		expect(result.decision.basis.parallelism).toBe('PARALLELISM_PROVEN');
+
+		// Review-Attempts wurden telemetriert
+		const reviewJob = result.jobs.find((j) => j.job_type === 'review')!;
+		const reviewAttempts = result.attempts.filter((a) => a.job_id === reviewJob.job_id);
+		expect(reviewAttempts.length).toBe(2);
+		for (const a of reviewAttempts) {
+			expect(a.ended_at).toBeTruthy();
+		}
 		db.close();
 	});
 });

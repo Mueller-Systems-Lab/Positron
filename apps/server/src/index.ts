@@ -30,6 +30,11 @@ import { fileURLToPath } from 'node:url';
 
 import http from 'node:http';
 import {
+	applyControlPlaneMigrations,
+	assertKpiInvariants,
+	computeKpis,
+} from '@positron/control-plane';
+import {
 	FakeGitHubAdapter,
 	GitHubStatusSyncService,
 	createRealGitHubAdapter,
@@ -2556,6 +2561,8 @@ export function createApp(options: ServerOptions = {}) {
 	// SQLite-Datenbank initialisieren
 	db = openDatabase(options.dbPath);
 	initSignalsDb(getDb());
+	// Issue #421: Control-Plane-Tabellen (idempotent, bestehende DB)
+	applyControlPlaneMigrations(getDb());
 	const repository = resolveRepositoryConfig(options.repository);
 	const { adapter: github, mode: githubMode } = resolveAdapter(options.adapter);
 	const activeWorkspaceAdapter = options.workspaceAdapter ?? workspaceAdapter;
@@ -3786,6 +3793,96 @@ export function createApp(options: ServerOptions = {}) {
 					createdAt: artifact.created_at,
 				},
 			});
+		} catch (err) {
+			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
+		}
+	});
+
+	// Issue #421 (P1): Control-Plane-Zustand eines Runs (read-only).
+	// Exponiert die persistente run → job → attempt Hierarchie, Decisions
+	// und Transitions — Backend-Truth für die spätere Active-Run-View.
+	app.get('/api/runs/:id/control-plane', (req, res) => {
+		const { id } = req.params;
+		try {
+			const database = getDb();
+			const jobs = (
+				database
+					.prepare('SELECT * FROM cp_jobs WHERE run_id = ? ORDER BY created_at ASC')
+					.all(id) as Array<Record<string, unknown>>
+			).map((row) => ({
+				job_id: row.job_id,
+				job_type: row.job_type,
+				state: row.state,
+				parent_job_id: row.parent_job_id ?? null,
+				created_at: row.created_at,
+				updated_at: row.updated_at,
+			}));
+
+			const attempts = (
+				database
+					.prepare('SELECT * FROM cp_attempts WHERE run_id = ? ORDER BY started_at ASC')
+					.all(id) as Array<Record<string, unknown>>
+			).map((row) => ({
+				attempt_id: row.attempt_id,
+				job_id: row.job_id,
+				status: row.status,
+				input_contract: row.input_contract ?? null,
+				input_fingerprint: row.input_fingerprint ?? null,
+				output_contract: row.output_contract ?? null,
+				output_fingerprint: row.output_fingerprint ?? null,
+				worker_type: row.worker_type ?? null,
+				provider: row.provider ?? null,
+				model: row.model ?? null,
+				started_at: row.started_at,
+				ended_at: row.ended_at ?? null,
+				failure_class: row.failure_class ?? null,
+				failure_signature: row.failure_signature ?? null,
+				new_evidence: row.new_evidence ?? null,
+				strategy_delta: row.strategy_delta ?? null,
+				result_ref: row.result_ref ?? null,
+			}));
+
+			const decisions = (
+				database
+					.prepare('SELECT * FROM cp_decisions WHERE run_id = ? ORDER BY created_at ASC')
+					.all(id) as Array<Record<string, unknown>>
+			).map((row) => ({
+				decision: row.decision,
+				reason_code: row.reason_code,
+				contract: row.contract_json,
+				created_at: row.created_at,
+			}));
+
+			const transitions = (
+				database
+					.prepare('SELECT * FROM cp_transitions WHERE run_id = ? ORDER BY created_at ASC')
+					.all(id) as Array<Record<string, unknown>>
+			).map((row) => ({
+				previous_state: row.previous_state,
+				new_state: row.new_state,
+				reason_code: row.reason_code,
+				created_at: row.created_at,
+			}));
+
+			res.json({
+				run_id: id,
+				jobs,
+				attempts,
+				decisions,
+				transitions,
+			});
+		} catch (err) {
+			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
+		}
+	});
+
+	// Issue #421 (P1): Deterministische KPIs aus Control-Plane-Daten (read-only)
+	app.get('/api/kpis', (_req, res) => {
+		try {
+			const database = getDb();
+			const report = computeKpis(database);
+			const violations = assertKpiInvariants(report);
+			res.json({ kpis: report, invariants: { violations } });
 		} catch (err) {
 			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
 		}

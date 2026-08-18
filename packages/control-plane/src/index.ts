@@ -99,6 +99,24 @@ export type { DecisionInput } from './decision-policy.js';
 export { evaluateSplit, DEFAULT_SPLIT_LIMITS } from './split.js';
 export type { SplitLimits, SplitVerdict, SplitDecision } from './split.js';
 
+// ─── Real Fan-out/Join Reviews ───
+export {
+	runParallelReviews,
+	assertRealParallelism,
+	listReviewAttempts,
+} from './review.js';
+export type {
+	ReviewKind,
+	ReviewWorker,
+	ParallelReviewResult,
+	ParallelismVerdict,
+	ParallelReviewOutcome,
+} from './review.js';
+
+// ─── KPIs ───
+export { computeKpis, assertKpiInvariants } from './kpis.js';
+export type { KpiReport } from './kpis.js';
+
 // ─── Durable Run Orchestration ───
 export {
 	runDurableRun,
