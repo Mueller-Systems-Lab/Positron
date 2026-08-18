@@ -44,8 +44,9 @@ export function assertRealParallelism<T extends ParallelExecutionSlice>(
 		(a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime(),
 	);
 	for (let i = 0; i < sorted.length - 1; i++) {
-		const a = sorted[i]!;
-		const b = sorted[i + 1]!;
+		const a = sorted[i];
+		const b = sorted[i + 1];
+		if (!a || !b) continue;
 		const aStart = new Date(a.started_at).getTime();
 		const aEnd = new Date(a.ended_at).getTime();
 		const bStart = new Date(b.started_at).getTime();
@@ -67,8 +68,9 @@ export function observedOverlapMs<T extends ParallelExecutionSlice>(results: T[]
 	);
 	let overlap = 0;
 	for (let i = 0; i < sorted.length - 1; i++) {
-		const a = sorted[i]!;
-		const b = sorted[i + 1]!;
+		const a = sorted[i];
+		const b = sorted[i + 1];
+		if (!a || !b) continue;
 		const aStart = new Date(a.started_at).getTime();
 		const aEnd = new Date(a.ended_at).getTime();
 		const bStart = new Date(b.started_at).getTime();

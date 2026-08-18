@@ -193,10 +193,10 @@ Log. Bevorzugt: Hash, Größe, Typ, Referenz, sichere Metadaten.
 | Worker-Pipeline-Integration | `apps/worker/src/pipeline-runner.ts` |
 | Tests | `packages/control-plane/src/__tests__/` + `apps/server/src/__tests__/durable-worker-integration.test.ts` |
 
-Zielzustand (nicht implementiert, dokumentiert): reale Fan-out/Join
-(Research/Review-Parallelität), KPI-Dashboard, UI-Anreicherung (Active Run
-View), Kosten-Analytik. Diese Punkte sind bewusst P1 — sie gefährden P0
-nicht und werden nachgereicht, wenn die Datenbasis belastbar ist.
+Zielzustand (nicht implementiert, dokumentiert): Kosten-Analytik (nur wenn
+Preis + Tokenverbrauch belastbar; sonst `COST_ANALYTICS=DEFERRED_BY_DESIGN`).
+Research-Parallelität, Active Run View und Runtime-Soak sind mit P2
+implementiert (siehe unten).
 
 ## P1-Status (implementiert in Folgearbeit)
 
@@ -220,3 +220,122 @@ nicht und werden nachgereicht, wenn die Datenbasis belastbar ist.
   attempts, decisions, transitions) und `GET /api/kpis` (Metriken +
   Invarianten-Violations) — read-only Grundlage für die spätere
   Active-Run-View. Keine simulierte UI.
+
+## P2-Status (implementiert in Folgearbeit)
+
+### Research Fan-out/Join (echte Parallelität)
+
+```
+             RESEARCH
+                 │
+          BATCH DISPATCH
+       ┌─────────┼─────────┐
+       ▼         ▼         ▼
+     CODE       DOCS      TESTS
+       │         │         │
+       └─────────┼─────────┘
+                 ▼
+              BARRIER
+                 │
+                 ▼
+       positron.research.v1
+```
+
+- `runParallelResearch` (research.ts): drei logisch unabhängige Worker
+  (`research.code`, `research.docs`, `research.tests`) laufen als echte
+  parallele Fan-out; jeder Worker persistiert einen eigenen Attempt
+  (started_at/ended_at, provider/model, failure_class, output contract +
+  fingerprint).
+- **Parallelität wird beobachtet, nicht angenommen**: `assertRealParallelism`
+  (gemeinsame Primitive in `parallelism.ts`, von Review UND Research genutzt)
+  beweist Overlap ausschließlich aus real gemessenen Zeitstempeln.
+  `researchOptions.sequential` erzwingt eine explizit sequentielle
+  Ausführung für kontrollierte Negative-Canaries — die Zeitstempel bleiben
+  real, das Ergebnis ist ehrlich `PARALLELISM_NOT_PROVEN`.
+- **Research Barrier** (`evaluateResearchBarrier`): deterministische Semantik
+  `JOIN | FAILED | TIMEOUT | BLOCKED` über die Worker-Anforderung
+  `REQUIRED` (code) bzw. `OPTIONAL` (docs, tests). OPTIONAL-Fehler werden
+  toleriert und bleiben im Contract sichtbar; ein REQUIRED-Fehler blockiert
+  den Run deterministisch (reason_code `RESEARCH_FAILURE_*` /
+  `RESEARCH_TIMEOUT_*` / `RESEARCH_BLOCKED_*` → Decision BLOCKED).
+- **Research Contract**: `positron.research.v1` (bestehende ID, keine
+  Duplikation) mit repository_ref/head, results (code/docs/tests inkl.
+  Status, summary_ref, Zeiten), parallelism (verdict, observed_overlap_ms),
+  started_at/ended_at, context_fingerprint. Validierung + Fingerprint über
+  die bestehende Registry.
+- **Failure Classification**: neue Klassen `RESEARCH_CODE_FAILURE`,
+  `RESEARCH_DOCS_FAILURE`, `RESEARCH_TESTS_FAILURE`. Provider-/Infra-Fehler
+  werden über `classifyFailure` korrekt zugeordnet — ein Provider-Ausfall
+  wird NIE als "Research agent was incapable" klassifiziert.
+- **Recovery**: Research-Job find-or-create; ein abgeschlossener
+  research-Job wird beim Resume NIE erneut ausgeführt (Verdict wird aus den
+  persistierten Zeitstempeln rekonstruiert, Transition `RESEARCH_RECOVERED`).
+
+### Active Run Mission Control (Backend-Truth UI)
+
+```
+Persistent Runtime State (cp_jobs/cp_attempts/cp_decisions/cp_transitions)
+        ↓
+Backend API (GET /api/runs/:id/control-plane, GET /api/kpis)
+        ↓
+Frontend Projection (MissionControlPanel, KpiPanel)
+```
+
+- **Keine zweite clientseitige Wahrheit**: Die UI rendert ausschließlich die
+  read-only Backend-Truth. `current execution`, Timeline, Attempts,
+  Fingerprints, Verdicts, Decision — alles Projektion persistierter Daten.
+  Keine clientseitig synthetisierten Übergänge, keine Zustandsberechnung.
+- **Run Timeline** aus `cp_transitions` (Zeitstempel, previous/new_state,
+  reason_code). **Attempt-Historie** bleibt vollständig (alte Attempts
+  verschwinden nicht), inkl. failure_class, failure_signature, new_evidence,
+  strategy_delta. **Fingerprints** UI-freundlich gekürzt (8 Zeichen +
+  Vollwert per Tooltip/Copy).
+- **KPI View**: kompakte Projektion von `GET /api/kpis`; Invarianten
+  (Blind Retry = 0, Duplicate Mutation = 0, Security = 100 %) werden bei
+  Verletzung explizit rot markiert — nie kosmetisch grün.
+- **Fehlerzustände**: run not found, Backend temporär nicht erreichbar,
+  alte Runs ohne P2-Felder (abwärtskompatible leere Projection), unbekannte
+  Zustände — kein Absturz.
+- **Privacy by Default**: `output_json` wird nie gerendert (Ausnahme: die
+  strukturierten Verify-Gate-Checks eines positron.verification.v1);
+  Freitext-Felder laufen durch `sanitizeDisplayText` (Secret-Muster →
+  `[redacted]`). Keine API-Keys, Tokens, .env-Inhalte oder raw error
+  payloads in der UI.
+- **Live-Updates**: bestehendes Polling-Muster (3 s, wie useRun); keine neue
+  Streaming-Infrastruktur.
+
+### Runtime Soak & Recovery Proof
+
+- `runtime-soak.test.ts` führt mehrere VOLLSTÄNDIGE reale Runs in
+  disposable Git-Workspaces aus (SOAK_SAMPLE_SIZE = 6):
+  - Run A Happy Path (INTAKE→BASELINE→RESEARCH→PLAN→PLAN_GATE→BUILD→VERIFY→REVIEW→DONE)
+  - Run B Fix Path (VERIFY FAIL → failure_signature → new_evidence →
+    strategy_delta → FIX → DONE; Attempt 1 ≠ Attempt 2)
+  - Run C Blind Retry Denial (RETRY_DENIED_NO_STRATEGY_DELTA; exakt EIN
+    Worker-Call — keine identische Wiederholung)
+  - Run D Security Block (grüne Gates + CRITICAL-Finding → BLOCKED,
+    reason_code SECURITY_BLOCK)
+  - Run E Recovery (Crash nach verify → Resume: completed job wird nicht
+    re-runt, keine duplicate mutation, keine doppelte Transition)
+  - Run F Parallelism Negative Canary (sequentielles Research →
+    PARALLELISM_NOT_PROVEN ohne künstlichen PASS)
+- **KPI-Baseline über persistierte reale Daten**: `computeKpis` auf der
+  Soak-DB; Invarianten halten (Blind Retry = 0, Duplicate Mutation = 0,
+  Security Enforcement = 100 %); berichtet werden First-Pass Success Rate,
+  Mean Attempts to DONE, Useful Retry Rate, Trace Completeness, p50/p95 —
+  bei SOAK_SAMPLE_SIZE = 6 nicht als Produktbenchmark zu interpretieren.
+- **Trace Completeness**: pro wesentlichem Job/Attempt werden run_id,
+  job_id, attempt_id, input/output contract + fingerprint, worker,
+  provider/model, failure_class/signature (anwendbar) geprüft.
+
+### Known Limitations
+
+- Web-Baseline: 52 vorbestehende apps/web-Testfehler + Vite-Build-Fehler
+  durch stale in-place `.js`-Artefakte (JSX in `.js`-Dateien) — unabhängig
+  von P2, nicht in diesem Umfang behoben.
+- Kostenerfassung: `COST_ANALYTICS=DEFERRED_BY_DESIGN` — keine belastbaren
+  Runtime-Kosten, solange Preis-Provenance + echter Tokenverbrauch fehlen.
+- Research im Worker (`apps/worker`) läuft weiterhin als klassische
+  WEB_RESEARCH-Phase (Artifact-Erzeugung); der durable Research-Job mit
+  Fan-out/Join ist über `runDurableRun` (control-plane) nachweisbar und
+  wird bei der Worker-Pipeline-Migration auf dieselbe Primitive gehoben.

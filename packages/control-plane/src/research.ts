@@ -309,8 +309,8 @@ export async function runParallelResearch(
 		repository_ref: ctx.repositoryRef,
 		repository_head: ctx.repositoryHead,
 		summary_ref: results
-			.filter((r) => r.output)
-			.map((r) => r.output!.summary_ref)
+			.filter((r): r is ParallelResearchResult & { output: ResearchWorkerOutput } => r.output !== null)
+			.map((r) => r.output.summary_ref)
 			.sort()
 			.join('|'),
 		sources: results.flatMap((r) => r.output?.sources ?? []),
