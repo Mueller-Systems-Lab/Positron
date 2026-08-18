@@ -406,19 +406,19 @@ describe('RUNTIME_SOAK (disposable workspaces, real runs)', () => {
 
 		// Berichtete Kennzahlen (SOAK_SAMPLE_SIZE = 6 Runs)
 		expect(kpis.runs_total).toBe(SOAK_SAMPLE_SIZE);
-		expect(kpis.done_runs).toBeGreaterThanOrEqual(4); // A, B, E, F
-		// First-Pass: nur Run A (und E via Recovery) mit 1 Build-Attempt
-		expect(kpis.first_pass_success_rate).not.toBeNull();
-		// Mean Attempts to DONE über alle DONE-Runs
-		expect(kpis.mean_attempts_to_done).not.toBeNull();
+		expect(kpis.done_runs).toBe(4); // A, B, E, F
+		// First-Pass: DONE-Runs mit genau 1 Build-Attempt: A, E, F → 3/4
+		expect(kpis.first_pass_success_rate).toBeCloseTo(0.75, 5);
+		// Mean Attempts to DONE: (1 + 2 + 1 + 1) / 4 = 1.25
+		expect(kpis.mean_attempts_to_done).toBeCloseTo(1.25, 5);
 		// Retry Denials: genau Run C (identischer Versuch)
 		expect(kpis.retry_denials).toBe(1);
-		// Useful Retry: FIX-Decisions vs Denials (hier keine persistierte
-		// FIX-Enddecision — Run B erreichte DONE)
-		expect(kpis.useful_retry_rate).not.toBeNull();
+		// Useful Retry: keine persistierte FIX-Enddecision (Run B erreichte
+		// DONE) → 0 / (0 + 1)
+		expect(kpis.useful_retry_rate).toBe(0);
 		// Trace Completeness: alle 6 Runs haben Transitions + Decision
 		expect(kpis.trace_completeness).toBe(1);
-		// p50/p95 über alle Attempts
+		// p50/p95 über alle Attempts (echte gemessene Dauern)
 		expect(kpis.p50_stage_duration_ms).not.toBeNull();
 		expect(kpis.p95_stage_duration_ms).not.toBeNull();
 	});
