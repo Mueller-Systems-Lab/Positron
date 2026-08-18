@@ -21,20 +21,25 @@ import type { RunState } from '@positron/run-state';
 import { FakeGitWorkspaceAdapter, RealGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
 import {
-	PIPELINE_QUEUE,
 	type PipelineJobData,
 	type PipelineJobResult,
 	buildRemoteUrl,
 	loadRepositoryConfig,
 	normalizeRepositoryConfig,
+	resolvePipelineQueueName,
 	resolveRedisUrl,
 } from '@positron/shared';
 import type { RepositoryConfig } from '@positron/shared';
 import type { OpenCodeAdapter, SpecKitAdapter } from '@positron/shared';
 import { FakeSpecKitAdapter, RealSpecKitAdapter } from '@positron/speckit-adapter';
 import { GatewayService, ToolRegistry, createAuditSink } from '@positron/tool-gateway';
-import { type Job, Queue, Worker } from 'bullmq';
-import { type PipelineDeps, runPipeline } from './pipeline-runner.js';
+import { type Job, Worker } from 'bullmq';
+import {
+	type PipelineDeps,
+	isRunInWorkerScope,
+	isTerminalRunRecord,
+	runPipeline,
+} from '@positron/worker-pipeline';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -137,13 +142,24 @@ workerGateway.onAudit = createAuditSink({
 // BullMQ Worker
 // ---------------------------------------------------------------------------
 
+const workerRunScope = process.env.POSITRON_RECOVERY_RUN_ID;
+const workerQueueName = resolvePipelineQueueName(workerRunScope);
+console.log(
+	`[Worker] Queue scope: ${workerRunScope ? `run=${workerRunScope}` : 'shared'}; queue=${workerQueueName}`,
+);
+
 const worker = new Worker<PipelineJobData, PipelineJobResult>(
-	PIPELINE_QUEUE,
+	workerQueueName,
 	async (job: Job<PipelineJobData, PipelineJobResult>) => {
 		const { runId, repoId, issueNumber, autonomyLevel } = job.data;
 		console.log(
 			`[Worker] Processing job ${job.id}: runId=${runId}, issueNumber=${issueNumber}, autonomyLevel=${autonomyLevel}`,
 		);
+		if (!isRunInWorkerScope(workerRunScope, runId)) {
+			throw new Error(
+				`Worker scope violation: worker=${workerRunScope} cannot process run=${runId}`,
+			);
+		}
 
 		// Load run from DB
 		const row = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as
@@ -166,6 +182,15 @@ const worker = new Worker<PipelineJobData, PipelineJobResult>(
 			lastError: row.last_error ? String(row.last_error) : null,
 			workspacePath: row.workspace_path ? String(row.workspace_path) : null,
 		};
+
+		if (isTerminalRunRecord(run)) {
+			console.log(`[Worker] Ignoring stale terminal job ${job.id} for runId=${runId}`);
+			return {
+				status: run.status,
+				phase: run.phase,
+				lastError: run.lastError ?? null,
+			};
+		}
 
 		// Build pipeline dependencies
 		const deps: PipelineDeps = {
@@ -241,4 +266,4 @@ async function shutdown(): Promise<void> {
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
-console.log(`[Worker] Listening on queue "${PIPELINE_QUEUE}" (Redis: ${redisUrl})`);
+console.log(`[Worker] Listening on queue "${workerQueueName}" (Redis: ${redisUrl})`);

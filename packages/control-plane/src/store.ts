@@ -19,6 +19,8 @@ export type JobType =
 	| 'clarify'
 	| 'research'
 	| 'plan'
+	| 'tasks'
+	| 'analyze'
 	| 'plan_gate'
 	| 'build'
 	| 'verify'

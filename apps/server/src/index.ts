@@ -40,6 +40,8 @@ import {
 	createRealGitHubAdapter,
 } from '@positron/github-adapter';
 import type { GitHubAdapter } from '@positron/github-adapter';
+import type { PipelineDeps } from '@positron/worker-pipeline';
+import { runPipeline } from '@positron/worker-pipeline';
 import type {
 	EvidenceItem,
 	GitHubStatusSyncInput,
@@ -1833,354 +1835,44 @@ async function runFullPipeline(
 	syncService?: GitHubStatusSyncService,
 	options?: { startFromPhase?: Phase },
 ): Promise<RunState> {
-	let current = run;
-	const maxSteps = 20;
-	let attempt = 0;
-
-	// Resume-by-State: Phase überspringen bis zur Ziel-Phase (Aufgabe 5)
-	if (options?.startFromPhase && options.startFromPhase !== run.phase) {
-		const skipEvent = {
-			id: createRunId(),
-			runId: run.id,
-			phase: run.phase,
-			level: 'GATE' as EventLevel,
-			message: `Resume: skipping to phase ${options.startFromPhase}`,
-			payload: { resumeFrom: run.phase, resumeTo: options.startFromPhase },
-			createdAt: new Date().toISOString(),
-		};
-		storeEvent(skipEvent);
-		current = {
-			...run,
-			phase: options.startFromPhase,
-			status: 'active',
-			lastError: null,
-		};
-		saveRunToDb(current);
-	}
-	// Configurable max retries: env var overrides constant (Issue #31)
-	const envMaxRetries = process.env.POSITRON_MAX_FIX_LOOPS
-		? Number.parseInt(process.env.POSITRON_MAX_FIX_LOOPS, 10)
-		: undefined;
-	const maxAttempts = envMaxRetries && !Number.isNaN(envMaxRetries) ? envMaxRetries : MAX_FIX_LOOPS;
-	const fixLoopEnabled = process.env.POSITRON_ENABLE_FIX_LOOP === 'true';
-	let lastRetryTime = 0;
-
-	for (let i = 0; i < maxSteps; i++) {
-		// Check control signals before each phase (Issue #30)
-		const signalCheck = checkRunSignal(current.id, current.phase);
-		if (signalCheck?.toLowerCase() === 'abort') {
-			// Unify abort → cancelled (Issue #66) — both cancel endpoint and control/abort now
-			// result in 'cancelled' status. Previously this was FAILED_BLOCKED.
-			const cancelledRun = {
-				...current,
-				status: 'cancelled' as RunStatus,
-				finishedAt: new Date().toISOString(),
-			};
-			storeEvent({
-				id: createRunId(),
-				runId: current.id,
-				phase: current.phase,
-				level: 'HUMAN' as EventLevel,
-				message: 'Run aborted by user',
-				payload: { action: 'abort', previousPhase: current.phase },
-				createdAt: new Date().toISOString(),
-			});
-			saveRunToDb(cancelledRun as RunState);
-			broadcastSSE(current.id, 'run-cancelled', {
-				runId: current.id,
-				phase: current.phase,
-				status: 'cancelled',
-				message: 'Run aborted by user',
-			});
-			return cancelledRun as RunState;
-		}
-		if (signalCheck?.toLowerCase() === 'paused') {
-			// Wait for resume or abort
-			storeEvent({
-				id: createRunId(),
-				runId: current.id,
-				phase: current.phase,
-				level: 'GATE' as EventLevel,
-				message: 'Run paused by user — waiting for resume or abort',
-				payload: null,
-				createdAt: new Date().toISOString(),
-			});
-			broadcastSSE(current.id, 'run-control', { action: 'paused' });
-			while (true) {
-				await new Promise((r) => setTimeout(r, 500));
-				const s = checkRunSignal(current.id, current.phase);
-				if (s?.toLowerCase() === 'abort') {
-					// Unify abort → cancelled (Issue #66)
-					const cancelledRun = {
-						...current,
-						status: 'cancelled' as RunStatus,
-						finishedAt: new Date().toISOString(),
-					};
-					storeEvent({
-						id: createRunId(),
-						runId: current.id,
-						phase: current.phase,
-						level: 'HUMAN' as EventLevel,
-						message: 'Run aborted while paused',
-						payload: { action: 'abort', previousPhase: current.phase },
-						createdAt: new Date().toISOString(),
-					});
-					saveRunToDb(cancelledRun as RunState);
-					// ── Metrics: run cancelled ──
-					cancellationsTotal.inc({ cancel_source: 'user' });
-					activeRuns.dec();
-					broadcastSSE(current.id, 'run-cancelled', {
-						runId: current.id,
-						phase: current.phase,
-						status: 'cancelled',
-						message: 'Run aborted while paused',
-					});
-					return cancelledRun as RunState;
-				}
-				if (s?.toLowerCase() === 'proceed') {
-					storeEvent({
-						id: createRunId(),
-						runId: current.id,
-						phase: current.phase,
-						level: 'GATE' as EventLevel,
-						message: 'Run resumed by user',
-						payload: null,
-						createdAt: new Date().toISOString(),
-					});
-					broadcastSSE(current.id, 'run-control', { action: 'resumed' });
-					break;
-				}
+	// P3: Der Inline-Fallback delegiert an die kanonische Worker-Pipeline
+	// (dieselbe Execution Boundary — keine zweite Runtime, kein Bypass).
+	// Alle produktiven Worker-Aufrufe laufen damit über persistierte
+	// Job/Attempt-Tracking mit Execution-Context-Assertion.
+	const startRun: RunState =
+		options?.startFromPhase && options.startFromPhase !== run.phase
+			? { ...run, phase: options.startFromPhase as Phase, status: 'active', lastError: null }
+			: run;
+	const pipelineDeps: PipelineDeps = {
+		db: getDb(),
+		repository,
+		workspace,
+		speckit,
+		opencode,
+		github,
+		syncService,
+		gateRuntimeMode,
+		// SSE-Kompatibilität: jedes gespeicherte run_event wird gebroadcastet
+		onEvent: (ev) => {
+			try {
+				broadcastSSE(ev.runId, 'run-event', ev);
+			} catch {
+				/* SSE-Fehler sind nicht kritisch */
 			}
-		}
-		if (signalCheck?.toLowerCase() === 'resume') {
-			// Resume-by-State (Aufgabe 5): Phase überspringen zur Ziel-Phase
-			const targetPhase = getResumePhaseTarget(current.id);
-			if (targetPhase) {
-				clearRunSignal(current.id, 'RESUME');
-				current = {
-					...current,
-					phase: targetPhase as import('@positron/shared').Phase,
-					status: 'active',
-					lastError: null,
-				};
-				saveRunToDb(current);
-				storeEvent({
-					id: createRunId(),
-					runId: current.id,
-					phase: current.phase,
-					level: 'GATE',
-					message: `Resumed to phase: ${targetPhase}`,
-					payload: { targetPhase },
-					createdAt: new Date().toISOString(),
-				});
-				broadcastSSE(current.id, 'run-update', {
-					phase: current.phase,
-					status: current.status,
-					branch: current.branch,
-				});
-				continue;
-			}
-		}
-		if (signalCheck?.toLowerCase() === 'retry') {
-			// Manual retry from FAILED_TRANSIENT
-			const retryResult = retry(current);
-			if (retryResult.ok) {
-				storeEvent(retryResult.event);
-				saveRunToDb(retryResult.run);
-				current = retryResult.run;
-				attempt = current.attempt;
-				broadcastSSE(current.id, 'run-update', {
-					phase: current.phase,
-					status: current.status,
-					branch: current.branch,
-				});
-				continue;
-			}
-		}
-
-		const next = await executePhase(
-			current,
-			repository,
-			workspace,
-			speckit,
-			opencode,
-			github,
-			syncService,
-		);
-		if (next.phase === current.phase || next.phase === 'DONE' || next.phase.startsWith('FAILED')) {
-			// --- Fix-Loop (Issue #31 — enhanced) ---
-			if (fixLoopEnabled && next.phase === 'FAILED_TRANSIENT' && attempt < maxAttempts) {
-				attempt++;
-
-				// Find the original failed phase from event payload (stored by markFailed)
-				const allTransient = getEvents(next.id).filter(
-					(e: RunEventData) => e.phase === 'FAILED_TRANSIENT',
-				);
-				const transientEvent = allTransient[allTransient.length - 1];
-				const failedPhase = (transientEvent?.payload as Record<string, unknown> | null)
-					?.failedPhase as string | undefined;
-				const retryFromPhase =
-					failedPhase && failedPhase !== 'FAILED_TRANSIENT' ? failedPhase : 'TEST';
-
-				// Exponential backoff: 1s, 2s, 4s, 8s... max 30s
-				const backoffMs = Math.min(1000 * 2 ** (attempt - 1), 30000);
-				const now = Date.now();
-				const timeSinceLastRetry = now - lastRetryTime;
-				if (timeSinceLastRetry < backoffMs) {
-					await new Promise((r) => setTimeout(r, backoffMs - timeSinceLastRetry));
-				}
-				lastRetryTime = Date.now();
-
-				storeEvent({
-					id: createRunId(),
-					runId: next.id,
-					phase: retryFromPhase as Phase,
-					level: 'WARN',
-					message: `Fix-Loop retry ${attempt}/${maxAttempts} — phase: ${retryFromPhase}, backoff: ${backoffMs}ms`,
-					payload: { attempt, maxAttempts, retryFromPhase, backoffMs },
-					createdAt: new Date().toISOString(),
-				});
-
-				// ── Metrics: retry attempt ──
-				retriesTotal.inc({ attempt: String(attempt) });
-
-				// Manually set run state (transition validation rejects FAILED_TRANSIENT → *)
-				current = {
-					...next,
-					phase: retryFromPhase as Phase,
-					status: 'active',
-					attempt,
-					lastError: null,
-				};
-				broadcastSSE(current.id, 'run-update', {
-					phase: current.phase,
-					status: current.status,
-					branch: current.branch,
-				});
-				continue;
-			}
-
-			// Sync terminal state
-			if (syncService) {
-				const syncInput: GitHubStatusSyncInput = {
-					runId: next.id,
-					owner: repository.owner,
-					repo: repository.repo,
-					issueNumber: next.issueNumber,
-					phase: next.phase,
-					status: next.phase === 'DONE' ? 'done' : 'failed',
-					branchName: next.branch ?? undefined,
-					evidence: buildEvidence(next),
-				};
-				if (next.phase === 'DONE') {
-					await safeSync(syncService, () => syncService.syncDone(syncInput), next.id, 'DONE');
-					// ── Metrics: run completed successfully ──
-					const startedMs = next.startedAt ? new Date(next.startedAt).getTime() : Date.now();
-					const durationSec = (Date.now() - startedMs) / 1000;
-					runsTotal.inc({ status: 'done' });
-					runDurationSeconds.observe({ status: 'done' }, durationSec);
-					activeRuns.dec();
-				} else if (next.phase === 'FAILED_BLOCKED') {
-					await safeSync(
-						syncService,
-						() =>
-							syncService.syncBlocked({
-								...syncInput,
-								error: {
-									type: 'blocked',
-									message: 'Run blocked: max steps or policy violation',
-								},
-							}),
-						next.id,
-						'FAILED_BLOCKED',
-					);
-					// ── Metrics: run failed (blocked) ──
-					runFailuresTotal.inc({ failure_type: 'FAILED_BLOCKED' });
-					activeRuns.dec();
-				} else if (next.phase.startsWith('FAILED')) {
-					await safeSync(
-						syncService,
-						() =>
-							syncService.syncFailed({
-								...syncInput,
-								error: {
-									type: 'failed',
-									message: `Run failed in phase ${next.phase}`,
-								},
-							}),
-						next.id,
-						next.phase,
-					);
-					// ── Metrics: run failed ──
-					runFailuresTotal.inc({ failure_type: next.phase });
-					activeRuns.dec();
-				}
-			}
-			saveRunToDb(next);
-			broadcastSSE(next.id, 'run-update', {
-				phase: next.phase,
-				status: next.status,
-				branch: next.branch,
-			});
-			// Issue #244: Run workspace cleanup on terminal phase
-			runCleanup(next)
-				.then((cleanupResult) => {
-					if (!cleanupResult.cleaned) {
-						log.warn(`Workspace cleanup: ${cleanupResult.reason ?? 'unknown'}`, { runId: next.id });
-					}
-				})
-				.catch((err) => {
-					log.error(
-						`Workspace cleanup error: ${err instanceof Error ? err.message : String(err)}`,
-						{ runId: next.id },
-					);
-				});
-			return next;
-		}
-		current = next;
-	}
-	// Timeout
-	const result = markFailed(current, 'FAILED_BLOCKED', 'Max steps exceeded');
-	storeEvent(result.event);
-	// Sync timeout
-	if (syncService) {
-		const syncInput: GitHubStatusSyncInput = {
-			runId: result.run.id,
-			owner: repository.owner,
-			repo: repository.repo,
-			issueNumber: result.run.issueNumber,
-			phase: 'FAILED_BLOCKED',
-			status: 'blocked',
-			branchName: result.run.branch ?? undefined,
-			error: { type: 'blocked', message: 'Max steps exceeded (timeout)' },
-		};
-		await safeSync(
-			syncService,
-			() => syncService.syncBlocked(syncInput),
-			result.run.id,
-			'FAILED_BLOCKED',
-		);
-	}
-	saveRunToDb(result.run);
-	broadcastSSE(result.run.id, 'run-complete', {
-		phase: result.run.phase,
-		status: result.run.status,
-	});
-	// Issue #244: Run workspace cleanup on timeout/terminal
-	runCleanup(result.run)
-		.then((cleanupResult) => {
-			if (!cleanupResult.cleaned) {
-				log.warn(`Workspace cleanup: ${cleanupResult.reason ?? 'unknown'}`, {
-					runId: result.run.id,
-				});
-			}
-		})
-		.catch((err) => {
-			log.error(`Workspace cleanup error: ${err instanceof Error ? err.message : String(err)}`, {
-				runId: result.run.id,
-			});
+		},
+	};
+	const result = await runPipeline(startRun, pipelineDeps);
+	// Terminal-Broadcast für SSE-Kompatibilität
+	try {
+		broadcastSSE(result.id, 'run-update', {
+			phase: result.phase,
+			status: result.status,
+			branch: result.branch,
 		});
-	return result.run;
+	} catch {
+		/* SSE-Fehler sind nicht kritisch */
+	}
+	return result;
 }
 
 /**

@@ -9,7 +9,10 @@ import { fileURLToPath } from 'node:url';
 import {
 	IdempotencyRegistry,
 	applyControlPlaneMigrations,
+	assertAttemptActive,
+	assertExecutionContext,
 	buildVerificationContract,
+	claimAttempt,
 	classifyFailure,
 	completeAttempt,
 	createAttempt,
@@ -18,6 +21,7 @@ import {
 	evaluateRetry,
 	fingerprint,
 	idempotencyKey,
+	storeDecision,
 	updateJobState,
 } from '@positron/control-plane';
 import type { AttemptRecord, JobRecord } from '@positron/control-plane';
@@ -83,6 +87,11 @@ export interface PipelineDeps {
 	gateway?: GatewayService;
 	/** Issue #385: Gate runtime mode for pipeline outcome resolution */
 	gateRuntimeMode: GateRuntimeMode;
+	/**
+	 * P3: Optionaler Event-Hook (z. B. für SSE-Broadcast beim Inline-Fallback
+	 * des Servers). Wird nach jedem gespeicherten run_event aufgerufen.
+	 */
+	onEvent?: (event: RunEventData) => void;
 }
 
 export function isRunInWorkerScope(workerRunScope: string | undefined, runId: string): boolean {
@@ -206,6 +215,8 @@ function storeEvent(event: RunEventData, deps: PipelineDeps): void {
 				event.payload ? JSON.stringify(event.payload) : '{}',
 				event.createdAt,
 			);
+		// P3: Optionaler externer Hook (SSE-Broadcast beim Server-Inline-Fallback)
+		deps.onEvent?.(event);
 	} catch (err) {
 		console.error(`[Worker] storeEvent failed for run ${event.runId}`, err);
 	}
@@ -263,16 +274,31 @@ interface JobAttemptTracking {
  * Erstellt (oder findet) den Job eines Typs für einen Run und öffnet einen
  * neuen Attempt. Idempotenz: Wurde der Dispatch bereits geclaimed, gilt der
  * Versuch als Duplikat und wird NICHT erneut ausgeführt.
+ *
+ * P3: Der Attempt wird als `pending` angelegt und atomar geclaimt
+ * (pending → running, genau ein Claimer). Paralleler Doppel-Dispatch
+ * desselben Attempts wird abgelehnt. Der Execution-Context
+ * (run_id/job_id/attempt_id) ist für die produktive Ausführung zwingend.
  */
 function trackJobAttempt(
 	run: RunState,
 	deps: PipelineDeps,
-	jobType: 'plan' | 'build' | 'verify' | 'decide',
+	jobType:
+		| 'plan'
+		| 'build'
+		| 'verify'
+		| 'decide'
+		| 'research'
+		| 'specify'
+		| 'tasks'
+		| 'analyze'
+		| 'baseline',
 	workerType: string,
 	provider: string | null,
 	model: string | null,
 	inputContract: string | null,
 	inputFingerprint: string | null,
+	previousAttemptId: string | null = null,
 ): JobAttemptTracking {
 	const db = getDb(deps);
 	ensureControlPlane(db);
@@ -308,16 +334,28 @@ function trackJobAttempt(
 
 	const registry = new IdempotencyRegistry(db);
 	const attempt = createAttempt(db, run.id, String(job.job_id), {
+		status: 'pending',
 		worker_type: workerType,
 		provider,
 		model,
 		input_contract: inputContract,
 		input_fingerprint: inputFingerprint,
+		previous_attempt_id: previousAttemptId,
 	});
 	const idemKey = idempotencyKey(run.id, String(job.job_id), attempt.attempt_id);
 	const duplicate = !registry.claim(idemKey);
 	if (duplicate) {
 		completeAttempt(db, attempt.attempt_id, { status: 'denied', result_ref: 'duplicate-dispatch' });
+	} else if (!claimAttempt(db, attempt.attempt_id)) {
+		// Paralleler Doppel-Claim desselben Attempts: abgelehnt.
+		completeAttempt(db, attempt.attempt_id, { status: 'denied', result_ref: 'duplicate-claim' });
+		return {
+			job: job as unknown as JobRecord,
+			attempt,
+			duplicate: true,
+			registry,
+			idemKey,
+		};
 	}
 	return {
 		job: job as unknown as JobRecord,
@@ -336,6 +374,36 @@ function completeTrackedAttempt(
 	completeAttempt(getDb(deps), tracking.attempt.attempt_id, update);
 	if (!tracking.duplicate) {
 		tracking.registry.complete(tracking.idemKey, update.result_ref ?? null);
+	}
+}
+
+/**
+ * P3: Produktive Worker-Ausführung nur innerhalb eines aktiven Attempts.
+ * Wirft EXECUTION_CONTEXT_REQUIRED, wenn der Attempt nicht geclaimt/aktiv ist.
+ */
+function assertWorkerContext(
+	run: RunState,
+	tracking: JobAttemptTracking,
+	deps: PipelineDeps,
+): void {
+	assertExecutionContext({
+		run_id: run.id,
+		job_id: tracking.job.job_id,
+		attempt_id: tracking.attempt.attempt_id,
+	});
+	assertAttemptActive(getDb(deps), tracking.attempt.attempt_id);
+}
+
+/** Finalisiert einen getrackten Worker-Attempt und den zugehörigen Job. */
+function finalizeTrackedAttempt(
+	tracking: JobAttemptTracking,
+	deps: PipelineDeps,
+	status: 'succeeded' | 'failed' | 'blocked',
+	update: Partial<AttemptRecord> = {},
+): void {
+	completeTrackedAttempt(tracking, deps, { status, ...update });
+	if (status !== 'failed') {
+		updateJobState(getDb(deps), tracking.job.job_id, status);
 	}
 }
 
@@ -373,6 +441,7 @@ function loadLastAttempt(runId: string, jobType: string, deps: PipelineDeps): At
 			strategy_delta: last.strategy_delta ? String(last.strategy_delta) : null,
 			result_ref: last.result_ref ? String(last.result_ref) : null,
 			tokens: last.tokens !== null && last.tokens !== undefined ? Number(last.tokens) : null,
+			previous_attempt_id: last.previous_attempt_id ? String(last.previous_attempt_id) : null,
 		};
 	} catch (err) {
 		console.error(`[Worker] loadLastAttempt failed: ${String(err).slice(0, 200)}`);
@@ -635,6 +704,44 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				});
 				current.branch = ws.branchName;
 				current.workspacePath = ws.workspacePath;
+
+				// P3: BASELINE-Job (find-or-create) mit realem HEAD —
+				// die durable Run-Hierarchie beginnt im Workspace.
+				ensureControlPlane(getDb(deps));
+				const baselineTracking = trackJobAttempt(
+					current,
+					deps,
+					'baseline',
+					'deterministic.baseline',
+					null,
+					null,
+					'positron.baseline.v1',
+					fingerprint({ runId: current.id, repo: deps.repository.repo }),
+				);
+				if (!baselineTracking.duplicate) {
+					assertWorkerContext(current, baselineTracking, deps);
+					let headSha = '';
+					try {
+						headSha = await deps.workspace.getHeadSha(ws.workspacePath);
+					} catch {
+						headSha = '';
+					}
+					completeTrackedAttempt(baselineTracking, deps, {
+						status: 'succeeded',
+						output_contract: 'positron.baseline.v1',
+						output_fingerprint: fingerprint({ phase: 'baseline', head: headSha || 'unknown' }),
+						output_json: JSON.stringify({
+							contract: 'positron.baseline.v1',
+							run_id: current.id,
+							repository_ref: `${deps.repository.owner}/${deps.repository.repo}`,
+							repository_head: headSha || 'unknown',
+							workspace_path: ws.workspacePath,
+						}),
+						result_ref: headSha || null,
+					});
+					updateJobState(getDb(deps), baselineTracking.job.job_id, 'succeeded');
+				}
+
 				result = transition(current, 'ISSUE_CONTEXT', `Workspace: ${ws.workspacePath}`);
 			} catch (err) {
 				result = markFailed(current, 'FAILED_TRANSIENT', `Repo sync failed: ${String(err)}`);
@@ -644,11 +751,54 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 			result = transition(current, 'WEB_RESEARCH', 'Research phase', 'INFO');
 			break;
 		case 'WEB_RESEARCH': {
-			const researchDoc = await generateResearchDocument(
-				deps.github,
-				deps.repository,
-				current.issueNumber,
+			// P3: Research-Ausführung ist an einen persistierten Job/Attempt
+			// gebunden (kein direkter Fetch mehr außerhalb der Control Plane).
+			const tracking = trackJobAttempt(
+				current,
+				deps,
+				'research',
+				'research.issue',
+				null,
+				null,
+				'positron.research.v1',
+				fingerprint({
+					runId: current.id,
+					issueNumber: current.issueNumber,
+					repo: deps.repository.repo,
+				}),
 			);
+			let researchDoc: string;
+			if (tracking.duplicate) {
+				// Recovery: completed research wird NICHT erneut ausgeführt;
+				// das persistierte Ergebnis wird wiederverwendet.
+				const prev = loadLastAttempt(current.id, 'research', deps);
+				researchDoc = prev?.output_json ?? '';
+				storeEvent(
+					{
+						id: createRunId(),
+						runId: current.id,
+						phase: 'WEB_RESEARCH',
+						level: 'INFO',
+						message: 'Research recovered from persisted attempt (no rerun)',
+						payload: { attemptId: prev?.attempt_id ?? null, recovered: true },
+						createdAt: new Date().toISOString(),
+					},
+					deps,
+				);
+			} else {
+				assertWorkerContext(current, tracking, deps);
+				researchDoc = await generateResearchDocument(
+					deps.github,
+					deps.repository,
+					current.issueNumber,
+				);
+				finalizeTrackedAttempt(tracking, deps, 'succeeded', {
+					output_contract: 'positron.research.v1',
+					output_fingerprint: fingerprint({ phase: 'research', size: researchDoc.length }),
+					output_json: researchDoc.slice(0, 20000),
+					result_ref: `artifact:research:${researchDoc.length}`,
+				});
+			}
 			saveArtifact(current.id, 'research', researchDoc, deps);
 			storeEvent(
 				{
@@ -672,6 +822,43 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 		case 'SPECIFY': {
 			const wsPath = current.workspacePath ?? current.branch ?? '/tmp';
 			const realSpeckit = process.env.POSITRON_ENABLE_REAL_SPECKIT === 'true';
+
+			// P3: Specify ist ein persistenter Job/Attempt (produktiver
+			// OpenCode-/SpecKit-Aufruf NUR innerhalb der Control Plane).
+			const tracking = trackJobAttempt(
+				current,
+				deps,
+				'specify',
+				realSpeckit ? 'opencode.specify' : 'speckit.specify',
+				null,
+				null,
+				'positron.issue.v1',
+				fingerprint({
+					runId: current.id,
+					issueNumber: current.issueNumber,
+				}),
+			);
+			if (tracking.duplicate) {
+				const prev = loadLastAttempt(current.id, 'specify', deps);
+				if (prev?.output_json) {
+					saveArtifact(current.id, 'spec', prev.output_json, deps);
+				}
+				storeEvent(
+					{
+						id: createRunId(),
+						runId: current.id,
+						phase: 'SPECIFY',
+						level: 'INFO',
+						message: 'Specify recovered from persisted attempt (no rerun)',
+						payload: { attemptId: prev?.attempt_id ?? null, recovered: true },
+						createdAt: new Date().toISOString(),
+					},
+					deps,
+				);
+				result = transition(current, 'PLAN', 'Specify recovered (persisted attempt)', 'INFO');
+				break;
+			}
+			assertWorkerContext(current, tracking, deps);
 
 			if (realSpeckit) {
 				try {
@@ -703,6 +890,18 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 							issueNumber: current.issueNumber,
 							mode: 'safe-cli',
 						});
+						finalizeTrackedAttempt(
+							tracking,
+							deps,
+							specResult.status === 'success' ? 'succeeded' : 'failed',
+							{
+								output_json: specResult.summary.slice(0, 2000),
+								output_fingerprint: fingerprint({ phase: 'specify', status: specResult.status }),
+								failure_class: specResult.status === 'success' ? null : 'UNKNOWN',
+								failure_signature:
+									specResult.status === 'success' ? null : `specify:${specResult.status}`,
+							},
+						);
 						result = transition(
 							current,
 							'PLAN',
@@ -738,10 +937,24 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				const sr = await deps.speckit.runSpecify(input);
 				if (sr.status === 'success' || sr.status === 'skipped') {
 					saveArtifact(current.id, 'spec', sr.summary, deps);
+					finalizeTrackedAttempt(tracking, deps, 'succeeded', {
+						output_json: sr.summary.slice(0, 2000),
+						output_fingerprint: fingerprint({ phase: 'specify', status: sr.status }),
+						result_ref: `artifact:spec:${sr.summary.length}`,
+					});
+				} else {
+					finalizeTrackedAttempt(tracking, deps, 'failed', {
+						failure_class: 'UNKNOWN',
+						failure_signature: `specify:${sr.status}`,
+					});
 				}
 				result = transition(current, 'PLAN', sr.summary, sr.status === 'success' ? 'INFO' : 'WARN');
 			} catch (err) {
 				const errMsg = `Specify error: ${String(err).slice(0, 200)}`;
+				finalizeTrackedAttempt(tracking, deps, 'failed', {
+					failure_class: 'INFRA_FAILURE',
+					failure_signature: errMsg,
+				});
 				result = markFailed(current, 'FAILED_TRANSIENT', errMsg);
 			}
 			break;
@@ -749,6 +962,44 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 		case 'PLAN': {
 			const wsPath = current.workspacePath ?? current.branch ?? '/tmp';
 			const realSpeckit = process.env.POSITRON_ENABLE_REAL_SPECKIT === 'true';
+
+			// P3: Plan-Erzeugung ist ein persistenter Job/Attempt. Kein
+			// opencode plan → parse → build Abkürzung mehr: der Plan läuft
+			// durch den durable plan-Attempt und das deterministische Gate.
+			const tracking = trackJobAttempt(
+				current,
+				deps,
+				'plan',
+				realSpeckit ? 'opencode.plan' : 'speckit.plan',
+				process.env.POSITRON_OPENCODE_PROVIDER ?? null,
+				process.env.POSITRON_OPENCODE_MODEL ?? null,
+				'positron.plan.v1',
+				fingerprint({
+					runId: current.id,
+					issueNumber: current.issueNumber,
+				}),
+			);
+			if (tracking.duplicate) {
+				const prev = loadLastAttempt(current.id, 'plan', deps);
+				if (prev?.output_json) {
+					saveArtifact(current.id, 'plan', prev.output_json, deps);
+				}
+				storeEvent(
+					{
+						id: createRunId(),
+						runId: current.id,
+						phase: 'PLAN',
+						level: 'INFO',
+						message: 'Plan recovered from persisted attempt (no rerun)',
+						payload: { attemptId: prev?.attempt_id ?? null, recovered: true },
+						createdAt: new Date().toISOString(),
+					},
+					deps,
+				);
+				result = transition(current, 'TASKS', 'Plan recovered (persisted attempt)', 'INFO');
+				break;
+			}
+			assertWorkerContext(current, tracking, deps);
 
 			if (realSpeckit) {
 				try {
@@ -759,6 +1010,18 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						issueNumber: current.issueNumber,
 						mode: 'safe-cli',
 					});
+					finalizeTrackedAttempt(
+						tracking,
+						deps,
+						planResult.status === 'success' ? 'succeeded' : 'failed',
+						{
+							output_json: planResult.summary.slice(0, 4000),
+							output_fingerprint: fingerprint({ phase: 'plan', status: planResult.status }),
+							failure_class: planResult.status === 'success' ? null : 'UNKNOWN',
+							failure_signature:
+								planResult.status === 'success' ? null : `plan:${planResult.status}`,
+						},
+					);
 					result = transition(
 						current,
 						'TASKS',
@@ -810,6 +1073,12 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 								`${deps.repository.owner}/${deps.repository.repo}`,
 							);
 							if (gateResult.status !== 'APPROVED') {
+								finalizeTrackedAttempt(tracking, deps, 'blocked', {
+									output_json: planArtifact.slice(0, 4000),
+									output_fingerprint: fingerprint({ phase: 'plan', gate: gateResult.status }),
+									failure_class: 'CONTEXT_FAILURE',
+									failure_signature: `plan-gate:${gateResult.reason_code}`,
+								});
 								storeEvent(
 									{
 										id: createRunId(),
@@ -830,10 +1099,25 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 								break;
 							}
 							planGateApproved = true;
+							// Plan-Contract als Attempt-Output persistieren
+							finalizeTrackedAttempt(tracking, deps, 'succeeded', {
+								output_json: planArtifact.slice(0, 4000),
+								output_fingerprint: fingerprint({ phase: 'plan', gate: 'APPROVED' }),
+								result_ref: `artifact:plan:${planArtifact.length}`,
+							});
 						}
 					} catch {
 						// Nicht-strukturierter Plan (z. B. Markdown) → bisheriger Pfad
+						finalizeTrackedAttempt(tracking, deps, 'succeeded', {
+							output_json: pr.summary.slice(0, 4000),
+							output_fingerprint: fingerprint({ phase: 'plan', structured: false }),
+						});
 					}
+				} else {
+					finalizeTrackedAttempt(tracking, deps, 'succeeded', {
+						output_json: pr.summary.slice(0, 4000),
+						output_fingerprint: fingerprint({ phase: 'plan', structured: false }),
+					});
 				}
 
 				if (planGateApproved) {
@@ -859,6 +1143,10 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				);
 			} catch (err) {
 				const planErrMsg = `Plan error: ${String(err).slice(0, 200)}`;
+				finalizeTrackedAttempt(tracking, deps, 'failed', {
+					failure_class: 'INFRA_FAILURE',
+					failure_signature: planErrMsg,
+				});
 				result = markFailed(current, 'FAILED_TRANSIENT', planErrMsg);
 			}
 			break;
@@ -866,6 +1154,42 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 		case 'TASKS': {
 			const wsPath = current.workspacePath ?? current.branch ?? '/tmp';
 			const realSpeckit = process.env.POSITRON_ENABLE_REAL_SPECKIT === 'true';
+
+			// P3: Tasks ist ein persistenter Job/Attempt.
+			const tracking = trackJobAttempt(
+				current,
+				deps,
+				'tasks',
+				realSpeckit ? 'opencode.tasks' : 'speckit.tasks',
+				null,
+				null,
+				'positron.plan.v1',
+				fingerprint({
+					runId: current.id,
+					issueNumber: current.issueNumber,
+				}),
+			);
+			if (tracking.duplicate) {
+				const prev = loadLastAttempt(current.id, 'tasks', deps);
+				if (prev?.output_json) {
+					saveArtifact(current.id, 'tasks', prev.output_json, deps);
+				}
+				storeEvent(
+					{
+						id: createRunId(),
+						runId: current.id,
+						phase: 'TASKS',
+						level: 'INFO',
+						message: 'Tasks recovered from persisted attempt (no rerun)',
+						payload: { attemptId: prev?.attempt_id ?? null, recovered: true },
+						createdAt: new Date().toISOString(),
+					},
+					deps,
+				);
+				result = transition(current, 'ANALYZE', 'Tasks recovered (persisted attempt)', 'INFO');
+				break;
+			}
+			assertWorkerContext(current, tracking, deps);
 
 			if (realSpeckit) {
 				try {
@@ -876,6 +1200,18 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						issueNumber: current.issueNumber,
 						mode: 'safe-cli',
 					});
+					finalizeTrackedAttempt(
+						tracking,
+						deps,
+						tasksResult.status === 'success' ? 'succeeded' : 'failed',
+						{
+							output_json: tasksResult.summary.slice(0, 2000),
+							output_fingerprint: fingerprint({ phase: 'tasks', status: tasksResult.status }),
+							failure_class: tasksResult.status === 'success' ? null : 'UNKNOWN',
+							failure_signature:
+								tasksResult.status === 'success' ? null : `tasks:${tasksResult.status}`,
+						},
+					);
 					result = transition(
 						current,
 						'ANALYZE',
@@ -910,6 +1246,16 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				const tr = await deps.speckit.runTasks(input);
 				if (tr.status === 'success' || tr.status === 'skipped') {
 					saveArtifact(current.id, 'tasks', tr.summary, deps);
+					finalizeTrackedAttempt(tracking, deps, 'succeeded', {
+						output_json: tr.summary.slice(0, 2000),
+						output_fingerprint: fingerprint({ phase: 'tasks', status: tr.status }),
+						result_ref: `artifact:tasks:${tr.summary.length}`,
+					});
+				} else {
+					finalizeTrackedAttempt(tracking, deps, 'failed', {
+						failure_class: 'UNKNOWN',
+						failure_signature: `tasks:${tr.status}`,
+					});
 				}
 				result = transition(
 					current,
@@ -919,12 +1265,49 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				);
 			} catch (err) {
 				const tasksErrMsg = `Tasks error: ${String(err).slice(0, 200)}`;
+				finalizeTrackedAttempt(tracking, deps, 'failed', {
+					failure_class: 'INFRA_FAILURE',
+					failure_signature: tasksErrMsg,
+				});
 				result = markFailed(current, 'FAILED_TRANSIENT', tasksErrMsg);
 			}
 			break;
 		}
 		case 'ANALYZE': {
 			const wsPath = current.workspacePath ?? current.branch ?? '/tmp';
+
+			// P3: Analyze ist ein persistenter Job/Attempt.
+			const tracking = trackJobAttempt(
+				current,
+				deps,
+				'analyze',
+				'speckit.analyze',
+				null,
+				null,
+				'positron.plan.v1',
+				fingerprint({
+					runId: current.id,
+					issueNumber: current.issueNumber,
+				}),
+			);
+			if (tracking.duplicate) {
+				storeEvent(
+					{
+						id: createRunId(),
+						runId: current.id,
+						phase: 'ANALYZE',
+						level: 'INFO',
+						message: 'Analyze recovered from persisted attempt (no rerun)',
+						payload: { recovered: true },
+						createdAt: new Date().toISOString(),
+					},
+					deps,
+				);
+				result = transition(current, 'REVIEW', 'Analysis recovered (persisted attempt)', 'INFO');
+				break;
+			}
+			assertWorkerContext(current, tracking, deps);
+
 			const input = {
 				runId: current.id,
 				workspacePath: wsPath,
@@ -934,6 +1317,11 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 			};
 			try {
 				const ar = await deps.speckit.runAnalyze(input);
+				finalizeTrackedAttempt(tracking, deps, 'succeeded', {
+					output_json: ar.summary.slice(0, 2000),
+					output_fingerprint: fingerprint({ phase: 'analyze', status: ar.status }),
+					result_ref: `artifact:analyze:${ar.summary.length}`,
+				});
 				result = transition(current, 'REVIEW', ar.summary, 'INFO');
 			} catch (err) {
 				storeEvent(
@@ -948,6 +1336,10 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 					},
 					deps,
 				);
+				finalizeTrackedAttempt(tracking, deps, 'failed', {
+					failure_class: 'INFRA_FAILURE',
+					failure_signature: `analyze:${String(err).slice(0, 200)}`,
+				});
 				result = transition(current, 'REVIEW', 'Analysis complete', 'INFO');
 			}
 			break;
@@ -988,6 +1380,8 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 			// Issue #421: Persistent Attempt-Tracking mit Idempotenz.
 			// Jeder mutierende Versuch ist an run:job:attempt gebunden —
 			// doppelter Dispatch führt zu KEINEM zweiten Worker-Aufruf.
+			// P3: FIX-Kette — der neue Attempt referenziert den vorherigen.
+			const previousBuildAttempt = loadLastAttempt(current.id, 'build', deps);
 			const tracking = trackJobAttempt(
 				current,
 				deps,
@@ -997,6 +1391,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				process.env.POSITRON_OPENCODE_MODEL ?? null,
 				'positron.build-input.v1',
 				fingerprint({ runId: current.id, workspacePath: wsPath, issueNumber: current.issueNumber }),
+				previousBuildAttempt?.attempt_id ?? null,
 			);
 
 			if (tracking.duplicate) {
@@ -1021,6 +1416,8 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 			}
 
 			try {
+				// P3: OpenCode-Build nur innerhalb eines aktiven Attempts.
+				assertWorkerContext(current, tracking, deps);
 				const ir = await deps.opencode.runImplement(input);
 
 				// Issue #385: Explicit outcome resolution — blocked/failed must NOT reach TEST
@@ -1127,6 +1524,24 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						);
 					}
 				} else {
+					// Issue #421: Deterministische Verification — der fachliche
+					// Verify-Schritt (TestRunner) läuft NUR innerhalb eines
+					// persistierten verify-Attempts (P3: Attempt vor Ausführung).
+					const verifyTracking = trackJobAttempt(
+						current,
+						deps,
+						'verify',
+						'deterministic-tools',
+						null,
+						null,
+						'positron.verification.v1',
+						fingerprint({
+							runId: current.id,
+							workspacePath: wsPath,
+							testCommands: detection.commands.map((c) => `${c.command} ${c.args.join(' ')}`),
+						}),
+					);
+					assertWorkerContext(current, verifyTracking, deps);
 					const runner = new TestRunner();
 					const report = await runner.runDetectedCommands({
 						runId: current.id,
@@ -1182,21 +1597,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 					// Issue #421: Deterministische Verification.
 					// Messbare Ergebnisse werden von Tools gemessen, nicht von
 					// einem LLM beurteilt. Der Verification-Contract wird in den
-					// persistente Attempt der Control Plane geschrieben.
-					const verifyTracking = trackJobAttempt(
-						current,
-						deps,
-						'verify',
-						'deterministic-tools',
-						null,
-						null,
-						'positron.verification.v1',
-						fingerprint({
-							runId: current.id,
-							workspacePath: wsPath,
-							testCommands: detection.commands.map((c) => `${c.command} ${c.args.join(' ')}`),
-						}),
-					);
+					// persistenten Attempt der Control Plane geschrieben.
 					const verification = buildVerificationContract({
 						run_id: current.id,
 						job_id: verifyTracking.job.job_id,
@@ -1896,6 +2297,20 @@ export async function runPipeline(run: RunState, deps: PipelineDeps): Promise<Ru
 	// durable Run hinterlässt.
 	saveRunToDb(run, deps);
 
+	// P3: INTAKE-Job (find-or-create) — der Run ist ab sofort Teil der
+	// kanonischen cp_jobs-Hierarchie (INTAKE → … → DECIDE).
+	ensureControlPlane(getDb(deps));
+	{
+		const db = getDb(deps);
+		const existingIntake = db
+			.prepare("SELECT job_id FROM cp_jobs WHERE run_id = ? AND job_type = 'intake' LIMIT 1")
+			.get(current.id) as Record<string, unknown> | undefined;
+		if (!existingIntake) {
+			const intakeJob = createJob(db, current.id, 'intake');
+			updateJobState(db, intakeJob.job_id, 'succeeded');
+		}
+	}
+
 	const envMaxRetries = process.env.POSITRON_MAX_FIX_LOOPS
 		? Number.parseInt(process.env.POSITRON_MAX_FIX_LOOPS, 10)
 		: undefined;
@@ -2024,8 +2439,17 @@ export async function runPipeline(run: RunState, deps: PipelineDeps): Promise<Ru
 					const transientEvent = allTransient[allTransient.length - 1];
 					const failedPhase = (transientEvent?.payload as Record<string, unknown> | null)
 						?.failedPhase as string | undefined;
+					// P3: Fix-Loop wiederholt NUR Build/Verify-Schritte
+					// (IMPLEMENT/TEST/VERIFY). Research/Plan/Specify/Tasks/
+					// Analyze werden beim Fix NIE erneut ausgeführt
+					// (Recovery-Semantik, §15). Ein unerwarteter failedPhase
+					// fällt auf IMPLEMENT (neuer Build-Attempt mit Delta).
 					const retryFromPhase =
-						failedPhase && failedPhase !== 'FAILED_TRANSIENT' ? failedPhase : 'TEST';
+						failedPhase &&
+						failedPhase !== 'FAILED_TRANSIENT' &&
+						(failedPhase === 'IMPLEMENT' || failedPhase === 'TEST' || failedPhase === 'VERIFY')
+							? failedPhase
+							: 'IMPLEMENT';
 
 					const backoffMs = Math.min(1000 * 2 ** (attempt - 1), 30000);
 					const now = Date.now();
@@ -2056,6 +2480,51 @@ export async function runPipeline(run: RunState, deps: PipelineDeps): Promise<Ru
 						lastError: null,
 					};
 					continue;
+				}
+			}
+
+			// P3: DECIDE — persistierte, deterministische End-Entscheidung.
+			// Der Live-Pfad hat damit dieselbe Decision-Boundary wie
+			// runDurableRun (cp_decisions + decide-Job, traceable).
+			{
+				const db = getDb(deps);
+				const existingDecision = db
+					.prepare('SELECT decision_id FROM cp_decisions WHERE run_id = ? LIMIT 1')
+					.get(next.id) as Record<string, unknown> | undefined;
+				if (!existingDecision) {
+					let decision: string;
+					let reasonCode: string;
+					if (next.phase === 'DONE') {
+						decision = 'DONE';
+						reasonCode = 'ALL_HARD_GATES_GREEN';
+					} else if (next.phase === 'FAILED_BLOCKED') {
+						decision = 'BLOCKED';
+						reasonCode = 'POLICY_BLOCK';
+					} else if (next.phase.startsWith('FAILED')) {
+						decision = 'BLOCKED';
+						reasonCode = 'PIPELINE_FAILED';
+					} else if (next.status === 'cancelled') {
+						decision = 'BLOCKED';
+						reasonCode = 'RUN_CANCELLED';
+					} else {
+						decision = 'BLOCKED';
+						reasonCode = 'NO_VERIFICATION';
+					}
+					storeDecision(
+						db,
+						next.id,
+						decision,
+						reasonCode,
+						JSON.stringify({
+							contract: 'positron.decision.v1',
+							run_id: next.id,
+							decision,
+							reason_code: reasonCode,
+							basis: { phase: next.phase, message: next.lastError ?? null },
+						}),
+					);
+					const decideJob = createJob(db, next.id, 'decide');
+					updateJobState(db, decideJob.job_id, 'succeeded');
 				}
 			}
 

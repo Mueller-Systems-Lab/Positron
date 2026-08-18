@@ -1,12 +1,10 @@
 {
-	"private": true,
-	"files": [
-		"dist"
-	],
-	"main": "./dist/index.js",
-	"name": "@positron/worker",
+	"name": "@positron/worker-pipeline",
 	"version": "0.1.0",
+	"private": true,
 	"type": "module",
+	"files": ["dist"],
+	"main": "./dist/index.js",
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
@@ -18,27 +16,20 @@
 	"scripts": {
 		"build": "tsc -b",
 		"test": "vitest run",
-		"typecheck": "tsc -b --pretty false",
-		"start": "node dist/index.js",
-		"dev": "tsx watch src/index.ts"
+		"typecheck": "tsc -b --pretty false"
 	},
 	"dependencies": {
+		"@positron/control-plane": "^0.1.0",
 		"@positron/github-adapter": "^0.1.0",
-		"@positron/opencode-adapter": "^0.1.0",
 		"@positron/run-state": "^0.1.0",
 		"@positron/sandbox": "^0.1.0",
 		"@positron/shared": "^0.1.0",
-		"@positron/speckit-adapter": "^0.1.0",
 		"@positron/tool-gateway": "^0.1.0",
-		"better-sqlite3": "^11.0.0",
-		"bullmq": "^5.0.0",
-		"ioredis": "^5.4.0",
-		"@positron/worker-pipeline": "^0.1.0"
+		"better-sqlite3": "^11.0.0"
 	},
 	"devDependencies": {
 		"@types/better-sqlite3": "^7.6.0",
-		"tsx": "^4.0.0",
-		"typescript": "^5.8.0",
+		"typescript": "^5.4.0",
 		"vitest": "^4.0.0"
 	}
 }

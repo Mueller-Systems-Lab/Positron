@@ -22,8 +22,8 @@ import { FakeSpecKitAdapter } from '@positron/speckit-adapter';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 // Direct import to avoid side effects from @positron/worker's top-level module code
-import { runPipeline } from '../../../worker/src/pipeline-runner.js';
-import type { PipelineDeps } from '../../../worker/src/pipeline-runner.js';
+import { runPipeline } from '@positron/worker-pipeline';
+import type { PipelineDeps } from '@positron/worker-pipeline';
 
 // ---------------------------------------------------------------------------
 // Instrumented Adapters that record mutation calls

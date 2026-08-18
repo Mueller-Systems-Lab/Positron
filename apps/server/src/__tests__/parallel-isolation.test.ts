@@ -16,7 +16,7 @@ import type { OpenCodeAdapter, SpecKitAdapter } from '@positron/shared';
 import { FakeSpecKitAdapter } from '@positron/speckit-adapter';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { PipelineDeps } from '../../../worker/src/pipeline-runner.js';
+import type { PipelineDeps } from '@positron/worker-pipeline';
 
 // Minimal local type matching shared RepositoryConfig
 interface RepositoryConfig {

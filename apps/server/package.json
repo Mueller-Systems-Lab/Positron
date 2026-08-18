@@ -1,6 +1,8 @@
 {
 	"private": true,
-	"files": ["dist"],
+	"files": [
+		"dist"
+	],
 	"main": "./dist/index.js",
 	"name": "@positron/server",
 	"version": "0.1.0",
@@ -35,7 +37,8 @@
 		"better-sqlite3": "^11.0.0",
 		"bullmq": "^5.0.0",
 		"express": "^5.1.0",
-		"ioredis": "^5.4.0"
+		"ioredis": "^5.4.0",
+		"@positron/worker-pipeline": "^0.1.0"
 	},
 	"devDependencies": {
 		"@types/better-sqlite3": "^7.6.0",

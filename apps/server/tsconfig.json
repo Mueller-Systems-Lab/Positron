@@ -5,15 +5,36 @@
 		"rootDir": "./src",
 		"composite": true
 	},
-	"include": ["src/**/*"],
-	"exclude": ["src/__tests__/**/*"],
+	"include": [
+		"src/**/*"
+	],
+	"exclude": [
+		"src/__tests__/**/*"
+	],
 	"references": [
-		{ "path": "../../packages/shared" },
-		{ "path": "../../packages/github-adapter" },
-		{ "path": "../../packages/run-state" },
-		{ "path": "../../packages/sandbox" },
-		{ "path": "../../packages/speckit-adapter" },
-		{ "path": "../../packages/opencode-adapter" },
-		{ "path": "../../packages/tool-gateway" }
+		{
+			"path": "../../packages/shared"
+		},
+		{
+			"path": "../../packages/github-adapter"
+		},
+		{
+			"path": "../../packages/run-state"
+		},
+		{
+			"path": "../../packages/sandbox"
+		},
+		{
+			"path": "../../packages/speckit-adapter"
+		},
+		{
+			"path": "../../packages/opencode-adapter"
+		},
+		{
+			"path": "../../packages/tool-gateway"
+		},
+		{
+			"path": "../../packages/worker-pipeline"
+		}
 	]
 }
