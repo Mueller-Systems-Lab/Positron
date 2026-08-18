@@ -39,7 +39,21 @@ export interface JobRecord {
 	updated_at: string;
 }
 
-export type AttemptStatus = 'running' | 'succeeded' | 'failed' | 'blocked' | 'denied';
+// Kanonische Attempt-Status-Taxonomie (durable execution lifecycle):
+//
+//   pending  → angelegt, noch nicht zur Ausführung geclaimt
+//   running  → vom Worker geclaimt, Ausführung läuft
+//   succeeded / failed / blocked / timed_out / denied → final
+//
+// Gültige Übergänge:
+//   pending  → running            (atomarer Claim, genau ein Claimer)
+//   pending/running → succeeded | failed | blocked | timed_out | denied
+//   succeeded → failed             (fachliche Reklassifikation build+verify,
+//                                    NUR mit failure_class + failure_signature)
+//
+// Finale Zustände sind unveränderlich: verspätete Ergebnisse (Late Results)
+// und doppelte Completions überschreiben NIE einen finalen Attempt.
+export type AttemptStatus = 'pending' | 'running' | 'succeeded' | 'failed' | 'blocked' | 'timed_out' | 'denied';
 
 export interface AttemptRecord {
 	attempt_id: string;
@@ -62,6 +76,8 @@ export interface AttemptRecord {
 	strategy_delta: string | null;
 	result_ref: string | null;
 	tokens: number | null;
+	/** Fix-/Retry-Kette: vorheriger Attempt desselben fachlichen Schritts */
+	previous_attempt_id: string | null;
 }
 
 export function createId(prefix: string): string {
@@ -176,12 +192,14 @@ export function createAttempt(
 		strategy_delta: initial.strategy_delta ?? null,
 		result_ref: initial.result_ref ?? null,
 		tokens: initial.tokens ?? null,
+		previous_attempt_id: initial.previous_attempt_id ?? null,
 	};
 	db.prepare(
 		`INSERT INTO cp_attempts (attempt_id, run_id, job_id, status, input_contract, input_fingerprint,
 		   output_contract, output_fingerprint, output_json, worker_type, provider, model, started_at,
-		   ended_at, failure_class, failure_signature, new_evidence, strategy_delta, result_ref, tokens)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		   ended_at, failure_class, failure_signature, new_evidence, strategy_delta, result_ref, tokens,
+		   previous_attempt_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 	).run(
 		attempt.attempt_id,
 		attempt.run_id,
@@ -203,8 +221,21 @@ export function createAttempt(
 		attempt.strategy_delta,
 		attempt.result_ref,
 		attempt.tokens,
+		attempt.previous_attempt_id,
 	);
 	return attempt;
+}
+
+/**
+ * Atomarer Claim (Lease) eines Attempts: `pending → running`.
+ * SQLite-Transaktions-Semantik genügt: nur EIN Claimer gewinnt; ein zweiter
+ * (paralleler) Claim desselben Attempts erhält `false` und darf NICHT ausführen.
+ */
+export function claimAttempt(db: Database.Database, attemptId: string): boolean {
+	const res = db
+		.prepare("UPDATE cp_attempts SET status = 'running' WHERE attempt_id = ? AND status = 'pending'")
+		.run(attemptId);
+	return res.changes === 1;
 }
 
 export function getAttempt(db: Database.Database, attemptId: string): AttemptRecord | null {
@@ -228,6 +259,31 @@ export function listJobAttempts(db: Database.Database, jobId: string): AttemptRe
 	return rows.map(mapAttemptRow);
 }
 
+/**
+ * Prüft, ob eine Attempt-Transition valide ist (Late-Result-/Duplicate-Completion-Policy).
+ *
+ * - `pending`/`running` → beliebige Finalisierung (inkl. Teil-Update ohne Statuswechsel)
+ * - `succeeded` → `failed` NUR als fachliche Reklassifikation build+verify
+ *   (deterministisch aus der Verification: failure_class + failure_signature vorhanden)
+ * - finale Zustände (`failed`/`blocked`/`timed_out`/`denied`) und identische
+ *   Folge-Completions → blockiert: keine Überschreibung, keine zweite Mutation
+ */
+export function canTransitionAttempt(
+	from: AttemptStatus,
+	to: AttemptStatus,
+	update: Partial<AttemptRecord>,
+): boolean {
+	if (from === 'succeeded') {
+		return (
+			to === 'failed' && Boolean(update.failure_class) && Boolean(update.failure_signature)
+		);
+	}
+	if (from === 'failed' || from === 'blocked' || from === 'timed_out' || from === 'denied') {
+		return false;
+	}
+	return true;
+}
+
 export function completeAttempt(
 	db: Database.Database,
 	attemptId: string,
@@ -235,12 +291,17 @@ export function completeAttempt(
 ): AttemptRecord | null {
 	const existing = getAttempt(db, attemptId);
 	if (!existing) return null;
+	const to = update.status ?? existing.status;
+	if (!canTransitionAttempt(existing.status, to, update)) {
+		// Late Result / Duplicate Completion: finaler Attempt bleibt unverändert.
+		return null;
+	}
 	db.prepare(
 		`UPDATE cp_attempts SET status = ?, output_contract = ?, output_fingerprint = ?, output_json = ?,
 		   ended_at = ?, failure_class = ?, failure_signature = ?, new_evidence = ?, strategy_delta = ?,
-		   result_ref = ?, tokens = ? WHERE attempt_id = ?`,
+		   result_ref = ?, tokens = ?, previous_attempt_id = ? WHERE attempt_id = ?`,
 	).run(
-		update.status ?? existing.status,
+		to,
 		update.output_contract ?? existing.output_contract,
 		update.output_fingerprint ?? existing.output_fingerprint,
 		update.output_json ?? existing.output_json,
@@ -251,6 +312,7 @@ export function completeAttempt(
 		update.strategy_delta ?? existing.strategy_delta,
 		update.result_ref ?? existing.result_ref,
 		update.tokens ?? existing.tokens,
+		update.previous_attempt_id ?? existing.previous_attempt_id,
 		attemptId,
 	);
 	return getAttempt(db, attemptId);
@@ -278,6 +340,7 @@ function mapAttemptRow(row: Record<string, unknown>): AttemptRecord {
 		strategy_delta: row.strategy_delta ? String(row.strategy_delta) : null,
 		result_ref: row.result_ref ? String(row.result_ref) : null,
 		tokens: row.tokens !== null && row.tokens !== undefined ? Number(row.tokens) : null,
+		previous_attempt_id: row.previous_attempt_id ? String(row.previous_attempt_id) : null,
 	};
 }
 

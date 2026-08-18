@@ -73,6 +73,23 @@ CREATE INDEX IF NOT EXISTS idx_cp_decisions_run_id ON cp_decisions(run_id);
 CREATE INDEX IF NOT EXISTS idx_cp_transitions_run_id ON cp_transitions(run_id);
 `;
 
+function columnExists(db: Database.Database, table: string, column: string): boolean {
+	const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+	return cols.some((c) => c.name === column);
+}
+
+/**
+ * V2: `previous_attempt_id` — Fix-/Retry-Attempts referenzieren den vorherigen
+ * Attempt (fachliche Kette, keine überschriebene Historie). Idempotent für
+ * bestehende Datenbanken (Soak-DB, Produktion).
+ */
+function applyV2(db: Database.Database): void {
+	if (!columnExists(db, 'cp_attempts', 'previous_attempt_id')) {
+		db.exec('ALTER TABLE cp_attempts ADD COLUMN previous_attempt_id TEXT');
+	}
+}
+
 export function applyControlPlaneMigrations(db: Database.Database): void {
 	db.exec(CONTROL_PLANE_SCHEMA_V1);
+	applyV2(db);
 }
