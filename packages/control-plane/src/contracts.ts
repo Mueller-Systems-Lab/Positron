@@ -96,8 +96,64 @@ const CONTRACT_REGISTRY: Record<ContractId, ContractSchema> = {
 		version: 1,
 		fields: {
 			run_id: { type: 'string', required: true, minLength: 1 },
+			repository_ref: { type: 'string', required: true, minLength: 1 },
+			repository_head: { type: 'string', required: true, pattern: /^[0-9a-f]{40}$/ },
 			summary_ref: { type: 'string', required: true },
 			sources: { type: 'string[]' },
+			results: {
+				type: 'object',
+				required: true,
+				requiredKeys: ['code', 'docs', 'tests'],
+			},
+			parallelism: {
+				type: 'object',
+				required: true,
+				requiredKeys: ['verdict'],
+			},
+			started_at: { type: 'string', required: true },
+			ended_at: { type: 'string', required: true },
+			context_fingerprint: { type: 'string', required: true, minLength: 32 },
+		},
+		additional: (doc) => {
+			const errors: string[] = [];
+			const results = doc.results as Record<string, unknown> | undefined;
+			if (results) {
+				for (const key of ['code', 'docs', 'tests'] as const) {
+					const entry = results[key];
+					if (!entry || typeof entry !== 'object') {
+						errors.push(`results.${key} must be an object`);
+						continue;
+					}
+					const e = entry as { status?: unknown; summary_ref?: unknown };
+					if (
+						e.status !== undefined &&
+						!['REQUIRED', 'OPTIONAL', 'SUCCEEDED', 'FAILED', 'TIMEOUT', 'BLOCKED', 'SKIPPED'].includes(
+							String(e.status),
+						)
+					) {
+						errors.push(`results.${key}.status must be a valid research status`);
+					}
+					if (e.status !== 'SKIPPED' && typeof e.summary_ref !== 'string') {
+						errors.push(`results.${key}.summary_ref must be a string`);
+					}
+				}
+			}
+			const parallelism = doc.parallelism as { verdict?: unknown; observed_overlap?: unknown } | undefined;
+			if (parallelism) {
+				if (
+					parallelism.verdict !== 'PARALLELISM_PROVEN' &&
+					parallelism.verdict !== 'PARALLELISM_NOT_PROVEN'
+				) {
+					errors.push('parallelism.verdict must be PARALLELISM_PROVEN or PARALLELISM_NOT_PROVEN');
+				}
+				if (
+					parallelism.observed_overlap !== undefined &&
+					typeof parallelism.observed_overlap !== 'number'
+				) {
+					errors.push('parallelism.observed_overlap must be a number (ms)');
+				}
+			}
+			return errors;
 		},
 	},
 	'positron.plan.v1': {
@@ -551,6 +607,9 @@ export type FailureClass =
 	| 'INFRA_FAILURE'
 	| 'TIMEOUT'
 	| 'SECURITY_BLOCK'
+	| 'RESEARCH_CODE_FAILURE'
+	| 'RESEARCH_DOCS_FAILURE'
+	| 'RESEARCH_TESTS_FAILURE'
 	| 'UNKNOWN';
 
 export const FAILURE_CLASSES: readonly FailureClass[] = [
@@ -564,6 +623,9 @@ export const FAILURE_CLASSES: readonly FailureClass[] = [
 	'INFRA_FAILURE',
 	'TIMEOUT',
 	'SECURITY_BLOCK',
+	'RESEARCH_CODE_FAILURE',
+	'RESEARCH_DOCS_FAILURE',
+	'RESEARCH_TESTS_FAILURE',
 	'UNKNOWN',
 ];
 
@@ -631,6 +693,46 @@ export interface ReviewBatchContract {
 	job_id: string;
 	attempt_id: string;
 	findings: FindingContract[];
+}
+
+/** Fachlicher Status eines Research-Workers (Barrier-Semantik). */
+export type ResearchResultStatus =
+	| 'REQUIRED'
+	| 'OPTIONAL'
+	| 'SUCCEEDED'
+	| 'FAILED'
+	| 'TIMEOUT'
+	| 'BLOCKED'
+	| 'SKIPPED';
+
+export interface ResearchResultEntry {
+	status: ResearchResultStatus;
+	summary_ref: string;
+	sources?: string[];
+	started_at?: string;
+	ended_at?: string;
+	duration_ms?: number;
+}
+
+export interface ResearchBatchContract {
+	contract: 'positron.research.v1';
+	run_id: string;
+	repository_ref: string;
+	repository_head: string;
+	summary_ref: string;
+	sources?: string[];
+	results: {
+		code: ResearchResultEntry;
+		docs: ResearchResultEntry;
+		tests: ResearchResultEntry;
+	};
+	parallelism: {
+		verdict: 'PARALLELISM_PROVEN' | 'PARALLELISM_NOT_PROVEN';
+		observed_overlap_ms: number;
+	};
+	started_at: string;
+	ended_at: string;
+	context_fingerprint: string;
 }
 
 export interface DecisionContract {

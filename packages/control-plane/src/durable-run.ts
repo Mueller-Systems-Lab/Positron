@@ -2,7 +2,7 @@
 //
 // Die zentrale Runtime-Schleife der Control Plane:
 //
-//   ISSUE → INTAKE → BASELINE → PLAN → PLAN_GATE → BUILD → VERIFY → REVIEW → DECIDE
+//   ISSUE → INTAKE → BASELINE → RESEARCH → PLAN → PLAN_GATE → BUILD → VERIFY → REVIEW → DECIDE
 //
 // Prinzip: POSITRON entscheidet. Der Build-Worker (LLM) liefert Code-Änderungen,
 // Tools (TestRunner etc.) messen, die Policy-Module entscheiden.
@@ -33,7 +33,10 @@ import { buildDecision } from './decision-policy.js';
 import { fingerprint } from './fingerprint.js';
 import { IdempotencyRegistry, idempotencyKey } from './idempotency.js';
 import { evaluatePlanGate } from './plan-gate.js';
+import { assertRealParallelism } from './parallelism.js';
 import { evaluateRetry } from './retry-policy.js';
+import { runParallelResearch } from './research.js';
+import type { ParallelResearchOutcome, ResearchRunOptions, ResearchWorker } from './research.js';
 import { runParallelReviews } from './review.js';
 import type { ParallelismVerdict, ReviewWorker } from './review.js';
 import { applyControlPlaneMigrations } from './schema.js';
@@ -113,6 +116,10 @@ export interface DurableRunDeps {
 	reviewFindings: () => Promise<FindingContract[]>;
 	/** Optional: echte parallele Review-Worker (Fan-out/Join mit Parallelitäts-Beweis) */
 	reviewWorkers?: ReviewWorker[];
+	/** Optional: echte parallele Research-Worker (code/docs/tests, Fan-out/Join mit Parallelitäts-Beweis) */
+	researchWorkers?: ResearchWorker[];
+	/** Optionen für den Research-Fan-out (z. B. kontrollierter sequentieller Canary) */
+	researchOptions?: ResearchRunOptions;
 	maxAttempts: number;
 }
 
@@ -217,6 +224,91 @@ export async function runDurableRun(
 		: readRepositoryHead(deps.workspace.path);
 	updateJobState(db, baselineJob.job_id, 'succeeded');
 	trackTransition('BASELINE', 'BASELINE_OK');
+
+	// ── RESEARCH (Fan-out/Join, Recovery-aware) ─────────────────────────────
+	// Drei logisch unabhängige Worker (code/docs/tests) laufen real parallel.
+	// Parallelität wird über tatsächliche Zeit-Überlappung bewiesen
+	// (assertRealParallelism auf persistierte started_at/ended_at).
+	const researchJob =
+		listJobs(db, runId).find((j) => j.job_type === 'research') ??
+		createJob(db, runId, 'research');
+	const researchAttempts = listJobAttempts(db, researchJob.job_id);
+	const researchDone = researchAttempts.some((a) => a.status === 'succeeded');
+	let researchOutcome: ParallelResearchOutcome | null = null;
+	/** Bei Recovery aus persistierten Zeitstempeln rekonstruierter Verdict */
+	let researchVerdictFromRecovery: ParallelismVerdict | null = null;
+
+		if (deps.researchWorkers && deps.researchWorkers.length > 0) {
+			if (researchDone) {
+				// Recovery: completed research wird NICHT erneut ausgeführt;
+				// der Verdict wird aus den persistierten Zeitstempeln rekonstruiert.
+				const succeeded = researchAttempts.filter(
+					(a): a is AttemptRecord & { started_at: string; ended_at: string } =>
+						a.status === 'succeeded' && a.started_at !== null && a.ended_at !== null,
+				);
+				researchOutcome = null;
+				const verdict = assertRealParallelism(
+					succeeded.map((a) => ({
+						kind: a.worker_type ?? 'research',
+						workerType: a.worker_type ?? 'research',
+						started_at: a.started_at,
+						ended_at: a.ended_at,
+						duration_ms: 0,
+					})),
+				);
+				trackTransition('RESEARCH', 'RESEARCH_RECOVERED');
+				// Verdict fließt später in die Decision-Basis ein
+				researchVerdictFromRecovery = verdict;
+			} else {
+				updateJobState(db, researchJob.job_id, 'running');
+				researchOutcome = await runParallelResearch(
+					db,
+					{
+						run_id: runId,
+						job_id: researchJob.job_id,
+						workspacePath: deps.workspace.path,
+						repositoryRef: deps.workspace.repositoryRef,
+						repositoryHead: baselineHead,
+					},
+					deps.researchWorkers,
+					deps.researchOptions,
+				);
+				if (researchOutcome.barrier.status === 'JOIN') {
+					updateJobState(db, researchJob.job_id, 'succeeded');
+					trackTransition('RESEARCH', 'RESEARCH_JOIN');
+				} else {
+					updateJobState(db, researchJob.job_id, 'failed');
+					trackTransition('RESEARCH', researchOutcome.barrier.reason_code);
+					const decision = buildDecision({
+						run_id: runId,
+						verification: null,
+						findings: [],
+						researchBarrier: researchOutcome.barrier.reason_code,
+						researchParallelism: researchOutcome.verdict,
+					});
+					return finishRun(db, runId, decision, transitions, 0);
+				}
+			}
+		}
+
+		// Crash-Injection (Recovery-Test): Abbruch NACH abgeschlossenem
+		// research-Job — valid Boundary; beim Resume wird research nicht
+		// erneut ausgeführt.
+		if (input.crashAfterJob && input.crashAfterJob === 'research') {
+			return finishRun(
+				db,
+				runId,
+				{
+					contract: 'positron.decision.v1',
+					run_id: runId,
+					decision: 'BLOCKED',
+					reason_code: 'CRASH_INJECTED',
+					basis: { boundary: 'research', message: 'controlled crash after completed research job' },
+				},
+				transitions,
+				0,
+			);
+		}
 
 	// ── PLAN (Contract validieren) ──────────────────────────────────────────
 	const planJob = createJob(db, runId, 'plan');
@@ -537,6 +629,13 @@ export async function runDurableRun(
 	});
 	if (parallelismVerdict) {
 		decision.basis.parallelism = parallelismVerdict;
+	}
+	if (researchOutcome) {
+		decision.basis.research_parallelism = researchOutcome.verdict;
+		decision.basis.research_barrier = researchOutcome.barrier.reason_code;
+	} else if (researchVerdictFromRecovery) {
+		decision.basis.research_parallelism = researchVerdictFromRecovery;
+		decision.basis.research_barrier = 'RESEARCH_JOIN';
 	}
 
 	storeDecision(db, runId, decision.decision, decision.reason_code, JSON.stringify(decision));

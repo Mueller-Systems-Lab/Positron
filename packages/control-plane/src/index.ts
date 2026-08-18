@@ -25,6 +25,9 @@ export type {
 	VerificationContract,
 	FindingContract,
 	ReviewBatchContract,
+	ResearchBatchContract,
+	ResearchResultEntry,
+	ResearchResultStatus,
 	DecisionContract,
 	PlanContract,
 	SplitContract,
@@ -100,18 +103,30 @@ export { evaluateSplit, DEFAULT_SPLIT_LIMITS } from './split.js';
 export type { SplitLimits, SplitVerdict, SplitDecision } from './split.js';
 
 // ─── Real Fan-out/Join Reviews ───
-export {
-	runParallelReviews,
-	assertRealParallelism,
-	listReviewAttempts,
-} from './review.js';
+export { runParallelReviews, listReviewAttempts } from './review.js';
 export type {
 	ReviewKind,
 	ReviewWorker,
 	ParallelReviewResult,
-	ParallelismVerdict,
 	ParallelReviewOutcome,
 } from './review.js';
+
+// ─── Gemeinsame Parallelitäts-Primitive ───
+export { assertRealParallelism, observedOverlapMs } from './parallelism.js';
+export type { ParallelExecutionSlice, ParallelismVerdict } from './parallelism.js';
+
+// ─── Real Fan-out/Join Research ───
+export { runParallelResearch, evaluateResearchBarrier, listResearchAttempts } from './research.js';
+export type {
+	ResearchKind,
+	ResearchWorker,
+	ResearchWorkerOutput,
+	ParallelResearchResult,
+	ResearchBarrierStatus,
+	ResearchBarrierDecision,
+	ParallelResearchOutcome,
+	ResearchRunOptions,
+} from './research.js';
 
 // ─── KPIs ───
 export { computeKpis, assertKpiInvariants } from './kpis.js';

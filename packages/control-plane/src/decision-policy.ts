@@ -25,6 +25,10 @@ export interface DecisionInput {
 	contractErrors?: string[] | null;
 	/** Split-Deep (für Rekursionsgrenzen) */
 	splitDepth?: number;
+	/** Research Barrier Reason (falls Research ausgeführt wurde) */
+	researchBarrier?: string | null;
+	/** Beobachteter Research-Parallelismus (falls Research ausgeführt wurde) */
+	researchParallelism?: 'PARALLELISM_PROVEN' | 'PARALLELISM_NOT_PROVEN' | null;
 }
 
 const SECURITY_BLOCKING_SEVERITIES = new Set(['HIGH', 'CRITICAL']);
@@ -54,7 +58,21 @@ export function buildDecision(input: DecisionInput): DecisionContract {
 		};
 	}
 
-	// 3. Security Hard Block — kein Mehrheitsvotum
+	// 3. Research Barrier nicht JOIN → BLOCKED (Research ist vorgelagert;
+	//    ohne Research-Freigabe kein Plan/Build — deterministisch)
+	if (input.researchBarrier && input.researchBarrier !== 'RESEARCH_JOIN') {
+		return {
+			contract: 'positron.decision.v1',
+			run_id: runId,
+			decision: 'BLOCKED',
+			reason_code: input.researchBarrier,
+			basis: {
+				research_parallelism: input.researchParallelism ?? null,
+			},
+		};
+	}
+
+	// 4. Security Hard Block — kein Mehrheitsvotum
 	const blockingSecurityFindings = input.findings.filter(
 		(f) => f.category === 'security' && f.blocking && SECURITY_BLOCKING_SEVERITIES.has(f.severity),
 	);

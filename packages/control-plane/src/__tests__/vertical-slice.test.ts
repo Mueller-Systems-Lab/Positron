@@ -406,6 +406,218 @@ describe('REVIEW_PARALLELISM (E2E durch die Orchestrierung)', () => {
 	});
 });
 
+// ---------------------------------------------------------------------------
+// RESEARCH Integration (E2E durch die Orchestrierung)
+// ---------------------------------------------------------------------------
+
+import fs from 'node:fs';
+import path from 'node:path';
+import type { ResearchWorker } from '../research.js';
+import { listJobAttempts, listTransitions } from '../store.js';
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function makeResearchWorker(
+	workspace: TestWorkspace,
+	kind: 'code' | 'docs' | 'tests',
+	delayMs = 25,
+): ResearchWorker {
+	return {
+		kind,
+		workerType: `research-worker:${kind}`,
+		provider: 'deterministic',
+		model: 'research-v1',
+		required: kind === 'code',
+		async run(ctx) {
+			const files = fs.readdirSync(path.join(workspace.dir, 'src'));
+			await sleep(delayMs);
+			return {
+				summary_ref: `research:${kind}:${files.sort().join(',')}`,
+				sources: [`workspace://src/${kind}.md`],
+				notes: `attempt ${ctx.attempt_id.slice(0, 8)}`,
+			};
+		},
+	};
+}
+
+describe('RESEARCH_JOIN (E2E durch die Orchestrierung)', () => {
+	it('happy path mit research: RESEARCH_JOIN-Transition, research-Job succeeded, Verdict in Decision-Basis', async () => {
+		ws = createTestWorkspace(); // BROKEN → real rot
+		const db = createTestDb();
+		const worker = new ScriptedBuildWorker(ws, ['correct']);
+		const verifyTool = makeNodeTestVerifyTool(ws);
+
+		const issue = makeIssue('run_vslice_research_happy');
+		const result = await runDurableRun(
+			{
+				db,
+				workspace: {
+					path: ws.dir,
+					repositoryRef: 'xxammaxx/vslice-workspace',
+					readHead: ws.readHead,
+				},
+				buildWorker: worker,
+				verifyTool,
+				reviewFindings: async () => [],
+				researchWorkers: [
+					makeResearchWorker(ws, 'code'),
+					makeResearchWorker(ws, 'docs'),
+					makeResearchWorker(ws, 'tests'),
+				],
+				maxAttempts: 3,
+			},
+			{ issue, plan: makePlan(issue.run_id, ws) },
+		);
+
+		// Fachliche Wirkung: DONE mit grünem Test
+		expect(result.decision.decision).toBe('DONE');
+		expect(readFile(ws!, 'src/sum.js')).toContain('a + b');
+
+		// RESEARCH_JOIN-Transition existiert (reason_code trägt den Join-Status)
+		const transitions = listTransitions(db, issue.run_id);
+		const researchTransitions = transitions.filter((t) => t.reason_code === 'RESEARCH_JOIN');
+		expect(researchTransitions.length).toBe(1);
+		expect(researchTransitions[0]!.new_state).toBe('RESEARCH');
+
+		// research-Job succeeded mit genau 3 Worker-Attempts (code/docs/tests)
+		const researchJob = result.jobs.find((j) => j.job_type === 'research')!;
+		expect(researchJob.state).toBe('succeeded');
+		const researchAttempts = listJobAttempts(db, researchJob.job_id);
+		expect(researchAttempts).toHaveLength(3);
+		expect(researchAttempts.every((a) => a.status === 'succeeded')).toBe(true);
+		for (const a of researchAttempts) {
+			expect(a.output_contract).toBe('positron.research.v1');
+			expect(a.provider).toBe('deterministic');
+			expect(a.model).toBe('research-v1');
+			expect(a.ended_at).toBeTruthy();
+		}
+
+		// Parallelismus-Verdict in der Decision-Basis (aus echten Zeitstempeln)
+		expect(result.decision.basis.research_parallelism).toBe('PARALLELISM_PROVEN');
+		expect(result.decision.basis.research_barrier).toBe('RESEARCH_JOIN');
+		db.close();
+	});
+});
+
+describe('RESEARCH_RECOVERY (E2E durch die Orchestrierung)', () => {
+	it('crash nach completed research: research wird beim Resume NICHT erneut ausgeführt', async () => {
+		ws = createTestWorkspace();
+		const db = createTestDb();
+		const worker = new ScriptedBuildWorker(ws, ['correct']);
+		const verifyTool = makeNodeTestVerifyTool(ws);
+
+		const issue = makeIssue('run_vslice_research_recovery');
+
+		const researchWorkers = [
+			makeResearchWorker(ws, 'code', 20),
+			makeResearchWorker(ws, 'docs', 20),
+			makeResearchWorker(ws, 'tests', 20),
+		];
+
+		// Lauf 1: Crash NACH abgeschlossenem research-Job
+		const crashRun = await runDurableRun(
+			{
+				db,
+				workspace: {
+					path: ws.dir,
+					repositoryRef: 'xxammaxx/vslice-workspace',
+					readHead: ws.readHead,
+				},
+				buildWorker: worker,
+				verifyTool,
+				reviewFindings: async () => [],
+				researchWorkers,
+				maxAttempts: 3,
+			},
+			{ issue, plan: makePlan(issue.run_id, ws), crashAfterJob: 'research' },
+		);
+		expect(crashRun.decision.reason_code).toBe('CRASH_INJECTED');
+		const researchJob = crashRun.jobs.find((j) => j.job_type === 'research')!;
+		expect(isJobCompleted(db, researchJob.job_id)).toBe(true);
+		const attemptsAfterCrash = listJobAttempts(db, researchJob.job_id);
+		expect(attemptsAfterCrash).toHaveLength(3);
+
+		// Lauf 2: Resume → research wird NICHT re-runt (keine neuen Attempts)
+		const resumeRun = await runDurableRun(
+			{
+				db,
+				workspace: {
+					path: ws.dir,
+					repositoryRef: 'xxammaxx/vslice-workspace',
+					readHead: ws.readHead,
+				},
+				buildWorker: worker,
+				verifyTool,
+				reviewFindings: async () => [],
+				researchWorkers,
+				maxAttempts: 3,
+			},
+			{ issue, plan: makePlan(issue.run_id, ws) },
+		);
+
+		expect(resumeRun.decision.decision).toBe('DONE');
+		const attemptsAfterResume = listJobAttempts(db, researchJob.job_id);
+		expect(attemptsAfterResume).toHaveLength(3); // KEINE neuen Attempts
+		// RESEARCH_RECOVERED-Transition vorhanden, keine erneute RESEARCH_JOIN
+		const transitions = listTransitions(db, issue.run_id);
+		expect(transitions.filter((t) => t.reason_code === 'RESEARCH_RECOVERED').length).toBe(1);
+		// Verdict aus persistierten Zeitstempeln rekonstruiert
+		expect(resumeRun.decision.basis.research_parallelism).toBe('PARALLELISM_PROVEN');
+		expect(resumeRun.decision.basis.research_barrier).toBe('RESEARCH_JOIN');
+		db.close();
+	});
+});
+
+describe('RESEARCH_PARALLELISM_SEQUENTIAL_CANARY (E2E durch die Orchestrierung)', () => {
+	it('explizit sequentielle Research-Ausführung (researchOptions.sequential) → NOT_PROVEN', async () => {
+		ws = createTestWorkspace();
+		const db = createTestDb();
+		const worker = new ScriptedBuildWorker(ws, ['correct']);
+		const verifyTool = makeNodeTestVerifyTool(ws);
+
+		const issue = makeIssue('run_vslice_research_seqopt');
+		const result = await runDurableRun(
+			{
+				db,
+				workspace: {
+					path: ws.dir,
+					repositoryRef: 'xxammaxx/vslice-workspace',
+					readHead: ws.readHead,
+				},
+				buildWorker: worker,
+				verifyTool,
+				reviewFindings: async () => [],
+				researchWorkers: [
+					makeResearchWorker(ws, 'code', 30),
+					makeResearchWorker(ws, 'docs', 30),
+					makeResearchWorker(ws, 'tests', 30),
+				],
+				researchOptions: { sequential: true },
+				maxAttempts: 3,
+			},
+			{ issue, plan: makePlan(issue.run_id, ws) },
+		);
+
+		expect(result.decision.decision).toBe('DONE');
+		expect(result.decision.basis.research_parallelism).toBe('PARALLELISM_NOT_PROVEN');
+		expect(result.decision.basis.research_barrier).toBe('RESEARCH_JOIN');
+
+		// Persistierte Zeitstempel belegen strikte Sequentialität
+		const researchJob = result.jobs.find((j) => j.job_type === 'research')!;
+		const attempts = listJobAttempts(db, researchJob.job_id);
+		expect(attempts).toHaveLength(3);
+		const sorted = [...attempts].sort(
+			(a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime(),
+		);
+		for (let i = 0; i < sorted.length - 1; i++) {
+			expect(new Date(sorted[i + 1]!.started_at).getTime()).toBeGreaterThanOrEqual(
+				new Date(sorted[i]!.ended_at!).getTime(),
+			);
+		}
+		db.close();
+	});
+});
+
 async function runTestsReal(dir: string) {
 	const detector = new TestCommandDetector();
 	const runner = new TestRunner();

@@ -15,6 +15,8 @@ import type Database from 'better-sqlite3';
 import { validateContract } from './contracts.js';
 import type { FindingContract, ReviewBatchContract } from './contracts.js';
 import { fingerprint } from './fingerprint.js';
+import { assertRealParallelism } from './parallelism.js';
+import type { ParallelExecutionSlice, ParallelismVerdict } from './parallelism.js';
 import { completeAttempt, createAttempt } from './store.js';
 import type { AttemptRecord } from './store.js';
 
@@ -32,7 +34,7 @@ export interface ReviewWorker {
 	}): Promise<FindingContract[]>;
 }
 
-export interface ParallelReviewResult {
+export interface ParallelReviewResult extends ParallelExecutionSlice {
 	kind: ReviewKind;
 	workerType: string;
 	findings: FindingContract[];
@@ -40,8 +42,6 @@ export interface ParallelReviewResult {
 	ended_at: string;
 	duration_ms: number;
 }
-
-export type ParallelismVerdict = 'PARALLELISM_PROVEN' | 'PARALLELISM_NOT_PROVEN';
 
 export interface ParallelReviewOutcome {
 	results: ParallelReviewResult[];
@@ -55,29 +55,10 @@ function nowIso(): string {
 	return new Date().toISOString();
 }
 
-/**
- * Deterministischer Parallelitäts-Beweis über echte Zeitstempel.
- * Sortiert nach started_at und prüft paarweise Überschneidung:
- *   a.started_at < b.ended_at UND b.started_at < a.ended_at
- */
-export function assertRealParallelism(results: ParallelReviewResult[]): ParallelismVerdict {
-	if (results.length < 2) return 'PARALLELISM_NOT_PROVEN';
-	const sorted = [...results].sort(
-		(a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime(),
-	);
-	for (let i = 0; i < sorted.length - 1; i++) {
-		const a = sorted[i]!;
-		const b = sorted[i + 1]!;
-		const aStart = new Date(a.started_at).getTime();
-		const aEnd = new Date(a.ended_at).getTime();
-		const bStart = new Date(b.started_at).getTime();
-		const bEnd = new Date(b.ended_at).getTime();
-		if (aStart < bEnd && bStart < aEnd) {
-			return 'PARALLELISM_PROVEN';
-		}
-	}
-	return 'PARALLELISM_NOT_PROVEN';
-}
+// Re-Export der gemeinsamen Parallelitäts-Primitive (Kompatibilität:
+// bestehende Importe aus './review.js' bleiben gültig).
+export { assertRealParallelism } from './parallelism.js';
+export type { ParallelismVerdict } from './parallelism.js';
 
 /**
  * Führt Review-Worker real parallel aus (Fan-out) und sammelt die Findings
