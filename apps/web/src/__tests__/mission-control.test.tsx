@@ -17,63 +17,365 @@ import MissionControlPanel from '../components/mission/MissionControlPanel.js';
 // ── Backend-Truth-Fixture (reale Antwortform des Endpoints) ─────────────
 
 const jobs: ControlPlaneJob[] = [
-	{ job_id: 'job_intake', run_id: 'run_mission', job_type: 'intake', state: 'succeeded', parent_job_id: null, created_at: '2026-08-18T07:01:00.000Z', updated_at: '2026-08-18T07:01:01.000Z' },
-	{ job_id: 'job_baseline', run_id: 'run_mission', job_type: 'baseline', state: 'succeeded', parent_job_id: null, created_at: '2026-08-18T07:01:01.000Z', updated_at: '2026-08-18T07:01:02.000Z' },
-	{ job_id: 'job_research', run_id: 'run_mission', job_type: 'research', state: 'succeeded', parent_job_id: null, created_at: '2026-08-18T07:01:02.000Z', updated_at: '2026-08-18T07:01:04.000Z' },
-	{ job_id: 'job_plan', run_id: 'run_mission', job_type: 'plan', state: 'succeeded', parent_job_id: null, created_at: '2026-08-18T07:01:04.000Z', updated_at: '2026-08-18T07:01:05.000Z' },
-	{ job_id: 'job_gate', run_id: 'run_mission', job_type: 'plan_gate', state: 'succeeded', parent_job_id: null, created_at: '2026-08-18T07:01:05.000Z', updated_at: '2026-08-18T07:01:06.000Z' },
-	{ job_id: 'job_build', run_id: 'run_mission', job_type: 'build', state: 'succeeded', parent_job_id: null, created_at: '2026-08-18T07:01:06.000Z', updated_at: '2026-08-18T07:01:09.000Z' },
-	{ job_id: 'job_verify', run_id: 'run_mission', job_type: 'verify', state: 'succeeded', parent_job_id: 'job_build', created_at: '2026-08-18T07:01:09.000Z', updated_at: '2026-08-18T07:01:10.000Z' },
-	{ job_id: 'job_review', run_id: 'run_mission', job_type: 'review', state: 'succeeded', parent_job_id: 'job_build', created_at: '2026-08-18T07:01:10.000Z', updated_at: '2026-08-18T07:01:13.000Z' },
+	{
+		job_id: 'job_intake',
+		run_id: 'run_mission',
+		job_type: 'intake',
+		state: 'succeeded',
+		parent_job_id: null,
+		created_at: '2026-08-18T07:01:00.000Z',
+		updated_at: '2026-08-18T07:01:01.000Z',
+	},
+	{
+		job_id: 'job_baseline',
+		run_id: 'run_mission',
+		job_type: 'baseline',
+		state: 'succeeded',
+		parent_job_id: null,
+		created_at: '2026-08-18T07:01:01.000Z',
+		updated_at: '2026-08-18T07:01:02.000Z',
+	},
+	{
+		job_id: 'job_research',
+		run_id: 'run_mission',
+		job_type: 'research',
+		state: 'succeeded',
+		parent_job_id: null,
+		created_at: '2026-08-18T07:01:02.000Z',
+		updated_at: '2026-08-18T07:01:04.000Z',
+	},
+	{
+		job_id: 'job_plan',
+		run_id: 'run_mission',
+		job_type: 'plan',
+		state: 'succeeded',
+		parent_job_id: null,
+		created_at: '2026-08-18T07:01:04.000Z',
+		updated_at: '2026-08-18T07:01:05.000Z',
+	},
+	{
+		job_id: 'job_gate',
+		run_id: 'run_mission',
+		job_type: 'plan_gate',
+		state: 'succeeded',
+		parent_job_id: null,
+		created_at: '2026-08-18T07:01:05.000Z',
+		updated_at: '2026-08-18T07:01:06.000Z',
+	},
+	{
+		job_id: 'job_build',
+		run_id: 'run_mission',
+		job_type: 'build',
+		state: 'succeeded',
+		parent_job_id: null,
+		created_at: '2026-08-18T07:01:06.000Z',
+		updated_at: '2026-08-18T07:01:09.000Z',
+	},
+	{
+		job_id: 'job_verify',
+		run_id: 'run_mission',
+		job_type: 'verify',
+		state: 'succeeded',
+		parent_job_id: 'job_build',
+		created_at: '2026-08-18T07:01:09.000Z',
+		updated_at: '2026-08-18T07:01:10.000Z',
+	},
+	{
+		job_id: 'job_review',
+		run_id: 'run_mission',
+		job_type: 'review',
+		state: 'succeeded',
+		parent_job_id: 'job_build',
+		created_at: '2026-08-18T07:01:10.000Z',
+		updated_at: '2026-08-18T07:01:13.000Z',
+	},
 ];
 
 const researchAttempts: ControlPlaneAttempt[] = [
-	{ attempt_id: 'att_r_code', run_id: 'run_mission', job_id: 'job_research', status: 'succeeded', input_contract: 'positron.research.v1', input_fingerprint: '1111111111111111111111111111111111111111111111111111111111111111', output_contract: 'positron.research.v1', output_fingerprint: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', output_json: '{"summary_ref":"research:code","sources":["workspace://src/code.md"]}', worker_type: 'research-worker:code', provider: 'deterministic', model: 'research-v1', started_at: '2026-08-18T07:01:02.100Z', ended_at: '2026-08-18T07:01:03.400Z', failure_class: null, failure_signature: null, new_evidence: null, strategy_delta: null, result_ref: null, tokens: null },
-	{ attempt_id: 'att_r_docs', run_id: 'run_mission', job_id: 'job_research', status: 'succeeded', input_contract: 'positron.research.v1', input_fingerprint: '2222222222222222222222222222222222222222222222222222222222222222', output_contract: 'positron.research.v1', output_fingerprint: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', output_json: '{"summary_ref":"research:docs"}', worker_type: 'research-worker:docs', provider: 'deterministic', model: 'research-v1', started_at: '2026-08-18T07:01:02.200Z', ended_at: '2026-08-18T07:01:03.300Z', failure_class: null, failure_signature: null, new_evidence: null, strategy_delta: null, result_ref: null, tokens: null },
-	{ attempt_id: 'att_r_tests', run_id: 'run_mission', job_id: 'job_research', status: 'succeeded', input_contract: 'positron.research.v1', input_fingerprint: '3333333333333333333333333333333333333333333333333333333333333333', output_contract: 'positron.research.v1', output_fingerprint: 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc', output_json: '{"summary_ref":"research:tests"}', worker_type: 'research-worker:tests', provider: 'deterministic', model: 'research-v1', started_at: '2026-08-18T07:01:02.300Z', ended_at: '2026-08-18T07:01:03.500Z', failure_class: null, failure_signature: null, new_evidence: null, strategy_delta: null, result_ref: null, tokens: null },
+	{
+		attempt_id: 'att_r_code',
+		run_id: 'run_mission',
+		job_id: 'job_research',
+		status: 'succeeded',
+		input_contract: 'positron.research.v1',
+		input_fingerprint: '1111111111111111111111111111111111111111111111111111111111111111',
+		output_contract: 'positron.research.v1',
+		output_fingerprint: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+		worker_type: 'research-worker:code',
+		provider: 'deterministic',
+		model: 'research-v1',
+		started_at: '2026-08-18T07:01:02.100Z',
+		ended_at: '2026-08-18T07:01:03.400Z',
+		failure_class: null,
+		failure_signature: null,
+		new_evidence: null,
+		strategy_delta: null,
+		result_ref: null,
+	},
+	{
+		attempt_id: 'att_r_docs',
+		run_id: 'run_mission',
+		job_id: 'job_research',
+		status: 'succeeded',
+		input_contract: 'positron.research.v1',
+		input_fingerprint: '2222222222222222222222222222222222222222222222222222222222222222',
+		output_contract: 'positron.research.v1',
+		output_fingerprint: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+		worker_type: 'research-worker:docs',
+		provider: 'deterministic',
+		model: 'research-v1',
+		started_at: '2026-08-18T07:01:02.200Z',
+		ended_at: '2026-08-18T07:01:03.300Z',
+		failure_class: null,
+		failure_signature: null,
+		new_evidence: null,
+		strategy_delta: null,
+		result_ref: null,
+	},
+	{
+		attempt_id: 'att_r_tests',
+		run_id: 'run_mission',
+		job_id: 'job_research',
+		status: 'succeeded',
+		input_contract: 'positron.research.v1',
+		input_fingerprint: '3333333333333333333333333333333333333333333333333333333333333333',
+		output_contract: 'positron.research.v1',
+		output_fingerprint: 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+		worker_type: 'research-worker:tests',
+		provider: 'deterministic',
+		model: 'research-v1',
+		started_at: '2026-08-18T07:01:02.300Z',
+		ended_at: '2026-08-18T07:01:03.500Z',
+		failure_class: null,
+		failure_signature: null,
+		new_evidence: null,
+		strategy_delta: null,
+		result_ref: null,
+	},
 ];
 
 const buildAttempts: ControlPlaneAttempt[] = [
-	{ attempt_id: 'att_b_1', run_id: 'run_mission', job_id: 'job_build', status: 'failed', input_contract: 'positron.build-input.v1', input_fingerprint: '4444444444444444444444444444444444444444444444444444444444444444', output_contract: 'positron.build-result.v1', output_fingerprint: 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', output_json: '{"summary":"applied broken"}', worker_type: 'opencode', provider: 'anthropic', model: 'claude-test', started_at: '2026-08-18T07:01:06.100Z', ended_at: '2026-08-18T07:01:07.000Z', failure_class: 'TEST_FAILURE', failure_signature: 'unit:sum.test.js', new_evidence: 'test output: assertion failed', strategy_delta: null, result_ref: null, tokens: 1234 },
-	{ attempt_id: 'att_b_2', run_id: 'run_mission', job_id: 'job_build', status: 'succeeded', input_contract: 'positron.build-input.v1', input_fingerprint: '5555555555555555555555555555555555555555555555555555555555555555', output_contract: 'positron.build-result.v1', output_fingerprint: 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', output_json: '{"summary":"applied correct"}', worker_type: 'opencode', provider: 'anthropic', model: 'claude-test', started_at: '2026-08-18T07:01:07.500Z', ended_at: '2026-08-18T07:01:08.500Z', failure_class: null, failure_signature: null, new_evidence: null, strategy_delta: 'Fix per verification evidence: changed parser boundary handling', result_ref: null, tokens: 2345 },
+	{
+		attempt_id: 'att_b_1',
+		run_id: 'run_mission',
+		job_id: 'job_build',
+		status: 'failed',
+		input_contract: 'positron.build-input.v1',
+		input_fingerprint: '4444444444444444444444444444444444444444444444444444444444444444',
+		output_contract: 'positron.build-result.v1',
+		output_fingerprint: 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+		worker_type: 'opencode',
+		provider: 'anthropic',
+		model: 'claude-test',
+		started_at: '2026-08-18T07:01:06.100Z',
+		ended_at: '2026-08-18T07:01:07.000Z',
+		failure_class: 'TEST_FAILURE',
+		failure_signature: 'unit:sum.test.js',
+		new_evidence: 'test output: assertion failed',
+		strategy_delta: null,
+		result_ref: null,
+	},
+	{
+		attempt_id: 'att_b_2',
+		run_id: 'run_mission',
+		job_id: 'job_build',
+		status: 'succeeded',
+		input_contract: 'positron.build-input.v1',
+		input_fingerprint: '5555555555555555555555555555555555555555555555555555555555555555',
+		output_contract: 'positron.build-result.v1',
+		output_fingerprint: 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+		worker_type: 'opencode',
+		provider: 'anthropic',
+		model: 'claude-test',
+		started_at: '2026-08-18T07:01:07.500Z',
+		ended_at: '2026-08-18T07:01:08.500Z',
+		failure_class: null,
+		failure_signature: null,
+		new_evidence: null,
+		strategy_delta: 'Fix per verification evidence: changed parser boundary handling',
+		result_ref: null,
+	},
 ];
 
 const verifyAttempts: ControlPlaneAttempt[] = [
-	{ attempt_id: 'att_v_1', run_id: 'run_mission', job_id: 'job_verify', status: 'succeeded', input_contract: 'positron.verification.v1', input_fingerprint: '6666666666666666666666666666666666666666666666666666666666666666', output_contract: 'positron.verification.v1', output_fingerprint: 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', output_json: '{"contract":"positron.verification.v1","passed":true,"checks":[{"name":"npm test","passed":true,"kind":"unit"}]}', worker_type: 'deterministic-tools', provider: null, model: null, started_at: '2026-08-18T07:01:09.000Z', ended_at: '2026-08-18T07:01:10.000Z', failure_class: null, failure_signature: null, new_evidence: null, strategy_delta: null, result_ref: null, tokens: null },
+	{
+		attempt_id: 'att_v_1',
+		run_id: 'run_mission',
+		job_id: 'job_verify',
+		status: 'succeeded',
+		input_contract: 'positron.verification.v1',
+		input_fingerprint: '6666666666666666666666666666666666666666666666666666666666666666',
+		output_contract: 'positron.verification.v1',
+		output_fingerprint: 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+		worker_type: 'deterministic-tools',
+		provider: null,
+		model: null,
+		started_at: '2026-08-18T07:01:09.000Z',
+		ended_at: '2026-08-18T07:01:10.000Z',
+		failure_class: null,
+		failure_signature: null,
+		new_evidence: null,
+		strategy_delta: null,
+		result_ref: null,
+		checks: [{ name: 'npm test', passed: true, kind: 'unit' }],
+	},
 ];
 
 const reviewAttempts: ControlPlaneAttempt[] = [
-	{ attempt_id: 'att_rev_corr', run_id: 'run_mission', job_id: 'job_review', status: 'succeeded', input_contract: 'positron.review-batch.v1', input_fingerprint: '7777777777777777777777777777777777777777777777777777777777777777', output_contract: 'positron.finding.v1[]', output_fingerprint: '1111111111111111111111111111111111111111111111111111111111111111', output_json: '[]', worker_type: 'review-worker:correctness', provider: null, model: null, started_at: '2026-08-18T07:01:10.100Z', ended_at: '2026-08-18T07:01:11.400Z', failure_class: null, failure_signature: null, new_evidence: null, strategy_delta: null, result_ref: null, tokens: null },
-	{ attempt_id: 'att_rev_sec', run_id: 'run_mission', job_id: 'job_review', status: 'succeeded', input_contract: 'positron.review-batch.v1', input_fingerprint: '8888888888888888888888888888888888888888888888888888888888888888', output_contract: 'positron.finding.v1[]', output_fingerprint: '2222222222222222222222222222222222222222222222222222222222222222', output_json: '[]', worker_type: 'review-worker:security', provider: null, model: null, started_at: '2026-08-18T07:01:10.200Z', ended_at: '2026-08-18T07:01:11.300Z', failure_class: null, failure_signature: null, new_evidence: null, strategy_delta: null, result_ref: null, tokens: null },
-	{ attempt_id: 'att_rev_qual', run_id: 'run_mission', job_id: 'job_review', status: 'succeeded', input_contract: 'positron.review-batch.v1', input_fingerprint: '9999999999999999999999999999999999999999999999999999999999999999', output_contract: 'positron.finding.v1[]', output_fingerprint: '3333333333333333333333333333333333333333333333333333333333333333', output_json: '[]', worker_type: 'review-worker:quality', provider: null, model: null, started_at: '2026-08-18T07:01:10.300Z', ended_at: '2026-08-18T07:01:11.500Z', failure_class: null, failure_signature: null, new_evidence: null, strategy_delta: null, result_ref: null, tokens: null },
+	{
+		attempt_id: 'att_rev_corr',
+		run_id: 'run_mission',
+		job_id: 'job_review',
+		status: 'succeeded',
+		input_contract: 'positron.review-batch.v1',
+		input_fingerprint: '7777777777777777777777777777777777777777777777777777777777777777',
+		output_contract: 'positron.finding.v1[]',
+		output_fingerprint: '1111111111111111111111111111111111111111111111111111111111111111',
+		worker_type: 'review-worker:correctness',
+		provider: null,
+		model: null,
+		started_at: '2026-08-18T07:01:10.100Z',
+		ended_at: '2026-08-18T07:01:11.400Z',
+		failure_class: null,
+		failure_signature: null,
+		new_evidence: null,
+		strategy_delta: null,
+		result_ref: null,
+	},
+	{
+		attempt_id: 'att_rev_sec',
+		run_id: 'run_mission',
+		job_id: 'job_review',
+		status: 'succeeded',
+		input_contract: 'positron.review-batch.v1',
+		input_fingerprint: '8888888888888888888888888888888888888888888888888888888888888888',
+		output_contract: 'positron.finding.v1[]',
+		output_fingerprint: '2222222222222222222222222222222222222222222222222222222222222222',
+		worker_type: 'review-worker:security',
+		provider: null,
+		model: null,
+		started_at: '2026-08-18T07:01:10.200Z',
+		ended_at: '2026-08-18T07:01:11.300Z',
+		failure_class: null,
+		failure_signature: null,
+		new_evidence: null,
+		strategy_delta: null,
+		result_ref: null,
+	},
+	{
+		attempt_id: 'att_rev_qual',
+		run_id: 'run_mission',
+		job_id: 'job_review',
+		status: 'succeeded',
+		input_contract: 'positron.review-batch.v1',
+		input_fingerprint: '9999999999999999999999999999999999999999999999999999999999999999',
+		output_contract: 'positron.finding.v1[]',
+		output_fingerprint: '3333333333333333333333333333333333333333333333333333333333333333',
+		worker_type: 'review-worker:quality',
+		provider: null,
+		model: null,
+		started_at: '2026-08-18T07:01:10.300Z',
+		ended_at: '2026-08-18T07:01:11.500Z',
+		failure_class: null,
+		failure_signature: null,
+		new_evidence: null,
+		strategy_delta: null,
+		result_ref: null,
+	},
 ];
 
 const decisions: ControlPlaneDecision[] = [
-	{ decision_id: 'dec_1', run_id: 'run_mission', decision: 'DONE', reason_code: 'ALL_HARD_GATES_GREEN', contract: '{"contract":"positron.decision.v1","run_id":"run_mission","decision":"DONE","reason_code":"ALL_HARD_GATES_GREEN","basis":{"research_parallelism":"PARALLELISM_PROVEN","parallelism":"PARALLELISM_PROVEN"}}', created_at: '2026-08-18T07:01:13.000Z' },
+	{
+		decision_id: 'dec_1',
+		run_id: 'run_mission',
+		decision: 'DONE',
+		reason_code: 'ALL_HARD_GATES_GREEN',
+		contract:
+			'{"contract":"positron.decision.v1","run_id":"run_mission","decision":"DONE","reason_code":"ALL_HARD_GATES_GREEN","basis":{"research_parallelism":"PARALLELISM_PROVEN","parallelism":"PARALLELISM_PROVEN"}}',
+		created_at: '2026-08-18T07:01:13.000Z',
+	},
 ];
 
 const transitions = [
-	{ transition_id: 'tr_1', run_id: 'run_mission', previous_state: 'INTAKE', new_state: 'INTAKE', reason_code: 'RUN_CREATED', created_at: '2026-08-18T07:01:00.000Z' },
-	{ transition_id: 'tr_2', run_id: 'run_mission', previous_state: 'INTAKE', new_state: 'BASELINE', reason_code: 'BASELINE_OK', created_at: '2026-08-18T07:01:01.000Z' },
-	{ transition_id: 'tr_3', run_id: 'run_mission', previous_state: 'BASELINE', new_state: 'RESEARCH', reason_code: 'RESEARCH_JOIN', created_at: '2026-08-18T07:01:04.000Z' },
-	{ transition_id: 'tr_4', run_id: 'run_mission', previous_state: 'RESEARCH', new_state: 'PLAN', reason_code: 'PLAN_OK', created_at: '2026-08-18T07:01:05.000Z' },
-	{ transition_id: 'tr_5', run_id: 'run_mission', previous_state: 'PLAN', new_state: 'PLAN_GATE', reason_code: 'PLAN_GATE_APPROVED', created_at: '2026-08-18T07:01:06.000Z' },
-	{ transition_id: 'tr_6', run_id: 'run_mission', previous_state: 'PLAN_GATE', new_state: 'BUILD', reason_code: 'BUILD_OK', created_at: '2026-08-18T07:01:09.000Z' },
-	{ transition_id: 'tr_7', run_id: 'run_mission', previous_state: 'BUILD', new_state: 'VERIFY', reason_code: 'VERIFY_PASS', created_at: '2026-08-18T07:01:10.000Z' },
-	{ transition_id: 'tr_8', run_id: 'run_mission', previous_state: 'VERIFY', new_state: 'REVIEW', reason_code: 'REVIEW_PARALLEL', created_at: '2026-08-18T07:01:13.000Z' },
-	{ transition_id: 'tr_9', run_id: 'run_mission', previous_state: 'REVIEW', new_state: 'DECIDE', reason_code: 'ALL_HARD_GATES_GREEN', created_at: '2026-08-18T07:01:13.500Z' },
+	{
+		transition_id: 'tr_1',
+		run_id: 'run_mission',
+		previous_state: 'INTAKE',
+		new_state: 'INTAKE',
+		reason_code: 'RUN_CREATED',
+		created_at: '2026-08-18T07:01:00.000Z',
+	},
+	{
+		transition_id: 'tr_2',
+		run_id: 'run_mission',
+		previous_state: 'INTAKE',
+		new_state: 'BASELINE',
+		reason_code: 'BASELINE_OK',
+		created_at: '2026-08-18T07:01:01.000Z',
+	},
+	{
+		transition_id: 'tr_3',
+		run_id: 'run_mission',
+		previous_state: 'BASELINE',
+		new_state: 'RESEARCH',
+		reason_code: 'RESEARCH_JOIN',
+		created_at: '2026-08-18T07:01:04.000Z',
+	},
+	{
+		transition_id: 'tr_4',
+		run_id: 'run_mission',
+		previous_state: 'RESEARCH',
+		new_state: 'PLAN',
+		reason_code: 'PLAN_OK',
+		created_at: '2026-08-18T07:01:05.000Z',
+	},
+	{
+		transition_id: 'tr_5',
+		run_id: 'run_mission',
+		previous_state: 'PLAN',
+		new_state: 'PLAN_GATE',
+		reason_code: 'PLAN_GATE_APPROVED',
+		created_at: '2026-08-18T07:01:06.000Z',
+	},
+	{
+		transition_id: 'tr_6',
+		run_id: 'run_mission',
+		previous_state: 'PLAN_GATE',
+		new_state: 'BUILD',
+		reason_code: 'BUILD_OK',
+		created_at: '2026-08-18T07:01:09.000Z',
+	},
+	{
+		transition_id: 'tr_7',
+		run_id: 'run_mission',
+		previous_state: 'BUILD',
+		new_state: 'VERIFY',
+		reason_code: 'VERIFY_PASS',
+		created_at: '2026-08-18T07:01:10.000Z',
+	},
+	{
+		transition_id: 'tr_8',
+		run_id: 'run_mission',
+		previous_state: 'VERIFY',
+		new_state: 'REVIEW',
+		reason_code: 'REVIEW_PARALLEL',
+		created_at: '2026-08-18T07:01:13.000Z',
+	},
+	{
+		transition_id: 'tr_9',
+		run_id: 'run_mission',
+		previous_state: 'REVIEW',
+		new_state: 'DECIDE',
+		reason_code: 'ALL_HARD_GATES_GREEN',
+		created_at: '2026-08-18T07:01:13.500Z',
+	},
 ];
 
 function makeFixture(overrides: Partial<ControlPlaneResponse> = {}): ControlPlaneResponse {
 	return {
 		run_id: 'run_mission',
 		jobs,
-		attempts: [
-			...researchAttempts,
-			...buildAttempts,
-			...verifyAttempts,
-			...reviewAttempts,
-		],
+		attempts: [...researchAttempts, ...buildAttempts, ...verifyAttempts, ...reviewAttempts],
 		decisions,
 		transitions,
 		...overrides,
@@ -167,9 +469,7 @@ describe('ACTIVE_RUN_ATTEMPTS', () => {
 		expect(within(buildHistory).getByText('SUCCEEDED')).toBeInTheDocument();
 		// Failure Class + Strategy Delta aus Backend-Daten
 		expect(within(buildHistory).getByText('TEST_FAILURE')).toBeInTheDocument();
-		expect(
-			within(buildHistory).getByText(/changed parser boundary handling/),
-		).toBeInTheDocument();
+		expect(within(buildHistory).getByText(/changed parser boundary handling/)).toBeInTheDocument();
 	});
 });
 
@@ -212,6 +512,18 @@ describe('ACTIVE_RUN_REVIEW', () => {
 		expect(within(reviewSection).getByText('quality')).toBeInTheDocument();
 		// Review-Verdict (basis.parallelism aus P1)
 		expect(within(reviewSection).getByText('PARALLELISM_PROVEN')).toBeInTheDocument();
+	});
+});
+
+describe('ACTIVE_RUN_VERIFY', () => {
+	test('zeigt strukturierte Verify-Gate-Checks aus dem Backend-Feld checks', async () => {
+		render(<MissionControlPanel runId="run_mission" />);
+		const panel = await screen.findByTestId('mission-control');
+		const verifySection = within(panel).getByText('Verify').closest('div')!;
+		await waitFor(() => {
+			expect(within(verifySection).getByText('npm test')).toBeInTheDocument();
+		});
+		expect(within(verifySection).getByText('PASS')).toBeInTheDocument();
 	});
 });
 
@@ -288,7 +600,7 @@ describe('OLD_RUN_COMPATIBILITY', () => {
 });
 
 describe('SENSITIVE_DATA_NOT_RENDERED', () => {
-	test('rendert weder output_json, noch Secrets, Tokens oder env-Inhalte', async () => {
+	test('rendert weder raw Payloads, noch Secrets, Tokens oder env-Inhalte', async () => {
 		// Fixture mit absichtlich präparierten sensiblen Inhalten
 		vi.mocked(api.getControlPlane).mockResolvedValue(
 			makeFixture({
@@ -302,8 +614,6 @@ describe('SENSITIVE_DATA_NOT_RENDERED', () => {
 						input_fingerprint: '4444444444444444444444444444444444444444444444444444444444444444',
 						output_contract: null,
 						output_fingerprint: null,
-						output_json:
-							'{"stderr":"API_KEY=super-secret-value-123 Authorization: Bearer gh1234567890abcdefghijklm"}',
 						worker_type: 'opencode',
 						provider: 'anthropic',
 						model: 'claude-test',
@@ -315,7 +625,6 @@ describe('SENSITIVE_DATA_NOT_RENDERED', () => {
 						new_evidence: null,
 						strategy_delta: 'Fix per verification evidence: password=hunter2 secret=correcthorse',
 						result_ref: null,
-						tokens: 1234,
 					},
 				],
 			}),
@@ -326,7 +635,7 @@ describe('SENSITIVE_DATA_NOT_RENDERED', () => {
 			expect(within(panel).getByText('Attempt 1')).toBeInTheDocument();
 		});
 		const html = panel.innerHTML;
-		// output_json wird NIE gerendert (weder roh noch teilweise)
+		// Raw Payloads werden NIE gerendert (Server exponiert kein output_json)
 		expect(html).not.toContain('API_KEY=super-secret-value-123');
 		expect(html).not.toContain('gh1234567890abcdefghijklm');
 		// Secrets in Freitext-Feldern werden redacted

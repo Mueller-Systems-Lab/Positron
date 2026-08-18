@@ -127,9 +127,15 @@ const CONTRACT_REGISTRY: Record<ContractId, ContractSchema> = {
 					const e = entry as { status?: unknown; summary_ref?: unknown };
 					if (
 						e.status !== undefined &&
-						!['REQUIRED', 'OPTIONAL', 'SUCCEEDED', 'FAILED', 'TIMEOUT', 'BLOCKED', 'SKIPPED'].includes(
-							String(e.status),
-						)
+						![
+							'REQUIRED',
+							'OPTIONAL',
+							'SUCCEEDED',
+							'FAILED',
+							'TIMEOUT',
+							'BLOCKED',
+							'SKIPPED',
+						].includes(String(e.status))
 					) {
 						errors.push(`results.${key}.status must be a valid research status`);
 					}
@@ -138,7 +144,9 @@ const CONTRACT_REGISTRY: Record<ContractId, ContractSchema> = {
 					}
 				}
 			}
-			const parallelism = doc.parallelism as { verdict?: unknown; observed_overlap?: unknown } | undefined;
+			const parallelism = doc.parallelism as
+				| { verdict?: unknown; observed_overlap_ms?: unknown }
+				| undefined;
 			if (parallelism) {
 				if (
 					parallelism.verdict !== 'PARALLELISM_PROVEN' &&
@@ -147,10 +155,10 @@ const CONTRACT_REGISTRY: Record<ContractId, ContractSchema> = {
 					errors.push('parallelism.verdict must be PARALLELISM_PROVEN or PARALLELISM_NOT_PROVEN');
 				}
 				if (
-					parallelism.observed_overlap !== undefined &&
-					typeof parallelism.observed_overlap !== 'number'
+					parallelism.observed_overlap_ms !== undefined &&
+					typeof parallelism.observed_overlap_ms !== 'number'
 				) {
-					errors.push('parallelism.observed_overlap must be a number (ms)');
+					errors.push('parallelism.observed_overlap_ms must be a number (ms)');
 				}
 			}
 			return errors;

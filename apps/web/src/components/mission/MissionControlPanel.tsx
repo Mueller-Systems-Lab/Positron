@@ -81,7 +81,11 @@ function latestDecision(data: ControlPlaneResponse): ControlPlaneDecision | null
 	return sorted.at(-1) ?? null;
 }
 
-/** Verify-Gate-Checks aus dem strukturierten positron.verification.v1 (sicher). */
+/**
+ * Verify-Gate-Checks: reine Projektion des strukturierten Backend-Felds
+ * `checks` (Server extrahiert sie aus positron.verification.v1; die UI
+ * parst NIEMALS output_json).
+ */
 interface VerifyCheck {
 	name: string;
 	passed: boolean;
@@ -91,25 +95,22 @@ interface VerifyCheck {
 function verifyChecksOf(data: ControlPlaneResponse): VerifyCheck[] {
 	const checks: VerifyCheck[] = [];
 	for (const attempt of attemptsOfJob(data, 'verify')) {
-		if (!attempt.output_json) continue;
-		try {
-			const parsed = JSON.parse(attempt.output_json) as {
-				checks?: Array<{ name: string; passed: boolean; kind?: string }>;
-			};
-			for (const c of parsed.checks ?? []) {
-				if (typeof c.name === 'string') {
-					checks.push({ name: c.name, passed: Boolean(c.passed), kind: c.kind ?? 'other' });
-				}
+		for (const c of attempt.checks ?? []) {
+			if (typeof c.name === 'string') {
+				checks.push({ name: c.name, passed: Boolean(c.passed), kind: c.kind ?? 'other' });
 			}
-		} catch {
-			// kaputtes output_json wird nicht gerendert (fail-safe)
 		}
 	}
 	return checks;
 }
 
 function researchStatusOf(data: ControlPlaneResponse): {
-	statuses: Array<{ kind: string; status: string; started_at: string | null; ended_at: string | null }>;
+	statuses: Array<{
+		kind: string;
+		status: string;
+		started_at: string | null;
+		ended_at: string | null;
+	}>;
 } {
 	const researchJob = jobOfType(data, 'research');
 	if (!researchJob) return { statuses: [] };
@@ -130,7 +131,10 @@ function researchStatusOf(data: ControlPlaneResponse): {
 // Teilkomponenten
 // ---------------------------------------------------------------------------
 
-function FingerprintValue({ label, value }: { label: string; value: string | null }): React.ReactElement {
+function FingerprintValue({
+	label,
+	value,
+}: { label: string; value: string | null }): React.ReactElement {
 	if (!value) return <span />;
 	return (
 		<span className="inline-flex items-center gap-1" title={`${label}: ${value}`}>
@@ -161,7 +165,9 @@ function Section({
 }): React.ReactElement {
 	return (
 		<div className={`bg-slate-900/60 border border-slate-800 rounded-lg p-3 ${className}`}>
-			<h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">{title}</h4>
+			<h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
+				{title}
+			</h4>
 			{children}
 		</div>
 	);
@@ -190,7 +196,9 @@ function KeyValue({
 	);
 }
 
-function RunTimeline({ transitions }: { transitions: ControlPlaneTransition[] }): React.ReactElement {
+function RunTimeline({
+	transitions,
+}: { transitions: ControlPlaneTransition[] }): React.ReactElement {
 	if (transitions.length === 0) {
 		return <p className="text-xs text-slate-500">No persisted transitions yet.</p>;
 	}
@@ -227,9 +235,7 @@ function AttemptHistory({ attempts }: { attempts: ControlPlaneAttempt[] }): Reac
 			{sorted.map((a, index) => (
 				<div key={a.attempt_id} className="border border-slate-800 rounded-md p-2">
 					<div className="flex items-center gap-2 mb-1">
-						<span className="text-[10px] font-mono text-slate-500">
-							Attempt {index + 1}
-						</span>
+						<span className="text-[10px] font-mono text-slate-500">Attempt {index + 1}</span>
 						<span className={statusBadgeClass(a.status)}>{a.status.toUpperCase()}</span>
 						<span className="text-[10px] text-slate-600 ml-auto">
 							{formatDurationMs(
@@ -280,7 +286,6 @@ export default function MissionControlPanel({
 	runStatus,
 }: MissionControlProps): React.ReactElement {
 	const [state, setState] = useState<LoadState>({ kind: 'loading' });
-	const [refreshTick, setRefreshTick] = useState(0);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -295,40 +300,19 @@ export default function MissionControlPanel({
 				if (/not found|404/i.test(message)) {
 					setState({ kind: 'not-found' });
 				} else {
-					setState({ kind: 'error', message });
-				}
-			}
-		};
-		void load();
-		const timer = setInterval(() => setRefreshTick((t) => t + 1), POLL_INTERVAL_MS);
-		return () => {
-			cancelled = true;
-			clearInterval(timer);
-		};
-	}, [runId]);
-
-	useEffect(() => {
-		if (refreshTick === 0) return;
-		let cancelled = false;
-		const load = async (): Promise<void> => {
-			try {
-				const data = await api.getControlPlane(runId);
-				if (!cancelled) setState({ kind: 'ready', data });
-			} catch (err) {
-				if (cancelled) return;
-				const message = err instanceof Error ? err.message : 'Unknown error';
-				if (/not found|404/i.test(message)) {
-					setState({ kind: 'not-found' });
-				} else {
 					setState((prev) => (prev.kind === 'ready' ? prev : { kind: 'error', message }));
 				}
 			}
 		};
 		void load();
+		const timer = setInterval(() => {
+			void load();
+		}, POLL_INTERVAL_MS);
 		return () => {
 			cancelled = true;
+			clearInterval(timer);
 		};
-	}, [refreshTick, runId]);
+	}, [runId]);
 
 	if (state.kind === 'loading') {
 		return (
@@ -413,10 +397,17 @@ export default function MissionControlPanel({
 						<KeyValue label="attempts" value={data.attempts.length} />
 						{execution && (
 							<>
-								<KeyValue label="current job" value={<code className="text-[11px]">{execution.job.job_type}</code>} />
+								<KeyValue
+									label="current job"
+									value={<code className="text-[11px]">{execution.job.job_type}</code>}
+								/>
 								<KeyValue
 									label="job state"
-									value={<span className={statusColorClass(execution.job.state)}>{execution.job.state.toUpperCase()}</span>}
+									value={
+										<span className={statusColorClass(execution.job.state)}>
+											{execution.job.state.toUpperCase()}
+										</span>
+									}
 								/>
 								<KeyValue label="attempts on job" value={execution.attempts.length} />
 							</>
@@ -434,7 +425,10 @@ export default function MissionControlPanel({
 										</span>
 									}
 								/>
-								<KeyValue label="reason_code" value={<code className="text-[11px]">{decision.reason_code}</code>} />
+								<KeyValue
+									label="reason_code"
+									value={<code className="text-[11px]">{decision.reason_code}</code>}
+								/>
 								<KeyValue label="at" value={formatTimestamp(decision.created_at)} />
 							</>
 						) : (
@@ -457,8 +451,7 @@ export default function MissionControlPanel({
 									label="verdict"
 									value={
 										<span className="font-mono text-[11px]">
-											{timeline.find((t) => t.new_state === 'PLAN_GATE')?.reason_code ??
-												'—'}
+											{timeline.find((t) => t.new_state === 'PLAN_GATE')?.reason_code ?? '—'}
 										</span>
 									}
 								/>
@@ -484,7 +477,10 @@ export default function MissionControlPanel({
 										</div>
 									))}
 								</div>
-								<KeyValue label="parallelism" value={<code className="text-[11px]">{researchVerdict ?? '—'}</code>} />
+								<KeyValue
+									label="parallelism"
+									value={<code className="text-[11px]">{researchVerdict ?? '—'}</code>}
+								/>
 								{researchAttempts.length > 0 && (
 									<KeyValue
 										label="started"
@@ -504,12 +500,25 @@ export default function MissionControlPanel({
 									const last = buildAttempts.at(-1)!;
 									return (
 										<>
-											<KeyValue label="worker" value={<code className="text-[11px]">{last.worker_type ?? '—'}</code>} />
-											<KeyValue label="provider" value={<code className="text-[11px]">{last.provider ?? '—'}</code>} />
-											<KeyValue label="model" value={<code className="text-[11px]">{last.model ?? '—'}</code>} />
+											<KeyValue
+												label="worker"
+												value={<code className="text-[11px]">{last.worker_type ?? '—'}</code>}
+											/>
+											<KeyValue
+												label="provider"
+												value={<code className="text-[11px]">{last.provider ?? '—'}</code>}
+											/>
+											<KeyValue
+												label="model"
+												value={<code className="text-[11px]">{last.model ?? '—'}</code>}
+											/>
 											<KeyValue
 												label="status"
-												value={<span className={statusColorClass(last.status)}>{last.status.toUpperCase()}</span>}
+												value={
+													<span className={statusColorClass(last.status)}>
+														{last.status.toUpperCase()}
+													</span>
+												}
 											/>
 											<KeyValue label="attempts" value={buildAttempts.length} />
 											<div className="flex flex-wrap gap-3 mt-1">
@@ -555,7 +564,10 @@ export default function MissionControlPanel({
 										</div>
 									))}
 								</div>
-								<KeyValue label="parallelism" value={<code className="text-[11px]">{reviewVerdict ?? '—'}</code>} />
+								<KeyValue
+									label="parallelism"
+									value={<code className="text-[11px]">{reviewVerdict ?? '—'}</code>}
+								/>
 							</>
 						)}
 					</Section>

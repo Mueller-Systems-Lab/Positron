@@ -40,7 +40,6 @@ export interface ControlPlaneAttempt {
 	input_fingerprint: string | null;
 	output_contract: string | null;
 	output_fingerprint: string | null;
-	output_json: string | null;
 	worker_type: string | null;
 	provider: string | null;
 	model: string | null;
@@ -51,7 +50,8 @@ export interface ControlPlaneAttempt {
 	new_evidence: string | null;
 	strategy_delta: string | null;
 	result_ref: string | null;
-	tokens: number | null;
+	/** Strukturierte Verify-Gate-Checks (Backend-Truth, nur verification-Attempts) */
+	checks?: Array<{ name: string; passed: boolean; kind: string }> | null;
 }
 
 export interface ControlPlaneDecision {

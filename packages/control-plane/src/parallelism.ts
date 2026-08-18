@@ -59,8 +59,12 @@ export function assertRealParallelism<T extends ParallelExecutionSlice>(
 }
 
 /**
- * Berechnet die kumulierte beobachtete Überlappung (nur für Reporting).
- * Summe der positiven Schnittmengen aufeinanderfolgender Ausführungen.
+ * Berechnet die kumulierte beobachtete Überlappung (nur Reporting).
+ * Summe der positiven Schnittmengen AUFEINANDERFOLGENDER Ausführungen.
+ * Hinweis: Bei drei oder mehr gleichzeitig überlappenden Ausführungen
+ * werden die Schnittmengen-Regionen mehrfach gezählt (sum of pairwise
+ * overlaps, kein Union-Maß). Für den Parallelitäts-BEWEIS ist nur der
+ * boolesche Verdict relevant; dieser Wert dient allein der Beobachtung.
  */
 export function observedOverlapMs<T extends ParallelExecutionSlice>(results: T[]): number {
 	const sorted = [...results].sort(

@@ -117,7 +117,9 @@ const FAILURE_CLASS_BY_KIND: Record<ResearchKind, FailureClass> = {
 export function evaluateResearchBarrier(
 	results: ParallelResearchResult[],
 ): ResearchBarrierDecision {
-	const blocked = results.find((r) => r.status === 'BLOCKED');
+	// BLOCKED gewinnt — aber nur für REQUIRED-Worker (OPTIONAL-Blockaden
+	// werden wie OPTIONAL-Fehler toleriert, konsistent zu TIMEOUT/FAILED)
+	const blocked = results.find((r) => r.required && r.status === 'BLOCKED');
 	if (blocked) {
 		return {
 			status: 'BLOCKED',
@@ -156,11 +158,19 @@ export function evaluateResearchBarrier(
  */
 export async function runParallelResearch(
 	db: Database.Database,
-	ctx: { run_id: string; job_id: string; workspacePath: string; repositoryRef: string; repositoryHead: string },
+	ctx: {
+		run_id: string;
+		job_id: string;
+		workspacePath: string;
+		repositoryRef: string;
+		repositoryHead: string;
+	},
 	workers: ResearchWorker[],
 	options: ResearchRunOptions = {},
 ): Promise<ParallelResearchOutcome> {
-	const startedAll = Date.now();
+	if (workers.length === 0) {
+		throw new Error('INTERNAL: research requires at least one worker');
+	}
 
 	const executeOne = async (worker: ResearchWorker): Promise<ParallelResearchResult> => {
 		const startedAt = nowIso();
@@ -176,13 +186,19 @@ export async function runParallelResearch(
 			if (options.timeoutMs && options.timeoutMs > 0) {
 				let timer: ReturnType<typeof setTimeout> | undefined;
 				try {
+					// Unhandled-Rejection-Schutz: der Worker-Promise darf nach
+					// dem Timeout-Sieg nicht als unhandled rejection crashen.
+					const workerPromise = worker.run({
+						run_id: ctx.run_id,
+						job_id: ctx.job_id,
+						attempt_id: attempt.attempt_id,
+						workspacePath: ctx.workspacePath,
+					});
+					workerPromise.catch(() => {
+						/* Ergebnis nach Timeout wird bewusst verworfen */
+					});
 					return await Promise.race([
-						worker.run({
-							run_id: ctx.run_id,
-							job_id: ctx.job_id,
-							attempt_id: attempt.attempt_id,
-							workspacePath: ctx.workspacePath,
-						}),
+						workerPromise,
 						new Promise<never>((_, reject) => {
 							timer = setTimeout(
 								() => reject(new Error(`RESEARCH_TIMEOUT: ${worker.kind}`)),
@@ -239,15 +255,14 @@ export async function runParallelResearch(
 			const classified = classifyFailure({ stderr: errMsg, timeout: isTimeout });
 			const failureClass = isTimeout
 				? ('TIMEOUT' as FailureClass)
-				: classified.signature === 'PROVIDER_FAILURE' ||
-						classified.signature === 'INFRA_FAILURE' ||
-						classified.signature === 'CONTRACT_FAILURE'
+				: classified.signature === 'PROVIDER_FAILURE' || classified.signature === 'INFRA_FAILURE'
 					? (classified.signature as FailureClass)
 					: FAILURE_CLASS_BY_KIND[worker.kind];
+			const failureSignature = `research-${worker.kind}-error:${errMsg.slice(0, 300)}`;
 			completeAttempt(db, attempt.attempt_id, {
 				status: 'failed',
 				failure_class: failureClass,
-				failure_signature: `research-${worker.kind}-error:${errMsg.slice(0, 200)}`,
+				failure_signature: failureSignature,
 				ended_at: endedAt,
 			});
 			return {
@@ -258,7 +273,7 @@ export async function runParallelResearch(
 				required: worker.required,
 				status,
 				failure_class: failureClass,
-				failure_signature: errMsg.slice(0, 300),
+				failure_signature: failureSignature,
 				output: null,
 				started_at: startedAt,
 				ended_at: endedAt,
@@ -283,10 +298,14 @@ export async function runParallelResearch(
 	const barrier = evaluateResearchBarrier(results);
 	const verdict = assertRealParallelism(results);
 	const overlapMs = observedOverlapMs(results);
-	const startedAt = new Date(Math.min(...results.map((r) => new Date(r.started_at).getTime())))
-		.toISOString();
-	const endedAt = new Date(Math.max(...results.map((r) => new Date(r.ended_at).getTime())))
-		.toISOString();
+	const startedAt = new Date(
+		Math.min(...results.map((r) => new Date(r.started_at).getTime())),
+	).toISOString();
+	const endedAt = new Date(
+		Math.max(...results.map((r) => new Date(r.ended_at).getTime())),
+	).toISOString();
+	// Hinweis: results ist nie leer (workers.length ≥ 1 Guard oben); bei
+	// fehlerhaften Zeitstempeln greift Math.min/Math.max nicht ins Leere.
 
 	const entryOf = (kind: ResearchKind): ResearchBatchContract['results']['code'] => {
 		const r = results.find((res) => res.kind === kind);
@@ -309,7 +328,9 @@ export async function runParallelResearch(
 		repository_ref: ctx.repositoryRef,
 		repository_head: ctx.repositoryHead,
 		summary_ref: results
-			.filter((r): r is ParallelResearchResult & { output: ResearchWorkerOutput } => r.output !== null)
+			.filter(
+				(r): r is ParallelResearchResult & { output: ResearchWorkerOutput } => r.output !== null,
+			)
 			.map((r) => r.output.summary_ref)
 			.sort()
 			.join('|'),
@@ -334,8 +355,6 @@ export async function runParallelResearch(
 			`INTERNAL: research-batch contract invalid: ${batchValidation.errors.join('; ')}`,
 		);
 	}
-
-	void startedAll;
 
 	return {
 		results,

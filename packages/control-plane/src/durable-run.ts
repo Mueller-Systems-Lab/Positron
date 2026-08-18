@@ -230,85 +230,90 @@ export async function runDurableRun(
 	// Parallelität wird über tatsächliche Zeit-Überlappung bewiesen
 	// (assertRealParallelism auf persistierte started_at/ended_at).
 	const researchJob =
-		listJobs(db, runId).find((j) => j.job_type === 'research') ??
-		createJob(db, runId, 'research');
+		listJobs(db, runId).find((j) => j.job_type === 'research') ?? createJob(db, runId, 'research');
 	const researchAttempts = listJobAttempts(db, researchJob.job_id);
-	const researchDone = researchAttempts.some((a) => a.status === 'succeeded');
+	// Recovery-Boundary konsistent zum Build/Verify-Muster: research ist nur
+	// dann abgeschlossen, wenn der JOB succeeded ist — ein einzelner
+	// erfolgreicher OPTIONAL-Worker (bei fehlgeschlagenem REQUIRED-Worker)
+	// genügt NICHT (der Run wäre sonst fälschlich freigegeben worden).
+	const researchDone = researchJob.state === 'succeeded';
 	let researchOutcome: ParallelResearchOutcome | null = null;
 	/** Bei Recovery aus persistierten Zeitstempeln rekonstruierter Verdict */
 	let researchVerdictFromRecovery: ParallelismVerdict | null = null;
 
-		if (deps.researchWorkers && deps.researchWorkers.length > 0) {
-			if (researchDone) {
-				// Recovery: completed research wird NICHT erneut ausgeführt;
-				// der Verdict wird aus den persistierten Zeitstempeln rekonstruiert.
-				const succeeded = researchAttempts.filter(
-					(a): a is AttemptRecord & { started_at: string; ended_at: string } =>
-						a.status === 'succeeded' && a.started_at !== null && a.ended_at !== null,
-				);
-				researchOutcome = null;
-				const verdict = assertRealParallelism(
-					succeeded.map((a) => ({
-						kind: a.worker_type ?? 'research',
-						workerType: a.worker_type ?? 'research',
-						started_at: a.started_at,
-						ended_at: a.ended_at,
-						duration_ms: 0,
-					})),
-				);
-				trackTransition('RESEARCH', 'RESEARCH_RECOVERED');
-				// Verdict fließt später in die Decision-Basis ein
-				researchVerdictFromRecovery = verdict;
+	if (deps.researchWorkers && deps.researchWorkers.length > 0) {
+		if (researchDone) {
+			// Recovery: completed research wird NICHT erneut ausgeführt;
+			// der Verdict wird aus den persistierten Zeitstempeln rekonstruiert.
+			const succeeded = researchAttempts.filter(
+				(a): a is AttemptRecord & { started_at: string; ended_at: string } =>
+					a.status === 'succeeded' && a.started_at !== null && a.ended_at !== null,
+			);
+			researchOutcome = null;
+			const verdict = assertRealParallelism(
+				succeeded.map((a) => ({
+					kind: a.worker_type ?? 'research',
+					workerType: a.worker_type ?? 'research',
+					started_at: a.started_at,
+					ended_at: a.ended_at,
+					duration_ms: 0,
+				})),
+			);
+			trackTransition('RESEARCH', 'RESEARCH_RECOVERED');
+			// Verdict fließt später in die Decision-Basis ein
+			researchVerdictFromRecovery = verdict;
+		} else {
+			updateJobState(db, researchJob.job_id, 'running');
+			researchOutcome = await runParallelResearch(
+				db,
+				{
+					run_id: runId,
+					job_id: researchJob.job_id,
+					workspacePath: deps.workspace.path,
+					repositoryRef: deps.workspace.repositoryRef,
+					repositoryHead: baselineHead,
+				},
+				deps.researchWorkers,
+				deps.researchOptions,
+			);
+			if (researchOutcome.barrier.status === 'JOIN') {
+				updateJobState(db, researchJob.job_id, 'succeeded');
+				trackTransition('RESEARCH', 'RESEARCH_JOIN');
 			} else {
-				updateJobState(db, researchJob.job_id, 'running');
-				researchOutcome = await runParallelResearch(
-					db,
-					{
-						run_id: runId,
-						job_id: researchJob.job_id,
-						workspacePath: deps.workspace.path,
-						repositoryRef: deps.workspace.repositoryRef,
-						repositoryHead: baselineHead,
-					},
-					deps.researchWorkers,
-					deps.researchOptions,
-				);
-				if (researchOutcome.barrier.status === 'JOIN') {
-					updateJobState(db, researchJob.job_id, 'succeeded');
-					trackTransition('RESEARCH', 'RESEARCH_JOIN');
-				} else {
-					updateJobState(db, researchJob.job_id, 'failed');
-					trackTransition('RESEARCH', researchOutcome.barrier.reason_code);
-					const decision = buildDecision({
-						run_id: runId,
-						verification: null,
-						findings: [],
-						researchBarrier: researchOutcome.barrier.reason_code,
-						researchParallelism: researchOutcome.verdict,
-					});
-					return finishRun(db, runId, decision, transitions, 0);
-				}
+				updateJobState(db, researchJob.job_id, 'failed');
+				trackTransition('RESEARCH', researchOutcome.barrier.reason_code);
+				const decision = buildDecision({
+					run_id: runId,
+					verification: null,
+					findings: [],
+					researchBarrier: researchOutcome.barrier.reason_code,
+					researchParallelism: researchOutcome.verdict,
+				});
+				// Barrier-Reason auch in der Basis persistieren (Observability)
+				decision.basis.research_barrier = researchOutcome.barrier.reason_code;
+				return finishRun(db, runId, decision, transitions, 0);
 			}
 		}
+	}
 
-		// Crash-Injection (Recovery-Test): Abbruch NACH abgeschlossenem
-		// research-Job — valid Boundary; beim Resume wird research nicht
-		// erneut ausgeführt.
-		if (input.crashAfterJob && input.crashAfterJob === 'research') {
-			return finishRun(
-				db,
-				runId,
-				{
-					contract: 'positron.decision.v1',
-					run_id: runId,
-					decision: 'BLOCKED',
-					reason_code: 'CRASH_INJECTED',
-					basis: { boundary: 'research', message: 'controlled crash after completed research job' },
-				},
-				transitions,
-				0,
-			);
-		}
+	// Crash-Injection (Recovery-Test): Abbruch NACH abgeschlossenem
+	// research-Job — valid Boundary; beim Resume wird research nicht
+	// erneut ausgeführt.
+	if (input.crashAfterJob && input.crashAfterJob === 'research') {
+		return finishRun(
+			db,
+			runId,
+			{
+				contract: 'positron.decision.v1',
+				run_id: runId,
+				decision: 'BLOCKED',
+				reason_code: 'CRASH_INJECTED',
+				basis: { boundary: 'research', message: 'controlled crash after completed research job' },
+			},
+			transitions,
+			0,
+		);
+	}
 
 	// ── PLAN (Contract validieren) ──────────────────────────────────────────
 	const planJob = createJob(db, runId, 'plan');

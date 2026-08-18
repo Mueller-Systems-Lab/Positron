@@ -3801,6 +3801,36 @@ export function createApp(options: ServerOptions = {}) {
 	// Issue #421 (P1): Control-Plane-Zustand eines Runs (read-only).
 	// Exponiert die persistente run → job → attempt Hierarchie, Decisions
 	// und Transitions — Backend-Truth für die spätere Active-Run-View.
+	//
+	// Extrahiert strukturierte Verify-Gate-Checks aus einem cp_attempts-Row.
+	// Nur für Attempts mit output_contract positron.verification.v1; das
+	// raw output_json wird NIE exponiert (Privacy by Default).
+	function parseVerifyChecks(row: Record<string, unknown>): Array<{
+		name: string;
+		passed: boolean;
+		kind: string;
+	}> | null {
+		if (row.output_contract !== 'positron.verification.v1') return null;
+		const raw = row.output_json;
+		if (typeof raw !== 'string') return null;
+		try {
+			const parsed = JSON.parse(raw) as {
+				checks?: Array<{ name?: unknown; passed?: unknown; kind?: unknown }>;
+			};
+			if (!Array.isArray(parsed.checks)) return null;
+			const checks = parsed.checks
+				.filter((c) => c && typeof c === 'object' && typeof c.name === 'string')
+				.map((c) => ({
+					name: c.name as string,
+					passed: c.passed === true,
+					kind: typeof c.kind === 'string' ? c.kind : 'other',
+				}));
+			return checks.length > 0 ? checks : null;
+		} catch {
+			return null;
+		}
+	}
+
 	app.get('/api/runs/:id/control-plane', (req, res) => {
 		const { id } = req.params;
 		try {
@@ -3840,6 +3870,11 @@ export function createApp(options: ServerOptions = {}) {
 				new_evidence: row.new_evidence ?? null,
 				strategy_delta: row.strategy_delta ?? null,
 				result_ref: row.result_ref ?? null,
+				// Strukturierte Verify-Gate-Checks (nur für verifizierte
+				// positron.verification.v1-Attempts). output_json wird
+				// bewusst NICHT exponiert (Privacy by Default) — die UI
+				// erhält nur strukturierte Gate-Ergebnisse.
+				checks: parseVerifyChecks(row),
 			}));
 
 			const decisions = (

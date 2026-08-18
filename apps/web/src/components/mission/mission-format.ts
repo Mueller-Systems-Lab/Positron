@@ -12,12 +12,16 @@
 const SECRET_PATTERNS: RegExp[] = [
 	/\b(bearer|authorization)\s+[a-z0-9._\-+/=]{8,}/i,
 	/\b(api[_-]?key|apikey)\s*[:=]\s*[a-z0-9._\-]{8,}/i,
-	/\b(token|secret)\s*[:=]\s*[a-z0-9._\-+/=]{8,}/i,
+	/\btoken\s*[:=]\s*[a-z0-9._\-+/=]{8,}/i,
+	/\bsecret\s*[:=]\s*[a-z0-9._\-+/=]{12,}/i,
+	/\bpassword\s*[:=]\s*[^\s,;]{6,}/i,
 	/\.env\b/i,
-	/(ghp|gho|github_pat)_[a-z0-9]{20,}/i,
-	/sk-[a-z0-9]{20,}/i,
-	/xox[baprs]-[a-z0-9-]{10,}/i,
-	/(?<=password\s*[:=]\s*)[^\s,;]+/i,
+	/\b(ghp|gho|github_pat)_[a-z0-9]{20,}/i,
+	/\bsk-[a-z0-9]{20,}/i,
+	/\bxox[baprs]-[a-z0-9-]{10,}/i,
+	/\bAKIA[0-9A-Z]{16}\b/i,
+	/\bASIA[0-9A-Z]{16}\b/i,
+	/\bAIza[0-9A-Za-z_\-]{35}\b/i,
 ];
 
 const REDACTED = '[redacted]';
