@@ -9,6 +9,8 @@ import type { Phase } from '../types.js';
 import ArtifactPanel from './ArtifactPanel.jsx';
 import GateControls from './GateControls.jsx';
 import LogViewer from './LogViewer.jsx';
+import KpiPanel from './mission/KpiPanel.jsx';
+import MissionControlPanel from './mission/MissionControlPanel.jsx';
 import PhaseBadge from './PhaseBadge.jsx';
 import PhasePipeline from './PhasePipeline.jsx';
 import PhaseTimeline from './PhaseTimeline.jsx';
@@ -281,6 +283,12 @@ export default function RunDetail(): React.ReactElement {
 					</div>
 				</div>
 			</div>
+
+			{/* Mission Control (P2 — Backend Truth Projection) */}
+			<MissionControlPanel runId={run.id} runStatus={effectiveStatus} />
+
+			{/* Runtime KPIs (P2 — Betriebsansicht) */}
+			<KpiPanel />
 
 			{/* Main Content: Two columns */}
 			<div className="grid grid-cols-[2fr_1fr] gap-6">

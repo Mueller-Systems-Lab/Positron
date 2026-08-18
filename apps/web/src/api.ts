@@ -16,6 +16,92 @@ import type { Phase, RunStatus } from './types.js';
 
 const BASE = '/api';
 
+// ── Control Plane Types (P2 — Backend Truth, read-only) ──────────
+// Diese Typen spiegeln 1:1 die Antwortformen der Backend-Truth-Endpunkte
+// GET /api/runs/:id/control-plane und GET /api/kpis. Die UI erfindet,
+// rekonstruiert oder simuliert hier keinen Zustand.
+
+export interface ControlPlaneJob {
+	job_id: string;
+	run_id: string;
+	job_type: string;
+	state: string;
+	parent_job_id: string | null;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface ControlPlaneAttempt {
+	attempt_id: string;
+	run_id: string;
+	job_id: string;
+	status: string;
+	input_contract: string | null;
+	input_fingerprint: string | null;
+	output_contract: string | null;
+	output_fingerprint: string | null;
+	output_json: string | null;
+	worker_type: string | null;
+	provider: string | null;
+	model: string | null;
+	started_at: string;
+	ended_at: string | null;
+	failure_class: string | null;
+	failure_signature: string | null;
+	new_evidence: string | null;
+	strategy_delta: string | null;
+	result_ref: string | null;
+	tokens: number | null;
+}
+
+export interface ControlPlaneDecision {
+	decision_id: string;
+	run_id: string;
+	decision: string;
+	reason_code: string;
+	contract: string | null;
+	created_at: string;
+}
+
+export interface ControlPlaneTransition {
+	transition_id: string;
+	run_id: string;
+	previous_state: string;
+	new_state: string;
+	reason_code: string;
+	created_at: string;
+}
+
+export interface ControlPlaneResponse {
+	run_id: string;
+	jobs: ControlPlaneJob[];
+	attempts: ControlPlaneAttempt[];
+	decisions: ControlPlaneDecision[];
+	transitions: ControlPlaneTransition[];
+}
+
+export interface KpiReport {
+	runs_total: number;
+	done_runs: number;
+	first_pass_success_rate: number | null;
+	mean_attempts_to_done: number | null;
+	blind_retry_rate: number;
+	retry_denials: number;
+	duplicate_mutation_rate: number;
+	contract_validation_failure_rate: number | null;
+	plan_gate_rejection_rate: number | null;
+	security_block_enforcement_rate: number | null;
+	useful_retry_rate: number | null;
+	trace_completeness: number | null;
+	p50_stage_duration_ms: number | null;
+	p95_stage_duration_ms: number | null;
+}
+
+export interface KpisResponse {
+	kpis: KpiReport;
+	invariants: { violations: string[] };
+}
+
 // ── Admin API Types & Token Management (Issue #11) ────────────
 
 export interface AdminStats {
@@ -385,6 +471,18 @@ export const api = {
 		return request(
 			`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/blueprint`,
 		);
+	},
+
+	// ── Control Plane (P2 — read-only Backend Truth) ───────────────
+
+	/** Durable control-plane state (jobs/attempts/decisions/transitions) */
+	getControlPlane(runId: string): Promise<ControlPlaneResponse> {
+		return request<ControlPlaneResponse>(`/runs/${encodeURIComponent(runId)}/control-plane`);
+	},
+
+	/** Runtime KPIs + Invarianten-Violations */
+	getKpis(): Promise<KpisResponse> {
+		return request<KpisResponse>('/kpis');
 	},
 
 	// ── Admin API (Issue #11) ──────────────────────────────────────
