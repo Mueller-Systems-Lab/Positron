@@ -27,6 +27,7 @@ function makeAttempt(overrides: Partial<AttemptRecord> = {}): AttemptRecord {
 		strategy_delta: null,
 		result_ref: null,
 		tokens: null,
+		previous_attempt_id: null,
 		...overrides,
 	};
 }

@@ -30,17 +30,25 @@ import type {
 } from './contracts.js';
 import type { VerificationCheck } from './contracts.js';
 import { buildDecision } from './decision-policy.js';
+import { assertAttemptActive, assertExecutionContext } from './execution-context.js';
 import { fingerprint } from './fingerprint.js';
 import { IdempotencyRegistry, idempotencyKey } from './idempotency.js';
-import { evaluatePlanGate } from './plan-gate.js';
 import { assertRealParallelism } from './parallelism.js';
-import { evaluateRetry } from './retry-policy.js';
+import { evaluatePlanGate } from './plan-gate.js';
 import { runParallelResearch } from './research.js';
-import type { ParallelResearchOutcome, ResearchRunOptions, ResearchWorker } from './research.js';
+import type {
+	ParallelResearchOutcome,
+	ParallelResearchResult,
+	ResearchRunOptions,
+	ResearchWorker,
+	ResearchWorkerOutput,
+} from './research.js';
+import { evaluateRetry } from './retry-policy.js';
 import { runParallelReviews } from './review.js';
-import type { ParallelismVerdict, ReviewWorker } from './review.js';
+import type { ParallelReviewResult, ParallelismVerdict, ReviewWorker } from './review.js';
 import { applyControlPlaneMigrations } from './schema.js';
 import {
+	claimAttempt,
 	completeAttempt,
 	createAttempt,
 	createId,
@@ -101,6 +109,28 @@ export interface VerificationTool {
 	}): Promise<{ checks: VerificationCheck[]; new_evidence?: string }>;
 }
 
+/**
+ * Plan-Worker (fachlich read-only): erzeugt den Plan (positron.plan.v1)
+ * über die produktiven Kanäle (OpenCode `speckit.plan` / SpecKit).
+ * SPECIFY/TASKS/ANALYZE sind interne CLI-Schritte des atomaren fachlichen
+ * plan-Workers (§9/§19/§20: die fachliche Boundary zählt, nicht jeder
+ * CLI-Aufruf).
+ */
+export interface PlanWorker {
+	/** Stable worker identity for telemetry */
+	workerType: string;
+	provider: string | null;
+	model: string | null;
+	/** Führt die Plan-Erstellung aus und liefert einen validen Plan-Contract. */
+	run(ctx: {
+		run_id: string;
+		job_id: string;
+		attempt_id: string;
+		workspacePath: string;
+		issue: IssueContract;
+	}): Promise<PlanContract>;
+}
+
 export interface DurableRunDeps {
 	db: Database.Database;
 	/** Workspace (echtes Repository) */
@@ -120,6 +150,14 @@ export interface DurableRunDeps {
 	researchWorkers?: ResearchWorker[];
 	/** Optionen für den Research-Fan-out (z. B. kontrollierter sequentieller Canary) */
 	researchOptions?: ResearchRunOptions;
+	/**
+	 * Optional: Plan-Worker (produktive Plan-Erzeugung). Ohne PlanWorker
+	 * wird der Plan aus dem Input übernommen (Kompatibilität mit Tests) —
+	 * der plan-Job/Attempt wird in beiden Fällen vollständig persistiert.
+	 */
+	planWorker?: PlanWorker;
+	/** Deterministischer Timeout für Build-/Verify-Worker (ms). 0/undefined → kein Timeout. */
+	timeoutMs?: number;
 	maxAttempts: number;
 }
 
@@ -162,6 +200,233 @@ function emitEvent(event: RunEventContract): void {
 	if (!result.ok) {
 		throw new Error(`INTERNAL: run-event contract invalid: ${result.errors.join('; ')}`);
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Timeout-Semantik (P3): langlebige Worker beenden den Attempt deterministisch.
+// Ein Timeout erzeugt keine unhandled rejection und keinen Zombie-Job.
+// ---------------------------------------------------------------------------
+
+type TimedExecution<T> = { ok: true; value: T } | { ok: false; reason: 'timeout' };
+
+async function withTimeout<T>(
+	promise: Promise<T>,
+	timeoutMs: number | undefined,
+): Promise<TimedExecution<T>> {
+	if (!timeoutMs || timeoutMs <= 0) {
+		return { ok: true, value: await promise };
+	}
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	try {
+		// Unhandled-Rejection-Schutz: das Worker-Promise darf nach dem
+		// Timeout-Sieg nicht als unhandled rejection crashen (P2-Regression).
+		promise.catch(() => {
+			/* verspätetes Ergebnis wird bewusst verworfen */
+		});
+		return await Promise.race([
+			promise.then((value) => ({ ok: true as const, value })),
+			new Promise<{ ok: false; reason: 'timeout' }>((resolve) => {
+				timer = setTimeout(() => resolve({ ok: false, reason: 'timeout' }), timeoutMs);
+			}),
+		]);
+	} finally {
+		if (timer) clearTimeout(timer);
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Recovery-Rekonstruktion (P3): completed worker aus persistierten Attempts
+// rekonstruieren — NIE erneut ausführen (Recovery A/E).
+// ---------------------------------------------------------------------------
+
+function reconstructResearchResult(attempt: AttemptRecord): ParallelResearchResult | null {
+	if (attempt.status !== 'succeeded' || !attempt.output_json) return null;
+	try {
+		const output = JSON.parse(attempt.output_json) as ResearchWorkerOutput;
+		const kind =
+			(attempt.worker_type?.split('.').at(-1) as ParallelResearchResult['kind']) ?? 'code';
+		const startedAt = attempt.started_at ?? '';
+		const endedAt = attempt.ended_at ?? startedAt;
+		return {
+			kind,
+			workerType: attempt.worker_type ?? `research.${kind}`,
+			provider: attempt.provider,
+			model: attempt.model,
+			required: true,
+			status: 'SUCCEEDED',
+			failure_class: null,
+			failure_signature: null,
+			output,
+			started_at: startedAt,
+			ended_at: endedAt,
+			duration_ms: endedAt
+				? Math.max(0, new Date(endedAt).getTime() - new Date(startedAt).getTime())
+				: 0,
+		};
+	} catch {
+		return null;
+	}
+}
+
+function reviewKindFromWorkerType(
+	workerType: string | null,
+): 'correctness' | 'security' | 'quality' {
+	const tail = workerType?.split('.').at(-1);
+	if (tail === 'security' || tail === 'quality') return tail;
+	return 'correctness';
+}
+
+function reconstructReviewResult(attempt: AttemptRecord): ParallelReviewResult | null {
+	if (attempt.status !== 'succeeded' || !attempt.output_json) return null;
+	try {
+		const findings = JSON.parse(attempt.output_json) as FindingContract[];
+		const kind = reviewKindFromWorkerType(attempt.worker_type);
+		const startedAt = attempt.started_at ?? '';
+		const endedAt = attempt.ended_at ?? startedAt;
+		return {
+			kind,
+			workerType: attempt.worker_type ?? `review.${kind}`,
+			findings,
+			started_at: startedAt,
+			ended_at: endedAt,
+			duration_ms: endedAt
+				? Math.max(0, new Date(endedAt).getTime() - new Date(startedAt).getTime())
+				: 0,
+		};
+	} catch {
+		return null;
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Verify-Schritt (P3): persistenter verify-Job + Attempt je Build-Attempt.
+// Recovery D: ein bereits verifizierter Build-Attempt wird NICHT erneut
+// verifiziert (Rehydratation aus output_json); Recovery C: ein succeeded
+// Build-Attempt ohne verify bekommt NUR den Verify-Schritt nachgezogen.
+// ---------------------------------------------------------------------------
+
+interface VerifyStepOutcome {
+	verification: VerificationContract | null;
+	outcome: 'pass' | 'fail' | 'contract' | 'timeout';
+	reason: string;
+}
+
+async function runVerifyStep(
+	db: Database.Database,
+	runId: string,
+	buildJobId: string,
+	buildAttempt: AttemptRecord,
+	deps: DurableRunDeps,
+	trackTransition: (next: string, reasonCode: string) => void,
+): Promise<VerifyStepOutcome> {
+	// Verify-Job find-or-create für DIESEN build-attempt (via input fingerprint)
+	const verifyInputFingerprint = fingerprint({
+		attempt: buildAttempt.attempt_id,
+		workspace: deps.workspace.path,
+	});
+	const existingVerifyJobs = listJobs(db, runId).filter(
+		(j) => j.job_type === 'verify' && j.parent_job_id === buildJobId,
+	);
+	for (const vj of existingVerifyJobs) {
+		const last = listJobAttempts(db, vj.job_id).at(-1);
+		if (last?.input_fingerprint === verifyInputFingerprint && last.output_json) {
+			try {
+				const verification = JSON.parse(last.output_json) as VerificationContract;
+				if (last.status === 'succeeded' || last.status === 'failed') {
+					return {
+						verification,
+						outcome: verification.passed ? 'pass' : 'fail',
+						reason: 'recovered',
+					};
+				}
+			} catch {
+				// verworfen → neuer Versuch
+			}
+		}
+	}
+
+	const verifyJob = createJob(db, runId, 'verify', buildJobId);
+	const verifyAttempt = createAttempt(db, runId, verifyJob.job_id, {
+		status: 'pending',
+		worker_type: 'deterministic-tools',
+		provider: null,
+		model: null,
+		input_contract: 'positron.verification.v1',
+		input_fingerprint: verifyInputFingerprint,
+	});
+	if (!claimAttempt(db, verifyAttempt.attempt_id)) {
+		return { verification: null, outcome: 'contract', reason: 'verify claim denied' };
+	}
+	// P3: Tool-/Worker-Aufruf nur innerhalb eines aktiven Attempts.
+	assertExecutionContext({
+		run_id: runId,
+		job_id: verifyJob.job_id,
+		attempt_id: verifyAttempt.attempt_id,
+	});
+	assertAttemptActive(db, verifyAttempt.attempt_id);
+
+	const timed = await withTimeout(
+		deps.verifyTool.run({
+			run_id: runId,
+			job_id: verifyJob.job_id,
+			attempt_id: verifyAttempt.attempt_id,
+			workspacePath: deps.workspace.path,
+		}),
+		deps.timeoutMs,
+	);
+	if (!timed.ok) {
+		// Deterministischer Timeout: Attempt endet final (timed_out); ein
+		// verspätetes Ergebnis wird vom Transition-Guard verworfen.
+		completeAttempt(db, verifyAttempt.attempt_id, {
+			status: 'timed_out',
+			failure_class: 'TIMEOUT',
+			failure_signature: `verify-timeout-${deps.timeoutMs ?? 0}ms`,
+		});
+		updateJobState(db, verifyJob.job_id, 'failed');
+		return {
+			verification: null,
+			outcome: 'timeout',
+			reason: `verify-timeout-${deps.timeoutMs ?? 0}ms`,
+		};
+	}
+
+	const builtVerification = buildVerificationContract({
+		run_id: runId,
+		job_id: verifyJob.job_id,
+		attempt_id: verifyAttempt.attempt_id,
+		checks: timed.value.checks,
+		new_evidence: timed.value.new_evidence,
+	});
+	const verifyValidation = validateContract('positron.verification.v1', builtVerification);
+	if (!verifyValidation.ok) {
+		completeAttempt(db, verifyAttempt.attempt_id, {
+			status: 'blocked',
+			failure_class: 'CONTRACT_FAILURE',
+			failure_signature: verifyValidation.errors.join('|'),
+		});
+		updateJobState(db, verifyJob.job_id, 'blocked');
+		return {
+			verification: null,
+			outcome: 'contract',
+			reason: verifyValidation.errors.join('|'),
+		};
+	}
+	completeAttempt(db, verifyAttempt.attempt_id, {
+		status: builtVerification.passed ? 'succeeded' : 'failed',
+		output_contract: builtVerification.contract,
+		output_fingerprint: fingerprint(builtVerification),
+		output_json: JSON.stringify(builtVerification),
+		failure_class: builtVerification.failure_class ?? null,
+		failure_signature: builtVerification.failure_signature ?? null,
+		new_evidence: builtVerification.new_evidence ?? null,
+	});
+	updateJobState(db, verifyJob.job_id, builtVerification.passed ? 'succeeded' : 'failed');
+	trackTransition('VERIFY', builtVerification.passed ? 'VERIFY_PASS' : 'VERIFY_FAIL');
+	return {
+		verification: builtVerification,
+		outcome: builtVerification.passed ? 'pass' : 'fail',
+		reason: 'verified',
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -212,18 +477,97 @@ export async function runDurableRun(
 		lastState = next;
 	};
 
-	// ── INTAKE ──────────────────────────────────────────────────────────────
-	const intakeJob = createJob(db, runId, 'intake');
-	updateJobState(db, intakeJob.job_id, 'succeeded');
-	trackTransition('INTAKE', 'RUN_CREATED');
+	// ── INTAKE (find-or-create: Recovery erzeugt keinen zweiten intake-Job) ─
+	const existingIntakeJob = listJobs(db, runId).find((j) => j.job_type === 'intake');
+	const intakeJob = existingIntakeJob ?? createJob(db, runId, 'intake');
+	if (!existingIntakeJob) {
+		updateJobState(db, intakeJob.job_id, 'succeeded');
+		trackTransition('INTAKE', 'RUN_CREATED');
+	}
 
-	// ── BASELINE ────────────────────────────────────────────────────────────
-	const baselineJob = createJob(db, runId, 'baseline');
-	const baselineHead = deps.workspace.readHead
-		? deps.workspace.readHead(deps.workspace.path)
-		: readRepositoryHead(deps.workspace.path);
-	updateJobState(db, baselineJob.job_id, 'succeeded');
-	trackTransition('BASELINE', 'BASELINE_OK');
+	// Worker-Aufruf-Zähler (Build-Canary-Evidenz; je Worker-Typ zusätzlich
+	// Attempt-Zählung über cp_attempts — §20 ATTEMPT_OWNERSHIP).
+	let workerInvocations = 0;
+
+	// ── BASELINE (durable, read-only, mit Attempt) ──────────────────────────
+	// Recovery: abgeschlossener baseline-Job wird NIE erneut ausgeführt; der
+	// persistierte repository_head wird beim Resume wiederverwendet
+	// (Konsistenz mit den persistierten Attempts).
+	const existingBaselineJob = listJobs(db, runId).find((j) => j.job_type === 'baseline');
+	const baselineJob = existingBaselineJob ?? createJob(db, runId, 'baseline');
+	let baselineHead: string;
+	if (baselineJob.state === 'succeeded') {
+		const baselineAttempt = listJobAttempts(db, baselineJob.job_id).at(-1) ?? null;
+		if (baselineAttempt?.output_json) {
+			try {
+				const baselineDoc = JSON.parse(baselineAttempt.output_json) as {
+					repository_head?: string;
+				};
+				baselineHead = baselineDoc.repository_head ?? '';
+			} catch {
+				baselineHead = '';
+			}
+		} else {
+			baselineHead = '';
+		}
+		if (!baselineHead) {
+			throw new Error('INTERNAL: baseline job succeeded but repository_head not persisted');
+		}
+	} else {
+		updateJobState(db, baselineJob.job_id, 'running');
+		const baselineAttempt = createAttempt(db, runId, baselineJob.job_id, {
+			status: 'pending',
+			worker_type: 'deterministic.baseline',
+			provider: null,
+			model: null,
+			input_contract: 'positron.baseline.v1',
+			input_fingerprint: fingerprint({
+				run_id: runId,
+				repository_ref: deps.workspace.repositoryRef,
+				workspace: deps.workspace.path,
+			}),
+		});
+		// P3: deterministischer Worker läuft nur in geclaimtem Attempt.
+		assertExecutionContext({
+			run_id: runId,
+			job_id: baselineJob.job_id,
+			attempt_id: baselineAttempt.attempt_id,
+		});
+		if (!claimAttempt(db, baselineAttempt.attempt_id)) {
+			throw new Error('INTERNAL: baseline attempt claim failed');
+		}
+		baselineHead = deps.workspace.readHead
+			? deps.workspace.readHead(deps.workspace.path)
+			: readRepositoryHead(deps.workspace.path);
+		const baselineDoc = {
+			contract: 'positron.baseline.v1',
+			run_id: runId,
+			repository_ref: deps.workspace.repositoryRef,
+			repository_head: baselineHead,
+			workspace_path: deps.workspace.path,
+			clean: false,
+			changed_files: [],
+		};
+		const baselineValidation = validateContract('positron.baseline.v1', baselineDoc);
+		if (!baselineValidation.ok) {
+			completeAttempt(db, baselineAttempt.attempt_id, {
+				status: 'blocked',
+				failure_class: 'CONTRACT_FAILURE',
+				failure_signature: baselineValidation.errors.join('|'),
+			});
+			updateJobState(db, baselineJob.job_id, 'blocked');
+			throw new Error('INFRA_FAILURE: baseline contract invalid');
+		}
+		completeAttempt(db, baselineAttempt.attempt_id, {
+			status: 'succeeded',
+			output_contract: 'positron.baseline.v1',
+			output_fingerprint: fingerprint(baselineDoc),
+			output_json: JSON.stringify(baselineDoc),
+			result_ref: baselineHead,
+		});
+		updateJobState(db, baselineJob.job_id, 'succeeded');
+		trackTransition('BASELINE', 'BASELINE_OK');
+	}
 
 	// ── RESEARCH (Fan-out/Join, Recovery-aware) ─────────────────────────────
 	// Drei logisch unabhängige Worker (code/docs/tests) laufen real parallel.
@@ -263,35 +607,52 @@ export async function runDurableRun(
 			// Verdict fließt später in die Decision-Basis ein
 			researchVerdictFromRecovery = verdict;
 		} else {
-			updateJobState(db, researchJob.job_id, 'running');
-			researchOutcome = await runParallelResearch(
-				db,
-				{
-					run_id: runId,
-					job_id: researchJob.job_id,
-					workspacePath: deps.workspace.path,
-					repositoryRef: deps.workspace.repositoryRef,
-					repositoryHead: baselineHead,
-				},
-				deps.researchWorkers,
-				deps.researchOptions,
-			);
-			if (researchOutcome.barrier.status === 'JOIN') {
+			// P3-Recovery A (Attempt-Ebene): completed Worker werden aus den
+			// persistierten Attempts rekonstruiert und NICHT erneut ausgeführt;
+			// nur fehlende Worker starten.
+			const recoveredResults = researchAttempts
+				.map(reconstructResearchResult)
+				.filter((r): r is ParallelResearchResult => r !== null);
+			const recoveredKinds = new Set(recoveredResults.map((r) => r.kind));
+			const pendingWorkers = deps.researchWorkers.filter((w) => !recoveredKinds.has(w.kind));
+
+			if (pendingWorkers.length === 0) {
+				// Alles recovered (Crash zwischen Attempt-Completion und
+				// Job-State-Update): Job aus Persistenz schließen.
 				updateJobState(db, researchJob.job_id, 'succeeded');
-				trackTransition('RESEARCH', 'RESEARCH_JOIN');
+				researchVerdictFromRecovery = assertRealParallelism(recoveredResults);
+				trackTransition('RESEARCH', 'RESEARCH_RECOVERED');
 			} else {
-				updateJobState(db, researchJob.job_id, 'failed');
-				trackTransition('RESEARCH', researchOutcome.barrier.reason_code);
-				const decision = buildDecision({
-					run_id: runId,
-					verification: null,
-					findings: [],
-					researchBarrier: researchOutcome.barrier.reason_code,
-					researchParallelism: researchOutcome.verdict,
-				});
-				// Barrier-Reason auch in der Basis persistieren (Observability)
-				decision.basis.research_barrier = researchOutcome.barrier.reason_code;
-				return finishRun(db, runId, decision, transitions, 0);
+				updateJobState(db, researchJob.job_id, 'running');
+				researchOutcome = await runParallelResearch(
+					db,
+					{
+						run_id: runId,
+						job_id: researchJob.job_id,
+						workspacePath: deps.workspace.path,
+						repositoryRef: deps.workspace.repositoryRef,
+						repositoryHead: baselineHead,
+					},
+					pendingWorkers,
+					{ ...deps.researchOptions, recoveredResults },
+				);
+				if (researchOutcome.barrier.status === 'JOIN') {
+					updateJobState(db, researchJob.job_id, 'succeeded');
+					trackTransition('RESEARCH', 'RESEARCH_JOIN');
+				} else {
+					updateJobState(db, researchJob.job_id, 'failed');
+					trackTransition('RESEARCH', researchOutcome.barrier.reason_code);
+					const decision = buildDecision({
+						run_id: runId,
+						verification: null,
+						findings: [],
+						researchBarrier: researchOutcome.barrier.reason_code,
+						researchParallelism: researchOutcome.verdict,
+					});
+					// Barrier-Reason auch in der Basis persistieren (Observability)
+					decision.basis.research_barrier = researchOutcome.barrier.reason_code;
+					return finishRun(db, runId, decision, transitions, 0);
+				}
 			}
 		}
 	}
@@ -315,24 +676,87 @@ export async function runDurableRun(
 		);
 	}
 
-	// ── PLAN (Contract validieren) ──────────────────────────────────────────
-	const planJob = createJob(db, runId, 'plan');
-	const planValidation = validateContract('positron.plan.v1', input.plan);
-	if (!planValidation.ok) {
-		updateJobState(db, planJob.job_id, 'blocked');
-		const decision = buildDecision({
-			run_id: runId,
-			verification: null,
-			findings: [],
-			contractErrors: planValidation.errors,
+	// ── PLAN (durable, read-only, mit Attempt + Gate) ───────────────────────
+	// Recovery B: ein abgeschlossener plan-Job wird NIE erneut ausgeführt;
+	// der Plan-Contract wird aus dem persistierten plan-Attempt geladen.
+	const existingPlanJob = listJobs(db, runId).find((j) => j.job_type === 'plan');
+	const planJob = existingPlanJob ?? createJob(db, runId, 'plan');
+	let plan: PlanContract;
+	if (planJob.state === 'succeeded') {
+		const planAttempt = listJobAttempts(db, planJob.job_id).at(-1) ?? null;
+		if (planAttempt?.output_json) {
+			try {
+				plan = JSON.parse(planAttempt.output_json) as PlanContract;
+			} catch {
+				plan = input.plan;
+			}
+		} else {
+			plan = input.plan;
+		}
+	} else {
+		updateJobState(db, planJob.job_id, 'running');
+		const planAttempt = createAttempt(db, runId, planJob.job_id, {
+			status: 'pending',
+			worker_type: deps.planWorker?.workerType ?? 'deterministic.plan',
+			provider: deps.planWorker?.provider ?? null,
+			model: deps.planWorker?.model ?? null,
+			input_contract: 'positron.plan.v1',
+			input_fingerprint: fingerprint({ run_id: runId, issue: input.issue }),
 		});
-		return finishRun(db, runId, decision, transitions, 0);
+		// P3: Plan-Worker läuft nur in geclaimtem Attempt.
+		assertExecutionContext({
+			run_id: runId,
+			job_id: planJob.job_id,
+			attempt_id: planAttempt.attempt_id,
+		});
+		if (!claimAttempt(db, planAttempt.attempt_id)) {
+			throw new Error('INTERNAL: plan attempt claim failed');
+		}
+		if (deps.planWorker) {
+			assertAttemptActive(db, planAttempt.attempt_id);
+			plan = await deps.planWorker.run({
+				run_id: runId,
+				job_id: planJob.job_id,
+				attempt_id: planAttempt.attempt_id,
+				workspacePath: deps.workspace.path,
+				issue: input.issue,
+			});
+		} else {
+			// Kompatibilität: Plan aus Input (Tests) — wird trotzdem als
+			// Input/Output des plan-Attempts vollständig persistiert.
+			plan = input.plan;
+		}
+		const planValidation = validateContract('positron.plan.v1', plan);
+		if (!planValidation.ok) {
+			completeAttempt(db, planAttempt.attempt_id, {
+				status: 'blocked',
+				failure_class: 'CONTRACT_FAILURE',
+				failure_signature: planValidation.errors.join('|'),
+			});
+			updateJobState(db, planJob.job_id, 'blocked');
+			const decision = buildDecision({
+				run_id: runId,
+				verification: null,
+				findings: [],
+				contractErrors: planValidation.errors,
+			});
+			return finishRun(db, runId, decision, transitions, workerInvocations);
+		}
+		completeAttempt(db, planAttempt.attempt_id, {
+			status: 'succeeded',
+			output_contract: 'positron.plan.v1',
+			output_fingerprint: fingerprint(plan),
+			output_json: JSON.stringify(plan),
+		});
+		updateJobState(db, planJob.job_id, 'succeeded');
+		trackTransition('PLAN', 'PLAN_VALID');
 	}
-	updateJobState(db, planJob.job_id, 'succeeded');
 
-	// ── PLAN_GATE ───────────────────────────────────────────────────────────
-	const gateJob = createJob(db, runId, 'plan_gate');
-	const gateResult = evaluatePlanGate(input.plan, deps.workspace.repositoryRef, baselineHead);
+	// ── PLAN_GATE (deterministisch; NUR nach validiertem persistiertem Result) ──
+	const gateJob =
+		listJobs(db, runId).find((j) => j.job_type === 'plan_gate') ??
+		createJob(db, runId, 'plan_gate');
+	const gateResult = evaluatePlanGate(plan, deps.workspace.repositoryRef, baselineHead);
 	if (gateResult.status !== 'APPROVED') {
 		updateJobState(db, gateJob.job_id, 'blocked');
 		trackTransition('PLAN_GATE', gateResult.reason_code);
@@ -342,53 +766,72 @@ export async function runDurableRun(
 			findings: [],
 			planGateStatus: gateResult.status,
 		});
-		return finishRun(db, runId, decision, transitions, 0);
+		return finishRun(db, runId, decision, transitions, workerInvocations);
 	}
-	updateJobState(db, gateJob.job_id, 'succeeded');
-	trackTransition('PLAN_GATE', 'PLAN_GATE_APPROVED');
+	if (gateJob.state !== 'succeeded') {
+		updateJobState(db, gateJob.job_id, 'succeeded');
+		trackTransition('PLAN_GATE', 'PLAN_GATE_APPROVED');
+	}
 
 	// ── BUILD + VERIFY + REVIEW + DECIDE (mit FIX-Zyklen) ──────────────────
 	// Recovery: existierende Jobs werden wiederverwendet, abgeschlossene
 	// Jobs werden NIE erneut ausgeführt.
 	const existingBuildJob = listJobs(db, runId).find((j) => j.job_type === 'build');
 	const buildJob = existingBuildJob ?? createJob(db, runId, 'build');
-	const planFingerprint = fingerprint(input.plan);
+	const planFingerprint = fingerprint(plan);
 
 	const existingBuildAttempts = listJobAttempts(db, buildJob.job_id);
-	const existingVerifyJobs = listJobs(db, runId).filter((j) => j.job_type === 'verify');
 
 	let attemptNumber = existingBuildAttempts.length;
 	let decision: DecisionContract | null = null;
-	let workerInvocations = 0;
 	let verification: VerificationContract | null = null;
 	// Von der Control Plane deterministisch abgeleitetes Strategie-Delta:
 	// die neue Evidenz des letzten fehlgeschlagenen Verify (kein LLM-Urteil).
 	let lastFailureEvidence: string | null = null;
 
-	// Recovery-Boundary: Wenn der letzte Build-Attempt bereits erfolgreich
-	// verifiziert wurde, wird build+verify NICHT erneut ausgeführt.
 	const lastBuildAttempt = existingBuildAttempts.at(-1) ?? null;
-	if (lastBuildAttempt?.status === 'succeeded') {
-		const matchingVerifyJob = existingVerifyJobs.find(
-			(v) => v.parent_job_id === buildJob.job_id && v.state === 'succeeded',
+
+	// ── Recovery C (Pflicht-Canary): build succeeded + result persisted,
+	// aber crash vor verify → Build wird NICHT erneut ausgeführt, der
+	// Verify-Schritt wird für den persistierten Build-Attempt nachgezogen.
+	// Recovery D: verify completed + persisted → wird rehydriert, kein Rerun.
+	if (lastBuildAttempt?.status === 'succeeded' && !verification) {
+		const verifyOutcome = await runVerifyStep(
+			db,
+			runId,
+			buildJob.job_id,
+			lastBuildAttempt,
+			deps,
+			trackTransition,
 		);
-		if (matchingVerifyJob) {
-			const verifiedAttempt = listJobAttempts(db, matchingVerifyJob.job_id).at(-1);
-			if (verifiedAttempt?.output_json) {
-				try {
-					verification = JSON.parse(verifiedAttempt.output_json) as VerificationContract;
-				} catch {
-					verification = null;
-				}
+		if (verifyOutcome.outcome === 'contract') {
+			decision = buildDecision({
+				run_id: runId,
+				verification: null,
+				findings: [],
+				contractErrors: [verifyOutcome.reason],
+			});
+		} else if (verifyOutcome.outcome === 'timeout') {
+			decision = buildDecision({
+				run_id: runId,
+				verification: null,
+				findings: [],
+				timeoutReason: 'VERIFY_TIMEOUT',
+			});
+		} else {
+			verification = verifyOutcome.verification;
+			if (verification && !verification.passed) {
+				lastFailureEvidence = verification.new_evidence ?? null;
 			}
 		}
 	}
 
-	while (attemptNumber < deps.maxAttempts && !verification) {
+	while (attemptNumber < deps.maxAttempts && !verification && !decision) {
 		attemptNumber++;
 
 		// ── BUILD: neuer Attempt (immer neue attempt_id) ────────────────────
 		updateJobState(db, buildJob.job_id, 'running');
+		const previousAttempt = listJobAttempts(db, buildJob.job_id).at(-1) ?? null;
 		const buildInput: BuildInputContract = {
 			contract: 'positron.build-input.v1',
 			run_id: runId,
@@ -405,12 +848,16 @@ export async function runDurableRun(
 			: null;
 		const attempt = createAttempt(db, runId, buildJob.job_id, {
 			attempt_id: buildInput.attempt_id,
+			status: 'pending',
 			input_contract: buildInput.contract,
 			input_fingerprint: fingerprint(buildInput),
 			worker_type: deps.buildWorker.workerType,
 			provider: deps.buildWorker.provider,
 			model: deps.buildWorker.model,
 			strategy_delta: strategyDelta,
+			// P3-FIX-Kette: der neue Attempt referenziert den vorherigen
+			// (§15 — keine überschriebene Historie).
+			previous_attempt_id: previousAttempt?.attempt_id ?? null,
 		});
 
 		// Idempotenz: Dispatch ist an run:job:attempt gebunden
@@ -423,18 +870,56 @@ export async function runDurableRun(
 			});
 			continue;
 		}
+		// P3-Claim: exakt ein Ausführer pro Attempt (paralleler
+		// Doppel-Dispatch desselben Attempts wird abgelehnt).
+		if (!claimAttempt(db, attempt.attempt_id)) {
+			completeAttempt(db, attempt.attempt_id, {
+				status: 'denied',
+				result_ref: 'duplicate-claim',
+			});
+			continue;
+		}
 
-		// Crash-Injection: nach abgeschlossenem Job vor Build simulieren
+		// Crash-Injection (Recovery-Test): Abbruch VOR Build-Ausführung
 		if (input.crashAfterJob && input.crashAfterJob === buildJob.job_id && attemptNumber === 1) {
-			// Der Job gilt als abgeschlossen — Recovery wird den Run an einer
-			// validen Boundary fortsetzen, ohne den Job erneut auszuführen.
-			updateJobState(db, buildJob.job_id, 'succeeded');
-			completeAttempt(db, attempt.attempt_id, { status: 'succeeded' });
+			completeAttempt(db, attempt.attempt_id, {
+				status: 'blocked',
+				failure_class: 'INFRA_FAILURE',
+				failure_signature: 'crash-injected-before-build',
+			});
 			break;
 		}
 
-		const buildResult = await deps.buildWorker.implement({ ...buildInput, strategyDelta });
+		// P3: Provider-/OpenCode-Aufruf nur innerhalb eines aktiven Attempts.
+		assertExecutionContext({
+			run_id: runId,
+			job_id: buildJob.job_id,
+			attempt_id: attempt.attempt_id,
+		});
+		assertAttemptActive(db, attempt.attempt_id);
+
+		const timedBuild = await withTimeout(
+			deps.buildWorker.implement({ ...buildInput, strategyDelta }),
+			deps.timeoutMs,
+		);
+		if (!timedBuild.ok) {
+			// Deterministischer Timeout: Attempt endet final (timed_out),
+			// kein Zombie-Job, keine unhandled rejection, kein Erfolgsübergang.
+			completeAttempt(db, attempt.attempt_id, {
+				status: 'timed_out',
+				failure_class: 'TIMEOUT',
+				failure_signature: `build-timeout-${deps.timeoutMs ?? 0}ms`,
+			});
+			decision = buildDecision({
+				run_id: runId,
+				verification: null,
+				findings: [],
+				timeoutReason: 'BUILD_TIMEOUT',
+			});
+			break;
+		}
 		workerInvocations++;
+		const buildResult = timedBuild.value;
 
 		const buildResultValidation = validateContract('positron.build-result.v1', buildResult);
 		if (!buildResultValidation.ok) {
@@ -464,57 +949,58 @@ export async function runDurableRun(
 			buildResult.status === 'success' ? 'BUILD_RESULT_OK' : 'BUILD_RESULT_FAILED',
 		);
 
-		// ── VERIFY: deterministische Tools ───────────────────────────────────
-		const verifyJob = createJob(db, runId, 'verify', buildJob.job_id);
-		const verifyAttempt = createAttempt(db, runId, verifyJob.job_id, {
-			worker_type: 'deterministic-tools',
-			input_contract: 'positron.verification.v1',
-			input_fingerprint: fingerprint({
-				attempt: attempt.attempt_id,
-				workspace: deps.workspace.path,
-			}),
-		});
-		const verifyOut = await deps.verifyTool.run({
-			run_id: runId,
-			job_id: verifyJob.job_id,
-			attempt_id: verifyAttempt.attempt_id,
-			workspacePath: deps.workspace.path,
-		});
-		const builtVerification = buildVerificationContract({
-			run_id: runId,
-			job_id: verifyJob.job_id,
-			attempt_id: verifyAttempt.attempt_id,
-			checks: verifyOut.checks,
-			new_evidence: verifyOut.new_evidence,
-		});
-		verification = builtVerification;
-		const verifyValidation = validateContract('positron.verification.v1', verification);
-		if (!verifyValidation.ok) {
-			completeAttempt(db, verifyAttempt.attempt_id, {
-				status: 'blocked',
-				failure_class: 'CONTRACT_FAILURE',
-				failure_signature: verifyValidation.errors.join('|'),
-			});
+		// Crash-Injection (Recovery-Test C): Abbruch NACH Build-Result-
+		// Persistenz, VOR Verify — beim Resume wird der Build-Attempt als
+		// completed evidence wiederverwendet und NUR der Verify-Schritt
+		// nachgezogen (BUILD_WORKER_CALLS bleibt 1).
+		if (input.crashAfterJob && input.crashAfterJob === 'before-verify') {
+			return finishRun(
+				db,
+				runId,
+				{
+					contract: 'positron.decision.v1',
+					run_id: runId,
+					decision: 'BLOCKED',
+					reason_code: 'CRASH_INJECTED',
+					basis: {
+						boundary: 'build',
+						message: 'controlled crash after build result, before verify',
+					},
+				},
+				transitions,
+				workerInvocations,
+			);
+		}
+
+		// ── VERIFY: deterministische Tools (persistenter Job/Attempt) ────────
+		const verifyOutcome = await runVerifyStep(
+			db,
+			runId,
+			buildJob.job_id,
+			attempt,
+			deps,
+			trackTransition,
+		);
+		if (verifyOutcome.outcome === 'contract') {
 			decision = buildDecision({
 				run_id: runId,
 				verification: null,
 				findings: [],
-				contractErrors: verifyValidation.errors,
+				contractErrors: [verifyOutcome.reason],
 			});
 			break;
 		}
-		completeAttempt(db, verifyAttempt.attempt_id, {
-			status: verification.passed ? 'succeeded' : 'failed',
-			output_contract: verification.contract,
-			output_fingerprint: fingerprint(verification),
-			output_json: JSON.stringify(verification),
-			failure_class: verification.failure_class ?? null,
-			failure_signature: verification.failure_signature ?? null,
-			new_evidence: verification.new_evidence ?? null,
-		});
-		updateJobState(db, verifyJob.job_id, verification.passed ? 'succeeded' : 'failed');
-		trackTransition('VERIFY', verification.passed ? 'VERIFY_PASS' : 'VERIFY_FAIL');
-		if (!verification.passed) {
+		if (verifyOutcome.outcome === 'timeout') {
+			decision = buildDecision({
+				run_id: runId,
+				verification: null,
+				findings: [],
+				timeoutReason: 'VERIFY_TIMEOUT',
+			});
+			break;
+		}
+		verification = verifyOutcome.verification;
+		if (verification && !verification.passed) {
 			lastFailureEvidence = verification.new_evidence ?? null;
 			// Der Build-Attempt gilt fachlich als failed (Build+Verify), trägt
 			// die Failure-Klassifikation und bleibt historisch vollständig.
@@ -528,10 +1014,7 @@ export async function runDurableRun(
 		// Crash-Injection (Recovery-Test): Abbruch NACH einem erfolgreich
 		// abgeschlossenen Job (verify) — der Run ist an einer validen
 		// Boundary abgeschlossen; beim Resume wird nichts wiederholt.
-		if (
-			input.crashAfterJob &&
-			(input.crashAfterJob === verifyJob.job_id || input.crashAfterJob === 'verify')
-		) {
+		if (input.crashAfterJob && input.crashAfterJob === 'verify') {
 			updateJobState(db, buildJob.job_id, 'succeeded');
 			return finishRun(
 				db,
@@ -549,7 +1032,7 @@ export async function runDurableRun(
 		}
 
 		// ── FIX-Zyklus: Retry nur bei Information Gain ──────────────────────
-		if (!verification.passed) {
+		if (verification && !verification.passed) {
 			// DB-Stand des Build-Attempts (enthält failure_class/signature)
 			const attemptFromDb = getAttempt(db, attempt.attempt_id) ?? attempt;
 			const retryCheck = evaluateRetry({
@@ -567,7 +1050,8 @@ export async function runDurableRun(
 				break;
 			}
 			// FIX erlaubt: Verification zurücksetzen → neuer Attempt im Loop.
-			// Die Attempt-Historie bleibt vollständig erhalten (neue attempt_id).
+			// Die Attempt-Historie bleibt vollständig erhalten (neue attempt_id,
+			// previous_attempt_id referenziert den vorherigen Versuch).
 			verification = null;
 		}
 	}
@@ -576,71 +1060,104 @@ export async function runDurableRun(
 	// P1: echte parallele Review-Worker (Fan-out/Join). Parallelität wird
 	// über reale Zeitüberschneidung bewiesen (PARALLELISM_PROVEN), nie über
 	// Code-Struktur behauptet. Ohne Worker: einfacher Review-Pfad.
-	const reviewJob = createJob(db, runId, 'review', buildJob.job_id);
+	// P3-Recovery E: abgeschlossene Reviews werden aus cp_attempts
+	// rekonstruiert und NIE erneut ausgeführt.
+	const existingReviewJob = listJobs(db, runId).find((j) => j.job_type === 'review');
+	const reviewJob = existingReviewJob ?? createJob(db, runId, 'review', buildJob.job_id);
 	let findings: FindingContract[] = [];
 	let parallelismVerdict: ParallelismVerdict | null = null;
 	if (deps.reviewWorkers && deps.reviewWorkers.length > 0) {
-		const reviewOutcome = await runParallelReviews(
-			db,
-			{ run_id: runId, job_id: reviewJob.job_id, workspacePath: deps.workspace.path },
-			deps.reviewWorkers,
-		);
-		findings = reviewOutcome.reviewBatch.findings;
-		parallelismVerdict = reviewOutcome.verdict;
-		storeTransition(db, runId, 'VERIFY', 'REVIEW', 'REVIEW_PARALLEL');
-		emitEvent({
-			contract: 'positron.run-event.v1',
-			run_id: runId,
-			job_id: reviewJob.job_id,
-			timestamp: new Date().toISOString(),
-			previous_state: 'VERIFY',
-			new_state: 'REVIEW',
-			reason_code: parallelismVerdict,
-			level: 'INFO',
-		});
+		if (reviewJob.state === 'succeeded') {
+			// Recovery: Findings aus persistierten Attempts rekonstruieren.
+			findings = listJobAttempts(db, reviewJob.job_id).flatMap((a) => {
+				if (a.status !== 'succeeded' || !a.output_json) return [];
+				try {
+					return JSON.parse(a.output_json) as FindingContract[];
+				} catch {
+					return [];
+				}
+			});
+			storeTransition(db, runId, 'VERIFY', 'REVIEW', 'REVIEW_RECOVERED');
+		} else {
+			const recoveredResults = listJobAttempts(db, reviewJob.job_id)
+				.map(reconstructReviewResult)
+				.filter((r): r is ParallelReviewResult => r !== null);
+			const recoveredKinds = new Set(recoveredResults.map((r) => r.kind));
+			const pendingWorkers = deps.reviewWorkers.filter((w) => !recoveredKinds.has(w.kind));
+			if (pendingWorkers.length === 0) {
+				// Alles recovered (Crash zwischen Attempt-Completion und
+				// Job-State-Update).
+				findings = recoveredResults.flatMap((r) => r.findings);
+				storeTransition(db, runId, 'VERIFY', 'REVIEW', 'REVIEW_RECOVERED');
+			} else {
+				const reviewOutcome = await runParallelReviews(
+					db,
+					{ run_id: runId, job_id: reviewJob.job_id, workspacePath: deps.workspace.path },
+					pendingWorkers,
+					recoveredResults,
+				);
+				findings = reviewOutcome.reviewBatch.findings;
+				parallelismVerdict = reviewOutcome.verdict;
+				storeTransition(db, runId, 'VERIFY', 'REVIEW', 'REVIEW_PARALLEL');
+				emitEvent({
+					contract: 'positron.run-event.v1',
+					run_id: runId,
+					job_id: reviewJob.job_id,
+					timestamp: new Date().toISOString(),
+					previous_state: 'VERIFY',
+					new_state: 'REVIEW',
+					reason_code: parallelismVerdict,
+					level: 'INFO',
+				});
+			}
+		}
 	} else {
 		findings = await deps.reviewFindings();
 	}
 	updateJobState(db, reviewJob.job_id, 'succeeded');
 
 	// ── DECIDE: Positron entscheidet (deterministisch) ──────────────────────
-	const latestBuildAttempt = listJobAttempts(db, buildJob.job_id).at(-1) ?? null;
-	const retry = !verification
-		? {
-				verdict: 'DENIED' as const,
-				reason_code: 'RETRY_DENIED_ATTEMPT_LIMIT' as const,
-				delta: [] as string[],
-			}
-		: verification.passed
-			? null
-			: evaluateRetry({
-					attemptNumber,
-					maxAttempts: deps.maxAttempts,
-					previousAttempt: latestBuildAttempt,
-					inputFingerprint: latestBuildAttempt?.input_fingerprint ?? '',
-					worker: deps.buildWorker,
-					newEvidence: verification.new_evidence ?? null,
-					strategyDelta: lastFailureEvidence ? 'fix-per-evidence' : null,
-					contextFingerprint: planFingerprint,
-				});
+	// Bereits gesetzte Entscheidungen (Timeout/Contract-Fehler aus dem
+	// Build-/Verify-Loop) haben Vorrang und werden nicht überschrieben.
+	if (!decision) {
+		const latestBuildAttempt = listJobAttempts(db, buildJob.job_id).at(-1) ?? null;
+		const retry = !verification
+			? {
+					verdict: 'DENIED' as const,
+					reason_code: 'RETRY_DENIED_ATTEMPT_LIMIT' as const,
+					delta: [] as string[],
+				}
+			: verification.passed
+				? null
+				: evaluateRetry({
+						attemptNumber,
+						maxAttempts: deps.maxAttempts,
+						previousAttempt: latestBuildAttempt,
+						inputFingerprint: latestBuildAttempt?.input_fingerprint ?? '',
+						worker: deps.buildWorker,
+						newEvidence: verification.new_evidence ?? null,
+						strategyDelta: lastFailureEvidence ? 'fix-per-evidence' : null,
+						contextFingerprint: planFingerprint,
+					});
 
-	decision = buildDecision({
-		run_id: runId,
-		verification,
-		findings,
-		retry,
-		planGateStatus: 'APPROVED',
-		splitDepth: 0,
-	});
-	if (parallelismVerdict) {
-		decision.basis.parallelism = parallelismVerdict;
-	}
-	if (researchOutcome) {
-		decision.basis.research_parallelism = researchOutcome.verdict;
-		decision.basis.research_barrier = researchOutcome.barrier.reason_code;
-	} else if (researchVerdictFromRecovery) {
-		decision.basis.research_parallelism = researchVerdictFromRecovery;
-		decision.basis.research_barrier = 'RESEARCH_JOIN';
+		decision = buildDecision({
+			run_id: runId,
+			verification,
+			findings,
+			retry,
+			planGateStatus: 'APPROVED',
+			splitDepth: 0,
+		});
+		if (parallelismVerdict) {
+			decision.basis.parallelism = parallelismVerdict;
+		}
+		if (researchOutcome) {
+			decision.basis.research_parallelism = researchOutcome.verdict;
+			decision.basis.research_barrier = researchOutcome.barrier.reason_code;
+		} else if (researchVerdictFromRecovery) {
+			decision.basis.research_parallelism = researchVerdictFromRecovery;
+			decision.basis.research_barrier = 'RESEARCH_JOIN';
+		}
 	}
 
 	storeDecision(db, runId, decision.decision, decision.reason_code, JSON.stringify(decision));

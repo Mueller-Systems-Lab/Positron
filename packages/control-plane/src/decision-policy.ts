@@ -29,6 +29,12 @@ export interface DecisionInput {
 	researchBarrier?: string | null;
 	/** Beobachteter Research-Parallelismus (falls Research ausgeführt wurde) */
 	researchParallelism?: 'PARALLELISM_PROVEN' | 'PARALLELISM_NOT_PROVEN' | null;
+	/**
+	 * Deterministischer Timeout (Worker überschritt seine Zeitgrenze).
+	 * Reason-Code wird direkt verwendet (z. B. BUILD_TIMEOUT, VERIFY_TIMEOUT) —
+	 * ein Timeout ist nie ein Erfolgsübergang.
+	 */
+	timeoutReason?: string | null;
 }
 
 const SECURITY_BLOCKING_SEVERITIES = new Set(['HIGH', 'CRITICAL']);
@@ -44,6 +50,17 @@ export function buildDecision(input: DecisionInput): DecisionContract {
 			decision: 'BLOCKED',
 			reason_code: 'CONTRACT_INVALID',
 			basis: { contract_errors: input.contractErrors },
+		};
+	}
+
+	// 1b. Deterministischer Timeout → BLOCKED (nie Erfolgsübergang)
+	if (input.timeoutReason) {
+		return {
+			contract: 'positron.decision.v1',
+			run_id: runId,
+			decision: 'BLOCKED',
+			reason_code: input.timeoutReason,
+			basis: { message: 'deterministic worker timeout' },
 		};
 	}
 

@@ -53,7 +53,14 @@ export interface JobRecord {
 //
 // Finale Zustände sind unveränderlich: verspätete Ergebnisse (Late Results)
 // und doppelte Completions überschreiben NIE einen finalen Attempt.
-export type AttemptStatus = 'pending' | 'running' | 'succeeded' | 'failed' | 'blocked' | 'timed_out' | 'denied';
+export type AttemptStatus =
+	| 'pending'
+	| 'running'
+	| 'succeeded'
+	| 'failed'
+	| 'blocked'
+	| 'timed_out'
+	| 'denied';
 
 export interface AttemptRecord {
 	attempt_id: string;
@@ -233,7 +240,9 @@ export function createAttempt(
  */
 export function claimAttempt(db: Database.Database, attemptId: string): boolean {
 	const res = db
-		.prepare("UPDATE cp_attempts SET status = 'running' WHERE attempt_id = ? AND status = 'pending'")
+		.prepare(
+			"UPDATE cp_attempts SET status = 'running' WHERE attempt_id = ? AND status = 'pending'",
+		)
 		.run(attemptId);
 	return res.changes === 1;
 }
@@ -274,9 +283,7 @@ export function canTransitionAttempt(
 	update: Partial<AttemptRecord>,
 ): boolean {
 	if (from === 'succeeded') {
-		return (
-			to === 'failed' && Boolean(update.failure_class) && Boolean(update.failure_signature)
-		);
+		return to === 'failed' && Boolean(update.failure_class) && Boolean(update.failure_signature);
 	}
 	if (from === 'failed' || from === 'blocked' || from === 'timed_out' || from === 'denied') {
 		return false;

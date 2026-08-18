@@ -19,11 +19,12 @@
 import type Database from 'better-sqlite3';
 import { validateContract } from './contracts.js';
 import type { FailureClass, ResearchBatchContract } from './contracts.js';
+import { assertAttemptActive, assertExecutionContext } from './execution-context.js';
 import { classifyFailure } from './failure.js';
 import { fingerprint } from './fingerprint.js';
 import { assertRealParallelism, observedOverlapMs } from './parallelism.js';
 import type { ParallelExecutionSlice, ParallelismVerdict } from './parallelism.js';
-import { completeAttempt, createAttempt } from './store.js';
+import { claimAttempt, completeAttempt, createAttempt } from './store.js';
 import type { AttemptRecord } from './store.js';
 
 export type ResearchKind = 'code' | 'docs' | 'tests';
@@ -95,6 +96,12 @@ export interface ResearchRunOptions {
 	 * Kein künstliches PASS, keine Zeitmanipulation.
 	 */
 	sequential?: boolean;
+	/**
+	 * P3-Recovery (Attempt-Ebene): bereits erfolgreich abgeschlossene
+	 * Research-Worker (aus cp_attempts rekonstruiert) werden NICHT erneut
+	 * ausgeführt; sie fließen als vollwertige Ergebnisse in den Batch ein.
+	 */
+	recoveredResults?: ParallelResearchResult[];
 }
 
 function nowIso(): string {
@@ -168,19 +175,38 @@ export async function runParallelResearch(
 	workers: ResearchWorker[],
 	options: ResearchRunOptions = {},
 ): Promise<ParallelResearchOutcome> {
-	if (workers.length === 0) {
-		throw new Error('INTERNAL: research requires at least one worker');
+	const recovered = options.recoveredResults ?? [];
+	if (workers.length === 0 && recovered.length === 0) {
+		throw new Error('INTERNAL: research requires at least one worker or recovered result');
 	}
 
 	const executeOne = async (worker: ResearchWorker): Promise<ParallelResearchResult> => {
 		const startedAt = nowIso();
 		const attempt = createAttempt(db, ctx.run_id, ctx.job_id, {
+			status: 'pending',
 			worker_type: worker.workerType,
 			provider: worker.provider,
 			model: worker.model,
 			input_contract: 'positron.research.v1',
 			input_fingerprint: fingerprint({ kind: worker.kind, run: ctx.run_id }),
 		});
+		// P3: exakt ein Claimer; paralleler Doppel-Dispatch wird abgelehnt.
+		if (!claimAttempt(db, attempt.attempt_id)) {
+			return {
+				kind: worker.kind,
+				workerType: worker.workerType,
+				provider: worker.provider,
+				model: worker.model,
+				required: worker.required,
+				status: 'BLOCKED',
+				failure_class: 'CONTEXT_FAILURE',
+				failure_signature: 'duplicate-claim',
+				output: null,
+				started_at: startedAt,
+				ended_at: startedAt,
+				duration_ms: 0,
+			};
+		}
 
 		const runWithTimeout = async (): Promise<ResearchWorkerOutput> => {
 			if (options.timeoutMs && options.timeoutMs > 0) {
@@ -210,6 +236,14 @@ export async function runParallelResearch(
 					if (timer) clearTimeout(timer);
 				}
 			}
+			// P3: Provider-/Worker-Aufrufe nur innerhalb eines aktiven Attempts
+			// (Runtime-Assertion — NO ACTIVE ATTEMPT → PROVIDER_CALL_DENIED).
+			assertExecutionContext({
+				run_id: ctx.run_id,
+				job_id: ctx.job_id,
+				attempt_id: attempt.attempt_id,
+			});
+			assertAttemptActive(db, attempt.attempt_id);
 			return worker.run({
 				run_id: ctx.run_id,
 				job_id: ctx.job_id,
@@ -259,8 +293,10 @@ export async function runParallelResearch(
 					? (classified.signature as FailureClass)
 					: FAILURE_CLASS_BY_KIND[worker.kind];
 			const failureSignature = `research-${worker.kind}-error:${errMsg.slice(0, 300)}`;
+			// P3: Timeout beendet den Attempt deterministisch (timed_out) —
+			// ein späteres Worker-Ergebnis wird vom Transition-Guard verworfen.
 			completeAttempt(db, attempt.attempt_id, {
-				status: 'failed',
+				status: isTimeout ? 'timed_out' : 'failed',
 				failure_class: failureClass,
 				failure_signature: failureSignature,
 				ended_at: endedAt,
@@ -285,7 +321,7 @@ export async function runParallelResearch(
 	// Fan-out: real parallel (Promise.all) ODER explizit sequentiell
 	// (kontrollierter Negative-Canary — Zeitstempel werden in beiden Fällen
 	// real gemessen; der Verdict folgt ausschließlich daraus).
-	const results = options.sequential
+	const executed = options.sequential
 		? await (async () => {
 				const collected: ParallelResearchResult[] = [];
 				for (const worker of workers) {
@@ -294,6 +330,11 @@ export async function runParallelResearch(
 				return collected;
 			})()
 		: await Promise.all(workers.map((worker) => executeOne(worker)));
+
+	// P3-Recovery (Attempt-Ebene): recovered Ergebnisse (completed worker aus
+	// cp_attempts) zuerst, dann die neu ausgeführten. Completed Worker werden
+	// NIE erneut ausgeführt (Recovery A).
+	const results = [...recovered, ...executed];
 
 	const barrier = evaluateResearchBarrier(results);
 	const verdict = assertRealParallelism(results);
@@ -346,7 +387,10 @@ export async function runParallelResearch(
 		},
 		started_at: startedAt,
 		ended_at: endedAt,
-		context_fingerprint: fingerprint({ kinds: workers.map((w) => w.kind).sort(), run: ctx.run_id }),
+		context_fingerprint: fingerprint({
+			kinds: [...workers.map((w) => w.kind), ...recovered.map((r) => r.kind)].sort(),
+			run: ctx.run_id,
+		}),
 	};
 
 	const batchValidation = validateContract('positron.research.v1', researchBatch);
@@ -394,5 +438,6 @@ export function listResearchAttempts(db: Database.Database, jobId: string): Atte
 		strategy_delta: row.strategy_delta ? String(row.strategy_delta) : null,
 		result_ref: row.result_ref ? String(row.result_ref) : null,
 		tokens: row.tokens !== null && row.tokens !== undefined ? Number(row.tokens) : null,
+		previous_attempt_id: row.previous_attempt_id ? String(row.previous_attempt_id) : null,
 	}));
 }

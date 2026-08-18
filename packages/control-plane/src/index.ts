@@ -55,6 +55,8 @@ export {
 	listAttempts,
 	listJobAttempts,
 	completeAttempt,
+	claimAttempt,
+	canTransitionAttempt,
 	storeDecision,
 	listDecisions,
 	storeTransition,
@@ -69,6 +71,16 @@ export type {
 	DecisionRecord,
 	TransitionRecord,
 } from './store.js';
+
+// ─── Execution Context Enforcement (P3) ───
+export {
+	EXECUTION_CONTEXT_REQUIRED,
+	ExecutionContextRequiredError,
+	assertExecutionContext,
+	assertAttemptActive,
+	hasExecutionContext,
+} from './execution-context.js';
+export type { ControlPlaneExecutionContext } from './execution-context.js';
 
 // ─── Idempotency ───
 export { IdempotencyRegistry, idempotencyKey } from './idempotency.js';
@@ -142,6 +154,7 @@ export {
 export type {
 	BuildWorker,
 	VerificationTool,
+	PlanWorker,
 	DurableRunDeps,
 	DurableRunResult,
 	DurableRunInput,

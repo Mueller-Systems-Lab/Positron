@@ -14,10 +14,11 @@
 import type Database from 'better-sqlite3';
 import { validateContract } from './contracts.js';
 import type { FindingContract, ReviewBatchContract } from './contracts.js';
+import { assertAttemptActive, assertExecutionContext } from './execution-context.js';
 import { fingerprint } from './fingerprint.js';
 import { assertRealParallelism } from './parallelism.js';
 import type { ParallelExecutionSlice, ParallelismVerdict } from './parallelism.js';
-import { completeAttempt, createAttempt } from './store.js';
+import { claimAttempt, completeAttempt, createAttempt } from './store.js';
 import type { AttemptRecord } from './store.js';
 
 export type ReviewKind = 'correctness' | 'security' | 'quality';
@@ -64,11 +65,17 @@ export type { ParallelismVerdict } from './parallelism.js';
  * Führt Review-Worker real parallel aus (Fan-out) und sammelt die Findings
  * (Join). Jeder Worker läuft in einem eigenen Attempt des Review-Jobs
  * (Telemetrie: started_at/ended_at/duration_ms je Review).
+ *
+ * P3-Recovery (Partial Review Batch): bereits erfolgreich abgeschlossene
+ * Review-Worker (aus cp_attempts rekonstruiert, `recovered`) werden NICHT
+ * erneut ausgeführt; nur fehlende Worker starten. Der Verdict wird über
+ * ALLE Ergebnisse (recovered + neu) aus den realen Zeitstempeln bewiesen.
  */
 export async function runParallelReviews(
 	db: Database.Database,
 	ctx: { run_id: string; job_id: string; workspacePath: string },
 	workers: ReviewWorker[],
+	recovered: ParallelReviewResult[] = [],
 ): Promise<ParallelReviewOutcome> {
 	const startedAll = Date.now();
 
@@ -76,11 +83,30 @@ export async function runParallelReviews(
 		workers.map(async (worker) => {
 			const startedAt = nowIso();
 			const attempt = createAttempt(db, ctx.run_id, ctx.job_id, {
+				status: 'pending',
 				worker_type: worker.workerType,
 				input_contract: 'positron.review-batch.v1',
 				input_fingerprint: fingerprint({ kind: worker.kind, run: ctx.run_id }),
 			});
+			// P3: exakt ein Claimer; paralleler Doppel-Dispatch wird abgelehnt.
+			if (!claimAttempt(db, attempt.attempt_id)) {
+				return {
+					kind: worker.kind,
+					workerType: worker.workerType,
+					findings: [],
+					started_at: startedAt,
+					ended_at: startedAt,
+					duration_ms: 0,
+				};
+			}
 			try {
+				// P3: Review-Worker-Aufrufe nur innerhalb eines aktiven Attempts.
+				assertExecutionContext({
+					run_id: ctx.run_id,
+					job_id: ctx.job_id,
+					attempt_id: attempt.attempt_id,
+				});
+				assertAttemptActive(db, attempt.attempt_id);
 				const findings = await worker.run({
 					run_id: ctx.run_id,
 					job_id: ctx.job_id,
@@ -124,12 +150,16 @@ export async function runParallelReviews(
 		}),
 	);
 
+	// P3-Recovery: recovered (completed) Reviews zuerst, dann neu ausgeführte.
+	const allResults = [...recovered, ...results];
+	const verdict = assertRealParallelism(allResults);
+
 	const reviewBatch: ReviewBatchContract = {
 		contract: 'positron.review-batch.v1',
 		run_id: ctx.run_id,
 		job_id: ctx.job_id,
 		attempt_id: 'batch',
-		findings: results.flatMap((r) => r.findings),
+		findings: allResults.flatMap((r) => r.findings),
 	};
 
 	const batchValidation = validateContract('positron.review-batch.v1', reviewBatch);
@@ -143,8 +173,8 @@ export async function runParallelReviews(
 	void startedAll;
 
 	return {
-		results,
-		verdict: assertRealParallelism(results),
+		results: allResults,
+		verdict,
 		reviewBatch,
 		batchFingerprint: fingerprint(reviewBatch),
 	};
@@ -179,5 +209,6 @@ export function listReviewAttempts(db: Database.Database, jobId: string): Attemp
 		strategy_delta: row.strategy_delta ? String(row.strategy_delta) : null,
 		result_ref: row.result_ref ? String(row.result_ref) : null,
 		tokens: row.tokens !== null && row.tokens !== undefined ? Number(row.tokens) : null,
+		previous_attempt_id: row.previous_attempt_id ? String(row.previous_attempt_id) : null,
 	}));
 }

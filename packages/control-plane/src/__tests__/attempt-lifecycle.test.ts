@@ -1,15 +1,15 @@
 // P3 — Attempt-Lifecycle: Claiming, Transition-Guard, Late Results,
 // Duplicate Completion, Fix-Referenzierung (previous_attempt_id)
 
-import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { applyControlPlaneMigrations } from '../schema.js';
 import {
 	claimAttempt,
 	completeAttempt,
 	createAttempt,
-	createJob,
 	createId,
+	createJob,
 	getAttempt,
 	listJobAttempts,
 } from '../store.js';
@@ -141,7 +141,11 @@ describe('attempt lifecycle (P3)', () => {
 			input_fingerprint: 'fp-in-1',
 		});
 		claimAttempt(db, attempt1.attempt_id);
-		completeAttempt(db, attempt1.attempt_id, { status: 'failed', failure_class: 'TEST_FAILURE', failure_signature: 's1' });
+		completeAttempt(db, attempt1.attempt_id, {
+			status: 'failed',
+			failure_class: 'TEST_FAILURE',
+			failure_signature: 's1',
+		});
 
 		const attempt2 = createAttempt(db, 'run_1', job.job_id, {
 			status: 'pending',
