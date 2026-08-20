@@ -21,8 +21,10 @@ import {
 	evaluateRetry,
 	fingerprint,
 	idempotencyKey,
+	mapAttemptRow,
 	storeDecision,
 	updateJobState,
+	validateContract,
 } from '@positron/control-plane';
 import type { AttemptRecord, JobRecord } from '@positron/control-plane';
 import type { VerificationContract } from '@positron/control-plane';
@@ -266,6 +268,8 @@ interface JobAttemptTracking {
 	attempt: AttemptRecord;
 	/** true wenn dieser Dispatch bereits behandelt wurde (kein zweiter Worker-Call) */
 	duplicate: boolean;
+	/** true wenn ein abgeschlossener Attempt wiederverwendet wurde (Recovery) */
+	recovered: boolean;
 	registry: IdempotencyRegistry;
 	idemKey: string;
 }
@@ -279,6 +283,12 @@ interface JobAttemptTracking {
  * (pending → running, genau ein Claimer). Paralleler Doppel-Dispatch
  * desselben Attempts wird abgelehnt. Der Execution-Context
  * (run_id/job_id/attempt_id) ist für die produktive Ausführung zwingend.
+ *
+ * P3-Recovery-Boundary: Existiert bereits ein abgeschlossener (succeeded)
+ * Attempt für den Job, wird KEIN neuer Attempt erstellt und KEIN Worker
+ * erneut aufgerufen — der persistierte Attempt wird wiederverwendet
+ * (`recovered: true`). Abgeschlossene Arbeit wird nach einem Crash nie
+ * blind wiederholt (§30/§31).
  */
 function trackJobAttempt(
 	run: RunState,
@@ -333,6 +343,28 @@ function trackJobAttempt(
 	}
 
 	const registry = new IdempotencyRegistry(db);
+
+	// ── P3-Recovery-Boundary: abgeschlossener Attempt wird wiederverwendet ──
+	// Ein succeeded Attempt (Result validiert + persistiert + finalisiert) ist
+	// COMMITTED: Der Worker wird nach einem Crash/Re-Dispatch NICHT erneut
+	// aufgerufen (§31 RECOVERY_BOUNDARY_COMMITTED).
+	const succeededRows = db
+		.prepare(
+			"SELECT * FROM cp_attempts WHERE job_id = ? AND status = 'succeeded' ORDER BY started_at ASC",
+		)
+		.all(String(job.job_id)) as Array<Record<string, unknown>>;
+	if (succeededRows.length > 0) {
+		const lastSucceeded = succeededRows[succeededRows.length - 1]!;
+		return {
+			job: job as unknown as JobRecord,
+			attempt: mapAttemptRow(lastSucceeded),
+			duplicate: true,
+			recovered: true,
+			registry,
+			idemKey: '',
+		};
+	}
+
 	const attempt = createAttempt(db, run.id, String(job.job_id), {
 		status: 'pending',
 		worker_type: workerType,
@@ -353,6 +385,7 @@ function trackJobAttempt(
 			job: job as unknown as JobRecord,
 			attempt,
 			duplicate: true,
+			recovered: false,
 			registry,
 			idemKey,
 		};
@@ -361,6 +394,7 @@ function trackJobAttempt(
 		job: job as unknown as JobRecord,
 		attempt,
 		duplicate,
+		recovered: false,
 		registry,
 		idemKey,
 	};
@@ -1479,6 +1513,24 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				previousBuildAttempt?.attempt_id ?? null,
 			);
 
+			if (tracking.recovered) {
+				// P3-Recovery: Build ist bereits abgeschlossen + persistiert —
+				// kein zweiter Worker-Call; weiter zu TEST (Verify folgt).
+				storeEvent(
+					{
+						id: createRunId(),
+						runId: current.id,
+						phase: 'IMPLEMENT',
+						level: 'INFO',
+						message: 'Build recovered from persisted attempt (no rerun)',
+						payload: { attemptId: tracking.attempt.attempt_id, recovered: true },
+						createdAt: new Date().toISOString(),
+					},
+					deps,
+				);
+				result = transition(current, 'TEST', 'Build recovered (persisted attempt)', 'INFO');
+				break;
+			}
 			if (tracking.duplicate) {
 				storeEvent(
 					{
@@ -1552,11 +1604,55 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 					});
 					result = markFailed(current, 'FAILED_TRANSIENT', `Implement failed: ${ir.summary}`);
 				} else {
+					// P3: Output-Boundary — das Build-Result wird VOR der
+					// Persistenz gegen positron.build-result.v1 validiert.
+					// Ungültige Worker-Ausgabe → CONTRACT_INVALID, keine
+					// erfolgreiche Transition (§24).
+					const buildResultDoc = {
+						contract: 'positron.build-result.v1',
+						run_id: current.id,
+						job_id: tracking.job.job_id,
+						attempt_id: tracking.attempt.attempt_id,
+						status: 'success' as const,
+						summary: ir.summary,
+						changed_files: [],
+						result_ref: `opencode:${ir.sessionId ?? 'none'}`,
+					};
+					const buildResultValidation = validateContract(
+						'positron.build-result.v1',
+						buildResultDoc,
+					);
+					if (!buildResultValidation.ok) {
+						completeTrackedAttempt(tracking, deps, {
+							status: 'blocked',
+							failure_class: 'CONTRACT_FAILURE',
+							failure_signature: buildResultValidation.errors.join('|'),
+						});
+						storeEvent(
+							{
+								id: createRunId(),
+								runId: current.id,
+								phase: 'IMPLEMENT',
+								level: 'ERROR',
+								message: `Build result contract invalid: ${buildResultValidation.errors.join('; ')}`,
+								payload: { errors: buildResultValidation.errors },
+								createdAt: new Date().toISOString(),
+							},
+							deps,
+						);
+						result = markFailed(
+							current,
+							'FAILED_BLOCKED',
+							`Build result contract invalid: ${buildResultValidation.errors.join('; ')}`,
+						);
+						break;
+					}
 					completeTrackedAttempt(tracking, deps, {
 						status: 'succeeded',
-						output_contract: 'positron.build-result.v1',
-						output_fingerprint: fingerprint({ phase: 'implement', status: ir.status }),
-						result_ref: `opencode:${ir.sessionId ?? 'none'}`,
+						output_contract: buildResultDoc.contract,
+						output_json: JSON.stringify(buildResultDoc),
+						output_fingerprint: fingerprint(buildResultDoc),
+						result_ref: buildResultDoc.result_ref,
 					});
 					updateJobState(getDb(deps), tracking.job.job_id, 'succeeded');
 					result = transition(
@@ -1626,6 +1722,47 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 							testCommands: detection.commands.map((c) => `${c.command} ${c.args.join(' ')}`),
 						}),
 					);
+
+					// P3-Recovery: Verify ist bereits abgeschlossen + persistiert —
+					// der TestRunner wird NICHT erneut aufgerufen; die
+					// Verification wird aus dem persistierten Attempt rehydriert.
+					if (verifyTracking.recovered) {
+						const prevVerify = loadLastAttempt(current.id, 'verify', deps);
+						let recoveredVerification: VerificationContract | null = null;
+						if (prevVerify?.output_json) {
+							try {
+								recoveredVerification = JSON.parse(prevVerify.output_json) as VerificationContract;
+							} catch {
+								recoveredVerification = null;
+							}
+						}
+						if (recoveredVerification) {
+							storeEvent(
+								{
+									id: createRunId(),
+									runId: current.id,
+									phase: 'TEST',
+									level: 'INFO',
+									message: `Verification recovered from persisted attempt (${recoveredVerification.passed ? 'pass' : 'fail'}, no rerun)`,
+									payload: { attemptId: prevVerify?.attempt_id ?? null, recovered: true },
+									createdAt: new Date().toISOString(),
+								},
+								deps,
+							);
+							const outcome = recoveredVerification.passed ? 'PASS' : 'RETRY';
+							if (outcome === 'PASS') {
+								result = transition(current, 'VERIFY', 'Tests passed (recovered)', 'INFO');
+							} else {
+								result = markFailed(
+									current,
+									'FAILED_TRANSIENT',
+									`Tests failed (recovered): ${recoveredVerification.failure_signature ?? 'unknown'}`,
+								);
+							}
+							break;
+						}
+						// Kein rehydrierbarer Contract → Fallback auf neuen Versuch
+					}
 					assertWorkerContext(current, verifyTracking, deps);
 					const runner = new TestRunner();
 					const report = await runner.runDetectedCommands({
@@ -1717,6 +1854,34 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 								? (verification.failure_signature ?? 'test:failed')
 								: `test:${classified.signature}`;
 					}
+					// P3: Output-Boundary — die Verification wird VOR der
+					// Persistenz gegen positron.verification.v1 validiert (§24).
+					const verificationValidation = validateContract('positron.verification.v1', verification);
+					if (!verificationValidation.ok) {
+						completeTrackedAttempt(verifyTracking, deps, {
+							status: 'blocked',
+							failure_class: 'CONTRACT_FAILURE',
+							failure_signature: verificationValidation.errors.join('|'),
+						});
+						storeEvent(
+							{
+								id: createRunId(),
+								runId: current.id,
+								phase: 'TEST',
+								level: 'ERROR',
+								message: `Verification contract invalid: ${verificationValidation.errors.join('; ')}`,
+								payload: { errors: verificationValidation.errors },
+								createdAt: new Date().toISOString(),
+							},
+							deps,
+						);
+						result = markFailed(
+							current,
+							'FAILED_BLOCKED',
+							`Verification contract invalid: ${verificationValidation.errors.join('; ')}`,
+						);
+						break;
+					}
 					if (!verifyTracking.duplicate) {
 						completeTrackedAttempt(verifyTracking, deps, {
 							status: verification.passed ? 'succeeded' : 'failed',
@@ -1736,6 +1901,23 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 
 					// Issue #385: Explicit outcome resolution — failed/blocked must NOT reach VERIFY
 					const outcome = resolveTestOutcome(report, deps.gateRuntimeMode, true);
+
+					if (outcome === 'FAILED_BLOCKED' || outcome === 'RETRY') {
+						// P3: Der Build-Attempt wird bei fehlgeschlagener
+						// Verification fachlich reklassifiziert (succeeded →
+						// failed mit failure_class + failure_signature) —
+						// konsistent zu runDurableRun (§24, Audit-Wahrheit:
+						// kein "succeeded build + failed verify").
+						const lastBuild = loadLastAttempt(current.id, 'build', deps);
+						if (lastBuild && lastBuild.status === 'succeeded') {
+							completeAttempt(getDb(deps), lastBuild.attempt_id, {
+								status: 'failed',
+								failure_class: verification.failure_class ?? 'TEST_FAILURE',
+								failure_signature: verification.failure_signature ?? 'test:failed',
+								new_evidence: verification.new_evidence ?? null,
+							});
+						}
+					}
 
 					if (outcome === 'FAILED_BLOCKED') {
 						result = markFailed(

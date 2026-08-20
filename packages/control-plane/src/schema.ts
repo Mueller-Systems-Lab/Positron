@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS cp_attempts (
   attempt_id TEXT PRIMARY KEY,
   run_id TEXT NOT NULL,
   job_id TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'running',
+  status TEXT NOT NULL DEFAULT 'pending',
   input_contract TEXT,
   input_fingerprint TEXT,
   output_contract TEXT,

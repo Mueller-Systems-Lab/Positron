@@ -31,6 +31,7 @@ import type {
 import type { VerificationCheck } from './contracts.js';
 import { buildDecision } from './decision-policy.js';
 import { assertAttemptActive, assertExecutionContext } from './execution-context.js';
+import { classifyFailure } from './failure.js';
 import { fingerprint } from './fingerprint.js';
 import { IdempotencyRegistry, idempotencyKey } from './idempotency.js';
 import { assertRealParallelism } from './parallelism.js';
@@ -252,6 +253,9 @@ function reconstructResearchResult(attempt: AttemptRecord): ParallelResearchResu
 			workerType: attempt.worker_type ?? `research.${kind}`,
 			provider: attempt.provider,
 			model: attempt.model,
+			// Rekonstruierte Attempts sind immer SUCCEEDED — `required` ist für
+			// die Barrier-Bewertung rekonstruierter Worker irrelevant, da ein
+			// erfolgreicher REQUIRED-Worker die Barrier ohnehin besteht.
 			required: true,
 			status: 'SUCCEEDED',
 			failure_class: null,
@@ -366,12 +370,27 @@ async function runVerifyStep(
 	assertAttemptActive(db, verifyAttempt.attempt_id);
 
 	const timed = await withTimeout(
-		deps.verifyTool.run({
-			run_id: runId,
-			job_id: verifyJob.job_id,
-			attempt_id: verifyAttempt.attempt_id,
-			workspacePath: deps.workspace.path,
-		}),
+		(async () => {
+			try {
+				return await deps.verifyTool.run({
+					run_id: runId,
+					job_id: verifyJob.job_id,
+					attempt_id: verifyAttempt.attempt_id,
+					workspacePath: deps.workspace.path,
+				});
+			} catch (err) {
+				// P3 (Security-Review F2): Worker-Rejection → Attempt finalisieren,
+				// kein Zombie-Attempt, keine unhandled rejection.
+				const errMsg = err instanceof Error ? err.message : String(err);
+				completeAttempt(db, verifyAttempt.attempt_id, {
+					status: 'failed',
+					failure_class: 'INFRA_FAILURE',
+					failure_signature: `verify-rejected:${errMsg.slice(0, 200)}`,
+				});
+				updateJobState(db, verifyJob.job_id, 'failed');
+				return { rejected: true, message: errMsg.slice(0, 200) };
+			}
+		})(),
 		deps.timeoutMs,
 	);
 	if (!timed.ok) {
@@ -388,6 +407,10 @@ async function runVerifyStep(
 			outcome: 'timeout',
 			reason: `verify-timeout-${deps.timeoutMs ?? 0}ms`,
 		};
+	}
+	if ('rejected' in timed.value) {
+		// Verify-Worker hat geworfen → Attempt bereits finalisiert (failed).
+		return { verification: null, outcome: 'contract', reason: timed.value.message };
 	}
 
 	const builtVerification = buildVerificationContract({
@@ -714,13 +737,32 @@ export async function runDurableRun(
 		}
 		if (deps.planWorker) {
 			assertAttemptActive(db, planAttempt.attempt_id);
-			plan = await deps.planWorker.run({
-				run_id: runId,
-				job_id: planJob.job_id,
-				attempt_id: planAttempt.attempt_id,
-				workspacePath: deps.workspace.path,
-				issue: input.issue,
-			});
+			try {
+				plan = await deps.planWorker.run({
+					run_id: runId,
+					job_id: planJob.job_id,
+					attempt_id: planAttempt.attempt_id,
+					workspacePath: deps.workspace.path,
+					issue: input.issue,
+				});
+			} catch (err) {
+				// P3 (Security-Review F2): Worker-Rejection → Attempt finalisieren,
+				// kein Zombie-Attempt, keine unhandled rejection.
+				const errMsg = err instanceof Error ? err.message : String(err);
+				completeAttempt(db, planAttempt.attempt_id, {
+					status: 'failed',
+					failure_class: 'INFRA_FAILURE',
+					failure_signature: `plan-rejected:${errMsg.slice(0, 200)}`,
+				});
+				updateJobState(db, planJob.job_id, 'failed');
+				const decision = buildDecision({
+					run_id: runId,
+					verification: null,
+					findings: [],
+					contractErrors: [`PLAN_WORKER_REJECTED: ${errMsg.slice(0, 200)}`],
+				});
+				return finishRun(db, runId, decision, transitions, workerInvocations);
+			}
 		} else {
 			// Kompatibilität: Plan aus Input (Tests) — wird trotzdem als
 			// Input/Output des plan-Attempts vollständig persistiert.
@@ -899,7 +941,37 @@ export async function runDurableRun(
 		assertAttemptActive(db, attempt.attempt_id);
 
 		const timedBuild = await withTimeout(
-			deps.buildWorker.implement({ ...buildInput, strategyDelta }),
+			(async () => {
+				try {
+					return await deps.buildWorker.implement({ ...buildInput, strategyDelta });
+				} catch (err) {
+					// P3 (Security-Review F2): Eine Worker-Rejection darf keinen
+					// Zombie-Attempt hinterlassen. Der Attempt wird finalisiert
+					// (failed/INFRA_FAILURE), keine unhandled rejection.
+					const errMsg = err instanceof Error ? err.message : String(err);
+					const classified = classifyFailure({ stderr: errMsg, exitCode: 1 });
+					completeAttempt(db, attempt.attempt_id, {
+						status: 'failed',
+						failure_class:
+							classified.signature === 'UNKNOWN'
+								? 'INFRA_FAILURE'
+								: (classified.signature as AttemptRecord['failure_class']),
+						failure_signature: `implement-rejected:${errMsg.slice(0, 200)}`,
+						new_evidence: errMsg.slice(0, 500),
+					});
+					decision = buildDecision({
+						run_id: runId,
+						verification: null,
+						findings: [],
+						retry: {
+							verdict: 'DENIED',
+							reason_code: 'WORKER_REJECTED',
+							delta: [errMsg.slice(0, 200)],
+						},
+					});
+					return { rejected: true, message: errMsg.slice(0, 200) };
+				}
+			})(),
 			deps.timeoutMs,
 		);
 		if (!timedBuild.ok) {
@@ -916,6 +988,10 @@ export async function runDurableRun(
 				findings: [],
 				timeoutReason: 'BUILD_TIMEOUT',
 			});
+			break;
+		}
+		if ('rejected' in timedBuild.value) {
+			// Worker hat geworfen → Attempt bereits finalisiert, Decision gesetzt
 			break;
 		}
 		workerInvocations++;

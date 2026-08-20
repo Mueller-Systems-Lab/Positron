@@ -20,7 +20,8 @@ export interface RetryDecision {
 		| 'RETRY_DENIED_ATTEMPT_LIMIT'
 		| 'RETRY_DENIED_NO_FAILURE_SIGNATURE'
 		| 'RETRY_DENIED_NO_STRATEGY_DELTA'
-		| 'RETRY_DENIED_NO_PREVIOUS_ATTEMPT';
+		| 'RETRY_DENIED_NO_PREVIOUS_ATTEMPT'
+		| 'WORKER_REJECTED';
 	/** Welche Informationen den Retry rechtfertigen (leer bei DENIED) */
 	delta: string[];
 }

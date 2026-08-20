@@ -57,6 +57,7 @@ export {
 	completeAttempt,
 	claimAttempt,
 	canTransitionAttempt,
+	mapAttemptRow,
 	storeDecision,
 	listDecisions,
 	storeTransition,

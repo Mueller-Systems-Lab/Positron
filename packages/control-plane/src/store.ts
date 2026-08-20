@@ -184,7 +184,9 @@ export function createAttempt(
 		attempt_id: initial.attempt_id ?? createId('att'),
 		run_id: runId,
 		job_id: jobId,
-		status: initial.status ?? 'running',
+		// P3: Default ist 'pending' (Claim via claimAttempt → running).
+		// Ein Attempt darf nicht ungeclaimt als 'running' starten.
+		status: initial.status ?? 'pending',
 		input_contract: initial.input_contract ?? null,
 		input_fingerprint: initial.input_fingerprint ?? null,
 		output_contract: initial.output_contract ?? null,
@@ -298,36 +300,42 @@ export function completeAttempt(
 	attemptId: string,
 	update: Partial<AttemptRecord>,
 ): AttemptRecord | null {
-	const existing = getAttempt(db, attemptId);
-	if (!existing) return null;
-	const to = update.status ?? existing.status;
-	if (!canTransitionAttempt(existing.status, to, update)) {
-		// Late Result / Duplicate Completion: finaler Attempt bleibt unverändert.
-		return null;
-	}
-	db.prepare(
-		`UPDATE cp_attempts SET status = ?, output_contract = ?, output_fingerprint = ?, output_json = ?,
-		   ended_at = ?, failure_class = ?, failure_signature = ?, new_evidence = ?, strategy_delta = ?,
-		   result_ref = ?, tokens = ?, previous_attempt_id = ? WHERE attempt_id = ?`,
-	).run(
-		to,
-		update.output_contract ?? existing.output_contract,
-		update.output_fingerprint ?? existing.output_fingerprint,
-		update.output_json ?? existing.output_json,
-		update.ended_at ?? nowIso(),
-		update.failure_class ?? existing.failure_class,
-		update.failure_signature ?? existing.failure_signature,
-		update.new_evidence ?? existing.new_evidence,
-		update.strategy_delta ?? existing.strategy_delta,
-		update.result_ref ?? existing.result_ref,
-		update.tokens ?? existing.tokens,
-		update.previous_attempt_id ?? existing.previous_attempt_id,
-		attemptId,
-	);
-	return getAttempt(db, attemptId);
+	// Atomare Finalisierung: Read-Modify-Write in EINER SQLite-Transaktion,
+	// damit Late-Result/Duplicate-Completion unter Konkurrenz (mehrere
+	// Worker-Prozesse auf derselben DB) den Transition-Guard nicht umgehen
+	// (Security-Review F4 — TOCTOU-Schutz).
+	return db.transaction((): AttemptRecord | null => {
+		const existing = getAttempt(db, attemptId);
+		if (!existing) return null;
+		const to = update.status ?? existing.status;
+		if (!canTransitionAttempt(existing.status, to, update)) {
+			// Late Result / Duplicate Completion: finaler Attempt bleibt unverändert.
+			return null;
+		}
+		db.prepare(
+			`UPDATE cp_attempts SET status = ?, output_contract = ?, output_fingerprint = ?, output_json = ?,
+			   ended_at = ?, failure_class = ?, failure_signature = ?, new_evidence = ?, strategy_delta = ?,
+			   result_ref = ?, tokens = ?, previous_attempt_id = ? WHERE attempt_id = ?`,
+		).run(
+			to,
+			update.output_contract ?? existing.output_contract,
+			update.output_fingerprint ?? existing.output_fingerprint,
+			update.output_json ?? existing.output_json,
+			update.ended_at ?? nowIso(),
+			update.failure_class ?? existing.failure_class,
+			update.failure_signature ?? existing.failure_signature,
+			update.new_evidence ?? existing.new_evidence,
+			update.strategy_delta ?? existing.strategy_delta,
+			update.result_ref ?? existing.result_ref,
+			update.tokens ?? existing.tokens,
+			update.previous_attempt_id ?? existing.previous_attempt_id,
+			attemptId,
+		);
+		return getAttempt(db, attemptId);
+	})();
 }
 
-function mapAttemptRow(row: Record<string, unknown>): AttemptRecord {
+export function mapAttemptRow(row: Record<string, unknown>): AttemptRecord {
 	return {
 		attempt_id: String(row.attempt_id),
 		run_id: String(row.run_id),

@@ -458,4 +458,60 @@ describe('P3 — Live-Pfad: PRODUCTIVE_WORKER_BYPASS_ZERO', () => {
 			.all(run.id);
 		expect(buildAttempts.length).toBe(1);
 	});
+
+	it('RECOVERY_BUILD (Live-Pfad) — succeeded Build-Attempt wird bei Re-Dispatch NICHT erneut ausgeführt; Verify wird nachgezogen', async () => {
+		const wsDir = createGreenTestWorkspace();
+		try {
+			db = new (await import('better-sqlite3')).default(':memory:');
+			applyMigrations(db);
+
+			const run: RunState = {
+				...createRun('test-repo', 9505, 2),
+				phase: 'IMPLEMENT',
+				status: 'active',
+				workspacePath: wsDir,
+				branch: 'positron/issue-9505-recovery-live',
+			};
+			const probe: LiveProbe = { runId: run.id, db, bypasses: [] };
+			const speckit = new ProbingSpecKitAdapter(probe);
+			const opencode = new ProbingOpenCodeAdapter(probe);
+			const github = new ProbingGitHubAdapter(probe);
+
+			// Dispatch 1: Build läuft, verify succeeded (grüner Workspace)
+			const first = await runPipeline(run, makeDeps(db, probe, speckit, opencode, github));
+			expect(opencode.implementCalls).toBe(1);
+
+			// Simulierter Crash NACH Build-Persistenz: der Run liegt noch in
+			// IMPLEMENT (Phase nicht fortgeschrieben), Build-Attempt succeeded.
+			const crashedRun: RunState = {
+				...run,
+				phase: 'IMPLEMENT',
+				status: 'active',
+			};
+
+			// Dispatch 2 (Recovery): Build-Worker darf NICHT erneut laufen
+			const probe2: LiveProbe = { runId: run.id, db, bypasses: [] };
+			const opencode2 = new ProbingOpenCodeAdapter(probe2);
+			const second = await runPipeline(
+				crashedRun,
+				makeDeps(db, probe2, speckit, opencode2, github),
+			);
+
+			expect(opencode.implementCalls + opencode2.implementCalls).toBe(1); // BUILD NOT RERUN
+			expect(probe2.bypasses).toEqual([]);
+			expect(second.phase).not.toBe('IMPLEMENT');
+
+			// Nur EIN persistierter Build-Attempt (Recovery-Boundary)
+			const buildAttempts = db
+				.prepare(
+					`SELECT a.* FROM cp_attempts a
+					 JOIN cp_jobs j ON j.job_id = a.job_id
+					 WHERE a.run_id = ? AND j.job_type = 'build'`,
+				)
+				.all(run.id);
+			expect(buildAttempts.length).toBe(1);
+		} finally {
+			fs.rmSync(wsDir, { recursive: true, force: true });
+		}
+	});
 });

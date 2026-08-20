@@ -5,9 +5,11 @@ import Database from 'better-sqlite3';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { applyControlPlaneMigrations } from '../schema.js';
 import {
+	claimAttempt,
 	completeAttempt,
 	createAttempt,
 	createJob,
+	getAttempt,
 	listAttempts,
 	listDecisions,
 	listJobs,
@@ -54,7 +56,13 @@ describe('RUN_JOB_ATTEMPT_MODEL', () => {
 			provider: 'openai',
 			model: 'gpt-4o',
 		});
-		expect(attempt.status).toBe('running');
+		// P3: Default ist 'pending' (kanonische Claim-Semantik: pending → running
+		// nur durch claimAttempt). Ein Attempt darf nicht ungeclaimt 'running'
+		// sein (Security-Review F2/WARNING).
+		expect(attempt.status).toBe('pending');
+		// Nach dem Claim ist er aktiv (running)
+		expect(claimAttempt(db, attempt.attempt_id)).toBe(true);
+		expect(getAttempt(db, attempt.attempt_id)?.status).toBe('running');
 		expect(attempt.input_fingerprint).toBe('fp_in');
 		expect(attempt.ended_at).toBeNull();
 	});

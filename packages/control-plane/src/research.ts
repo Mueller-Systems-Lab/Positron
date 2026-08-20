@@ -209,6 +209,16 @@ export async function runParallelResearch(
 		}
 
 		const runWithTimeout = async (): Promise<ResearchWorkerOutput> => {
+			// P3: Provider-/Worker-Aufrufe nur innerhalb eines aktiven Attempts
+			// (Runtime-Assertion — NO ACTIVE ATTEMPT → PROVIDER_CALL_DENIED).
+			// Gilt in BEIDEN Zweigen (Timeout und ohne Timeout), damit die
+			// Enforcement-Invariante nicht vom Timeout-Pfad umgangen wird.
+			assertExecutionContext({
+				run_id: ctx.run_id,
+				job_id: ctx.job_id,
+				attempt_id: attempt.attempt_id,
+			});
+			assertAttemptActive(db, attempt.attempt_id);
 			if (options.timeoutMs && options.timeoutMs > 0) {
 				let timer: ReturnType<typeof setTimeout> | undefined;
 				try {
@@ -236,14 +246,6 @@ export async function runParallelResearch(
 					if (timer) clearTimeout(timer);
 				}
 			}
-			// P3: Provider-/Worker-Aufrufe nur innerhalb eines aktiven Attempts
-			// (Runtime-Assertion — NO ACTIVE ATTEMPT → PROVIDER_CALL_DENIED).
-			assertExecutionContext({
-				run_id: ctx.run_id,
-				job_id: ctx.job_id,
-				attempt_id: attempt.attempt_id,
-			});
-			assertAttemptActive(db, attempt.attempt_id);
 			return worker.run({
 				run_id: ctx.run_id,
 				job_id: ctx.job_id,
