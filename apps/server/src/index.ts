@@ -52,21 +52,12 @@ import { FakeOpenCodeAdapter, RealOpenCodeAdapter } from '@positron/opencode-ada
 import {
 	assembleGateEvaluators,
 	createRun,
-	getRequiredGates,
-	markFailed,
 	openDatabase,
-	phaseRequiresGates,
 	registerFakeGateEvaluators,
 	registerWorkspaceCleanup,
 	resolveDatabasePath,
 	resolveGateRuntimeMode,
-	resolveImplementationOutcome,
-	resolveTestOutcome,
 	resumeFromEvents,
-	retry,
-	runCleanup,
-	transition,
-	tryTransitionWithGates,
 } from '@positron/run-state';
 import type { RunEventData, RunState, TransitionResult } from '@positron/run-state';
 import { FakeGitWorkspaceAdapter, RealGitWorkspaceAdapter } from '@positron/sandbox';

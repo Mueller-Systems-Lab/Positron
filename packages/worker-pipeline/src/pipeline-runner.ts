@@ -347,17 +347,21 @@ function trackJobAttempt(
 	// ── P3-Recovery-Boundary: abgeschlossener Attempt wird wiederverwendet ──
 	// Ein succeeded Attempt (Result validiert + persistiert + finalisiert) ist
 	// COMMITTED: Der Worker wird nach einem Crash/Re-Dispatch NICHT erneut
-	// aufgerufen (§31 RECOVERY_BOUNDARY_COMMITTED).
+	// aufgerufen (§31 RECOVERY_BOUNDARY_COMMITTED). Der Input-Fingerprint muss
+	// übereinstimmen: bei geändertem Input (anderer Workspace/Issue) wird ein
+	// veraltetes Ergebnis nicht wiederverwendet.
 	const succeededRows = db
 		.prepare(
 			"SELECT * FROM cp_attempts WHERE job_id = ? AND status = 'succeeded' ORDER BY started_at ASC",
 		)
 		.all(String(job.job_id)) as Array<Record<string, unknown>>;
-	if (succeededRows.length > 0) {
-		const lastSucceeded = succeededRows[succeededRows.length - 1]!;
+	const matchingSucceeded = succeededRows.find(
+		(r) => !inputFingerprint || r.input_fingerprint === inputFingerprint,
+	);
+	if (matchingSucceeded) {
 		return {
 			job: job as unknown as JobRecord,
-			attempt: mapAttemptRow(lastSucceeded),
+			attempt: mapAttemptRow(matchingSucceeded),
 			duplicate: true,
 			recovered: true,
 			registry,
@@ -439,6 +443,53 @@ function finalizeTrackedAttempt(
 	if (status !== 'failed') {
 		updateJobState(getDb(deps), tracking.job.job_id, status);
 	}
+}
+
+/**
+ * P3: Artefakt-Schritt mit Output-Boundary (§24) — der generische
+ * positron.artifact.v1-Contract wird VOR der Persistenz validiert.
+ * Ungültige Artefakt-Dokumente → Attempt blocked (CONTRACT_FAILURE),
+ * keine erfolgreiche Transition. Liefert true bei Erfolg.
+ */
+function finalizeArtifactAttempt(
+	tracking: JobAttemptTracking,
+	deps: PipelineDeps,
+	artifactDoc: {
+		contract: string;
+		run_id: string;
+		kind: string;
+		phase: string;
+		size: number;
+		content_ref: string;
+	},
+): boolean {
+	const validation = validateContract('positron.artifact.v1', artifactDoc);
+	if (!validation.ok) {
+		finalizeTrackedAttempt(tracking, deps, 'blocked', {
+			failure_class: 'CONTRACT_FAILURE',
+			failure_signature: validation.errors.join('|'),
+		});
+		storeEvent(
+			{
+				id: createRunId(),
+				runId: artifactDoc.run_id,
+				phase: parsePhase(artifactDoc.phase.toUpperCase()),
+				level: 'ERROR',
+				message: `Artifact contract invalid: ${validation.errors.join('; ')}`,
+				payload: { errors: validation.errors, kind: artifactDoc.kind },
+				createdAt: new Date().toISOString(),
+			},
+			deps,
+		);
+		return false;
+	}
+	finalizeTrackedAttempt(tracking, deps, 'succeeded', {
+		output_contract: artifactDoc.contract,
+		output_json: JSON.stringify(artifactDoc),
+		output_fingerprint: fingerprint(artifactDoc),
+		result_ref: artifactDoc.content_ref,
+	});
+	return true;
 }
 
 /** Lädt den letzten Attempt eines Job-Typs (für Retry-/Delta-Bewertung). */
@@ -924,29 +975,30 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 							issueNumber: current.issueNumber,
 							mode: 'safe-cli',
 						});
-						finalizeTrackedAttempt(
-							tracking,
-							deps,
-							specResult.status === 'success' ? 'succeeded' : 'failed',
-							{
-								output_contract: 'positron.artifact.v1',
-								output_json:
-									specResult.status === 'success'
-										? JSON.stringify({
-												contract: 'positron.artifact.v1',
-												run_id: current.id,
-												kind: 'spec',
-												phase: 'specify',
-												size: specResult.summary.length,
-												content_ref: `opencode:specify:${specResult.sessionId ?? 'none'}`,
-											})
-										: null,
-								output_fingerprint: fingerprint({ phase: 'specify', status: specResult.status }),
-								failure_class: specResult.status === 'success' ? null : 'UNKNOWN',
-								failure_signature:
-									specResult.status === 'success' ? null : `specify:${specResult.status}`,
-							},
-						);
+						if (specResult.status === 'success') {
+							// P3: Artefakt-Output-Boundary (§24)
+							const artifactDoc = {
+								contract: 'positron.artifact.v1',
+								run_id: current.id,
+								kind: 'spec',
+								phase: 'specify',
+								size: specResult.summary.length,
+								content_ref: `opencode:specify:${specResult.sessionId ?? 'none'}`,
+							};
+							if (!finalizeArtifactAttempt(tracking, deps, artifactDoc)) {
+								result = markFailed(
+									current,
+									'FAILED_BLOCKED',
+									`Specify artifact contract invalid (${artifactDoc.kind})`,
+								);
+								break;
+							}
+						} else {
+							finalizeTrackedAttempt(tracking, deps, 'failed', {
+								failure_class: 'UNKNOWN',
+								failure_signature: `specify:${specResult.status}`,
+							});
+						}
 						result = transition(
 							current,
 							'PLAN',
@@ -992,12 +1044,14 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						size: sr.summary.length,
 						content_ref: `artifact:spec:${sr.summary.length}`,
 					};
-					finalizeTrackedAttempt(tracking, deps, 'succeeded', {
-						output_contract: artifactDoc.contract,
-						output_json: JSON.stringify(artifactDoc),
-						output_fingerprint: fingerprint(artifactDoc),
-						result_ref: artifactDoc.content_ref,
-					});
+					if (!finalizeArtifactAttempt(tracking, deps, artifactDoc)) {
+						result = markFailed(
+							current,
+							'FAILED_BLOCKED',
+							`Specify artifact contract invalid (${artifactDoc.kind})`,
+						);
+						break;
+					}
 				} else {
 					finalizeTrackedAttempt(tracking, deps, 'failed', {
 						failure_class: 'UNKNOWN',
@@ -1066,29 +1120,30 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						issueNumber: current.issueNumber,
 						mode: 'safe-cli',
 					});
-					finalizeTrackedAttempt(
-						tracking,
-						deps,
-						planResult.status === 'success' ? 'succeeded' : 'failed',
-						{
-							output_contract: 'positron.artifact.v1',
-							output_json:
-								planResult.status === 'success'
-									? JSON.stringify({
-											contract: 'positron.artifact.v1',
-											run_id: current.id,
-											kind: 'plan',
-											phase: 'plan',
-											size: planResult.summary.length,
-											content_ref: `opencode:plan:${planResult.sessionId ?? 'none'}`,
-										})
-									: null,
-							output_fingerprint: fingerprint({ phase: 'plan', status: planResult.status }),
-							failure_class: planResult.status === 'success' ? null : 'UNKNOWN',
-							failure_signature:
-								planResult.status === 'success' ? null : `plan:${planResult.status}`,
-						},
-					);
+					if (planResult.status === 'success') {
+						// P3: Artefakt-Output-Boundary (§24)
+						const artifactDoc = {
+							contract: 'positron.artifact.v1',
+							run_id: current.id,
+							kind: 'plan',
+							phase: 'plan',
+							size: planResult.summary.length,
+							content_ref: `opencode:plan:${planResult.sessionId ?? 'none'}`,
+						};
+						if (!finalizeArtifactAttempt(tracking, deps, artifactDoc)) {
+							result = markFailed(
+								current,
+								'FAILED_BLOCKED',
+								`Plan artifact contract invalid (${artifactDoc.kind})`,
+							);
+							break;
+						}
+					} else {
+						finalizeTrackedAttempt(tracking, deps, 'failed', {
+							failure_class: 'UNKNOWN',
+							failure_signature: `plan:${planResult.status}`,
+						});
+					}
 					result = transition(
 						current,
 						'TASKS',
@@ -1166,7 +1221,9 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 								break;
 							}
 							planGateApproved = true;
-							// Plan-Contract als Attempt-Output persistieren
+							// Plan-Contract als Attempt-Output persistieren —
+							// gegen positron.plan.v1 validiert (Gate nutzt den
+							// persistierten, validierten Plan).
 							finalizeTrackedAttempt(tracking, deps, 'succeeded', {
 								output_contract: 'positron.plan.v1',
 								output_json: planArtifact.slice(0, 4000),
@@ -1184,12 +1241,14 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 							size: pr.summary.length,
 							content_ref: `artifact:plan:${pr.summary.length}`,
 						};
-						finalizeTrackedAttempt(tracking, deps, 'succeeded', {
-							output_contract: artifactDoc.contract,
-							output_json: JSON.stringify(artifactDoc),
-							output_fingerprint: fingerprint({ phase: 'plan', structured: false }),
-							result_ref: artifactDoc.content_ref,
-						});
+						if (!finalizeArtifactAttempt(tracking, deps, artifactDoc)) {
+							result = markFailed(
+								current,
+								'FAILED_BLOCKED',
+								`Plan artifact contract invalid (${artifactDoc.kind})`,
+							);
+							break;
+						}
 					}
 				} else {
 					const artifactDoc = {
@@ -1200,12 +1259,14 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						size: pr.summary.length,
 						content_ref: `artifact:plan:${pr.summary.length}`,
 					};
-					finalizeTrackedAttempt(tracking, deps, 'succeeded', {
-						output_contract: artifactDoc.contract,
-						output_json: JSON.stringify(artifactDoc),
-						output_fingerprint: fingerprint({ phase: 'plan', structured: false }),
-						result_ref: artifactDoc.content_ref,
-					});
+					if (!finalizeArtifactAttempt(tracking, deps, artifactDoc)) {
+						result = markFailed(
+							current,
+							'FAILED_BLOCKED',
+							`Plan artifact contract invalid (${artifactDoc.kind})`,
+						);
+						break;
+					}
 				}
 
 				if (planGateApproved) {
@@ -1288,29 +1349,30 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						issueNumber: current.issueNumber,
 						mode: 'safe-cli',
 					});
-					finalizeTrackedAttempt(
-						tracking,
-						deps,
-						tasksResult.status === 'success' ? 'succeeded' : 'failed',
-						{
-							output_contract: 'positron.artifact.v1',
-							output_json:
-								tasksResult.status === 'success'
-									? JSON.stringify({
-											contract: 'positron.artifact.v1',
-											run_id: current.id,
-											kind: 'tasks',
-											phase: 'tasks',
-											size: tasksResult.summary.length,
-											content_ref: `opencode:tasks:${tasksResult.sessionId ?? 'none'}`,
-										})
-									: null,
-							output_fingerprint: fingerprint({ phase: 'tasks', status: tasksResult.status }),
-							failure_class: tasksResult.status === 'success' ? null : 'UNKNOWN',
-							failure_signature:
-								tasksResult.status === 'success' ? null : `tasks:${tasksResult.status}`,
-						},
-					);
+					if (tasksResult.status === 'success') {
+						// P3: Artefakt-Output-Boundary (§24)
+						const artifactDoc = {
+							contract: 'positron.artifact.v1',
+							run_id: current.id,
+							kind: 'tasks',
+							phase: 'tasks',
+							size: tasksResult.summary.length,
+							content_ref: `opencode:tasks:${tasksResult.sessionId ?? 'none'}`,
+						};
+						if (!finalizeArtifactAttempt(tracking, deps, artifactDoc)) {
+							result = markFailed(
+								current,
+								'FAILED_BLOCKED',
+								`Tasks artifact contract invalid (${artifactDoc.kind})`,
+							);
+							break;
+						}
+					} else {
+						finalizeTrackedAttempt(tracking, deps, 'failed', {
+							failure_class: 'UNKNOWN',
+							failure_signature: `tasks:${tasksResult.status}`,
+						});
+					}
 					result = transition(
 						current,
 						'ANALYZE',
@@ -1354,12 +1416,14 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						size: tr.summary.length,
 						content_ref: `artifact:tasks:${tr.summary.length}`,
 					};
-					finalizeTrackedAttempt(tracking, deps, 'succeeded', {
-						output_contract: artifactDoc.contract,
-						output_json: JSON.stringify(artifactDoc),
-						output_fingerprint: fingerprint(artifactDoc),
-						result_ref: artifactDoc.content_ref,
-					});
+					if (!finalizeArtifactAttempt(tracking, deps, artifactDoc)) {
+						result = markFailed(
+							current,
+							'FAILED_BLOCKED',
+							`Tasks artifact contract invalid (${artifactDoc.kind})`,
+						);
+						break;
+					}
 				} else {
 					finalizeTrackedAttempt(tracking, deps, 'failed', {
 						failure_class: 'UNKNOWN',
@@ -1435,12 +1499,14 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 					size: ar.summary.length,
 					content_ref: `artifact:analyze:${ar.summary.length}`,
 				};
-				finalizeTrackedAttempt(tracking, deps, 'succeeded', {
-					output_contract: artifactDoc.contract,
-					output_json: JSON.stringify(artifactDoc),
-					output_fingerprint: fingerprint(artifactDoc),
-					result_ref: artifactDoc.content_ref,
-				});
+				if (!finalizeArtifactAttempt(tracking, deps, artifactDoc)) {
+					result = markFailed(
+						current,
+						'FAILED_BLOCKED',
+						`Analyze artifact contract invalid (${artifactDoc.kind})`,
+					);
+					break;
+				}
 				result = transition(current, 'REVIEW', ar.summary, 'INFO');
 			} catch (err) {
 				storeEvent(
@@ -1761,7 +1827,28 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 							}
 							break;
 						}
-						// Kein rehydrierbarer Contract → Fallback auf neuen Versuch
+						// Recovered, aber kein rehydrierbarer Contract: konsistenter
+						// Abbruch statt Crash (kein erneuter TestRunner-Lauf auf
+						// einem finalen Attempt, kein EXECUTION_CONTEXT_REQUIRED).
+						storeEvent(
+							{
+								id: createRunId(),
+								runId: current.id,
+								phase: 'TEST',
+								level: 'ERROR',
+								message:
+									'Verify recovery failed: persisted attempt has no rehydratable verification contract',
+								payload: { attemptId: prevVerify?.attempt_id ?? null },
+								createdAt: new Date().toISOString(),
+							},
+							deps,
+						);
+						result = markFailed(
+							current,
+							'FAILED_BLOCKED',
+							'Verify recovery failed: persisted verification contract missing/invalid',
+						);
+						break;
 					}
 					assertWorkerContext(current, verifyTracking, deps);
 					const runner = new TestRunner();
