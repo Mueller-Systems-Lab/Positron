@@ -1627,8 +1627,9 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				const outcome = resolveImplementationOutcome(ir.status);
 
 				if (outcome === 'FAILED_BLOCKED') {
-					completeTrackedAttempt(tracking, deps, {
-						status: 'blocked',
+					// finalizeTrackedAttempt setzt auch den Job-State auf
+					// blocked (Terminalsemantik, konsistent zu durable-run).
+					finalizeTrackedAttempt(tracking, deps, 'blocked', {
 						output_contract: 'positron.build-result.v1',
 						output_fingerprint: fingerprint({ phase: 'implement', status: ir.status }),
 						failure_class: 'CONTEXT_FAILURE',
@@ -1689,8 +1690,9 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						buildResultDoc,
 					);
 					if (!buildResultValidation.ok) {
-						completeTrackedAttempt(tracking, deps, {
-							status: 'blocked',
+						// finalizeTrackedAttempt setzt auch den Job-State auf
+						// blocked (Terminalsemantik, konsistent zu durable-run).
+						finalizeTrackedAttempt(tracking, deps, 'blocked', {
 							failure_class: 'CONTRACT_FAILURE',
 							failure_signature: buildResultValidation.errors.join('|'),
 						});
@@ -1945,8 +1947,9 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 					// Persistenz gegen positron.verification.v1 validiert (§24).
 					const verificationValidation = validateContract('positron.verification.v1', verification);
 					if (!verificationValidation.ok) {
-						completeTrackedAttempt(verifyTracking, deps, {
-							status: 'blocked',
+						// finalizeTrackedAttempt setzt auch den Job-State auf
+						// blocked (Terminalsemantik, konsistent zu durable-run).
+						finalizeTrackedAttempt(verifyTracking, deps, 'blocked', {
 							failure_class: 'CONTRACT_FAILURE',
 							failure_signature: verificationValidation.errors.join('|'),
 						});

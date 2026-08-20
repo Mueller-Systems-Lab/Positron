@@ -47,28 +47,22 @@ import type {
 	GitHubStatusSyncInput,
 	GitHubStatusSyncResult,
 } from '@positron/github-adapter';
-import { renderAccepted } from '@positron/github-adapter';
 import { FakeOpenCodeAdapter, RealOpenCodeAdapter } from '@positron/opencode-adapter';
 import {
 	assembleGateEvaluators,
 	createRun,
 	openDatabase,
-	registerFakeGateEvaluators,
 	registerWorkspaceCleanup,
 	resolveDatabasePath,
 	resolveGateRuntimeMode,
 	resumeFromEvents,
 } from '@positron/run-state';
-import type { RunEventData, RunState, TransitionResult } from '@positron/run-state';
+import type { RunEventData, RunState } from '@positron/run-state';
 import { FakeGitWorkspaceAdapter, RealGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
-import { TestCommandDetector, TestRunner } from '@positron/sandbox';
-import type { TestReport } from '@positron/sandbox';
 import {
 	MAX_FIX_LOOPS,
-	buildRemoteUrl,
 	createRunId,
-	generateBranchName,
 	loadRepositoryConfig,
 	normalizeRepositoryConfig,
 	parsePhase,
@@ -76,13 +70,7 @@ import {
 	safeJsonParse,
 } from '@positron/shared';
 import { SecretManager } from '@positron/shared';
-import type {
-	EventLevel,
-	GateEvaluationContext,
-	GateType,
-	Phase,
-	RunStatus,
-} from '@positron/shared';
+import type { EventLevel, Phase, RunStatus } from '@positron/shared';
 import type {
 	OpenCodeAdapter,
 	OpenCodeRunInput,
