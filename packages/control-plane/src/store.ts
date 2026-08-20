@@ -360,7 +360,7 @@ export function isAttemptLeaseValid(
  */
 export function recoverStaleLeases(
 	db: Database.Database,
-	options: { ownerId?: string | null; now?: string } = {},
+	options: { ownerId?: string | null; ownerIdPrefix?: string | null; now?: string } = {},
 ): AttemptRecord[] {
 	const now = options.now ?? nowIso();
 	const stale = db
@@ -375,6 +375,14 @@ export function recoverStaleLeases(
 		const attempt = mapAttemptRow(row);
 		if (options.ownerId !== undefined && attempt.lease_owner_id !== options.ownerId) {
 			// Fremder Attempt: NICHT hier recoveren (Eigentümer-Kontext respektieren).
+			continue;
+		}
+		if (
+			options.ownerIdPrefix !== undefined &&
+			options.ownerIdPrefix !== null &&
+			!(attempt.lease_owner_id ?? '').startsWith(options.ownerIdPrefix)
+		) {
+			// Prefix-Filter (z. B. `ctl:<runId>:`): nur Leases dieses Runs.
 			continue;
 		}
 		const updated = completeAttempt(db, attempt.attempt_id, {
@@ -464,11 +472,26 @@ export function completeAttempt(
 			// Late Result / Duplicate Completion: finaler Attempt bleibt unverändert.
 			return null;
 		}
-		db.prepare(
-			`UPDATE cp_attempts SET status = ?, output_contract = ?, output_fingerprint = ?, output_json = ?,
+		// Security-Review m2: Fencing zusätzlich im UPDATE-WHERE — der Write
+		// greift nur, wenn Owner UND Generation beim Schreiben noch stimmen
+		// (verhindert ein letztes Fenster zwischen Read und Write unter
+		// Konkurrenz; BEGIN DEFERRED serialisiert den Write-Lock).
+		// Nur anwenden, wenn der Aufrufer explizite Fencing-Optionen setzt;
+		// Legacy-Attempts (lease_owner_id NULL) bleiben kompatibel.
+		const fence =
+			options.fencingOwnerId !== undefined || options.fencingGeneration !== undefined;
+		const whereOwner =
+			options.fencingOwnerId !== undefined ? options.fencingOwnerId : existing.lease_owner_id;
+		const whereGen =
+			options.fencingGeneration !== undefined ? options.fencingGeneration : existing.lease_generation;
+		const base = `UPDATE cp_attempts SET status = ?, output_contract = ?, output_fingerprint = ?, output_json = ?,
 			   ended_at = ?, failure_class = ?, failure_signature = ?, new_evidence = ?, strategy_delta = ?,
-			   result_ref = ?, tokens = ?, previous_attempt_id = ? WHERE attempt_id = ?`,
-		).run(
+			   result_ref = ?, tokens = ?, previous_attempt_id = ?
+			 WHERE attempt_id = ?`;
+		const fenced = fence
+			? ` AND lease_owner_id = ? AND lease_generation = ?`
+			: '';
+		const res = db.prepare(base + fenced).run(
 			to,
 			update.output_contract ?? existing.output_contract,
 			update.output_fingerprint ?? existing.output_fingerprint,
@@ -482,7 +505,12 @@ export function completeAttempt(
 			update.tokens ?? existing.tokens,
 			update.previous_attempt_id ?? existing.previous_attempt_id,
 			attemptId,
+			...(fence ? [whereOwner, whereGen] : []),
 		);
+		if (res.changes === 0) {
+			// Fencing-Konflikt beim Write (Owner/Generation seit Read geändert)
+			return null;
+		}
 		return getAttempt(db, attemptId);
 	})();
 }

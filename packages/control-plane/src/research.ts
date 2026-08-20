@@ -16,6 +16,7 @@
 // Provider-Ausfälle werden über classifyFailure klassifiziert — niemals als
 // "Agent incapable".
 
+import crypto from 'node:crypto';
 import type Database from 'better-sqlite3';
 import { validateContract } from './contracts.js';
 import type { FailureClass, ResearchBatchContract } from './contracts.js';
@@ -195,7 +196,9 @@ export async function runParallelResearch(
 			input_fingerprint: fingerprint({ kind: worker.kind, run: ctx.run_id }),
 		});
 		// P3: exakt ein Claimer; paralleler Doppel-Dispatch wird abgelehnt.
-		const ownerId = `controller:${ctx.run_id}`;
+		// Review-Fix: Owner INSTANZ-scoped (pro Worker-Ausführung), damit
+		// Fencing zwischen zwei Controller-Prozessen real greift.
+		const ownerId = `ctl:${ctx.run_id}:${crypto.randomUUID()}`;
 		const claim = claimAttemptWithGeneration(db, attempt.attempt_id, {
 			ownerId,
 			leaseTtlMs: options.timeoutMs ? options.timeoutMs + 15_000 : undefined,
@@ -228,7 +231,7 @@ export async function runParallelResearch(
 				job_id: ctx.job_id,
 				attempt_id: attempt.attempt_id,
 			});
-			assertAttemptActive(db, attempt.attempt_id);
+			assertAttemptActive(db, attempt.attempt_id, ownerId);
 			if (options.timeoutMs && options.timeoutMs > 0) {
 				// P3.5 (Phase B): Timeout löst echte Cancellation aus
 				// (AbortSignal + owned-Terminator), kein stilles Promise.race.

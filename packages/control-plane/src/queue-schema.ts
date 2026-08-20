@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS cp_queue (
   started_at TEXT,
   finished_at TEXT,
   reason_code TEXT,
-  dedup_key TEXT
+  dedup_key TEXT,
+  provider TEXT
 );
 
 -- Dedup (§48): UNIQUE nur für AKTIVE Items — nach COMPLETED/CANCELLED/BLOCKED

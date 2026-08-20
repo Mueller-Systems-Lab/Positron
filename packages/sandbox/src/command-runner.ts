@@ -74,14 +74,28 @@ export async function runCommand(
 		let exitCode: number | null = null;
 		let terminated = false;
 		let timedOut = false;
-		let cancelled = false;
 		let settled = false;
 		let timeoutTimer: ReturnType<typeof setTimeout>;
-		let abortTimer: ReturnType<typeof setTimeout> | undefined;
 		let forceTimer: ReturnType<typeof setTimeout> | undefined;
 		let settleTimer: ReturnType<typeof setTimeout> | undefined;
 
+		const settle = (err: Error | null, result?: CommandResult): void => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timeoutTimer);
+			clearTimeout(forceTimer);
+			clearTimeout(settleTimer);
+			if (err) {
+				reject(err);
+			} else if (result) {
+				resolve(result);
+			}
+		};
+
 		const killGroup = (signal: NodeJS.Signals): void => {
+			// Security-Review m1: Nur signalisieren, solange der Child live ist
+			// (exitCode/signalCode null) — verhindert PID-Reuse-Kill nach Exit.
+			if (child.exitCode !== null || child.signalCode !== null) return;
 			if (options.killProcessGroup && child.pid) {
 				try {
 					process.kill(-child.pid, signal);
@@ -93,20 +107,6 @@ export async function runCommand(
 			child.kill(signal);
 		};
 
-		const settle = (err: Error | null, result?: CommandResult): void => {
-			if (settled) return;
-			settled = true;
-			clearTimeout(timeoutTimer);
-			clearTimeout(abortTimer);
-			clearTimeout(forceTimer);
-			clearTimeout(settleTimer);
-			if (err) {
-				reject(err);
-			} else if (result) {
-				resolve(result);
-			}
-		};
-
 		// Graceful → (Grace-Periode) → forced. Terminiert den Prozessbaum
 		// nur, wenn `killProcessGroup` explizit gesetzt ist.
 		const escalate = (): void => {
@@ -115,7 +115,7 @@ export async function runCommand(
 			killGroup('SIGTERM');
 			forceTimer = setTimeout(() => {
 				killGroup('SIGKILL');
-				// SIGKILL ist nicht blockierbar; der Exit-Listener finalisiert.
+				// SIGKILL ist nicht blockierbar; der Close-Listener finalisiert.
 				settleTimer = setTimeout(() => {
 					settle(
 						timedOut
@@ -130,7 +130,31 @@ export async function runCommand(
 			exitCode = code;
 			if (settled) return;
 			clearTimeout(timeoutTimer);
-			clearTimeout(abortTimer);
+			const durationMs = Date.now() - startTime;
+			if (terminated) {
+				settle(
+					timedOut
+						? new Error(`Command timed out after ${timeoutMs}ms: ${command} ${args.join(' ')}`)
+						: new Error(`Command cancelled: ${command} ${args.join(' ')}`),
+				);
+				return;
+			}
+			// Review-Fix: erst auf 'close' finalisieren (alle stdio-Streams
+			// geleert), damit stdout/stderr vollständig erfasst werden.
+			// onExit merkt nur den Code; onClose settled.
+			exitCode = code;
+		};
+
+		const onError = (err: Error): void => {
+			settle(new Error(`Failed to spawn command: ${err.message}`));
+		};
+
+		// 'close' feuert nach 'exit' UND nach dem Schließen aller Streams —
+		// vollständige stdout/stderr-Garantie (Review-Fix R1-MINOR).
+		const onClose = (code: number | null): void => {
+			exitCode = code;
+			if (settled) return;
+			clearTimeout(timeoutTimer);
 			const durationMs = Date.now() - startTime;
 			if (terminated) {
 				settle(
@@ -150,11 +174,8 @@ export async function runCommand(
 			});
 		};
 
-		const onError = (err: Error): void => {
-			settle(new Error(`Failed to spawn command: ${err.message}`));
-		};
-
 		child.on('exit', onExit);
+		child.on('close', onClose);
 		child.on('error', onError);
 
 		timeoutTimer = setTimeout(() => {
@@ -164,13 +185,12 @@ export async function runCommand(
 
 		if (options.signal) {
 			if (options.signal.aborted) {
-				cancelled = true;
 				escalate();
 			} else {
 				options.signal.addEventListener(
 					'abort',
 					() => {
-						cancelled = true;
+						timedOut = false;
 						escalate();
 					},
 					{ once: true },
@@ -187,7 +207,6 @@ export async function runCommand(
 		});
 	});
 }
-
 /**
  * Führt ein Kommando mit Timeout aus.
  */

@@ -32,6 +32,7 @@ import type { VerificationCheck } from './contracts.js';
 import {
 	CancellationError,
 	createCancellationSource,
+	startLeaseHeartbeat,
 	withCancellableTimeout,
 } from './cancellation.js';
 import { buildDecision } from './decision-policy.js';
@@ -307,6 +308,7 @@ async function runVerifyStep(
 	buildAttempt: AttemptRecord,
 	deps: DurableRunDeps,
 	trackTransition: (next: string, reasonCode: string) => void,
+	ownerId: string,
 ): Promise<VerifyStepOutcome> {
 	// Verify-Job find-or-create für DIESEN build-attempt (via input fingerprint)
 	const verifyInputFingerprint = fingerprint({
@@ -344,7 +346,6 @@ async function runVerifyStep(
 		input_fingerprint: verifyInputFingerprint,
 	});
 	const leaseTtlMs = deps.timeoutMs ? deps.timeoutMs + 15_000 : 0;
-	const ownerId = `controller:${runId}`;
 	const claim = claimAttemptWithGeneration(db, verifyAttempt.attempt_id, {
 		ownerId,
 		leaseTtlMs: leaseTtlMs || undefined,
@@ -353,6 +354,19 @@ async function runVerifyStep(
 		return { verification: null, outcome: 'contract', reason: 'verify claim denied' };
 	}
 	const verifyGeneration = claim.generation;
+	// Review-Fix (R1-MAJOR Heartbeat): Lease während langer Verify-Arbeit
+	// erneuern (TTL/3-Intervall), damit die Lease nicht während der Arbeit
+	// abläuft und ein anderer Controller den Attempt reklaimt.
+	const heartbeatCancellation = createCancellationSource();
+	const heartbeat = leaseTtlMs
+		? startLeaseHeartbeat(
+				heartbeatCancellation,
+				() => {
+					renewAttemptLease(db, verifyAttempt.attempt_id, ownerId, leaseTtlMs);
+				},
+				leaseTtlMs,
+			)
+		: null;
 	// P3: Tool-/Worker-Aufruf nur innerhalb eines aktiven Attempts.
 	assertExecutionContext({
 		run_id: runId,
@@ -398,6 +412,7 @@ async function runVerifyStep(
 	if (!timed.ok) {
 		// Deterministischer Timeout: Attempt endet final (timed_out); ein
 		// verspätetes Ergebnis wird vom Transition-Guard verworfen.
+		heartbeat?.stop();
 		completeAttempt(
 			db,
 			verifyAttempt.attempt_id,
@@ -417,6 +432,7 @@ async function runVerifyStep(
 	}
 	if ('rejected' in timed.value) {
 		// Verify-Worker hat geworfen → Attempt bereits finalisiert (failed).
+		heartbeat?.stop();
 		return { verification: null, outcome: 'contract', reason: timed.value.message };
 	}
 
@@ -429,6 +445,7 @@ async function runVerifyStep(
 	});
 	const verifyValidation = validateContract('positron.verification.v1', builtVerification);
 	if (!verifyValidation.ok) {
+		heartbeat?.stop();
 		completeAttempt(
 			db,
 			verifyAttempt.attempt_id,
@@ -460,6 +477,7 @@ async function runVerifyStep(
 		},
 		{ fencingOwnerId: ownerId, fencingGeneration: verifyGeneration },
 	);
+	heartbeat?.stop();
 	updateJobState(db, verifyJob.job_id, builtVerification.passed ? 'succeeded' : 'failed');
 	trackTransition('VERIFY', builtVerification.passed ? 'VERIFY_PASS' : 'VERIFY_FAIL');
 	return {
@@ -495,10 +513,19 @@ export async function runDurableRun(
 	input: DurableRunInput,
 ): Promise<DurableRunResult> {
 	const db = deps.db;
+	const runId = input.issue.run_id;
+	// Review-Fix (R1-MAJOR Fencing): Owner-ID ist INSTANZ-scoped — ein
+	// zweiter Controller-Prozess (Recovery/Retry) hat eine andere Instanz-ID
+	// und kann den ersten real ausfencen (run-scoped `controller:<runId>`
+	// wäre zwischen zwei Prozessen identisch und Fencing wirkungslos).
+	const controllerInstanceId = `ctl:${runId}:${createId('inst').split('_').at(-1)}`;
+	// Stale-Lease-Recovery beim Run-Start (Review-Fix R1-MAJOR Heartbeat):
+	// abgelaufene Leases DIESES Runs (jede Instanz, Prefix-Match) werden
+	// finalisiert — kein Zombie-Besitzer kann später noch mutieren.
+	recoverStaleLeases(db, { ownerIdPrefix: `ctl:${runId}:` });
 	applyControlPlaneMigrations(db);
 	const idem = new IdempotencyRegistry(db);
 
-	const runId = input.issue.run_id;
 	const transitions: DurableRunResult['transitions'] = [];
 	let lastState = 'INTAKE';
 
@@ -749,11 +776,18 @@ export async function runDurableRun(
 			job_id: planJob.job_id,
 			attempt_id: planAttempt.attempt_id,
 		});
-		if (!claimAttempt(db, planAttempt.attempt_id)) {
+		// Review-Fix (R1-MINOR): Plan-Step fencen wie build/verify/research/
+		// review — Claim mit Instanz-Owner + Generation, fenced Completions.
+		const planClaim = claimAttemptWithGeneration(db, planAttempt.attempt_id, {
+			ownerId: controllerInstanceId,
+			leaseTtlMs: deps.timeoutMs ? deps.timeoutMs + 15_000 : undefined,
+		});
+		if (!planClaim.claimed) {
 			throw new Error('INTERNAL: plan attempt claim failed');
 		}
+		const planGeneration = planClaim.generation;
 		if (deps.planWorker) {
-			assertAttemptActive(db, planAttempt.attempt_id);
+			assertAttemptActive(db, planAttempt.attempt_id, controllerInstanceId);
 			try {
 				plan = await deps.planWorker.run({
 					run_id: runId,
@@ -766,11 +800,16 @@ export async function runDurableRun(
 				// P3 (Security-Review F2): Worker-Rejection → Attempt finalisieren,
 				// kein Zombie-Attempt, keine unhandled rejection.
 				const errMsg = err instanceof Error ? err.message : String(err);
-				completeAttempt(db, planAttempt.attempt_id, {
-					status: 'failed',
-					failure_class: 'INFRA_FAILURE',
-					failure_signature: `plan-rejected:${errMsg.slice(0, 200)}`,
-				});
+				completeAttempt(
+					db,
+					planAttempt.attempt_id,
+					{
+						status: 'failed',
+						failure_class: 'INFRA_FAILURE',
+						failure_signature: `plan-rejected:${errMsg.slice(0, 200)}`,
+					},
+					{ fencingOwnerId: controllerInstanceId, fencingGeneration: planGeneration },
+				);
 				updateJobState(db, planJob.job_id, 'failed');
 				const decision = buildDecision({
 					run_id: runId,
@@ -787,11 +826,16 @@ export async function runDurableRun(
 		}
 		const planValidation = validateContract('positron.plan.v1', plan);
 		if (!planValidation.ok) {
-			completeAttempt(db, planAttempt.attempt_id, {
-				status: 'blocked',
-				failure_class: 'CONTRACT_FAILURE',
-				failure_signature: planValidation.errors.join('|'),
-			});
+			completeAttempt(
+				db,
+				planAttempt.attempt_id,
+				{
+					status: 'blocked',
+					failure_class: 'CONTRACT_FAILURE',
+					failure_signature: planValidation.errors.join('|'),
+				},
+				{ fencingOwnerId: controllerInstanceId, fencingGeneration: planGeneration },
+			);
 			updateJobState(db, planJob.job_id, 'blocked');
 			const decision = buildDecision({
 				run_id: runId,
@@ -801,12 +845,17 @@ export async function runDurableRun(
 			});
 			return finishRun(db, runId, decision, transitions, workerInvocations);
 		}
-		completeAttempt(db, planAttempt.attempt_id, {
-			status: 'succeeded',
-			output_contract: 'positron.plan.v1',
-			output_fingerprint: fingerprint(plan),
-			output_json: JSON.stringify(plan),
-		});
+		completeAttempt(
+			db,
+			planAttempt.attempt_id,
+			{
+				status: 'succeeded',
+				output_contract: 'positron.plan.v1',
+				output_fingerprint: fingerprint(plan),
+				output_json: JSON.stringify(plan),
+			},
+			{ fencingOwnerId: controllerInstanceId, fencingGeneration: planGeneration },
+		);
 		updateJobState(db, planJob.job_id, 'succeeded');
 		trackTransition('PLAN', 'PLAN_VALID');
 	}
@@ -862,6 +911,7 @@ export async function runDurableRun(
 			lastBuildAttempt,
 			deps,
 			trackTransition,
+			controllerInstanceId,
 		);
 		if (verifyOutcome.outcome === 'contract') {
 			decision = buildDecision({
@@ -932,7 +982,7 @@ export async function runDurableRun(
 		// P3-Claim: exakt ein Ausführer pro Attempt (paralleler
 		// Doppel-Dispatch desselben Attempts wird abgelehnt).
 		const leaseTtlMs = deps.timeoutMs ? deps.timeoutMs + 15_000 : 0;
-		const ownerId = `controller:${runId}`;
+		const ownerId = controllerInstanceId;
 		const claim = claimAttemptWithGeneration(db, attempt.attempt_id, {
 			ownerId,
 			leaseTtlMs: leaseTtlMs || undefined,
@@ -950,9 +1000,22 @@ export async function runDurableRun(
 			continue;
 		}
 		const attemptGeneration = claim.generation;
+		// Review-Fix (R1-MAJOR Heartbeat): Lease während langer Build-Arbeit
+		// erneuern (TTL/3), damit die Lease nicht mitten im Build abläuft.
+		const buildHeartbeatCancellation = createCancellationSource();
+		const buildHeartbeat = leaseTtlMs
+			? startLeaseHeartbeat(
+					buildHeartbeatCancellation,
+					() => {
+						renewAttemptLease(db, attempt.attempt_id, ownerId, leaseTtlMs);
+					},
+					leaseTtlMs,
+				)
+			: null;
 
 		// Crash-Injection (Recovery-Test): Abbruch VOR Build-Ausführung
 		if (input.crashAfterJob && input.crashAfterJob === buildJob.job_id && attemptNumber === 1) {
+			buildHeartbeat?.stop();
 			completeAttempt(
 				db,
 				attempt.attempt_id,
@@ -1021,6 +1084,7 @@ export async function runDurableRun(
 		if (!timedBuild.ok) {
 			// Deterministischer Timeout: Attempt endet final (timed_out),
 			// kein Zombie-Job, keine unhandled rejection, kein Erfolgsübergang.
+			buildHeartbeat?.stop();
 			completeAttempt(
 				db,
 				attempt.attempt_id,
@@ -1041,6 +1105,7 @@ export async function runDurableRun(
 		}
 		if ('rejected' in timedBuild.value) {
 			// Worker hat geworfen → Attempt bereits finalisiert, Decision gesetzt
+			buildHeartbeat?.stop();
 			break;
 		}
 		workerInvocations++;
@@ -1048,6 +1113,7 @@ export async function runDurableRun(
 
 		const buildResultValidation = validateContract('positron.build-result.v1', buildResult);
 		if (!buildResultValidation.ok) {
+			buildHeartbeat?.stop();
 			completeAttempt(
 				db,
 				attempt.attempt_id,
@@ -1078,6 +1144,9 @@ export async function runDurableRun(
 			},
 			{ fencingOwnerId: ownerId, fencingGeneration: attemptGeneration },
 		);
+		// Build-Ausführung beendet → Heartbeat stoppen (Verify läuft als
+		// eigener Attempt mit eigenem Heartbeat in runVerifyStep).
+		buildHeartbeat?.stop();
 		idem.complete(idemKey, buildResult.result_ref ?? buildResult.summary);
 		trackTransition(
 			'BUILD',
@@ -1115,6 +1184,7 @@ export async function runDurableRun(
 			attempt,
 			deps,
 			trackTransition,
+			controllerInstanceId,
 		);
 		if (verifyOutcome.outcome === 'contract') {
 			decision = buildDecision({

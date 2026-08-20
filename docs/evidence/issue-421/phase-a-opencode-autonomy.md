@@ -47,6 +47,26 @@ Backup vor Änderung (beide Kopien sha256-verifiziert):
 
 Keine `deny`-Regel wurde auf `allow` abgesenkt; die einzigen `allow`-Änderungen betrafen ehemalige `ask`-Regeln für legitime Doku-Arbeit. `git push *: deny` (global + build) blieb unverändert; der Orchestrator-Pfad hat `git push` über den Agent-`bash *: allow` effektiv verfügbar (Agent-Regel gewinnt).
 
+## Security-Review-Nacharbeit (M2 — `.env`-Schutz)
+
+Der unabhängige Security-Review identifizierte: Die `read`-Deny für `.env`-Dateien
+ist über `bash` umgehbar (`cat .env`, `grep -r TOKEN .`), weil `bash *: allow`
+gilt. Nacharbeit:
+
+- Gezielte Bash-Deny-Regeln ergänzt (global + issue-orchestrator + build,
+  last-matching-rule greift nach dem Catch-All-Allow):
+  `cat .env`, `cat *.env`, `cat .env.*`, `cat */**/.env`, `cat */.env*`,
+  `grep * .env*`, `rg * .env*`, `cat ~/.config/opencode/opencode.env`,
+  `cat ~/.config/opencode/opencode.json*`
+- Verifiziert (effektive Auflösung): `cat .env` → deny, `cat apps/server/.env.local`
+  → deny, `cat ~/.config/opencode/opencode.env` → deny
+- **Verbleibende dokumentierte Grenze:** generische rekursive Suche
+  (`grep -r TOKEN .`) ist nicht ohne Aufgabe der Bash-Autonomie blockierbar —
+  Positron geht davon aus, dass Secrets nie in sichtbaren Dateien liegen und
+  der Secret-Manager die einzige Secret-Quelle ist. Kein Prompt-Dialog schützt
+  vor einem bewusst böswilligen Agenten; die No-Ask-Policy betrifft normale
+  autorisierte Entwicklung, nicht böswillige Exfiltration.
+
 ## Effektive Permission-Auflösung (Verifikation)
 
 `opencode debug agent <name>` + last-match-Simulation für alle 11 Agenten:

@@ -582,3 +582,186 @@ produktive Worker-Invocation ohne persistierten Job + aktiven Attempt).
 | SECURITY_HARD_BLOCK | `vertical-slice.test.ts`, `runtime-soak.test.ts` |
 | FULL_CANONICAL_HAPPY_PATH / FIX_PATH | `vertical-slice.test.ts` |
 | PRODUCTIVE_WORKER_BYPASS_ZERO | `p3-live-path-bypass-zero.test.ts` (Live-Pfad) |
+
+---
+
+# P3.5 — Runtime Hardening (Cancellation, Lease, Fencing)
+
+## Problem (P3-Lücken)
+
+1. `Promise.race([worker(), timeout()])` beendete beim Timeout NICHT den
+   Worker-Prozess (Worker lief weiter, Ergebnis wurde nur verworfen).
+2. Crash mitten in einem RUNNING Attempt hinterließ eine stale Lease bzw.
+   einen hängengebliebenen Claim ohne Besitzerwechsel.
+
+## Lösung
+
+### Cancellation (`packages/control-plane/src/cancellation.ts`)
+
+```
+TIMEOUT → CANCEL REQUEST (AbortController.abort + owned Terminator)
+       → Worker-Signal (AbortSignal) + Child-Process-Termination
+       → Attempt final TIMED_OUT (Transition-Guard)
+       → late mutation unmöglich
+```
+
+- `CancellationSource { signal, cancelled, cancel, onTerminate }`
+- `withCancellableTimeout(promise, timeoutMs, cancellation)` — Timeout ruft
+  `cancel()`; Rückgabe `{ok:false, reason:'timeout'}` (kein Wurf, keine
+  unhandled rejection)
+- `terminateChildProcess(child, {graceMs, killProcessGroup, exitTimeoutMs})` —
+  SIGTERM → Grace → SIGKILL; nur owned Prozesse (Liveness-Check gegen
+  PID-Reuse, Security-Review m1); Prozessgruppe nur bei explizitem
+  `killProcessGroup`
+- `startLeaseHeartbeat(cancellation, renew, ttlMs)` — Intervall = ttl/3
+
+### Durable Lease + Fencing (`store.ts`, `schema.ts` V3, `execution-context.ts`)
+
+`cp_attempts` erweitert: `lease_owner_id`, `lease_generation`,
+`lease_expires_at`, `claimed_at`.
+
+- `claimAttemptWithGeneration` → `{claimed, generation}` (Fencing-Token)
+- `renewAttemptLease` — Heartbeat, nur Owner
+- `isAttemptLeaseValid` — Expiry-Check (stale → Authority weg)
+- `recoverStaleLeases({ownerId|ownerIdPrefix, now})` — abgelaufene Leases →
+  `failed/STALE_LEASE`; Owner-/Prefix-Grenzen respektiert
+- `completeAttempt(..., {fencingOwnerId, fencingGeneration})` — Fencing
+  VOR dem Transition-Guard UND im UPDATE-WHERE (kein Read-Write-Fenster)
+- `assertAttemptActive(db, attemptId, ownerId?)` — aktiv + Lease gültig
+
+**Owner-Semantik:** `ctl:<runId>:<instanceUuid>` — INSTANZ-scoped. Ein
+zweiter Controller-Prozess (Recovery/Retry) hat eine andere Instanz-ID und
+fencet den ersten real aus (Review-Fix R1). Beim Run-Start wird
+`recoverStaleLeases` mit Prefix `ctl:<runId>:` aufgerufen (Zombie-Besitzer
+verlieren Authority vor neuer Arbeit). Build-/Verify-/Plan-/Research-/
+Review-Attempts claimen mit Lease-TTL (`timeoutMs + 15s`) und halten die
+Lease während der Arbeit per Heartbeat am Leben.
+
+### Child-Process-Termination (`packages/sandbox/src/command-runner.ts`)
+
+`runCommand` unterstützt `AbortSignal` + `killGraceMs` + `killProcessGroup`:
+Timeout/Abort beendet den Prozess REAL (SIGTERM → SIGKILL), Ergebnis wird
+auf `close` finalisiert (vollständige stdout/stderr), kein Zombie, kein
+late Result.
+
+## Evidenz
+
+- `runtime-hardening-canaries.test.ts` (11): ACTIVE_CANCELLATION,
+  CHILD_PROCESS_TERMINATION (SIGTERM + SIGKILL-Eskalation, Zombie-Checks),
+  LEASE_CLAIM/RENEW/STALE_LEASE/RECOVERY, FENCING CANARY (§24), 
+  STALE_RESULT_REJECTED, CRASH_MID_BUILD_RECOVERY, DUPLICATE_EFFECT_ZERO
+- `command-runner-cancellation.test.ts` (4): Timeout/Abort beenden `sleep 60`
+  real, killProcessGroup beendet Prozessbaum, Normalpfad unverändert
+- `review-regressions.test.ts` (4): Diamond ≠ Cycle, Provider-Capacity,
+  deterministisches Aging, Instanz-scoped Fencing
+- `docs/evidence/issue-421/phase-b-runtime-hardening.md`
+
+---
+
+# P4 — Multi-Issue Scheduling (Queue + Deterministic Scheduler)
+
+## Invariante
+
+> LLMs besitzen KEINE Scheduling Authority. Wer startet, wann, mit welchen
+> Ressourcen — entscheidet deterministisch Positron.
+
+## Architektur
+
+```
+GitHub Issues / Tasks
+        │
+        ▼
+   INTAKE QUEUE (cp_queue, SQLite — keine neue Infrastruktur)
+        │
+        ▼
+ DETERMINISTIC SCHEDULER (admitNext, atomare SQLite-Transaktion)
+        │
+   ADMISSION CONTROL (maxActiveRuns, Repo-Lock, Provider-Capacity)
+        │
+   ┌──────┼────────┐
+   ▼      ▼        ▼
+ RUN A  RUN B    RUN C   (jeder über runDurableRun, kanonischer Lifecycle)
+```
+
+## Queue-Modell (`cp_queue`, Schema V4)
+
+- Felder: queue_item_id, source_type/ref, repository_ref, run_id, priority,
+  queue_state, dependency_refs, enqueued_at/admitted_at/started_at/finished_at,
+  reason_code, dedup_key, provider
+- **Dedup** (§48): partieller UNIQUE-Index auf dedup_key für aktive States —
+  Duplicate Intake liefert idempotent das bestehende Item
+  (reason_code DUPLICATE_INTAKE); nach COMPLETED/CANCELLED/BLOCKED ist ein
+  neuer Eintrag möglich (expliziter Re-Run §49, neue run_id, eigene Historie)
+- States (§34): QUEUED / WAITING_DEPENDENCY / WAITING_RESOURCE / ADMITTED /
+  RUNNING / COMPLETED / BLOCKED / CANCELLED
+- Prioritäten (§37): CRITICAL > HIGH > NORMAL > LOW; unbekannt → NORMAL;
+  Aging (§38): LOW→NORMAL→HIGH nach Wartezeit (deterministisch via `now`)
+- Reason-Codes (§57): READY, WAITING_DEPENDENCY, GLOBAL_RUN_LIMIT,
+  PROVIDER_CAPACITY, REPOSITORY_LOCKED, WORKSPACE_LOCKED, DEPENDENCY_CYCLE,
+  DUPLICATE_INTAKE, CANCELLED_BY_USER, HEAD_DRIFT
+
+## Scheduler (`admitNext`)
+
+Deterministische Ordnung pro Kandidat:
+1. **Dependency-Readyness** (alle dependency_refs COMPLETED) — Cycle-Erkennung
+   zuerst (DFS-Pfad, Diamond-sicher: A→[B,C], B→D, C→D ist KEIN Cycle)
+2. **Repository-Lock** (§42/§43): keine zwei mutierenden Runs im selben Repo
+   (Reason REPOSITORY_LOCKED — vor dem Global-Limit geprüft)
+3. **Global-Limit** (§39): `maxActiveRuns` (env `POSITRON_MAX_ACTIVE_RUNS`,
+   Default 2) — Backpressure: warten, nie spawn-anyway, nie drop
+4. **Provider-Capacity** (§40/§65): nur Items mit vollem eigenen Provider
+   warten (PROVIDER_CAPACITY); andere Provider laufen unabhängig
+5. **FIFO** innerhalb gleicher Priorität (enqueued_at)
+
+Admission läuft in EINER `db.transaction` (BEGIN IMMEDIATE) — konkurrierende
+Scheduler-Prozesse können maxActiveRuns/Repo-Lock/Provider nicht umgehen
+(ONE_ADMISSION, §55; Security-Review M1 behoben).
+
+## Lifecycle + Recovery
+
+- `markRunStarted` / `markRunFinished` (Events RUN_STARTED/RUN_FINISHED)
+- `cancelQueueItem` (QUEUED→CANCELLED; Events persistiert)
+- `recoverSchedulerState` (Crash: ADMITTED ohne Run → requeued; RUNNING mit
+  totem Run → requeued für kontrollierten Re-Run — kein falsches COMPLETED)
+- Events in `cp_scheduler_events` (§56): QUEUED/ADMITTED/RUN_STARTED/
+  RUN_FINISHED/RESOURCE_RELEASED/CANCELLED mit timestamp + reason_code
+
+## API + UI
+
+- Backend Truth (§58): GET /api/scheduler/queue|active|waiting|capacity|events
+  (read-only); POST enqueue|tick|items/:id/cancel (requireAdmin, fail-closed)
+- Mission Control (§59): `SchedulerQueuePanel` — Backend-Truth-Projektion
+  (Queued/Waiting/Running/Priority/Repository/Reason + Kapazität), kein
+  UI-Rewrite, keine zweite State-Truth
+- Kosten-Scheduling bleibt DEFERRED_BY_DESIGN (§60) — Capacity ohne Cost
+
+## Evidenz
+
+- `scheduler-canaries.test.ts` (14): Queue-Persistenz/Ordnung, Priorität+FIFO,
+  Aging, Admission/Limit/Backpressure (Negative Canary: nie > Limit), Dedup/
+  Re-Run, Dependencies+Release+Cycle+Failure, Repo-Lock, Cancellation,
+  Resource-Release, Recovery
+- `scheduler-vertical-slice.test.ts` (6): Multi-Issue-Slice mit ECHTEN
+  parallelen Runs (Zeitüberlappung aus cp_attempts belegt), Failure-Isolation,
+  Double-Admission-Prevention, Events, Queue-Recovery
+- `scheduler-api.test.ts` (7): read-only ohne Auth, write mit Admin-Token
+  (401 ohne), voller API-Lifecycle
+- `scheduler-queue-panel.test.tsx` (3): UI-Projektion, Fehlerzustand
+- `review-regressions.test.ts` (4): Diamond≠Cycle, Provider-Capacity,
+  Aging-Promotion, Instanz-Fencing
+- `docs/evidence/issue-421/phase-d-p4-multi-issue-scheduling.md`
+
+---
+
+# OpenCode Unattended Autonomy (Phase A)
+
+Siehe `docs/evidence/issue-421/phase-a-opencode-autonomy.md`:
+
+- Lokale Version **1.15.13** (`/home/xxammaxx/.opencode/bin/opencode`),
+  `--auto` lokal NICHT unterstützt (AUTO_FLAG_NOT_SUPPORTED_LOCALLY);
+  persistente No-Ask-Konfiguration in `~/.config/opencode/opencode.json`
+  + `~/.config/opencode/agents/*.md` (Backup vor Änderung, sha256-verifiziert)
+- Effektive Permissions deterministisch (ALLOW/DENY, kein ASK) für alle 11
+  Agenten; `.env`-Lesen: read-Deny + Bash-Deny-Regeln (`cat/grep/rg .env*`)
+- Canaries: Root/Subagent/Neue-Session (0 Permission-Events), Preflight
+  `scripts/opencode-autonomy-preflight.sh` (AUTONOMY_PREFLIGHT=PASS)

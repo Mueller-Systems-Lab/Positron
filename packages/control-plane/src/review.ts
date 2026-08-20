@@ -11,6 +11,7 @@
 // Ergebnis ist ein strukturierter positron.review-batch.v1 Contract.
 // Kein Freitext als alleinige Decision Boundary.
 
+import crypto from 'node:crypto';
 import type Database from 'better-sqlite3';
 import { validateContract } from './contracts.js';
 import type { FindingContract, ReviewBatchContract } from './contracts.js';
@@ -89,7 +90,8 @@ export async function runParallelReviews(
 				input_fingerprint: fingerprint({ kind: worker.kind, run: ctx.run_id }),
 			});
 			// P3: exakt ein Claimer; paralleler Doppel-Dispatch wird abgelehnt.
-			const ownerId = `controller:${ctx.run_id}`;
+			// Review-Fix: Owner INSTANZ-scoped (pro Review-Worker).
+			const ownerId = `ctl:${ctx.run_id}:${crypto.randomUUID()}`;
 			const claim = claimAttemptWithGeneration(db, attempt.attempt_id, { ownerId });
 			if (!claim.claimed) {
 				return {

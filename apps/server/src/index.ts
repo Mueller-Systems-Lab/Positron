@@ -2444,7 +2444,7 @@ export function createApp(options: ServerOptions = {}) {
 			}));
 			res.json({ queue: items, capacity: schedulerCapacity(getDb(), schedulerCfg) });
 		} catch (err) {
-			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
+			res.status(500).json({ error: 'Datenbankfehler', details: 'internal error' });
 		}
 	});
 
@@ -2455,7 +2455,7 @@ export function createApp(options: ServerOptions = {}) {
 			);
 			res.json({ activeRuns: items });
 		} catch (err) {
-			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
+			res.status(500).json({ error: 'Datenbankfehler', details: 'internal error' });
 		}
 	});
 
@@ -2485,7 +2485,7 @@ export function createApp(options: ServerOptions = {}) {
 					: null,
 			});
 		} catch (err) {
-			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
+			res.status(500).json({ error: 'Datenbankfehler', details: 'internal error' });
 		}
 	});
 
@@ -2493,7 +2493,7 @@ export function createApp(options: ServerOptions = {}) {
 		try {
 			res.json(schedulerCapacity(getDb(), schedulerCfg));
 		} catch (err) {
-			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
+			res.status(500).json({ error: 'Datenbankfehler', details: 'internal error' });
 		}
 	});
 
@@ -2502,7 +2502,7 @@ export function createApp(options: ServerOptions = {}) {
 			const { queue_item_id } = req.query as { queue_item_id?: string };
 			res.json({ events: listSchedulerEvents(getDb(), queue_item_id) });
 		} catch (err) {
-			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
+			res.status(500).json({ error: 'Datenbankfehler', details: 'internal error' });
 		}
 	});
 
@@ -2516,20 +2516,21 @@ export function createApp(options: ServerOptions = {}) {
 			}
 			res.json({ cancelled });
 		} catch (err) {
-			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
+			res.status(500).json({ error: 'Datenbankfehler', details: 'internal error' });
 		}
 	});
 
 	// P4: Enqueue (write endpoint — requires admin auth)
 	app.post('/api/scheduler/enqueue', requireAdmin, express.json(), (req, res) => {
 		try {
-			const { source_type, source_ref, repository_ref, priority, dependency_refs } =
+			const { source_type, source_ref, repository_ref, priority, dependency_refs, provider } =
 				req.body as {
 					source_type?: string;
 					source_ref?: string;
 					repository_ref?: string;
 					priority?: string;
 					dependency_refs?: string[];
+					provider?: string;
 				};
 			if (!source_type || !source_ref || !repository_ref) {
 				res.status(400).json({ error: 'source_type, source_ref and repository_ref are required' });
@@ -2541,10 +2542,11 @@ export function createApp(options: ServerOptions = {}) {
 				repository_ref,
 				priority,
 				dependency_refs,
+				provider,
 			});
 			res.json({ item });
 		} catch (err) {
-			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
+			res.status(500).json({ error: 'Datenbankfehler', details: 'internal error' });
 		}
 	});
 
