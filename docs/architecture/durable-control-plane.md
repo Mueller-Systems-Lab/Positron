@@ -335,10 +335,8 @@ Frontend Projection (MissionControlPanel, KpiPanel)
   von P2, nicht in diesem Umfang behoben.
 - Kostenerfassung: `COST_ANALYTICS=DEFERRED_BY_DESIGN` — keine belastbaren
   Runtime-Kosten, solange Preis-Provenance + echter Tokenverbrauch fehlen.
-- Research im Worker (`apps/worker`) läuft weiterhin als klassische
-  WEB_RESEARCH-Phase (Artifact-Erzeugung); der durable Research-Job mit
-  Fan-out/Join ist über `runDurableRun` (control-plane) nachweisbar und
-  wird bei der Worker-Pipeline-Migration auf dieselbe Primitive gehoben.
+- (Mit P3 überholt: Research im Worker läuft jetzt als persistenter
+  research-Job/Attempt in der kanonischen Boundary — siehe P3-Status.)
 
 ## P3-Status (Canonical Durable Execution Adoption)
 
