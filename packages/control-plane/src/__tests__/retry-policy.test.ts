@@ -28,6 +28,10 @@ function makeAttempt(overrides: Partial<AttemptRecord> = {}): AttemptRecord {
 		result_ref: null,
 		tokens: null,
 		previous_attempt_id: null,
+		lease_owner_id: null,
+		lease_generation: 0,
+		lease_expires_at: null,
+		claimed_at: null,
 		...overrides,
 	};
 }

@@ -10,6 +10,8 @@ export interface CommandResult {
 	stderr: string;
 	durationMs: number;
 	command: string;
+	/** true, wenn der Prozess durch Timeout/Cancellation beendet wurde */
+	terminated: boolean;
 }
 
 /** Optionen für command-runner */
@@ -22,11 +24,25 @@ export interface RunCommandOptions {
 	env?: Record<string, string | undefined>;
 	/** Stdin-Input (optional). Wenn nicht gesetzt, wird stdin geschlossen. */
 	stdin?: string;
+	/**
+	 * P3.5 (Phase B): AbortSignal für aktive Cancellation.
+	 * Bei abort: graceful (SIGTERM) → Grace-Periode → forced (SIGKILL).
+	 * Der Timeout-Pfad nutzt dieselbe Termination-Semantik.
+	 */
+	signal?: AbortSignal;
+	/** Grace-Periode zwischen SIGTERM und SIGKILL (default 2000ms) */
+	killGraceMs?: number;
+	/** Tötet die gesamte Prozessgruppe (Enkel-Prozesse). Nur explizit setzen. */
+	killProcessGroup?: boolean;
 }
 
 /**
  * Führt ein Kommando in einem Child Process aus.
  * Nutzt spawn (nicht exec) für streaming output.
+ *
+ * P3.5 (Phase B): Timeout UND externes AbortSignal beenden den Prozess
+ * WIRKLICH (graceful → forced), statt nur den Promise zu beenden. Kein
+ * Zombie-Prozess, kein late stdout-Eintrag nach Termination.
  */
 export async function runCommand(
 	command: string,
@@ -36,11 +52,13 @@ export async function runCommand(
 	return new Promise((resolve, reject) => {
 		const startTime = Date.now();
 		const timeoutMs = options.timeout ?? 120_000;
+		const graceMs = options.killGraceMs ?? 2000;
 
 		const child = spawn(command, args, {
 			cwd: options.cwd,
 			env: { ...process.env, ...options.env },
 			stdio: ['pipe', 'pipe', 'pipe'],
+			detached: options.killProcessGroup ?? false,
 		});
 
 		// Close stdin by default — prevents hangs with CLI tools that wait for input
@@ -53,12 +71,112 @@ export async function runCommand(
 
 		let stdout = '';
 		let stderr = '';
+		let exitCode: number | null = null;
+		let terminated = false;
 		let timedOut = false;
+		let cancelled = false;
+		let settled = false;
+		let timeoutTimer: ReturnType<typeof setTimeout>;
+		let abortTimer: ReturnType<typeof setTimeout> | undefined;
+		let forceTimer: ReturnType<typeof setTimeout> | undefined;
+		let settleTimer: ReturnType<typeof setTimeout> | undefined;
 
-		const timeout = setTimeout(() => {
+		const killGroup = (signal: NodeJS.Signals): void => {
+			if (options.killProcessGroup && child.pid) {
+				try {
+					process.kill(-child.pid, signal);
+					return;
+				} catch {
+					// Fallback: direkter kill
+				}
+			}
+			child.kill(signal);
+		};
+
+		const settle = (err: Error | null, result?: CommandResult): void => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timeoutTimer);
+			clearTimeout(abortTimer);
+			clearTimeout(forceTimer);
+			clearTimeout(settleTimer);
+			if (err) {
+				reject(err);
+			} else if (result) {
+				resolve(result);
+			}
+		};
+
+		// Graceful → (Grace-Periode) → forced. Terminiert den Prozessbaum
+		// nur, wenn `killProcessGroup` explizit gesetzt ist.
+		const escalate = (): void => {
+			if (terminated) return;
+			terminated = true;
+			killGroup('SIGTERM');
+			forceTimer = setTimeout(() => {
+				killGroup('SIGKILL');
+				// SIGKILL ist nicht blockierbar; der Exit-Listener finalisiert.
+				settleTimer = setTimeout(() => {
+					settle(
+						timedOut
+							? new Error(`Command timed out after ${timeoutMs}ms: ${command} ${args.join(' ')}`)
+							: new Error(`Command cancelled: ${command} ${args.join(' ')}`),
+					);
+				}, 100);
+			}, graceMs);
+		};
+
+		const onExit = (code: number | null): void => {
+			exitCode = code;
+			if (settled) return;
+			clearTimeout(timeoutTimer);
+			clearTimeout(abortTimer);
+			const durationMs = Date.now() - startTime;
+			if (terminated) {
+				settle(
+					timedOut
+						? new Error(`Command timed out after ${timeoutMs}ms: ${command} ${args.join(' ')}`)
+						: new Error(`Command cancelled: ${command} ${args.join(' ')}`),
+				);
+				return;
+			}
+			settle(null, {
+				exitCode: code,
+				stdout,
+				stderr,
+				durationMs,
+				command: `${command} ${args.join(' ')}`,
+				terminated: false,
+			});
+		};
+
+		const onError = (err: Error): void => {
+			settle(new Error(`Failed to spawn command: ${err.message}`));
+		};
+
+		child.on('exit', onExit);
+		child.on('error', onError);
+
+		timeoutTimer = setTimeout(() => {
 			timedOut = true;
-			child.kill('SIGTERM');
+			escalate();
 		}, timeoutMs);
+
+		if (options.signal) {
+			if (options.signal.aborted) {
+				cancelled = true;
+				escalate();
+			} else {
+				options.signal.addEventListener(
+					'abort',
+					() => {
+						cancelled = true;
+						escalate();
+					},
+					{ once: true },
+				);
+			}
+		}
 
 		child.stdout?.on('data', (data: Buffer) => {
 			stdout += data.toString();
@@ -66,29 +184,6 @@ export async function runCommand(
 
 		child.stderr?.on('data', (data: Buffer) => {
 			stderr += data.toString();
-		});
-
-		child.on('close', (exitCode: number | null) => {
-			clearTimeout(timeout);
-			const durationMs = Date.now() - startTime;
-
-			if (timedOut) {
-				reject(new Error(`Command timed out after ${timeoutMs}ms: ${command} ${args.join(' ')}`));
-				return;
-			}
-
-			resolve({
-				exitCode,
-				stdout,
-				stderr,
-				durationMs,
-				command: `${command} ${args.join(' ')}`,
-			});
-		});
-
-		child.on('error', (err: Error) => {
-			clearTimeout(timeout);
-			reject(new Error(`Failed to spawn command: ${err.message}`));
 		});
 	});
 }

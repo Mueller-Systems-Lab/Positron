@@ -527,6 +527,13 @@ function loadLastAttempt(runId: string, jobType: string, deps: PipelineDeps): At
 			result_ref: last.result_ref ? String(last.result_ref) : null,
 			tokens: last.tokens !== null && last.tokens !== undefined ? Number(last.tokens) : null,
 			previous_attempt_id: last.previous_attempt_id ? String(last.previous_attempt_id) : null,
+			lease_owner_id: last.lease_owner_id ? String(last.lease_owner_id) : null,
+			lease_generation:
+				last.lease_generation !== null && last.lease_generation !== undefined
+					? Number(last.lease_generation)
+					: 0,
+			lease_expires_at: last.lease_expires_at ? String(last.lease_expires_at) : null,
+			claimed_at: last.claimed_at ? String(last.claimed_at) : null,
 		};
 	} catch (err) {
 		console.error(`[Worker] loadLastAttempt failed: ${String(err).slice(0, 200)}`);

@@ -19,12 +19,16 @@
 import type Database from 'better-sqlite3';
 import { validateContract } from './contracts.js';
 import type { FailureClass, ResearchBatchContract } from './contracts.js';
+import {
+	createCancellationSource,
+	withCancellableTimeout,
+} from './cancellation.js';
 import { assertAttemptActive, assertExecutionContext } from './execution-context.js';
 import { classifyFailure } from './failure.js';
 import { fingerprint } from './fingerprint.js';
 import { assertRealParallelism, observedOverlapMs } from './parallelism.js';
 import type { ParallelExecutionSlice, ParallelismVerdict } from './parallelism.js';
-import { claimAttempt, completeAttempt, createAttempt } from './store.js';
+import { claimAttemptWithGeneration, completeAttempt, createAttempt, mapAttemptRow } from './store.js';
 import type { AttemptRecord } from './store.js';
 
 export type ResearchKind = 'code' | 'docs' | 'tests';
@@ -191,7 +195,12 @@ export async function runParallelResearch(
 			input_fingerprint: fingerprint({ kind: worker.kind, run: ctx.run_id }),
 		});
 		// P3: exakt ein Claimer; paralleler Doppel-Dispatch wird abgelehnt.
-		if (!claimAttempt(db, attempt.attempt_id)) {
+		const ownerId = `controller:${ctx.run_id}`;
+		const claim = claimAttemptWithGeneration(db, attempt.attempt_id, {
+			ownerId,
+			leaseTtlMs: options.timeoutMs ? options.timeoutMs + 15_000 : undefined,
+		});
+		if (!claim.claimed) {
 			return {
 				kind: worker.kind,
 				workerType: worker.workerType,
@@ -207,6 +216,7 @@ export async function runParallelResearch(
 				duration_ms: 0,
 			};
 		}
+		const attemptGeneration = claim.generation;
 
 		const runWithTimeout = async (): Promise<ResearchWorkerOutput> => {
 			// P3: Provider-/Worker-Aufrufe nur innerhalb eines aktiven Attempts
@@ -220,31 +230,24 @@ export async function runParallelResearch(
 			});
 			assertAttemptActive(db, attempt.attempt_id);
 			if (options.timeoutMs && options.timeoutMs > 0) {
-				let timer: ReturnType<typeof setTimeout> | undefined;
-				try {
-					// Unhandled-Rejection-Schutz: der Worker-Promise darf nach
-					// dem Timeout-Sieg nicht als unhandled rejection crashen.
-					const workerPromise = worker.run({
-						run_id: ctx.run_id,
-						job_id: ctx.job_id,
-						attempt_id: attempt.attempt_id,
-						workspacePath: ctx.workspacePath,
-					});
-					workerPromise.catch(() => {
-						/* Ergebnis nach Timeout wird bewusst verworfen */
-					});
-					return await Promise.race([
-						workerPromise,
-						new Promise<never>((_, reject) => {
-							timer = setTimeout(
-								() => reject(new Error(`RESEARCH_TIMEOUT: ${worker.kind}`)),
-								options.timeoutMs,
-							);
-						}),
-					]);
-				} finally {
-					if (timer) clearTimeout(timer);
+				// P3.5 (Phase B): Timeout löst echte Cancellation aus
+				// (AbortSignal + owned-Terminator), kein stilles Promise.race.
+				const cancellation = createCancellationSource();
+				const workerPromise = worker.run({
+					run_id: ctx.run_id,
+					job_id: ctx.job_id,
+					attempt_id: attempt.attempt_id,
+					workspacePath: ctx.workspacePath,
+				});
+				const timed = await withCancellableTimeout(
+					workerPromise,
+					options.timeoutMs,
+					cancellation,
+				);
+				if (!timed.ok) {
+					throw new Error(`RESEARCH_TIMEOUT: ${worker.kind}`);
 				}
+				return timed.value;
 			}
 			return worker.run({
 				run_id: ctx.run_id,
@@ -258,13 +261,18 @@ export async function runParallelResearch(
 			const output = await runWithTimeout();
 			const endedAt = nowIso();
 			const durationMs = Date.now() - new Date(startedAt).getTime();
-			completeAttempt(db, attempt.attempt_id, {
-				status: 'succeeded',
-				output_contract: 'positron.research.v1',
-				output_fingerprint: fingerprint(output),
-				output_json: JSON.stringify(output),
-				ended_at: endedAt,
-			});
+			completeAttempt(
+				db,
+				attempt.attempt_id,
+				{
+					status: 'succeeded',
+					output_contract: 'positron.research.v1',
+					output_fingerprint: fingerprint(output),
+					output_json: JSON.stringify(output),
+					ended_at: endedAt,
+				},
+				{ fencingOwnerId: ownerId, fencingGeneration: attemptGeneration },
+			);
 			return {
 				kind: worker.kind,
 				workerType: worker.workerType,
@@ -297,12 +305,17 @@ export async function runParallelResearch(
 			const failureSignature = `research-${worker.kind}-error:${errMsg.slice(0, 300)}`;
 			// P3: Timeout beendet den Attempt deterministisch (timed_out) —
 			// ein späteres Worker-Ergebnis wird vom Transition-Guard verworfen.
-			completeAttempt(db, attempt.attempt_id, {
-				status: isTimeout ? 'timed_out' : 'failed',
-				failure_class: failureClass,
-				failure_signature: failureSignature,
-				ended_at: endedAt,
-			});
+			completeAttempt(
+				db,
+				attempt.attempt_id,
+				{
+					status: isTimeout ? 'timed_out' : 'failed',
+					failure_class: failureClass,
+					failure_signature: failureSignature,
+					ended_at: endedAt,
+				},
+				{ fencingOwnerId: ownerId, fencingGeneration: attemptGeneration },
+			);
 			return {
 				kind: worker.kind,
 				workerType: worker.workerType,
@@ -415,31 +428,8 @@ export async function runParallelResearch(
  * Sammelt die Attempts eines Research-Jobs (Telemetrie je Worker).
  */
 export function listResearchAttempts(db: Database.Database, jobId: string): AttemptRecord[] {
-	return (
-		db
-			.prepare('SELECT * FROM cp_attempts WHERE job_id = ? ORDER BY started_at ASC')
-			.all(jobId) as Array<Record<string, unknown>>
-	).map((row) => ({
-		attempt_id: String(row.attempt_id),
-		run_id: String(row.run_id),
-		job_id: String(row.job_id),
-		status: String(row.status) as AttemptRecord['status'],
-		input_contract: row.input_contract ? String(row.input_contract) : null,
-		input_fingerprint: row.input_fingerprint ? String(row.input_fingerprint) : null,
-		output_contract: row.output_contract ? String(row.output_contract) : null,
-		output_fingerprint: row.output_fingerprint ? String(row.output_fingerprint) : null,
-		output_json: row.output_json ? String(row.output_json) : null,
-		worker_type: row.worker_type ? String(row.worker_type) : null,
-		provider: row.provider ? String(row.provider) : null,
-		model: row.model ? String(row.model) : null,
-		started_at: String(row.started_at),
-		ended_at: row.ended_at ? String(row.ended_at) : null,
-		failure_class: row.failure_class ? String(row.failure_class) : null,
-		failure_signature: row.failure_signature ? String(row.failure_signature) : null,
-		new_evidence: row.new_evidence ? String(row.new_evidence) : null,
-		strategy_delta: row.strategy_delta ? String(row.strategy_delta) : null,
-		result_ref: row.result_ref ? String(row.result_ref) : null,
-		tokens: row.tokens !== null && row.tokens !== undefined ? Number(row.tokens) : null,
-		previous_attempt_id: row.previous_attempt_id ? String(row.previous_attempt_id) : null,
-	}));
+	const rows = db
+		.prepare('SELECT * FROM cp_attempts WHERE job_id = ? ORDER BY started_at ASC')
+		.all(jobId) as Array<Record<string, unknown>>;
+	return rows.map(mapAttemptRow);
 }

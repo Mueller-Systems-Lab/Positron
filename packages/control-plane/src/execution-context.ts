@@ -17,7 +17,7 @@
 // außerhalb eines aktiven Attempts stattfinden (§17/§18).
 
 import type Database from 'better-sqlite3';
-import { getAttempt } from './store.js';
+import { getAttempt, isAttemptLeaseValid } from './store.js';
 
 export interface ControlPlaneExecutionContext {
 	run_id: string;
@@ -65,8 +65,17 @@ export function assertExecutionContext(
  * Wirft `ExecutionContextRequiredError` mit der Attempt-ID, wenn der Attempt
  * fehlt oder nicht in 'running' steht (z. B. bereits finalisiert — Late
  * Execution nach Timeout/Cancellation wird damit verhindert).
+ *
+ * P3.5 (Phase B): Wenn der Attempt eine Lease-TTL besitzt, muss die Lease
+ * noch gültig sein (Heartbeat aktiv). Ein stale Attempt (abgelaufene Lease,
+ * Besitzer-Crash) darf NICHT weiter ausführen — der Worker verliert die
+ * Authority, bevor er weiter mutieren kann.
  */
-export function assertAttemptActive(db: Database.Database, attemptId: string): void {
+export function assertAttemptActive(
+	db: Database.Database,
+	attemptId: string,
+	ownerId?: string | null,
+): void {
 	const attempt = getAttempt(db, attemptId);
 	if (!attempt) {
 		throw new ExecutionContextRequiredError(`attempt ${attemptId} not found`);
@@ -74,6 +83,16 @@ export function assertAttemptActive(db: Database.Database, attemptId: string): v
 	if (attempt.status !== 'running') {
 		throw new ExecutionContextRequiredError(
 			`attempt ${attemptId} not active (status=${attempt.status})`,
+		);
+	}
+	if (ownerId !== undefined && attempt.lease_owner_id !== ownerId) {
+		throw new ExecutionContextRequiredError(
+			`attempt ${attemptId} owned by ${attempt.lease_owner_id ?? 'nobody'} (caller=${ownerId})`,
+		);
+	}
+	if (!isAttemptLeaseValid(db, attemptId, ownerId ?? null)) {
+		throw new ExecutionContextRequiredError(
+			`attempt ${attemptId} lease expired (stale lease — worker lost authority)`,
 		);
 	}
 }

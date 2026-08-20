@@ -89,7 +89,34 @@ function applyV2(db: Database.Database): void {
 	}
 }
 
+/**
+ * V3 (P3.5/Phase B — Runtime Hardening): durable Lease + Fencing.
+ *
+ * `lease_owner_id`       — wer den Attempt hält (Worker-/Controller-Instanz)
+ * `lease_generation`     — Fencing-Token: wird bei JEDEM Re-Claim erhöht;
+ *                          alte Besitzer (Generation n-1) verlieren Autorität
+ * `lease_expires_at`     — Heartbeat-Deadline (ISO). Abgelaufen → stale
+ * `claimed_at`           — Claim-Zeitpunkt (Diagnose)
+ *
+ * Idempotent für bestehende Datenbanken (V1/V2-Bestände, Soak-DB).
+ */
+function applyV3(db: Database.Database): void {
+	if (!columnExists(db, 'cp_attempts', 'lease_owner_id')) {
+		db.exec('ALTER TABLE cp_attempts ADD COLUMN lease_owner_id TEXT');
+	}
+	if (!columnExists(db, 'cp_attempts', 'lease_generation')) {
+		db.exec('ALTER TABLE cp_attempts ADD COLUMN lease_generation INTEGER NOT NULL DEFAULT 0');
+	}
+	if (!columnExists(db, 'cp_attempts', 'lease_expires_at')) {
+		db.exec('ALTER TABLE cp_attempts ADD COLUMN lease_expires_at TEXT');
+	}
+	if (!columnExists(db, 'cp_attempts', 'claimed_at')) {
+		db.exec('ALTER TABLE cp_attempts ADD COLUMN claimed_at TEXT');
+	}
+}
+
 export function applyControlPlaneMigrations(db: Database.Database): void {
 	db.exec(CONTROL_PLANE_SCHEMA_V1);
 	applyV2(db);
+	applyV3(db);
 }

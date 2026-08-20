@@ -29,6 +29,11 @@ import type {
 	VerificationContract,
 } from './contracts.js';
 import type { VerificationCheck } from './contracts.js';
+import {
+	CancellationError,
+	createCancellationSource,
+	withCancellableTimeout,
+} from './cancellation.js';
 import { buildDecision } from './decision-policy.js';
 import { assertAttemptActive, assertExecutionContext } from './execution-context.js';
 import { classifyFailure } from './failure.js';
@@ -50,6 +55,7 @@ import type { ParallelReviewResult, ParallelismVerdict, ReviewWorker } from './r
 import { applyControlPlaneMigrations } from './schema.js';
 import {
 	claimAttempt,
+	claimAttemptWithGeneration,
 	completeAttempt,
 	createAttempt,
 	createId,
@@ -60,6 +66,8 @@ import {
 	listDecisions,
 	listJobAttempts,
 	listJobs,
+	recoverStaleLeases,
+	renewAttemptLease,
 	storeDecision,
 	storeTransition,
 	updateJobState,
@@ -204,36 +212,13 @@ function emitEvent(event: RunEventContract): void {
 }
 
 // ---------------------------------------------------------------------------
-// Timeout-Semantik (P3): langlebige Worker beenden den Attempt deterministisch.
-// Ein Timeout erzeugt keine unhandled rejection und keinen Zombie-Job.
+// Timeout-Semantik (P3.5/Phase B): Timeouts lösen echte Cancellation aus.
+// `withCancellableTimeout` (cancellation.ts) ersetzt das P3-`Promise.race`:
+// beim Timeout wird der AbortSignal-basierte Cancellation-Contract ausgelöst
+// und der owned Child-Prozess (falls registriert) graceful → forced beendet.
+// Ein verspätetes Worker-Ergebnis kann den finalisierten Attempt nicht mehr
+// überschreiben (Transition-Guard + Lease-Fencing in store.ts).
 // ---------------------------------------------------------------------------
-
-type TimedExecution<T> = { ok: true; value: T } | { ok: false; reason: 'timeout' };
-
-async function withTimeout<T>(
-	promise: Promise<T>,
-	timeoutMs: number | undefined,
-): Promise<TimedExecution<T>> {
-	if (!timeoutMs || timeoutMs <= 0) {
-		return { ok: true, value: await promise };
-	}
-	let timer: ReturnType<typeof setTimeout> | undefined;
-	try {
-		// Unhandled-Rejection-Schutz: das Worker-Promise darf nach dem
-		// Timeout-Sieg nicht als unhandled rejection crashen (P2-Regression).
-		promise.catch(() => {
-			/* verspätetes Ergebnis wird bewusst verworfen */
-		});
-		return await Promise.race([
-			promise.then((value) => ({ ok: true as const, value })),
-			new Promise<{ ok: false; reason: 'timeout' }>((resolve) => {
-				timer = setTimeout(() => resolve({ ok: false, reason: 'timeout' }), timeoutMs);
-			}),
-		]);
-	} finally {
-		if (timer) clearTimeout(timer);
-	}
-}
 
 // ---------------------------------------------------------------------------
 // Recovery-Rekonstruktion (P3): completed worker aus persistierten Attempts
@@ -358,18 +343,26 @@ async function runVerifyStep(
 		input_contract: 'positron.verification.v1',
 		input_fingerprint: verifyInputFingerprint,
 	});
-	if (!claimAttempt(db, verifyAttempt.attempt_id)) {
+	const leaseTtlMs = deps.timeoutMs ? deps.timeoutMs + 15_000 : 0;
+	const ownerId = `controller:${runId}`;
+	const claim = claimAttemptWithGeneration(db, verifyAttempt.attempt_id, {
+		ownerId,
+		leaseTtlMs: leaseTtlMs || undefined,
+	});
+	if (!claim.claimed) {
 		return { verification: null, outcome: 'contract', reason: 'verify claim denied' };
 	}
+	const verifyGeneration = claim.generation;
 	// P3: Tool-/Worker-Aufruf nur innerhalb eines aktiven Attempts.
 	assertExecutionContext({
 		run_id: runId,
 		job_id: verifyJob.job_id,
 		attempt_id: verifyAttempt.attempt_id,
 	});
-	assertAttemptActive(db, verifyAttempt.attempt_id);
+	assertAttemptActive(db, verifyAttempt.attempt_id, ownerId);
 
-	const timed = await withTimeout(
+	const cancellation = createCancellationSource();
+	const timed = await withCancellableTimeout(
 		(async () => {
 			try {
 				return await deps.verifyTool.run({
@@ -379,28 +372,42 @@ async function runVerifyStep(
 					workspacePath: deps.workspace.path,
 				});
 			} catch (err) {
+				if (err instanceof CancellationError) {
+					throw err;
+				}
 				// P3 (Security-Review F2): Worker-Rejection → Attempt finalisieren,
 				// kein Zombie-Attempt, keine unhandled rejection.
 				const errMsg = err instanceof Error ? err.message : String(err);
-				completeAttempt(db, verifyAttempt.attempt_id, {
-					status: 'failed',
-					failure_class: 'INFRA_FAILURE',
-					failure_signature: `verify-rejected:${errMsg.slice(0, 200)}`,
-				});
+				completeAttempt(
+					db,
+					verifyAttempt.attempt_id,
+					{
+						status: 'failed',
+						failure_class: 'INFRA_FAILURE',
+						failure_signature: `verify-rejected:${errMsg.slice(0, 200)}`,
+					},
+					{ fencingOwnerId: ownerId, fencingGeneration: verifyGeneration },
+				);
 				updateJobState(db, verifyJob.job_id, 'failed');
 				return { rejected: true, message: errMsg.slice(0, 200) };
 			}
 		})(),
 		deps.timeoutMs,
+		cancellation,
 	);
 	if (!timed.ok) {
 		// Deterministischer Timeout: Attempt endet final (timed_out); ein
 		// verspätetes Ergebnis wird vom Transition-Guard verworfen.
-		completeAttempt(db, verifyAttempt.attempt_id, {
-			status: 'timed_out',
-			failure_class: 'TIMEOUT',
-			failure_signature: `verify-timeout-${deps.timeoutMs ?? 0}ms`,
-		});
+		completeAttempt(
+			db,
+			verifyAttempt.attempt_id,
+			{
+				status: 'timed_out',
+				failure_class: 'TIMEOUT',
+				failure_signature: `verify-timeout-${deps.timeoutMs ?? 0}ms`,
+			},
+			{ fencingOwnerId: ownerId, fencingGeneration: verifyGeneration },
+		);
 		updateJobState(db, verifyJob.job_id, 'failed');
 		return {
 			verification: null,
@@ -422,11 +429,16 @@ async function runVerifyStep(
 	});
 	const verifyValidation = validateContract('positron.verification.v1', builtVerification);
 	if (!verifyValidation.ok) {
-		completeAttempt(db, verifyAttempt.attempt_id, {
-			status: 'blocked',
-			failure_class: 'CONTRACT_FAILURE',
-			failure_signature: verifyValidation.errors.join('|'),
-		});
+		completeAttempt(
+			db,
+			verifyAttempt.attempt_id,
+			{
+				status: 'blocked',
+				failure_class: 'CONTRACT_FAILURE',
+				failure_signature: verifyValidation.errors.join('|'),
+			},
+			{ fencingOwnerId: ownerId, fencingGeneration: verifyGeneration },
+		);
 		updateJobState(db, verifyJob.job_id, 'blocked');
 		return {
 			verification: null,
@@ -434,15 +446,20 @@ async function runVerifyStep(
 			reason: verifyValidation.errors.join('|'),
 		};
 	}
-	completeAttempt(db, verifyAttempt.attempt_id, {
-		status: builtVerification.passed ? 'succeeded' : 'failed',
-		output_contract: builtVerification.contract,
-		output_fingerprint: fingerprint(builtVerification),
-		output_json: JSON.stringify(builtVerification),
-		failure_class: builtVerification.failure_class ?? null,
-		failure_signature: builtVerification.failure_signature ?? null,
-		new_evidence: builtVerification.new_evidence ?? null,
-	});
+	completeAttempt(
+		db,
+		verifyAttempt.attempt_id,
+		{
+			status: builtVerification.passed ? 'succeeded' : 'failed',
+			output_contract: builtVerification.contract,
+			output_fingerprint: fingerprint(builtVerification),
+			output_json: JSON.stringify(builtVerification),
+			failure_class: builtVerification.failure_class ?? null,
+			failure_signature: builtVerification.failure_signature ?? null,
+			new_evidence: builtVerification.new_evidence ?? null,
+		},
+		{ fencingOwnerId: ownerId, fencingGeneration: verifyGeneration },
+	);
 	updateJobState(db, verifyJob.job_id, builtVerification.passed ? 'succeeded' : 'failed');
 	trackTransition('VERIFY', builtVerification.passed ? 'VERIFY_PASS' : 'VERIFY_FAIL');
 	return {
@@ -914,21 +931,38 @@ export async function runDurableRun(
 		}
 		// P3-Claim: exakt ein Ausführer pro Attempt (paralleler
 		// Doppel-Dispatch desselben Attempts wird abgelehnt).
-		if (!claimAttempt(db, attempt.attempt_id)) {
-			completeAttempt(db, attempt.attempt_id, {
-				status: 'denied',
-				result_ref: 'duplicate-claim',
-			});
+		const leaseTtlMs = deps.timeoutMs ? deps.timeoutMs + 15_000 : 0;
+		const ownerId = `controller:${runId}`;
+		const claim = claimAttemptWithGeneration(db, attempt.attempt_id, {
+			ownerId,
+			leaseTtlMs: leaseTtlMs || undefined,
+		});
+		if (!claim.claimed) {
+			completeAttempt(
+				db,
+				attempt.attempt_id,
+				{
+					status: 'denied',
+					result_ref: 'duplicate-claim',
+				},
+				{ fencingOwnerId: ownerId, fencingGeneration: claim.generation },
+			);
 			continue;
 		}
+		const attemptGeneration = claim.generation;
 
 		// Crash-Injection (Recovery-Test): Abbruch VOR Build-Ausführung
 		if (input.crashAfterJob && input.crashAfterJob === buildJob.job_id && attemptNumber === 1) {
-			completeAttempt(db, attempt.attempt_id, {
-				status: 'blocked',
-				failure_class: 'INFRA_FAILURE',
-				failure_signature: 'crash-injected-before-build',
-			});
+			completeAttempt(
+				db,
+				attempt.attempt_id,
+				{
+					status: 'blocked',
+					failure_class: 'INFRA_FAILURE',
+					failure_signature: 'crash-injected-before-build',
+				},
+				{ fencingOwnerId: ownerId, fencingGeneration: attemptGeneration },
+			);
 			break;
 		}
 
@@ -938,27 +972,36 @@ export async function runDurableRun(
 			job_id: buildJob.job_id,
 			attempt_id: attempt.attempt_id,
 		});
-		assertAttemptActive(db, attempt.attempt_id);
+		assertAttemptActive(db, attempt.attempt_id, ownerId);
 
-		const timedBuild = await withTimeout(
+		const buildCancellation = createCancellationSource();
+		const timedBuild = await withCancellableTimeout(
 			(async () => {
 				try {
 					return await deps.buildWorker.implement({ ...buildInput, strategyDelta });
 				} catch (err) {
+					if (err instanceof CancellationError) {
+						throw err;
+					}
 					// P3 (Security-Review F2): Eine Worker-Rejection darf keinen
 					// Zombie-Attempt hinterlassen. Der Attempt wird finalisiert
 					// (failed/INFRA_FAILURE), keine unhandled rejection.
 					const errMsg = err instanceof Error ? err.message : String(err);
 					const classified = classifyFailure({ stderr: errMsg, exitCode: 1 });
-					completeAttempt(db, attempt.attempt_id, {
-						status: 'failed',
-						failure_class:
-							classified.signature === 'UNKNOWN'
-								? 'INFRA_FAILURE'
-								: (classified.signature as AttemptRecord['failure_class']),
-						failure_signature: `implement-rejected:${errMsg.slice(0, 200)}`,
-						new_evidence: errMsg.slice(0, 500),
-					});
+					completeAttempt(
+						db,
+						attempt.attempt_id,
+						{
+							status: 'failed',
+							failure_class:
+								classified.signature === 'UNKNOWN'
+									? 'INFRA_FAILURE'
+									: (classified.signature as AttemptRecord['failure_class']),
+							failure_signature: `implement-rejected:${errMsg.slice(0, 200)}`,
+							new_evidence: errMsg.slice(0, 500),
+						},
+						{ fencingOwnerId: ownerId, fencingGeneration: attemptGeneration },
+					);
 					decision = buildDecision({
 						run_id: runId,
 						verification: null,
@@ -973,15 +1016,21 @@ export async function runDurableRun(
 				}
 			})(),
 			deps.timeoutMs,
+			buildCancellation,
 		);
 		if (!timedBuild.ok) {
 			// Deterministischer Timeout: Attempt endet final (timed_out),
 			// kein Zombie-Job, keine unhandled rejection, kein Erfolgsübergang.
-			completeAttempt(db, attempt.attempt_id, {
-				status: 'timed_out',
-				failure_class: 'TIMEOUT',
-				failure_signature: `build-timeout-${deps.timeoutMs ?? 0}ms`,
-			});
+			completeAttempt(
+				db,
+				attempt.attempt_id,
+				{
+					status: 'timed_out',
+					failure_class: 'TIMEOUT',
+					failure_signature: `build-timeout-${deps.timeoutMs ?? 0}ms`,
+				},
+				{ fencingOwnerId: ownerId, fencingGeneration: attemptGeneration },
+			);
 			decision = buildDecision({
 				run_id: runId,
 				verification: null,
@@ -999,11 +1048,16 @@ export async function runDurableRun(
 
 		const buildResultValidation = validateContract('positron.build-result.v1', buildResult);
 		if (!buildResultValidation.ok) {
-			completeAttempt(db, attempt.attempt_id, {
-				status: 'blocked',
-				failure_class: 'CONTRACT_FAILURE',
-				failure_signature: buildResultValidation.errors.join('|'),
-			});
+			completeAttempt(
+				db,
+				attempt.attempt_id,
+				{
+					status: 'blocked',
+					failure_class: 'CONTRACT_FAILURE',
+					failure_signature: buildResultValidation.errors.join('|'),
+				},
+				{ fencingOwnerId: ownerId, fencingGeneration: attemptGeneration },
+			);
 			decision = buildDecision({
 				run_id: runId,
 				verification: null,
@@ -1013,12 +1067,17 @@ export async function runDurableRun(
 			break;
 		}
 
-		completeAttempt(db, attempt.attempt_id, {
-			status: buildResult.status === 'success' ? 'succeeded' : 'failed',
-			output_contract: buildResult.contract,
-			output_fingerprint: fingerprint(buildResult),
-			result_ref: buildResult.result_ref ?? null,
-		});
+		completeAttempt(
+			db,
+			attempt.attempt_id,
+			{
+				status: buildResult.status === 'success' ? 'succeeded' : 'failed',
+				output_contract: buildResult.contract,
+				output_fingerprint: fingerprint(buildResult),
+				result_ref: buildResult.result_ref ?? null,
+			},
+			{ fencingOwnerId: ownerId, fencingGeneration: attemptGeneration },
+		);
 		idem.complete(idemKey, buildResult.result_ref ?? buildResult.summary);
 		trackTransition(
 			'BUILD',
@@ -1080,11 +1139,16 @@ export async function runDurableRun(
 			lastFailureEvidence = verification.new_evidence ?? null;
 			// Der Build-Attempt gilt fachlich als failed (Build+Verify), trägt
 			// die Failure-Klassifikation und bleibt historisch vollständig.
-			completeAttempt(db, attempt.attempt_id, {
-				status: 'failed',
-				failure_class: verification.failure_class ?? 'TEST_FAILURE',
-				failure_signature: verification.failure_signature ?? 'UNKNOWN',
-			});
+			completeAttempt(
+				db,
+				attempt.attempt_id,
+				{
+					status: 'failed',
+					failure_class: verification.failure_class ?? 'TEST_FAILURE',
+					failure_signature: verification.failure_signature ?? 'UNKNOWN',
+				},
+				{ fencingOwnerId: ownerId, fencingGeneration: attemptGeneration },
+			);
 		}
 
 		// Crash-Injection (Recovery-Test): Abbruch NACH einem erfolgreich

@@ -18,7 +18,7 @@ import { assertAttemptActive, assertExecutionContext } from './execution-context
 import { fingerprint } from './fingerprint.js';
 import { assertRealParallelism } from './parallelism.js';
 import type { ParallelExecutionSlice, ParallelismVerdict } from './parallelism.js';
-import { claimAttempt, completeAttempt, createAttempt } from './store.js';
+import { claimAttemptWithGeneration, completeAttempt, createAttempt, mapAttemptRow } from './store.js';
 import type { AttemptRecord } from './store.js';
 
 export type ReviewKind = 'correctness' | 'security' | 'quality';
@@ -89,7 +89,9 @@ export async function runParallelReviews(
 				input_fingerprint: fingerprint({ kind: worker.kind, run: ctx.run_id }),
 			});
 			// P3: exakt ein Claimer; paralleler Doppel-Dispatch wird abgelehnt.
-			if (!claimAttempt(db, attempt.attempt_id)) {
+			const ownerId = `controller:${ctx.run_id}`;
+			const claim = claimAttemptWithGeneration(db, attempt.attempt_id, { ownerId });
+			if (!claim.claimed) {
 				return {
 					kind: worker.kind,
 					workerType: worker.workerType,
@@ -99,6 +101,7 @@ export async function runParallelReviews(
 					duration_ms: 0,
 				};
 			}
+			const attemptGeneration = claim.generation;
 			try {
 				// P3: Review-Worker-Aufrufe nur innerhalb eines aktiven Attempts.
 				assertExecutionContext({
@@ -106,7 +109,7 @@ export async function runParallelReviews(
 					job_id: ctx.job_id,
 					attempt_id: attempt.attempt_id,
 				});
-				assertAttemptActive(db, attempt.attempt_id);
+				assertAttemptActive(db, attempt.attempt_id, ownerId);
 				const findings = await worker.run({
 					run_id: ctx.run_id,
 					job_id: ctx.job_id,
@@ -115,13 +118,18 @@ export async function runParallelReviews(
 				});
 				const endedAt = nowIso();
 				const durationMs = Date.now() - new Date(startedAt).getTime();
-				completeAttempt(db, attempt.attempt_id, {
-					status: 'succeeded',
-					output_contract: 'positron.finding.v1[]',
-					output_fingerprint: fingerprint(findings),
-					output_json: JSON.stringify(findings),
-					ended_at: endedAt,
-				});
+				completeAttempt(
+					db,
+					attempt.attempt_id,
+					{
+						status: 'succeeded',
+						output_contract: 'positron.finding.v1[]',
+						output_fingerprint: fingerprint(findings),
+						output_json: JSON.stringify(findings),
+						ended_at: endedAt,
+					},
+					{ fencingOwnerId: ownerId, fencingGeneration: attemptGeneration },
+				);
 				return {
 					kind: worker.kind,
 					workerType: worker.workerType,
@@ -132,12 +140,17 @@ export async function runParallelReviews(
 				};
 			} catch (err) {
 				const endedAt = nowIso();
-				completeAttempt(db, attempt.attempt_id, {
-					status: 'failed',
-					failure_class: 'UNKNOWN',
-					failure_signature: `review-error:${String(err).slice(0, 200)}`,
-					ended_at: endedAt,
-				});
+				completeAttempt(
+					db,
+					attempt.attempt_id,
+					{
+						status: 'failed',
+						failure_class: 'UNKNOWN',
+						failure_signature: `review-error:${String(err).slice(0, 200)}`,
+						ended_at: endedAt,
+					},
+					{ fencingOwnerId: ownerId, fencingGeneration: attemptGeneration },
+				);
 				return {
 					kind: worker.kind,
 					workerType: worker.workerType,
@@ -184,31 +197,8 @@ export async function runParallelReviews(
  * Sammelt die Attempts eines Review-Jobs (Telemetrie je Review).
  */
 export function listReviewAttempts(db: Database.Database, jobId: string): AttemptRecord[] {
-	return (
-		db
-			.prepare('SELECT * FROM cp_attempts WHERE job_id = ? ORDER BY started_at ASC')
-			.all(jobId) as Array<Record<string, unknown>>
-	).map((row) => ({
-		attempt_id: String(row.attempt_id),
-		run_id: String(row.run_id),
-		job_id: String(row.job_id),
-		status: String(row.status) as AttemptRecord['status'],
-		input_contract: row.input_contract ? String(row.input_contract) : null,
-		input_fingerprint: row.input_fingerprint ? String(row.input_fingerprint) : null,
-		output_contract: row.output_contract ? String(row.output_contract) : null,
-		output_fingerprint: row.output_fingerprint ? String(row.output_fingerprint) : null,
-		output_json: row.output_json ? String(row.output_json) : null,
-		worker_type: row.worker_type ? String(row.worker_type) : null,
-		provider: row.provider ? String(row.provider) : null,
-		model: row.model ? String(row.model) : null,
-		started_at: String(row.started_at),
-		ended_at: row.ended_at ? String(row.ended_at) : null,
-		failure_class: row.failure_class ? String(row.failure_class) : null,
-		failure_signature: row.failure_signature ? String(row.failure_signature) : null,
-		new_evidence: row.new_evidence ? String(row.new_evidence) : null,
-		strategy_delta: row.strategy_delta ? String(row.strategy_delta) : null,
-		result_ref: row.result_ref ? String(row.result_ref) : null,
-		tokens: row.tokens !== null && row.tokens !== undefined ? Number(row.tokens) : null,
-		previous_attempt_id: row.previous_attempt_id ? String(row.previous_attempt_id) : null,
-	}));
+	const rows = db
+		.prepare('SELECT * FROM cp_attempts WHERE job_id = ? ORDER BY started_at ASC')
+		.all(jobId) as Array<Record<string, unknown>>;
+	return rows.map(mapAttemptRow);
 }

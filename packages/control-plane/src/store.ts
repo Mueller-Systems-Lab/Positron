@@ -87,6 +87,15 @@ export interface AttemptRecord {
 	tokens: number | null;
 	/** Fix-/Retry-Kette: vorheriger Attempt desselben fachlichen Schritts */
 	previous_attempt_id: string | null;
+	// ── P3.5 Lease/Fencing (Phase B) ──────────────────────────────────────
+	/** Besitzer des Attempts (Worker-/Controller-Instanz) */
+	lease_owner_id: string | null;
+	/** Fencing-Token: wird bei jedem Re-Claim erhöht; alte Generation verliert Autorität */
+	lease_generation: number;
+	/** Heartbeat-Deadline (ISO); abgelaufen → stale */
+	lease_expires_at: string | null;
+	/** Claim-Zeitpunkt (Diagnose) */
+	claimed_at: string | null;
 }
 
 export function createId(prefix: string): string {
@@ -204,13 +213,17 @@ export function createAttempt(
 		result_ref: initial.result_ref ?? null,
 		tokens: initial.tokens ?? null,
 		previous_attempt_id: initial.previous_attempt_id ?? null,
+		lease_owner_id: initial.lease_owner_id ?? null,
+		lease_generation: initial.lease_generation ?? 0,
+		lease_expires_at: initial.lease_expires_at ?? null,
+		claimed_at: initial.claimed_at ?? null,
 	};
 	db.prepare(
 		`INSERT INTO cp_attempts (attempt_id, run_id, job_id, status, input_contract, input_fingerprint,
 		   output_contract, output_fingerprint, output_json, worker_type, provider, model, started_at,
 		   ended_at, failure_class, failure_signature, new_evidence, strategy_delta, result_ref, tokens,
-		   previous_attempt_id)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		   previous_attempt_id, lease_owner_id, lease_generation, lease_expires_at, claimed_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 	).run(
 		attempt.attempt_id,
 		attempt.run_id,
@@ -233,6 +246,10 @@ export function createAttempt(
 		attempt.result_ref,
 		attempt.tokens,
 		attempt.previous_attempt_id,
+		attempt.lease_owner_id,
+		attempt.lease_generation,
+		attempt.lease_expires_at,
+		attempt.claimed_at,
 	);
 	return attempt;
 }
@@ -241,14 +258,133 @@ export function createAttempt(
  * Atomarer Claim (Lease) eines Attempts: `pending → running`.
  * SQLite-Transaktions-Semantik genügt: nur EIN Claimer gewinnt; ein zweiter
  * (paralleler) Claim desselben Attempts erhält `false` und darf NICHT ausführen.
+ *
+ * P3.5 (Phase B): Claim setzt eine durable Lease:
+ *   - `lease_owner_id` — Besitzer (Worker-/Controller-Instanz)
+ *   - `lease_generation` — Fencing-Token, bei jedem Claim +1
+ *   - `lease_expires_at` — Heartbeat-Deadline (jetzt + leaseTtlMs)
+ *
+ * Rückgabe: `{ claimed: boolean; generation: number }` — die Generation ist
+ * der Fencing-Token, den der Besitzer bei `completeAttempt` vorweisen muss.
  */
-export function claimAttempt(db: Database.Database, attemptId: string): boolean {
+export interface ClaimResult {
+	claimed: boolean;
+	generation: number;
+}
+
+export function claimAttempt(
+	db: Database.Database,
+	attemptId: string,
+	options: { ownerId?: string; leaseTtlMs?: number } = {},
+): boolean {
+	const now = nowIso();
+	const expiresAt = options.leaseTtlMs
+		? new Date(Date.now() + options.leaseTtlMs).toISOString()
+		: null;
 	const res = db
 		.prepare(
-			"UPDATE cp_attempts SET status = 'running' WHERE attempt_id = ? AND status = 'pending'",
+			`UPDATE cp_attempts
+			 SET status = 'running',
+			     lease_owner_id = ?,
+			     lease_generation = lease_generation + 1,
+			     lease_expires_at = ?,
+			     claimed_at = ?
+			 WHERE attempt_id = ? AND status = 'pending'`,
 		)
-		.run(attemptId);
+		.run(options.ownerId ?? null, expiresAt, now, attemptId);
 	return res.changes === 1;
+}
+
+/** Wie `claimAttempt`, liefert aber den Fencing-Token (Generation) zurück. */
+export function claimAttemptWithGeneration(
+	db: Database.Database,
+	attemptId: string,
+	options: { ownerId?: string; leaseTtlMs?: number } = {},
+): ClaimResult {
+	const claimed = claimAttempt(db, attemptId, options);
+	const attempt = getAttempt(db, attemptId);
+	return {
+		claimed,
+		generation: attempt?.lease_generation ?? 0,
+	};
+}
+
+/**
+ * Lease-Heartbeat: verlängert `lease_expires_at` für einen laufenden Attempt.
+ * Nur der aktuelle Besitzer (`lease_owner_id`) darf erneuern; fremde Besitzer
+ * erhalten `false` (Fencing — kein fremder Heartbeat hält eine Lease am Leben).
+ */
+export function renewAttemptLease(
+	db: Database.Database,
+	attemptId: string,
+	ownerId: string,
+	leaseTtlMs: number,
+): boolean {
+	const expiresAt = new Date(Date.now() + leaseTtlMs).toISOString();
+	const res = db
+		.prepare(
+			`UPDATE cp_attempts SET lease_expires_at = ?
+			 WHERE attempt_id = ? AND lease_owner_id = ? AND status = 'running'`,
+		)
+		.run(expiresAt, attemptId, ownerId);
+	return res.changes === 1;
+}
+
+/**
+ * Prüft, ob die Lease eines laufenden Attempts noch gültig ist.
+ * `false` → abgelaufen (stale) oder fremder Besitzer.
+ */
+export function isAttemptLeaseValid(
+	db: Database.Database,
+	attemptId: string,
+	ownerId: string | null,
+): boolean {
+	const attempt = getAttempt(db, attemptId);
+	if (!attempt || attempt.status !== 'running') return false;
+	if (ownerId !== null && attempt.lease_owner_id !== ownerId) return false;
+	if (attempt.lease_expires_at === null) return true; // kein Lease-TTL gesetzt → gültig
+	return new Date(attempt.lease_expires_at).getTime() > Date.now();
+}
+
+/**
+ * Stale-Lease-Recovery (deterministisch):
+ *
+ * Findet alle `running`-Attempts, deren Lease abgelaufen ist (kein Heartbeat).
+ * Der alte Besitzer hat seine Autorität VERLOREN:
+ *   - Status wird auf `failed` mit failure_class `STALE_LEASE` finalisiert
+ *     (kein paralleler Re-Start desselben mutierenden Attempts!)
+ *   - `recoverable=true` signalisiert dem Orchestrator, dass ein NEUER
+ *     Attempt (frische generation) nach der Retry-/Run-Semantik starten darf
+ *
+ * Rückgabe: Liste der stale Attempt-Records (finalisiert).
+ */
+export function recoverStaleLeases(
+	db: Database.Database,
+	options: { ownerId?: string | null; now?: string } = {},
+): AttemptRecord[] {
+	const now = options.now ?? nowIso();
+	const stale = db
+		.prepare(
+			`SELECT * FROM cp_attempts
+			 WHERE status = 'running' AND lease_expires_at IS NOT NULL AND lease_expires_at < ?`,
+		)
+		.all(now) as Array<Record<string, unknown>>;
+
+	const recovered: AttemptRecord[] = [];
+	for (const row of stale) {
+		const attempt = mapAttemptRow(row);
+		if (options.ownerId !== undefined && attempt.lease_owner_id !== options.ownerId) {
+			// Fremder Attempt: NICHT hier recoveren (Eigentümer-Kontext respektieren).
+			continue;
+		}
+		const updated = completeAttempt(db, attempt.attempt_id, {
+			status: 'failed',
+			failure_class: 'STALE_LEASE',
+			failure_signature: `lease-expired at ${attempt.lease_expires_at}`,
+		});
+		if (updated) recovered.push(updated);
+	}
+	return recovered;
 }
 
 export function getAttempt(db: Database.Database, attemptId: string): AttemptRecord | null {
@@ -299,6 +435,7 @@ export function completeAttempt(
 	db: Database.Database,
 	attemptId: string,
 	update: Partial<AttemptRecord>,
+	options: { fencingOwnerId?: string | null; fencingGeneration?: number } = {},
 ): AttemptRecord | null {
 	// Atomare Finalisierung: Read-Modify-Write in EINER SQLite-Transaktion,
 	// damit Late-Result/Duplicate-Completion unter Konkurrenz (mehrere
@@ -307,6 +444,21 @@ export function completeAttempt(
 	return db.transaction((): AttemptRecord | null => {
 		const existing = getAttempt(db, attemptId);
 		if (!existing) return null;
+		// P3.5 (Phase B) — Fencing: Wenn der Aufrufer einen Lease-Token
+		// vorweist, muss er der aktuelle Besitzer UND Generation sein.
+		// Ein stale Worker (alte Generation / fremder Owner) verliert:
+		//   STALE_EXECUTION_RESULT → REJECTED (kein State-Update).
+		if (options.fencingOwnerId !== undefined || options.fencingGeneration !== undefined) {
+			const ownerOk =
+				options.fencingOwnerId === undefined ||
+				existing.lease_owner_id === options.fencingOwnerId;
+			const genOk =
+				options.fencingGeneration === undefined ||
+				existing.lease_generation === options.fencingGeneration;
+			if (!ownerOk || !genOk) {
+				return null;
+			}
+		}
 		const to = update.status ?? existing.status;
 		if (!canTransitionAttempt(existing.status, to, update)) {
 			// Late Result / Duplicate Completion: finaler Attempt bleibt unverändert.
@@ -358,6 +510,13 @@ export function mapAttemptRow(row: Record<string, unknown>): AttemptRecord {
 		result_ref: row.result_ref ? String(row.result_ref) : null,
 		tokens: row.tokens !== null && row.tokens !== undefined ? Number(row.tokens) : null,
 		previous_attempt_id: row.previous_attempt_id ? String(row.previous_attempt_id) : null,
+		lease_owner_id: row.lease_owner_id ? String(row.lease_owner_id) : null,
+		lease_generation:
+			row.lease_generation !== null && row.lease_generation !== undefined
+				? Number(row.lease_generation)
+				: 0,
+		lease_expires_at: row.lease_expires_at ? String(row.lease_expires_at) : null,
+		claimed_at: row.claimed_at ? String(row.claimed_at) : null,
 	};
 }
 
