@@ -339,3 +339,248 @@ Frontend Projection (MissionControlPanel, KpiPanel)
   WEB_RESEARCH-Phase (Artifact-Erzeugung); der durable Research-Job mit
   Fan-out/Join ist über `runDurableRun` (control-plane) nachweisbar und
   wird bei der Worker-Pipeline-Migration auf dieselbe Primitive gehoben.
+
+## P3-Status (Canonical Durable Execution Adoption)
+
+> **One control plane. One canonical execution lifecycle. Every productive
+> worker is accountable to a persisted job and attempt.**
+
+P3 schließt die Runtime-Authority: Es gibt keine zwei Positron-Runtimes
+mehr (durable path + legacy direct path). Alle produktiven autonomen
+Worker-Ausführungen laufen über die kanonische durable Boundary.
+
+### Canonical Execution Boundary
+
+```
+dispatch(job)
+   ↓
+validate input contract
+   ↓
+compute input fingerprint
+   ↓
+persist job
+   ↓
+persist attempt (pending)
+   ↓
+claim execution (pending → running, atomar)
+   ↓
+execute worker  (NUR mit ControlPlaneExecutionContext + aktiver Attempt)
+   ↓
+capture raw result safely
+   ↓
+normalize to typed result
+   ↓
+validate output contract
+   ↓
+compute output fingerprint
+   ↓
+persist result
+   ↓
+close attempt (final, unveränderlich)
+   ↓
+deterministic transition
+```
+
+- **Lifecycle zentral, Worker-Logik lokal**: Kein Mega-Dispatcher mit
+  `switch(job.type)` an einer Stelle. Die Lifecycle-Semantik (persist,
+  claim, execute, validate, fingerprint, finalize) ist zentral in
+  `packages/control-plane` (store.ts, durable-run.ts); die Worker-Adapter
+  (Baseline, Research, Plan, Build, Verify, Fix, Review) kapseln ihre
+  fachliche Logik lokal.
+- **Live-Pfad = kanonische Boundary**: Der produktive BullMQ-Worker
+  (`apps/worker`) und der Server-Inline-Fallback (`runFullPipeline` →
+  `runPipeline` aus `@positron/worker-pipeline`) nutzen DIESELBE Runtime.
+  Der alte Server-`executePhase` mit untrackten Worker-Aufrufen wurde
+  entfernt (toter Code, kein Bypass-Pfad mehr).
+
+### Run → Job → Attempt Ownership (§20)
+
+```
+TASK / ISSUE
+   ↓
+POSITRON RUN
+   ↓
+PERSISTED JOB
+   ↓
+PERSISTED ATTEMPT
+   ↓
+VALIDATED INPUT + FINGERPRINT
+   ↓
+WORKER EXECUTION (nur mit Execution Context)
+   ↓
+VALIDATED RESULT + FINGERPRINT
+   ↓
+PERSISTENCE
+   ↓
+DETERMINISTIC TRANSITION
+```
+
+- **worker invocation count == attempt execution count**: Jeder produktive
+  Worker-Aufruf (research/specify/plan/tasks/analyze/build/verify/review)
+  gehört genau einem persistierten Attempt. Beweis: Live-Pfad-Canary
+  `apps/server/src/__tests__/p3-live-path-bypass-zero.test.ts` zählt
+  Worker-Invocationen ZUR LAUFZEIT und vergleicht mit `cp_attempts`.
+- **Kein Worker ohne Attempt**: `assertExecutionContext` +
+  `assertAttemptActive` erzwingen `run_id/job_id/attempt_id` technisch
+  (`EXECUTION_CONTEXT_REQUIRED`); Audit-Canary in
+  `canonical-adoption.test.ts` beweist die Ablehnung.
+
+### Execution Context (§35)
+
+`ControlPlaneExecutionContext { run_id, job_id, attempt_id }` ist Pflicht
+für jede produktive autonome Worker-Ausführung. `assertAttemptActive`
+prüft zusätzlich, dass der Attempt geclaimt (`running`) ist — ein
+Provider-/OpenCode-Aufruf außerhalb eines aktiven Attempts wird abgelehnt.
+
+### Worker Adapter Lifecycle (§7, §9)
+
+Produktive Worker-Typen (mit ihren fachlichen Schritten):
+
+```
+baseline              (deterministic.baseline)
+research.code/docs/tests
+plan / specify / tasks / analyze
+build                 (opencode)
+verify                (deterministic-tools)
+fix                   (build attempt N+1, previous_attempt_id-Kette)
+review.correctness / review.security / review.quality
+```
+
+Fachliche CLI-Schritte (specify/tasks/analyze, nicht-strukturierte Plans)
+persistieren ihren Output als generischen `positron.artifact.v1`-Contract
+(validiert + fingerprintet) — die Output-Boundary gilt auch für
+Artefakt-Schritte (§24).
+
+### Claim Semantics (§22)
+
+`claimAttempt`: atomares `UPDATE ... WHERE status='pending'` (SQLite).
+Genau EIN Claimer gewinnt; paralleler Doppel-Claim desselben Attempts wird
+abgelehnt (`duplicate-claim`). Keine separate Lock-Infrastruktur nötig.
+
+### Idempotency Semantics (§23)
+
+- Idempotency Key `run_id:job_id:attempt_id` (`cp_idempotency`).
+- Live-Pfad-Recovery: `trackJobAttempt` findet einen abgeschlossenen
+  `succeeded`-Attempt mit passendem Input-Fingerprint und wiederverwendet
+  ihn (`recovered`) — KEIN neuer Worker-Aufruf, kein neuer Attempt.
+- `IDEMPOTENT_DISPATCH` (Test): gleicher Run 2× dispatched → eine Mutation,
+  eine effektive Worker-Ausführung. `DUPLICATE_COMPLETION` (Test): zweites
+  Completion-Event auf finalem Attempt ist eine No-Op.
+- **Fachliche Semantik**: at-least-once delivery + idempotenter Effekt.
+  Duplicate delivery → keine doppelte effektive Mutation. "Exactly once"
+  wird nicht behauptet.
+
+### Result Validation (§24)
+
+Worker-Rohantworten verändern den Control-Plane-State nie direkt:
+
+```
+RAW WORKER OUTPUT → NORMALIZATION → CONTRACT VALIDATION →
+FINGERPRINT → PERSISTENCE → STATE TRANSITION
+```
+
+Ungültige Ausgabe (`validateContract` fehlgeschlagen) → Attempt `blocked`
+mit `failure_class: CONTRACT_FAILURE`, keine erfolgreiche Transition.
+Dies gilt im Live-Pfad (build-result, verification, artifact) und in
+`runDurableRun` (build-result, plan, baseline, verification).
+
+### Attempt Lifecycle (§21)
+
+Kanonische Status-Taxonomie (eine, keine zweite):
+
+```
+pending → running → succeeded | failed | blocked | timed_out | denied
+pending/running → succeeded | failed | blocked | timed_out | denied
+succeeded → failed  (NUR als fachliche Reklassifikation build+verify,
+                     mit failure_class + failure_signature)
+```
+
+Finale Zustände sind unveränderlich: Late Results und doppelte
+Completions überschreiben NIE einen finalen Attempt
+(`canTransitionAttempt` + atomare `completeAttempt`-Transaktion).
+
+### Timeout Handling (§27) & Late Results (§28)
+
+- `withTimeout` beendet langlebige Build-/Verify-Worker deterministisch:
+  Attempt → `timed_out` mit `failure_class: TIMEOUT`, Decision BLOCKED,
+  keine unhandled rejection, kein Zombie-Job.
+- Late Result nach Timeout wird vom Transition-Guard verworfen
+  (`TIMED_OUT → SUCCEEDED` ist keine valide Transition) — Test
+  `LATE_RESULT_IGNORED` + `TIMEOUT`.
+- Bekannte Grenze: `Promise.race` cancelt den zugrunde liegenden
+  Worker-Prozess nicht (Side-Effekte eines verspäteten Workers werden nicht
+  aktiv abgebrochen; der Attempt-State bleibt korrekt final).
+
+### Recovery Commit Boundary (§30, §31)
+
+Arbeit gilt erst als sicher abgeschlossen, wenn:
+
+```
+worker completed
++ result normalized
++ contract valid
++ fingerprint computed
++ result persisted
++ attempt finalized
+```
+
+Danach: `RECOVERY_BOUNDARY_COMMITTED` — abgeschlossene Arbeit wird nach
+Recovery nie blind wiederholt. Nachgewiesene Szenarien (Tests):
+
+| Szenario | Verhalten |
+|---|---|
+| A Research | code/docs completed, tests offen → code/docs NICHT re-runt, tests resumed |
+| B Plan | plan + Contract persistiert, Crash vor Gate → Plan nicht re-erzeugt, Gate mit persistiertem Result |
+| C Build | build succeeded + persistiert, Crash vor verify → BUILD_WORKER_CALLS=1, verify nachgezogen |
+| D Verify | verify completed + persistiert, Crash vor Decision → verify nicht erneut ausgeführt (Rehydratation) |
+| E Partial Review | correctness completed, security/quality offen → correctness nie erneut aufgerufen |
+
+Im Live-Pfad: `trackJobAttempt` (Recovery-Boundary mit
+Input-Fingerprint-Match) + Verify-Rehydratation im TEST-Pfad.
+
+### Legacy Path Migration (§33, §34)
+
+```
+BEFORE: server executePhase (untracked opencode/speckit/TestRunner-Aufrufe)
+AFTER:  runPipeline (kanonische Boundary, tracked attempts)
+STATUS: REMOVED (toter Code entfernt, kein Bypass-Pfad)
+
+BEFORE: Worker WEB_RESEARCH/SPECIFY/PLAN/TASKS/ANALYZE (ohne Job/Attempt)
+AFTER:  trackJobAttempt + assertWorkerContext (persistenter Job/Attempt)
+STATUS: ROUTED
+
+BEFORE: retryFromPhase-Fix-Loop (blinder Retry über Phasen)
+AFTER:  delta-basierte Retry Policy (evaluateRetry) + Fix-Kette
+        (previous_attempt_id)
+STATUS: ROUTED
+
+BEFORE: Server-Inline runFullPipeline (zweite Runtime)
+AFTER:  runFullPipeline → runPipeline (eine Runtime)
+STATUS: ROUTED
+```
+
+`PRODUCTIVE_WORKER_BYPASS_COUNT = 0` (Test: Live-Pfad-Canary, keine
+produktive Worker-Invocation ohne persistierten Job + aktiven Attempt).
+
+### P3-Evidenz (Testmatrix)
+
+| Gate | Nachweis |
+|---|---|
+| EXECUTION_PATH_INVENTORY | `docs/evidence/issue-421/execution-path-inventory.md` |
+| CANONICAL_DISPATCH | `durable-run.ts` + `worker-pipeline` |
+| EXECUTION_CONTEXT_REQUIRED | `canonical-adoption.test.ts` |
+| JOB/ATTEMPT_PERSISTED_BEFORE_EXECUTION | `canonical-adoption.test.ts` |
+| BASELINE_CANONICAL / PLAN_READ_ONLY / PLAN_GATE | `canonical-adoption.test.ts` |
+| RESEARCH_CANONICAL + PARALLELISM | `research.test.ts`, `vertical-slice.test.ts` |
+| BUILD/VERIFY/FIX/REVIEW_CANONICAL | `vertical-slice.test.ts`, `p3-live-path-bypass-zero.test.ts` |
+| WORKER_PROVENANCE | `canonical-adoption.test.ts` |
+| INPUT/OUTPUT CONTRACT + FINGERPRINT | `p3-live-path-bypass-zero.test.ts` |
+| INVALID_WORKER_RESULT_REJECTED | `canonical-adoption.test.ts` |
+| IDEMPOTENT_DISPATCH / DUPLICATE_COMPLETION | `canonical-adoption.test.ts`, `attempt-lifecycle.test.ts` |
+| ATTEMPT_CLAIM_EXCLUSIVE | `attempt-lifecycle.test.ts` |
+| TIMEOUT / LATE_RESULT_IGNORED | `canonical-adoption.test.ts`, `attempt-lifecycle.test.ts` |
+| RECOVERY_RESEARCH/PLAN/BUILD/VERIFY/PARTIAL_REVIEW | `canonical-adoption.test.ts` |
+| RETRY_WITH_DELTA / WITHOUT_DELTA | `retry-policy.test.ts` |
+| SECURITY_HARD_BLOCK | `vertical-slice.test.ts`, `runtime-soak.test.ts` |
+| FULL_CANONICAL_HAPPY_PATH / FIX_PATH | `vertical-slice.test.ts` |
+| PRODUCTIVE_WORKER_BYPASS_ZERO | `p3-live-path-bypass-zero.test.ts` (Live-Pfad) |

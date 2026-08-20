@@ -75,3 +75,72 @@ P3-Zielzustand: `MIGRATION_REQUIRED = 0`, `LEGACY_REQUIRED = 0`.
    `EXECUTION_CONTEXT_REQUIRED`.
 5. **Attempt-Claiming**: atomarer SQLite-Claim (pending→running, genau ein Claimer);
    `previous_attempt_id` für Fix-Referenzierung (§15).
+
+## P3-Abschluss-Update (2026-08-19, HEAD nach P3)
+
+Nach der Migration (Commits 4c135d4 → 7ba4c36) wurde das Inventory erneut
+geprüft (Call-Graph + Live-Pfad-Canary `p3-live-path-bypass-zero.test.ts`):
+
+| # | Pfad | Classification nach P3 |
+|---|---|---|
+| P2 | Worker WEB_RESEARCH | **CANONICAL** (research-Job + Attempt, Recovery via persisted attempt) |
+| P3 | Worker SPECIFY | **CANONICAL** (specify-Job + Attempt, positron.artifact.v1 validiert) |
+| P4 | Worker PLAN | **CANONICAL** (plan-Job + Attempt, Plan-Gate, positron.plan.v1) |
+| P5 | Worker TASKS | **CANONICAL** (tasks-Job + Attempt, positron.artifact.v1 validiert) |
+| P6 | Worker ANALYZE | **CANONICAL** (analyze-Job + Attempt, positron.artifact.v1 validiert) |
+| P7 | Worker IMPLEMENT | **CANONICAL** (build-Job + Attempt, build-result validiert, FIX-Kette) |
+| P8 | Worker TEST/VERIFY | **CANONICAL** (verify-Job + Attempt, positron.verification.v1 validiert, Rehydratation) |
+| P9 | Worker Fix-Loop | **CANONICAL** (delta-basierte Retry Policy, previous_attempt_id) |
+| P11 | Server-Inline runFullPipeline | **CANONICAL** (delegiert an runPipeline — eine Runtime) |
+| P12 | Demo-Endpoints | **CANONICAL** (folgen P11-Routing) |
+| P13 | Startup-Recovery | **CANONICAL** (folgt P11-Routing) |
+| P14 | GatewayService-Tools | **DEAD** (unverändert) |
+| P15 | Watcher onRunCreated | **DEAD** (unverändert) |
+| — | Server executePhase (legacy) | **REMOVED** (toter Code, keine untracked Worker-Aufrufe mehr) |
+
+### Stop-Gate nach P3
+
+```
+PRODUCTIVE_EXECUTION_PATHS_TOTAL = 12   (P1–P13 ohne P14/P15)
+CANONICAL_PATHS                  = 12
+MIGRATION_REQUIRED               = 0   ✅
+LEGACY_REQUIRED                  = 0   ✅
+DEAD                             = 2    (P14, P15)
+TEST_ONLY                        = 1    (P16 Fake-Adapter)
+PRODUCTIVE_WORKER_BYPASS_COUNT   = 0   (Live-Pfad-Canary)
+```
+
+### Legacy Migration Record
+
+```
+BEFORE: server executePhase (untracked opencode/speckit/TestRunner-Aufrufe,
+        generateResearchDocument, direkte API-Aufrufe)
+AFTER:  runPipeline (@positron/worker-pipeline) — kanonische Boundary,
+        trackJobAttempt + assertWorkerContext + Contract-Validierung
+STATUS: REMOVED (toter Code entfernt in 00db830)
+
+BEFORE: Worker-Phasen WEB_RESEARCH/SPECIFY/PLAN/TASKS/ANALYZE ohne
+        Job/Attempt-Persistenz
+AFTER:  persistenter Job + Attempt je Phase; Recovery-Boundary
+        (succeeded-Attempt wird wiederverwendet, Input-Fingerprint-Match)
+STATUS: ROUTED
+
+BEFORE: retryFromPhase-Fix-Loop (blinder Retry, springt auf alte Phasen)
+AFTER:  delta-basierte Retry Policy (evaluateRetry), FIX-Kette via
+        previous_attempt_id; Fix wiederholt NUR IMPLEMENT/TEST/VERIFY
+STATUS: ROUTED
+
+BEFORE: Server-Inline runFullPipeline (parallele Legacy-Runtime)
+AFTER:  runFullPipeline → runPipeline (eine Runtime, identische Adapter)
+STATUS: ROUTED
+```
+
+### Recovery-Matrix-Evidenz (alle 5 Szenarien)
+
+```
+RECOVERY_A_RESEARCH  = PASS (code/docs not rerun, tests resumed)
+RECOVERY_B_PLAN      = PASS (plan not rerun, gate from persisted result)
+RECOVERY_C_BUILD     = PASS (BUILD_WORKER_CALLS=1, verify starts)
+RECOVERY_D_VERIFY    = PASS (verify not rerun, rehydrated from persistence)
+RECOVERY_E_REVIEW    = PASS (correctness retained, no duplicate invocation)
+```
