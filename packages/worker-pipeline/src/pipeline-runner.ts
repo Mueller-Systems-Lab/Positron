@@ -895,7 +895,18 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 							deps,
 							specResult.status === 'success' ? 'succeeded' : 'failed',
 							{
-								output_json: specResult.summary.slice(0, 2000),
+								output_contract: 'positron.artifact.v1',
+								output_json:
+									specResult.status === 'success'
+										? JSON.stringify({
+												contract: 'positron.artifact.v1',
+												run_id: current.id,
+												kind: 'spec',
+												phase: 'specify',
+												size: specResult.summary.length,
+												content_ref: `opencode:specify:${specResult.sessionId ?? 'none'}`,
+											})
+										: null,
 								output_fingerprint: fingerprint({ phase: 'specify', status: specResult.status }),
 								failure_class: specResult.status === 'success' ? null : 'UNKNOWN',
 								failure_signature:
@@ -937,10 +948,21 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				const sr = await deps.speckit.runSpecify(input);
 				if (sr.status === 'success' || sr.status === 'skipped') {
 					saveArtifact(current.id, 'spec', sr.summary, deps);
+					// P3: Output-Boundary — auch Artefakt-Schritte tragen einen
+					// validierten output_contract + fingerprint (§24).
+					const artifactDoc = {
+						contract: 'positron.artifact.v1',
+						run_id: current.id,
+						kind: 'spec',
+						phase: 'specify',
+						size: sr.summary.length,
+						content_ref: `artifact:spec:${sr.summary.length}`,
+					};
 					finalizeTrackedAttempt(tracking, deps, 'succeeded', {
-						output_json: sr.summary.slice(0, 2000),
-						output_fingerprint: fingerprint({ phase: 'specify', status: sr.status }),
-						result_ref: `artifact:spec:${sr.summary.length}`,
+						output_contract: artifactDoc.contract,
+						output_json: JSON.stringify(artifactDoc),
+						output_fingerprint: fingerprint(artifactDoc),
+						result_ref: artifactDoc.content_ref,
 					});
 				} else {
 					finalizeTrackedAttempt(tracking, deps, 'failed', {
@@ -1015,7 +1037,18 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						deps,
 						planResult.status === 'success' ? 'succeeded' : 'failed',
 						{
-							output_json: planResult.summary.slice(0, 4000),
+							output_contract: 'positron.artifact.v1',
+							output_json:
+								planResult.status === 'success'
+									? JSON.stringify({
+											contract: 'positron.artifact.v1',
+											run_id: current.id,
+											kind: 'plan',
+											phase: 'plan',
+											size: planResult.summary.length,
+											content_ref: `opencode:plan:${planResult.sessionId ?? 'none'}`,
+										})
+									: null,
 							output_fingerprint: fingerprint({ phase: 'plan', status: planResult.status }),
 							failure_class: planResult.status === 'success' ? null : 'UNKNOWN',
 							failure_signature:
@@ -1101,22 +1134,43 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 							planGateApproved = true;
 							// Plan-Contract als Attempt-Output persistieren
 							finalizeTrackedAttempt(tracking, deps, 'succeeded', {
+								output_contract: 'positron.plan.v1',
 								output_json: planArtifact.slice(0, 4000),
 								output_fingerprint: fingerprint({ phase: 'plan', gate: 'APPROVED' }),
 								result_ref: `artifact:plan:${planArtifact.length}`,
 							});
 						}
 					} catch {
-						// Nicht-strukturierter Plan (z. B. Markdown) → bisheriger Pfad
+						// Nicht-strukturierter Plan (z. B. Markdown) → Artefakt-Contract
+						const artifactDoc = {
+							contract: 'positron.artifact.v1',
+							run_id: current.id,
+							kind: 'plan',
+							phase: 'plan',
+							size: pr.summary.length,
+							content_ref: `artifact:plan:${pr.summary.length}`,
+						};
 						finalizeTrackedAttempt(tracking, deps, 'succeeded', {
-							output_json: pr.summary.slice(0, 4000),
+							output_contract: artifactDoc.contract,
+							output_json: JSON.stringify(artifactDoc),
 							output_fingerprint: fingerprint({ phase: 'plan', structured: false }),
+							result_ref: artifactDoc.content_ref,
 						});
 					}
 				} else {
+					const artifactDoc = {
+						contract: 'positron.artifact.v1',
+						run_id: current.id,
+						kind: 'plan',
+						phase: 'plan',
+						size: pr.summary.length,
+						content_ref: `artifact:plan:${pr.summary.length}`,
+					};
 					finalizeTrackedAttempt(tracking, deps, 'succeeded', {
-						output_json: pr.summary.slice(0, 4000),
+						output_contract: artifactDoc.contract,
+						output_json: JSON.stringify(artifactDoc),
 						output_fingerprint: fingerprint({ phase: 'plan', structured: false }),
+						result_ref: artifactDoc.content_ref,
 					});
 				}
 
@@ -1205,7 +1259,18 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						deps,
 						tasksResult.status === 'success' ? 'succeeded' : 'failed',
 						{
-							output_json: tasksResult.summary.slice(0, 2000),
+							output_contract: 'positron.artifact.v1',
+							output_json:
+								tasksResult.status === 'success'
+									? JSON.stringify({
+											contract: 'positron.artifact.v1',
+											run_id: current.id,
+											kind: 'tasks',
+											phase: 'tasks',
+											size: tasksResult.summary.length,
+											content_ref: `opencode:tasks:${tasksResult.sessionId ?? 'none'}`,
+										})
+									: null,
 							output_fingerprint: fingerprint({ phase: 'tasks', status: tasksResult.status }),
 							failure_class: tasksResult.status === 'success' ? null : 'UNKNOWN',
 							failure_signature:
@@ -1246,10 +1311,20 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				const tr = await deps.speckit.runTasks(input);
 				if (tr.status === 'success' || tr.status === 'skipped') {
 					saveArtifact(current.id, 'tasks', tr.summary, deps);
+					// P3: Output-Boundary (§24) — Artefakt-Contract
+					const artifactDoc = {
+						contract: 'positron.artifact.v1',
+						run_id: current.id,
+						kind: 'tasks',
+						phase: 'tasks',
+						size: tr.summary.length,
+						content_ref: `artifact:tasks:${tr.summary.length}`,
+					};
 					finalizeTrackedAttempt(tracking, deps, 'succeeded', {
-						output_json: tr.summary.slice(0, 2000),
-						output_fingerprint: fingerprint({ phase: 'tasks', status: tr.status }),
-						result_ref: `artifact:tasks:${tr.summary.length}`,
+						output_contract: artifactDoc.contract,
+						output_json: JSON.stringify(artifactDoc),
+						output_fingerprint: fingerprint(artifactDoc),
+						result_ref: artifactDoc.content_ref,
 					});
 				} else {
 					finalizeTrackedAttempt(tracking, deps, 'failed', {
@@ -1317,10 +1392,20 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 			};
 			try {
 				const ar = await deps.speckit.runAnalyze(input);
+				// P3: Output-Boundary (§24) — Artefakt-Contract
+				const artifactDoc = {
+					contract: 'positron.artifact.v1',
+					run_id: current.id,
+					kind: 'analyze',
+					phase: 'analyze',
+					size: ar.summary.length,
+					content_ref: `artifact:analyze:${ar.summary.length}`,
+				};
 				finalizeTrackedAttempt(tracking, deps, 'succeeded', {
-					output_json: ar.summary.slice(0, 2000),
-					output_fingerprint: fingerprint({ phase: 'analyze', status: ar.status }),
-					result_ref: `artifact:analyze:${ar.summary.length}`,
+					output_contract: artifactDoc.contract,
+					output_json: JSON.stringify(artifactDoc),
+					output_fingerprint: fingerprint(artifactDoc),
+					result_ref: artifactDoc.content_ref,
 				});
 				result = transition(current, 'REVIEW', ar.summary, 'INFO');
 			} catch (err) {

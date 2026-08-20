@@ -14,6 +14,8 @@
 // - FIX_CHAIN: attempt 2 referenziert attempt 1 (previous_attempt_id)
 
 import type Database from 'better-sqlite3';
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { FindingContract, PlanContract, ResearchBatchContract } from '../contracts.js';
 import { runDurableRun } from '../durable-run.js';
@@ -21,7 +23,14 @@ import type { PlanWorker } from '../durable-run.js';
 import { assertAttemptActive, assertExecutionContext } from '../execution-context.js';
 import { EXECUTION_CONTEXT_REQUIRED } from '../execution-context.js';
 import type { ResearchWorker, ReviewWorker } from '../index.js';
-import { completeAttempt, createAttempt, createJob, listJobAttempts, listJobs } from '../store.js';
+import {
+	completeAttempt,
+	createAttempt,
+	createJob,
+	listAttempts,
+	listJobAttempts,
+	listJobs,
+} from '../store.js';
 import {
 	ScriptedBuildWorker,
 	cleanupWorkspace,
@@ -29,6 +38,28 @@ import {
 	createTestWorkspace,
 	makeNodeTestVerifyTool,
 } from './vertical-slice-helpers.js';
+
+function listAttemptsAll(db: Database.Database, runId: string) {
+	return listAttempts(db, runId);
+}
+
+/** Deterministischer Workspace-Snapshot (Dateipfade + Größen) für Read-Only-Beweise. */
+function snapshotWorkspace(dir: string): string {
+	const files: string[] = [];
+	const walk = (d: string): void => {
+		for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
+			if (entry.name === '.git' || entry.name === 'node_modules') continue;
+			const full = path.join(d, entry.name);
+			if (entry.isDirectory()) {
+				walk(full);
+			} else {
+				files.push(`${full}:${fs.statSync(full).size}`);
+			}
+		}
+	};
+	walk(dir);
+	return files.sort().join('|');
+}
 
 function makePlan(runId: string, head: string): PlanContract {
 	return {
@@ -609,6 +640,302 @@ describe('P3 — Canonical Execution Adoption', () => {
 				(a) => a.status === 'succeeded',
 			);
 			expect(succeededAttempts).toHaveLength(1);
+			db.close();
+		} finally {
+			cleanupWorkspace(ws);
+		}
+	});
+
+	it('JOB_ATTEMPT_PERSISTED_BEFORE_EXECUTION — Job und Attempt existieren in der DB, bevor der Worker aufgerufen wird', async () => {
+		const ws = createTestWorkspace();
+		try {
+			const db = createTestDb();
+			const runId = 'run_p3_persist_before_exec';
+			// Worker beobachtet zur Laufzeit: sein eigener Job/Attempt muss
+			// bereits persistiert sein, bevor er (der Worker) startet.
+			const observed = { jobPersisted: false, attemptPersisted: false, attemptRunning: false };
+			const base = new ScriptedBuildWorker(ws, ['correct']);
+			const observingWorker = {
+				...base,
+				async implement(input: Parameters<typeof base.implement>[0]) {
+					const job = db.prepare('SELECT job_id FROM cp_jobs WHERE job_id = ?').get(input.job_id);
+					const attempt = db
+						.prepare('SELECT attempt_id, status FROM cp_attempts WHERE attempt_id = ?')
+						.get(input.attempt_id) as { attempt_id: string; status: string } | undefined;
+					observed.jobPersisted = Boolean(job);
+					observed.attemptPersisted = Boolean(attempt);
+					observed.attemptRunning = attempt?.status === 'running';
+					return base.implement(input);
+				},
+			};
+			const result = await runDurableRun(
+				{
+					db,
+					workspace: {
+						path: ws.dir,
+						repositoryRef: 'xxammaxx/vslice-workspace',
+						readHead: ws.readHead,
+					},
+					buildWorker: observingWorker,
+					verifyTool: makeNodeTestVerifyTool(ws),
+					reviewFindings: async () => [],
+					maxAttempts: 3,
+				},
+				{ issue: makeIssue(runId), plan: makePlan(runId, ws.head) },
+			);
+			expect(result.decision.decision).toBe('DONE');
+			// Kerninvariante §56: Worker-Call NACH persistiertem Job + Attempt
+			expect(observed.jobPersisted).toBe(true);
+			expect(observed.attemptPersisted).toBe(true);
+			expect(observed.attemptRunning).toBe(true);
+			// Zusätzlich: alle produktiven Worker-Aufrufe sind in cp_attempts
+			// (baseline + plan + build + verify) mit Status != pending
+			const attempts = listAttemptsAll(db, runId);
+			for (const a of attempts) {
+				expect(a.status).not.toBe('pending');
+			}
+			db.close();
+		} finally {
+			cleanupWorkspace(ws);
+		}
+	});
+
+	it('PLAN_READ_ONLY — Plan-Worker verändert den Workspace nicht (read-only), Result ist validiert + persistiert', async () => {
+		const ws = createTestWorkspace();
+		try {
+			const db = createTestDb();
+			const runId = 'run_p3_plan_readonly';
+			const worker = new ScriptedBuildWorker(ws, ['correct']);
+			// Read-Only-Beweis direkt am Plan-Worker: der Workspace-Snapshot
+			// vor und nach dem Plan-Aufruf ist identisch (der Build-Worker
+			// mutiert erst NACH dem Plan-Gate).
+			const observed = { unchangedDuringPlan: true };
+			const planWorker: PlanWorker = {
+				workerType: 'opencode.plan',
+				provider: 'deterministic',
+				model: 'plan-fixture',
+				async run(ctx) {
+					const before = snapshotWorkspace(ws.dir);
+					const headBefore = ws.readHead();
+					// Der Plan-Worker liest nur (Repository-Lesevorgänge sind
+					// erlaubt); er darf keine Dateien verändern.
+					const plan = makePlan(ctx.run_id, ws.head);
+					observed.unchangedDuringPlan =
+						snapshotWorkspace(ws.dir) === before && ws.readHead() === headBefore;
+					return plan;
+				},
+			};
+			const result = await runDurableRun(
+				{
+					db,
+					workspace: {
+						path: ws.dir,
+						repositoryRef: 'xxammaxx/vslice-workspace',
+						readHead: ws.readHead,
+					},
+					buildWorker: worker,
+					verifyTool: makeNodeTestVerifyTool(ws),
+					reviewFindings: async () => [],
+					planWorker,
+					maxAttempts: 3,
+				},
+				{ issue: makeIssue(runId), plan: makePlan(runId, ws.head) },
+			);
+			expect(result.decision.decision).toBe('DONE');
+			// PLAN_READ_ONLY: während des Plan-Aufrufs keine Mutation
+			expect(observed.unchangedDuringPlan).toBe(true);
+			// PLAN_RESULT_VALIDATED + persistiert
+			const planJob = result.jobs.find((j) => j.job_type === 'plan')!;
+			const planAttempt = listJobAttempts(db, planJob.job_id)[0]!;
+			expect(planAttempt.status).toBe('succeeded');
+			expect(planAttempt.output_contract).toBe('positron.plan.v1');
+			expect(planAttempt.output_fingerprint).not.toBeNull();
+			// PLAN_GATE_ONLY_AFTER_VALID_RESULT: gate succeeded
+			const gateJob = result.jobs.find((j) => j.job_type === 'plan_gate')!;
+			expect(gateJob.state).toBe('succeeded');
+			db.close();
+		} finally {
+			cleanupWorkspace(ws);
+		}
+	});
+
+	it('INVALID_WORKER_RESULT_REJECTED — ungültiges build-result → CONTRACT_FAILURE, keine Success-Transition', async () => {
+		const ws = createTestWorkspace();
+		try {
+			const db = createTestDb();
+			const runId = 'run_p3_invalid_result';
+			const worker = new ScriptedBuildWorker(ws, ['correct']);
+			const calls = { n: 0 };
+			// Worker liefert ein Ergebnis, das dem positron.build-result.v1-
+			// Contract nicht genügt (fehlende Pflichtfelder).
+			const invalidWorker = {
+				...worker,
+				async implement() {
+					calls.n++;
+					return {
+						contract: 'positron.build-result.v1',
+						run_id: runId,
+						// status/changed_files/result_ref fehlen → CONTRACT_FAILURE
+						summary: 'incomplete result',
+					} as unknown as Awaited<ReturnType<typeof worker.implement>>;
+				},
+			};
+			const result = await runDurableRun(
+				{
+					db,
+					workspace: {
+						path: ws.dir,
+						repositoryRef: 'xxammaxx/vslice-workspace',
+						readHead: ws.readHead,
+					},
+					buildWorker: invalidWorker,
+					verifyTool: makeNodeTestVerifyTool(ws),
+					reviewFindings: async () => [],
+					maxAttempts: 3,
+				},
+				{ issue: makeIssue(runId), plan: makePlan(runId, ws.head) },
+			);
+			// INVALID_WORKER_RESULT → kein Erfolgsübergang
+			expect(result.decision.decision).toBe('BLOCKED');
+			expect(result.decision.reason_code).toBe('CONTRACT_INVALID');
+			const buildJob = result.jobs.find((j) => j.job_type === 'build')!;
+			const attempt = listJobAttempts(db, buildJob.job_id).at(-1)!;
+			expect(attempt.status).toBe('blocked');
+			expect(attempt.failure_class).toBe('CONTRACT_FAILURE');
+			// Kein verify-Aufruf nach ungültigem Build-Result
+			expect(calls.n).toBe(1); // nur der invalide Versuch
+			db.close();
+		} finally {
+			cleanupWorkspace(ws);
+		}
+	});
+
+	it('WORKER_PROVENANCE — Attempts tragen belastbar worker_type/provider/model (LLM-Worker real, deterministisch null)', async () => {
+		const ws = createTestWorkspace();
+		try {
+			const db = createTestDb();
+			const runId = 'run_p3_provenance';
+			const worker = new ScriptedBuildWorker(ws, ['correct']);
+			const planWorker: PlanWorker = {
+				workerType: 'opencode.plan',
+				provider: 'deterministic',
+				model: 'plan-fixture',
+				async run(ctx) {
+					return makePlan(ctx.run_id, ws.head);
+				},
+			};
+			const result = await runDurableRun(
+				{
+					db,
+					workspace: {
+						path: ws.dir,
+						repositoryRef: 'xxammaxx/vslice-workspace',
+						readHead: ws.readHead,
+					},
+					buildWorker: worker,
+					verifyTool: makeNodeTestVerifyTool(ws),
+					reviewFindings: async () => [],
+					planWorker,
+					maxAttempts: 3,
+				},
+				{ issue: makeIssue(runId), plan: makePlan(runId, ws.head) },
+			);
+			expect(result.decision.decision).toBe('DONE');
+
+			// LLM-Worker (plan/build): echte Werte
+			const planAtt = listJobAttempts(
+				db,
+				result.jobs.find((j) => j.job_type === 'plan')!.job_id,
+			)[0]!;
+			expect(planAtt.worker_type).toBe('opencode.plan');
+			expect(planAtt.provider).toBe('deterministic');
+			expect(planAtt.model).toBe('plan-fixture');
+			const buildAtt = listJobAttempts(
+				db,
+				result.jobs.find((j) => j.job_type === 'build')!.job_id,
+			).at(-1)!;
+			expect(buildAtt.worker_type).toBe('scripted-worker');
+			expect(buildAtt.provider).toBe('deterministic');
+			expect(buildAtt.model).toBe('vslice-1');
+
+			// Deterministische Tools (baseline/verify): provider/model = null
+			const baselineAtt = listJobAttempts(
+				db,
+				result.jobs.find((j) => j.job_type === 'baseline')!.job_id,
+			)[0]!;
+			expect(baselineAtt.worker_type).toBe('deterministic.baseline');
+			expect(baselineAtt.provider).toBeNull();
+			expect(baselineAtt.model).toBeNull();
+			const verifyAtt = listJobAttempts(
+				db,
+				result.jobs.find((j) => j.job_type === 'verify')!.job_id,
+			).at(-1)!;
+			expect(verifyAtt.worker_type).toBe('deterministic-tools');
+			expect(verifyAtt.provider).toBeNull();
+			expect(verifyAtt.model).toBeNull();
+			db.close();
+		} finally {
+			cleanupWorkspace(ws);
+		}
+	});
+
+	it('RECOVERY_VERIFY (D) — verify completed + persistiert, Crash vor Decision → verify wird NICHT erneut ausgeführt', async () => {
+		const ws = createTestWorkspace();
+		try {
+			const db = createTestDb();
+			const runId = 'run_p3_recovery_verify';
+			const worker = new ScriptedBuildWorker(ws, ['correct']);
+			const verifyCalls = { n: 0 };
+			const verifyTool = makeNodeTestVerifyTool(ws);
+			const countingVerify = {
+				...verifyTool,
+				run: async (ctx: Parameters<typeof verifyTool.run>[0]) => {
+					verifyCalls.n++;
+					return verifyTool.run(ctx);
+				},
+			};
+
+			// Lauf 1: Crash NACH abgeschlossenem verify-Job (valid Boundary)
+			const crashRun = await runDurableRun(
+				{
+					db,
+					workspace: {
+						path: ws.dir,
+						repositoryRef: 'xxammaxx/vslice-workspace',
+						readHead: ws.readHead,
+					},
+					buildWorker: worker,
+					verifyTool: countingVerify,
+					reviewFindings: async () => [],
+					maxAttempts: 3,
+				},
+				{ issue: makeIssue(runId), plan: makePlan(runId, ws.head), crashAfterJob: 'verify' },
+			);
+			expect(crashRun.decision.reason_code).toBe('CRASH_INJECTED');
+			expect(verifyCalls.n).toBe(1);
+			const verifyJobAfterCrash = crashRun.jobs.find((j) => j.job_type === 'verify')!;
+			expect(verifyJobAfterCrash.state).toBe('succeeded');
+
+			// Lauf 2 (Resume): verify wird aus Persistenz rehydriert, NICHT
+			// erneut ausgeführt; Run läuft bis zur Decision.
+			const resume = await runDurableRun(
+				{
+					db,
+					workspace: {
+						path: ws.dir,
+						repositoryRef: 'xxammaxx/vslice-workspace',
+						readHead: ws.readHead,
+					},
+					buildWorker: worker,
+					verifyTool: countingVerify,
+					reviewFindings: async () => [],
+					maxAttempts: 3,
+				},
+				{ issue: makeIssue(runId), plan: makePlan(runId, ws.head) },
+			);
+			expect(resume.decision.decision).toBe('DONE');
+			expect(verifyCalls.n).toBe(1); // VERIFY NOT RERUN
+			expect(worker.invocations).toBe(1); // build nicht erneut
 			db.close();
 		} finally {
 			cleanupWorkspace(ws);

@@ -20,7 +20,8 @@ export type ContractId =
 	| 'positron.review-batch.v1'
 	| 'positron.decision.v1'
 	| 'positron.split.v1'
-	| 'positron.run-event.v1';
+	| 'positron.run-event.v1'
+	| 'positron.artifact.v1';
 
 export const CONTRACT_IDS: readonly ContractId[] = [
 	'positron.issue.v1',
@@ -35,6 +36,7 @@ export const CONTRACT_IDS: readonly ContractId[] = [
 	'positron.decision.v1',
 	'positron.split.v1',
 	'positron.run-event.v1',
+	'positron.artifact.v1',
 ];
 
 // ---------------------------------------------------------------------------
@@ -439,6 +441,21 @@ const CONTRACT_REGISTRY: Record<ContractId, ContractSchema> = {
 			new_state: { type: 'string', required: true, minLength: 1 },
 			reason_code: { type: 'string', required: true, minLength: 1 },
 			level: { type: 'string' },
+		},
+	},
+	// Generischer Artefakt-Contract für produktive CLI-/Artefakt-Schritte der
+	// Live-Pipeline (specify/tasks/analyze und nicht-strukturierte plan-/
+	// research-Artefakte): garantiert, dass auch diese Attempts eine
+	// Output-Boundary (output_contract + fingerprint) tragen (§24).
+	'positron.artifact.v1': {
+		contractId: 'positron.artifact.v1',
+		version: 1,
+		fields: {
+			run_id: { type: 'string', required: true, minLength: 1 },
+			kind: { type: 'string', required: true, minLength: 1 },
+			phase: { type: 'string', required: true, minLength: 1 },
+			size: { type: 'number' },
+			content_ref: { type: 'string' },
 		},
 	},
 };
