@@ -1,6 +1,7 @@
 // Positron Control Plane — DB-Schema (Migrationen auf bestehender SQLite-DB)
 
 import type Database from 'better-sqlite3';
+import { SCHEDULER_EVENTS_SCHEMA, SCHEDULER_QUEUE_SCHEMA_V4 } from './queue-schema.js';
 
 /**
  * Control-Plane-Migrationen. Laufen auf der SELBEN SQLite-DB wie run-state
@@ -119,4 +120,7 @@ export function applyControlPlaneMigrations(db: Database.Database): void {
 	db.exec(CONTROL_PLANE_SCHEMA_V1);
 	applyV2(db);
 	applyV3(db);
+	// P4 (Multi-Issue Scheduling): durable Intake-Queue (V4, idempotent)
+	db.exec(SCHEDULER_QUEUE_SCHEMA_V4);
+	db.exec(SCHEDULER_EVENTS_SCHEMA);
 }

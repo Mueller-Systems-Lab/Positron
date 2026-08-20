@@ -11,6 +11,7 @@ import GateControls from './GateControls.jsx';
 import LogViewer from './LogViewer.jsx';
 import KpiPanel from './mission/KpiPanel.jsx';
 import MissionControlPanel from './mission/MissionControlPanel.jsx';
+import SchedulerQueuePanel from './mission/SchedulerQueuePanel.jsx';
 import PhaseBadge from './PhaseBadge.jsx';
 import PhasePipeline from './PhasePipeline.jsx';
 import PhaseTimeline from './PhaseTimeline.jsx';
@@ -286,6 +287,9 @@ export default function RunDetail(): React.ReactElement {
 
 			{/* Mission Control (P2 — Backend Truth Projection) */}
 			<MissionControlPanel runId={run.id} runStatus={effectiveStatus} />
+
+			{/* Scheduler Queue (P4 — Backend Truth Projection) */}
+			<SchedulerQueuePanel />
 
 			{/* Runtime KPIs (P2 — Betriebsansicht) */}
 			<KpiPanel />

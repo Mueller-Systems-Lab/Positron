@@ -161,3 +161,37 @@ export type {
 	DurableRunInput,
 	IssueContract,
 } from './durable-run.js';
+
+// ─── P4: Deterministic Scheduler (Multi-Issue Scheduling) ───
+export {
+	enqueueItem,
+	getQueueItem,
+	listQueueItems,
+	updateQueueItem,
+	admitNext,
+	dependencyStatus,
+	markRunStarted,
+	markRunFinished,
+	cancelQueueItem,
+	recoverSchedulerState,
+	schedulerCapacity,
+	persistSchedulerEvent,
+	listSchedulerEvents,
+} from './scheduler.js';
+export type {
+	QueueItemRecord,
+	SchedulerConfig,
+	SchedulerEvent,
+	EnqueueInput,
+	AdmissionDecision,
+} from './scheduler.js';
+export {
+	normalizePriority,
+	queueDedupKey,
+	QUEUE_PRIORITY_ORDER,
+} from './queue-schema.js';
+export type {
+	QueueState,
+	QueuePriority,
+	SchedulerReasonCode,
+} from './queue-schema.js';

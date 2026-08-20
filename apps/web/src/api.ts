@@ -102,6 +102,45 @@ export interface KpisResponse {
 	invariants: { violations: string[] };
 }
 
+// ── P4 Scheduler Types (Backend Truth) ────────────────────────────
+
+export interface SchedulerQueueItem {
+	queue_item_id: string;
+	source_type: string;
+	source_ref: string;
+	repository_ref: string;
+	run_id: string | null;
+	priority: string;
+	queue_state: string;
+	dependency_refs: string[];
+	enqueued_at: string;
+	admitted_at: string | null;
+	started_at: string | null;
+	finished_at: string | null;
+	reason_code: string | null;
+}
+
+export interface SchedulerCapacity {
+	maxActiveRuns: number;
+	activeRuns: number;
+	queueDepth: number;
+	waitingDependency: number;
+	waitingResource: number;
+}
+
+export interface SchedulerEvent {
+	queue_item_id: string;
+	run_id: string | null;
+	event: string;
+	timestamp: string;
+	reason_code: string;
+}
+
+export interface SchedulerQueueResponse {
+	queue: SchedulerQueueItem[];
+	capacity: SchedulerCapacity;
+}
+
 // ── Admin API Types & Token Management (Issue #11) ────────────
 
 export interface AdminStats {
@@ -483,6 +522,29 @@ export const api = {
 	/** Runtime KPIs + Invarianten-Violations */
 	getKpis(): Promise<KpisResponse> {
 		return request<KpisResponse>('/kpis');
+	},
+
+	// ── P4 Scheduler (read-only Backend Truth) ─────────────────────
+
+	/** Intake-Queue + Kapazität */
+	getSchedulerQueue(): Promise<SchedulerQueueResponse> {
+		return request<SchedulerQueueResponse>('/scheduler/queue');
+	},
+
+	/** Aktive Runs (Scheduler-Sicht) */
+	getSchedulerActive(): Promise<{ activeRuns: SchedulerQueueItem[] }> {
+		return request<{ activeRuns: SchedulerQueueItem[] }>('/scheduler/active');
+	},
+
+	/** Globale Kapazität */
+	getSchedulerCapacity(): Promise<SchedulerCapacity> {
+		return request<SchedulerCapacity>('/scheduler/capacity');
+	},
+
+	/** Scheduler-Events (optional gefiltert je Item) */
+	getSchedulerEvents(queueItemId?: string): Promise<{ events: SchedulerEvent[] }> {
+		const qs = queueItemId ? `?queue_item_id=${encodeURIComponent(queueItemId)}` : '';
+		return request<{ events: SchedulerEvent[] }>(`/scheduler/events${qs}`);
 	},
 
 	// ── Admin API (Issue #11) ──────────────────────────────────────

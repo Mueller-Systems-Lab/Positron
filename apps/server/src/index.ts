@@ -30,9 +30,17 @@ import { fileURLToPath } from 'node:url';
 
 import http from 'node:http';
 import {
+	admitNext,
 	applyControlPlaneMigrations,
 	assertKpiInvariants,
+	cancelQueueItem,
 	computeKpis,
+	enqueueItem,
+	listQueueItems,
+	listSchedulerEvents,
+	persistSchedulerEvent,
+	recoverSchedulerState,
+	schedulerCapacity,
 } from '@positron/control-plane';
 import {
 	FakeGitHubAdapter,
@@ -2404,6 +2412,147 @@ export function createApp(options: ServerOptions = {}) {
 			const report = computeKpis(database);
 			const violations = assertKpiInvariants(report);
 			res.json({ kpis: report, invariants: { violations } });
+		} catch (err) {
+			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
+		}
+	});
+
+	// ── P4: Scheduler-API (Backend Truth, read-only ausser cancel) ──────────
+	// Queue-Introspection (§58): list queue, active runs, capacity, events.
+
+	const schedulerCfg = {
+		maxActiveRuns: Number(process.env.POSITRON_MAX_ACTIVE_RUNS ?? 2),
+		emitEvent: persistSchedulerEvent(getDb()),
+	};
+
+	app.get('/api/scheduler/queue', (_req, res) => {
+		try {
+			const items = listQueueItems(getDb()).map((q) => ({
+				queue_item_id: q.queue_item_id,
+				source_type: q.source_type,
+				source_ref: q.source_ref,
+				repository_ref: q.repository_ref,
+				run_id: q.run_id,
+				priority: q.priority,
+				queue_state: q.queue_state,
+				dependency_refs: q.dependency_refs,
+				enqueued_at: q.enqueued_at,
+				admitted_at: q.admitted_at,
+				started_at: q.started_at,
+				finished_at: q.finished_at,
+				reason_code: q.reason_code,
+			}));
+			res.json({ queue: items, capacity: schedulerCapacity(getDb(), schedulerCfg) });
+		} catch (err) {
+			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
+		}
+	});
+
+	app.get('/api/scheduler/active', (_req, res) => {
+		try {
+			const items = listQueueItems(getDb()).filter(
+				(q) => q.queue_state === 'RUNNING' || q.queue_state === 'ADMITTED',
+			);
+			res.json({ activeRuns: items });
+		} catch (err) {
+			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
+		}
+	});
+
+	app.get('/api/scheduler/waiting', (req, res) => {
+		try {
+			const { source_ref } = req.query as { source_ref?: string };
+			const items = listQueueItems(getDb()).filter(
+				(q) =>
+					q.queue_state === 'WAITING_DEPENDENCY' || q.queue_state === 'WAITING_RESOURCE',
+			);
+			const target = source_ref
+				? items.find((q) => q.source_ref === source_ref)
+				: items[0];
+			if (source_ref && !target) {
+				res.status(404).json({ error: 'queue item not found' });
+				return;
+			}
+			res.json({
+				waiting: items,
+				why: target
+					? {
+							queue_item_id: target.queue_item_id,
+							source_ref: target.source_ref,
+							queue_state: target.queue_state,
+							reason_code: target.reason_code,
+						}
+					: null,
+			});
+		} catch (err) {
+			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
+		}
+	});
+
+	app.get('/api/scheduler/capacity', (_req, res) => {
+		try {
+			res.json(schedulerCapacity(getDb(), schedulerCfg));
+		} catch (err) {
+			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
+		}
+	});
+
+	app.get('/api/scheduler/events', (req, res) => {
+		try {
+			const { queue_item_id } = req.query as { queue_item_id?: string };
+			res.json({ events: listSchedulerEvents(getDb(), queue_item_id) });
+		} catch (err) {
+			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
+		}
+	});
+
+	// Cancel queued/running item (write endpoint — requires admin auth)
+	app.post('/api/scheduler/items/:id/cancel', requireAdmin, express.json(), (req, res) => {
+		try {
+			const cancelled = cancelQueueItem(getDb(), req.params.id as string);
+			if (!cancelled) {
+				res.status(404).json({ error: 'queue item not found' });
+				return;
+			}
+			res.json({ cancelled });
+		} catch (err) {
+			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
+		}
+	});
+
+	// P4: Enqueue (write endpoint — requires admin auth)
+	app.post('/api/scheduler/enqueue', requireAdmin, express.json(), (req, res) => {
+		try {
+			const { source_type, source_ref, repository_ref, priority, dependency_refs } =
+				req.body as {
+					source_type?: string;
+					source_ref?: string;
+					repository_ref?: string;
+					priority?: string;
+					dependency_refs?: string[];
+				};
+			if (!source_type || !source_ref || !repository_ref) {
+				res.status(400).json({ error: 'source_type, source_ref and repository_ref are required' });
+				return;
+			}
+			const item = enqueueItem(getDb(), {
+				source_type,
+				source_ref,
+				repository_ref,
+				priority,
+				dependency_refs,
+			});
+			res.json({ item });
+		} catch (err) {
+			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
+		}
+	});
+
+	// P4: Scheduler-Tick (write endpoint — requires admin auth; deterministisch)
+	app.post('/api/scheduler/tick', requireAdmin, express.json(), (_req, res) => {
+		try {
+			const decision = admitNext(getDb(), schedulerCfg);
+			res.json({ decision });
 		} catch (err) {
 			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
 		}
