@@ -765,3 +765,252 @@ Siehe `docs/evidence/issue-421/phase-a-opencode-autonomy.md`:
   Agenten; `.env`-Lesen: read-Deny + Bash-Deny-Regeln (`cat/grep/rg .env*`)
 - Canaries: Root/Subagent/Neue-Session (0 Permission-Events), Preflight
   `scripts/opencode-autonomy-preflight.sh` (AUTONOMY_PREFLIGHT=PASS)
+
+---
+
+# P5.1 — Harness Profile Identity, Provenance & Metrics Foundation
+
+> **P5.1 misst und identifiziert die tatsächlich auf einem produktiven
+> LLM-Attempt wirksame Harness-Konfiguration — es führt KEIN adaptives
+> Routing ein (P5.3) und keinen Profile-Compiler (P5.2).**
+
+Status: **implementiert** (Issue #423). Die dokumentierte Semantik ist im
+Code verifiziert (`harness-profile.ts`, `contracts.ts`, `schema.ts`,
+`store.ts`, `kpis.ts`, `pipeline-runner.ts`, `durable-run.ts`,
+`apps/server/src/index.ts`; Tests in `harness-profile.test.ts`,
+`p5.1-migration.test.ts`, `real-two-profile-canary.test.ts`,
+`p5.1-profile-api.test.ts`).
+
+**Siehe auch:** [`docs/architecture/adaptive-model-harness.md`](adaptive-model-harness.md)
+— P5-Vision (Issue #422), Architektur-Grenze und Abhängigkeitskette
+P4 GREEN → #423 → #424 → #425 → #426.
+
+## Identitätsmodell (vier Ebenen)
+
+Vier Ebenen werden unterschieden; jede Ebene hat konkrete persistierte
+Felder auf `cp_attempts` (V7):
+
+| Ebene | Bedeutung | Persistierte Felder |
+|---|---|---|
+| **A. Model Adapter** | technische Runtime-/Provider-Kompatibilität | `provider_adapter_id`, `provider_adapter_version` (nur wenn tatsächlich bekannt) |
+| **B. Model Profile** | modellbezogene Harness-Konfiguration | `harness_profile_id`, `harness_profile_version` |
+| **C. Task Profile** | Aufgabenprofil (PLAN / BUILD / RESEARCH / REVIEW …) | `task_profile_id`, `task_profile_version`, `task_type` (Korrespondenz `cp_jobs.job_type`) |
+| **D. Effective Harness** | die auf diesem Attempt tatsächlich wirksame Kombination; wichtigster Nachweis | `harness_fingerprint` (SHA-256), `harness_profile_ref` (validierter Contract, JSON) |
+
+Zusätzlich: `model_provenance_status` (KNOWN | PROVENANCE_UNAVAILABLE |
+LEGACY_PROFILE_UNSPECIFIED). Es wird nur Provenienz gespeichert, die
+tatsächlich aus Provider / Adapter / OpenCode / Modellruntime / expliziter
+Konfiguration bekannt ist.
+
+## Contract `positron.harness-profile-ref.v1`
+
+Registriert in `contracts.ts` (`CONTRACT_IDS` + `CONTRACT_REGISTRY`,
+Version 1). Deterministischer Validator in `harness-profile.ts`
+(`validateHarnessProfileRef`, `buildHarnessProfileRef`), kein
+LLM-Urteil über Gültigkeit.
+
+Felder: `harness_profile_id`, `harness_profile_version`,
+`task_profile_id`, `task_profile_version`, `task_type` (Pflicht),
+`provider`, `model` (nullable), `model_provenance_status` (Pflicht),
+`provider_adapter_id`, `provider_adapter_version` (nullable),
+`effective_harness_fingerprint` (Pflicht, Pattern `/^[0-9a-f]{64}$/`),
+`semantics` (Pflicht, plain object — die tatsächlich gehashte
+Konfiguration, reproduzierbar).
+
+**Fail-closed** für neue produktive Attempts:
+
+```
+UNKNOWN_CONTRACT       — Dokument trägt nicht den kanonischen Contract
+UNKNOWN_VERSION        — Version nicht unterstützt
+INVALID_PROFILE_REF    — fehlende/leere Profil-IDs, falsche Typen,
+                         Provenance-Inkonsistenz (KNOWN ohne provider+model)
+INVALID_FINGERPRINT    — effective_harness_fingerprint ≠ Hash der semantics
+```
+
+**Fingerprint-Integritätsprüfung:** Der Validator berechnet den Hash der
+`semantics` neu (`computeEffectiveHarnessFingerprint`) und vergleicht ihn
+mit dem persistierten `effective_harness_fingerprint` — ein erfundener
+Fingerprint wird abgelehnt (`INVALID_FINGERPRINT`). Provenance-Konsistenz:
+`KNOWN` erfordert `provider` UND `model` (sonst `INVALID_PROFILE_REF`).
+
+**Secret-Detection (Negative Canary):** `assertNoSecretInHarnessMetadata`
+wirft bei token-ähnlichen Schlüsseln/Werten
+(`HarnessMetadataSecretError`, Code `HARNESS_METADATA_SECRET`) — Profil-
+Metadaten mit Secret-Mustern werden NIE persistiert
+(`PROFILE_TELEMETRY_NO_SECRETS`). Muster identisch zu
+`apps/server` sse/broadcaster.ts (ghp_, gho_, github_pat_, sk-,
+AIza, Bearer, xox, AKIA …).
+
+## Effektiver Harness-Fingerprint (Semantik)
+
+`computeEffectiveHarnessFingerprint` — SHA-256 über die **semantische
+Harness-Konfiguration nur** (kanonische Fingerprint-Primitive mit
+`excludeKeys`). Gehasht wird: `model_adapter` (id/version),
+`model_profile` (id/version), `task_profile` (id/version), `provider`,
+`model`, `worker_type`, `task_type`, `reasoning_mode`, `tool_surface`,
+`context_strategy`, `policy_ref`.
+
+**Ausgeschlossene Runtime-Metadaten** (`HARNESS_RUNTIME_EXCLUDE_KEYS`):
+`run_id`, `job_id`, `attempt_id` (+ camelCase `runId`/`jobId`/`attemptId`),
+`created_at`, `updated_at`, `started_at`, `ended_at`, `timestamp`,
+`duration_ms`, `result_ref`, `log(s)`, `output`, `output_json`,
+`output_contract`, `output_fingerprint`, `input_contract`,
+`input_fingerprint`.
+
+**Stabilitäts-Garantien** (Tests in `harness-profile.test.ts`):
+
+- gleiche Semantik → gleicher Hash (`EFFECTIVE_HARNESS_FINGERPRINT_STABLE`)
+- semantische Änderung → anderer Hash
+  (`SEMANTIC_PROFILE_CHANGE_CHANGES_FINGERPRINT`)
+- Runtime-Metadaten-Änderung → gleicher Hash (`RUNTIME_METADATA_IGNORED`)
+
+## Provenance-Ehrlichkeit
+
+`ModelProvenanceStatus` (`contracts.ts`):
+
+```
+KNOWN                       — Provider + Modell aus tatsächlicher Konfiguration/Runtime
+PROVENANCE_UNAVAILABLE      — neuer Attempt ohne belastbare Modell-Provenienz
+LEGACY_PROFILE_UNSPECIFIED  — historischer Attempt (vor P5.1) ohne P5-Felder
+```
+
+`resolveHarnessProfileFromEnv` (harness-profile.ts) baut die Referenz
+ausschließlich aus **expliziter Konfiguration** (env `POSITRON_HARNESS_*`,
+`POSITRON_TASK_PROFILE_*`, `POSITRON_MODEL_ADAPTER_*`) + bereits bekannter
+Provider-/Modell-/Worker-Information. Fehlende IDs → `unspecified`,
+fehlende Provenienz → `PROVENANCE_UNAVAILABLE`. **Kein Alias als
+"revision" erfinden** — `PROVENANCE_UNAVAILABLE` ist ehrlicher als
+erfundene Präzision; historische Attempts werden nie rückwirkend mit
+einem Profil versehen (`NO_RETROACTIVE_PROFILE_INVENTION`,
+`isLegacyHarnessAttempt`).
+
+## Migration V7 (`schema.ts` `applyV7`)
+
+Additive, nullable, idempotent, forward-safe, backward-compatible
+Migration auf `cp_attempts` (10 Spalten, alle NULLABLE ohne DEFAULT):
+
+```
+harness_profile_id · harness_profile_version · harness_fingerprint
+harness_profile_ref · task_profile_id · task_profile_version · task_type
+provider_adapter_id · provider_adapter_version · model_provenance_status
+```
+
+- **Idempotent:** `columnExists`-Prüfung vor jedem `ALTER TABLE` — safe
+  für Soak-DB und Produktion.
+- **Legacy-kompatibel:** historische Attempts (V1–V6) bleiben ohne
+  P5-Felder lesbar und werden als `LEGACY_PROFILE_UNSPECIFIED` /
+  `PROVENANCE_UNAVAILABLE` dargestellt — nichts wird erfunden.
+- **Keine bestehende Control-Plane-Invariante ändert sich** (verifiziert
+  per `p5.1-migration.test.ts`, Gate `NO_RETROACTIVE_PROFILE_INVENTION`).
+
+## Bindung vor Ausführung
+
+- **`PROFILE_REF_BOUND_BEFORE_EXECUTION`:** Jeder NEUE produktive Attempt
+  erhält die validierte Harness-Referenz **atomar mit dem
+  `createAttempt`-INSERT**, VOR der Modell-Ausführung. Umsetzung in
+  `trackJobAttempt` (worker-pipeline) und im Build-Loop von
+  `durable-run.ts` (jeweils `resolveHarnessProfileFromEnv` → Felder im
+  INSERT).
+- **`EXECUTED_PROFILE_EQUALS_PERSISTED_PROFILE`:** Der persistierte
+  Contract trägt exakt die Semantik, die zur Laufzeit aktiv war (Canary
+  `real-two-profile-canary.test.ts` beweist zwei Profile → zwei
+  verschiedene Fingerprints, A ≠ B, jeweils korrekt persistiert).
+- **`bindHarnessProfileToAttempt`** (store.ts): atomare Bindung an einen
+  Attempt; idempotent (identische Refs → No-op); semantischer Mismatch
+  (anderer Fingerprint auf demselben Attempt) wird abgelehnt — keine
+  nachträgliche Umschreibung der Historie; finale Attempts sind
+  unveränderlich.
+
+## Profile KPIs (`kpis.ts` `computeProfileKpis`)
+
+Deterministische Aggregation aus `cp_attempts` (JOIN `cp_jobs` mit
+`job_type='build'`) + `cp_decisions` — Backend Truth, keine
+Client-Berechnung.
+
+**Gruppierungsdimensionen:** effektiver Harness-Fingerprint
+(Gruppen-Key; historische Attempts → `LEGACY_PROFILE_GROUP` =
+`LEGACY_PROFILE_UNSPECIFIED`), dazu `harness_profile_id/version`,
+`task_profile_id/version`, `task_type`, `provider`, `model`,
+`provider_adapter_id/version`, `model_provenance_status`.
+
+**Verified Success (nicht-tautologisch):** Ein Run zählt als verified
+success, wenn in `cp_decisions` eine persistierte **DONE-Entscheidung**
+existiert. Die Decision Policy koppelt DONE deterministisch an die
+kanonische Verification (`positron.verification.v1` `passed=true`,
+`ALL_HARD_GATES_GREEN`) — die Metrik ist an die Control-Plane-Wahrheit
+gebunden, NICHT an ein bloßes `attempt.status=succeeded`. Gruppen-
+Zuordnung über Build-Attempts; ein Run mit Build-Attempts in mehreren
+Gruppen zählt in jeder betroffenen Gruppe.
+
+**Metriken je Gruppe:** `sample_size`, `verified_success_count`,
+`verified_success_rate`, `first_pass_success_count/rate`,
+`attempts`, `attempts_per_verified_success`,
+`time_to_verified_success_ms` (Median erster Build-Start → DONE),
+`retry_rate`, `escalation_rate` (SPLIT/BLOCKED), `tokens_total`
+(nur bei realer Meldung, sonst null).
+
+**Kosten:** `cost_per_verified_success` ist IMMER
+`COST_PER_VERIFIED_SUCCESS_NOT_AVAILABLE = 'NOT_AVAILABLE'` — ohne
+belastbare Preis-/Token-Provenienz wird NIE geschätzt (konsistent mit
+`COST_ANALYTICS=DEFERRED_BY_DESIGN`).
+
+## API + UI (reine Projektion)
+
+- **`GET /api/runs/:id/control-plane`**: sichere Metadaten-Projektion der
+  P5.1-Felder (`harness_profile_id/version`, `harness_fingerprint`,
+  `task_profile_id/version`, `task_type`, `provider_adapter_id/version`,
+  `model_provenance_status` mit Legacy-Default
+  `LEGACY_PROFILE_UNSPECIFIED`). **Kein `output_json`, keine rohen
+  Contracts/Semantik, keine Secrets** — Privacy by Default
+  (`p5.1-profile-api.test.ts` beweist die Abwesenheit).
+- **`GET /api/kpis`**: liefert `{ kpis, profile, invariants }` — die
+  Profile-Gruppen aus `computeProfileKpis`, Backend Truth.
+- **Mission Control**: `KpiPanel` (`data-testid="profile-kpi-panel"`)
+  projiziert die Profile-Gruppen kompakt (Profil-ID, Version, Fingerprint,
+  verified success rate, attempts, cost NOT_AVAILABLE); leere Projektion
+  bei alten Runs ("No profile data yet") — kein Absturz, kein Erfinden.
+  Fingerprints UI-freundlich gekürzt (8 Zeichen, Vollwert per Tooltip).
+
+## Architektur-Einordnung (Scope-Grenze)
+
+```
+Control Kernel
+   ↓
+HARNESS IDENTITY (P5.1 — dieses Issue: Identität + Provenienz + Metriken)
+   ↓
+P5.2 Profile Compiler (später, #424)
+   ↓
+P5.3 Evidence-Based Routing (später, #425)
+   ↓
+P5.4 Controlled Evolution (später, #426)
+```
+
+**P5.1 liefert NUR Identität + Provenienz + Metrics Foundation.** Kein
+zweiter Controller, kein adaptives Routing, keine Profil-Promotion, kein
+Compiler. Die P5-Vision (Positron = Controller, LLMs = Workers) ist in
+[`docs/architecture/adaptive-model-harness.md`](adaptive-model-harness.md)
+dokumentiert.
+
+## Security-Invarianten (unverändert)
+
+P5.1 ändert keine bestehende Control-Plane-Invariante. Es bleiben
+unverändert gültig (P4 und früher):
+
+- **LLMs besitzen KEINE Scheduling Authority** — wer startet, wann, mit
+  welchen Ressourcen, entscheidet deterministisch Positron.
+- **Deterministische Gates**: Plan Gate (nur `PLAN_GATE_APPROVED` gibt den
+  Build frei), Verification (Tools messen, LLMs beurteilen nicht),
+  Decision Policy (Security Hard Block — Security ist kein
+  Mehrheitsvotum).
+- **Fail-closed Contracts**: unbekannte Contract-ID/Version → INVALID
+  (`UNKNOWN_CONTRACT` / `UNKNOWN_VERSION`).
+- **Idempotenz & Recovery**: Idempotency Key `run_id:job_id:attempt_id`;
+  abgeschlossene Arbeit wird nach Recovery nie blind wiederholt.
+- **Attempt-Invarianten**: exakt ein Claimer pro Attempt (Claim + Lease +
+  Fencing), finale Attempts unveränderlich (Late Results / Duplicate
+  Completions überschreiben nie), `PRODUCTIVE_WORKER_BYPASS_COUNT = 0`.
+- **KPI-Invarianten**: Blind-Retry-Rate = 0, Duplicate-Mutation-Rate = 0,
+  Security-Hard-Block-Enforcement = 100 %.
+- **Privacy by Default**: keine Secrets, keine Prompts/Responses, kein
+  `output_json` in der UI; Profil-Telemetrie trägt keine Secrets
+  (`PROFILE_TELEMETRY_NO_SECRETS`).
