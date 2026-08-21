@@ -542,8 +542,8 @@ const CONTRACT_REGISTRY: Record<ContractId, ContractSchema> = {
 			},
 			capabilities: {
 				type: 'string[]',
+				required: true,
 				validate: (value) => {
-					if (value === undefined) return [];
 					const arr = value as string[];
 					if (arr.some((c) => !/^[a-z0-9-]{1,64}$/.test(c))) {
 						return ['capabilities must be lowercase kebab-case identifiers'];
@@ -555,9 +555,21 @@ const CONTRACT_REGISTRY: Record<ContractId, ContractSchema> = {
 				type: 'object',
 				required: true,
 				requiredKeys: ['max_input_tokens', 'max_output_tokens'],
+				validate: (value) => {
+					if (typeof value !== 'object' || value === null)
+						return ['context_limits must be an object'];
+					const c = value as Record<string, unknown>;
+					const errors: string[] = [];
+					for (const key of ['max_input_tokens', 'max_output_tokens']) {
+						if (c[key] !== null && typeof c[key] !== 'number') {
+							errors.push(`context_limits.${key} must be a number or null`);
+						}
+					}
+					return errors;
+				},
 			},
-			reasoning_modes: { type: 'string[]' },
-			supported_tools: { type: 'string[]' },
+			reasoning_modes: { type: 'string[]', required: true },
+			supported_tools: { type: 'string[]', required: true },
 			provider_specific: {
 				type: 'object',
 				validate: (value) => {
@@ -638,11 +650,31 @@ const CONTRACT_REGISTRY: Record<ContractId, ContractSchema> = {
 				type: 'object',
 				required: true,
 				requiredKeys: ['id', 'version', 'fingerprint'],
+				validate: (value) => {
+					if (typeof value !== 'object' || value === null) {
+						return ['model_profile_ref must be an object'];
+					}
+					const r = value as Record<string, unknown>;
+					if (typeof r.fingerprint !== 'string' || !/^[0-9a-f]{64}$/.test(r.fingerprint)) {
+						return ['model_profile_ref.fingerprint must be 64-hex'];
+					}
+					return [];
+				},
 			},
 			task_profile_ref: {
 				type: 'object',
 				required: true,
 				requiredKeys: ['id', 'version', 'fingerprint'],
+				validate: (value) => {
+					if (typeof value !== 'object' || value === null) {
+						return ['task_profile_ref must be an object'];
+					}
+					const r = value as Record<string, unknown>;
+					if (typeof r.fingerprint !== 'string' || !/^[0-9a-f]{64}$/.test(r.fingerprint)) {
+						return ['task_profile_ref.fingerprint must be 64-hex'];
+					}
+					return [];
+				},
 			},
 			kernel_policy_ref: { type: 'string', required: true, minLength: 1 },
 			kernel_policy_fingerprint: { type: 'string', required: true, pattern: /^[0-9a-f]{64}$/ },
@@ -1093,13 +1125,13 @@ export interface KernelPermissions {
 }
 
 /** Kanonische Kernel-Default-Policy (Positron Security-Modell). */
-export const KERNEL_DEFAULT_PERMISSIONS: KernelPermissions = {
+export const KERNEL_DEFAULT_PERMISSIONS: KernelPermissions = Object.freeze({
 	mutation: true,
 	push: false,
 	merge: false,
 	deploy: false,
 	secret_access: false,
-};
+});
 
 /** Kanonische Task-Typen (P5.2). */
 export type ProfileTaskType = 'PLAN' | 'BUILD' | 'RESEARCH' | 'REVIEW';

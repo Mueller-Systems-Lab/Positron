@@ -38,6 +38,7 @@ import type {
 	TaskProfileContract,
 } from './contracts.js';
 import { fingerprint } from './fingerprint.js';
+import { assertNoSecretInHarnessMetadata } from './harness-profile.js';
 
 // ---------------------------------------------------------------------------
 // Konstanten
@@ -205,21 +206,71 @@ export function compileEffectiveHarness(input: ProfileCompileInput): EffectiveHa
 		throw new ProfileCompilationError(PROFILE_INVALID, taskValid.errors.join('; '));
 	}
 
-	// 2. Permission-Intersection (Kernel ∩ Profil)
-	const effectivePermissions = intersectPermissions(input.kernelPermissions, task.permissions);
+	// 1b. Secret-Detection (Defense-in-Depth, unabhängig von der P5.1-
+	//     Aufruf-Reihenfolge): Profile-Metadaten dürfen keine Secrets
+	//     tragen — auch nicht in provider_specific/context_strategy.
+	assertNoSecretInHarnessMetadata(model.provider_specific);
+	assertNoSecretInHarnessMetadata({
+		context_strategy: task.context_strategy,
+		reasoning_policy: task.reasoning_policy,
+		model_profile_id: model.model_profile_id,
+		task_profile_id: task.task_profile_id,
+	});
 
-	// 3. Tool-Intersection: Kernel-Tools sind die vom Adapter unterstützten
-	//    Tools; wirksam = Profil-Allowlist ∩ Adapter-Support. Ein Tool in der
-	//    Profil-Allowlist, das der Adapter nicht unterstützt, ist kein
-	//    stiller Downgrade — es wird abgelehnt (ADAPTER_CAPABILITY_MISMATCH).
+	// 2. Permission-Intersection (Kernel ∩ Profil). Eine Profil-Permission,
+	//    die über die Kernel-Policy hinausgeht (profil=true, kernel=false),
+	//    wird sichtbar als DENIED_BY_KERNEL_POLICY vermerkt — kein stiller
+	//    Override, keine Union.
+	const effectivePermissions = intersectPermissions(input.kernelPermissions, task.permissions);
+	const reasonCodes: string[] = [];
+	for (const key of ['push', 'merge', 'deploy', 'secret_access', 'mutation'] as const) {
+		if (task.permissions[key] === true && input.kernelPermissions[key] === false) {
+			reasonCodes.push(`${DENIED_BY_KERNEL_POLICY}:${key}`);
+		}
+	}
+
+	// 3. Tool-Intersection: wirksam = Profil-Allowlist ∩ Model-Profil-
+	//    supported_tools ∩ Adapter-Support. Ein Tool, das das Model-Profil
+	//    nicht unterstützt → TOOL_NOT_ALLOWED; ein Tool, das der Adapter
+	//    nicht unterstützt → ADAPTER_CAPABILITY_MISMATCH. Kein stiller
+	//    Downgrade.
 	const adapterTools = new Set(input.adapterSupportedTools ?? []);
 	const requestedTools = task.allowed_tools ?? [];
-	const effectiveTools = requestedTools.filter((t) => adapterTools.has(t));
+	const modelSupported = new Set(model.supported_tools ?? []);
+	const effectiveTools = requestedTools.filter((t) => adapterTools.has(t) && modelSupported.has(t));
 	if (effectiveTools.length !== requestedTools.length) {
-		const missing = requestedTools.filter((t) => !adapterTools.has(t));
+		const missingAdapter = requestedTools.filter((t) => !adapterTools.has(t));
+		if (missingAdapter.length > 0) {
+			throw new ProfileCompilationError(
+				ADAPTER_CAPABILITY_MISMATCH,
+				`adapter does not support tools: ${missingAdapter.join(', ')}`,
+			);
+		}
+		const missingModel = requestedTools.filter((t) => !modelSupported.has(t));
+		if (missingModel.length > 0) {
+			throw new ProfileCompilationError(
+				TOOL_NOT_ALLOWED,
+				`model profile does not support tools: ${missingModel.join(', ')}`,
+			);
+		}
+	}
+
+	// 4. Reasoning-Modus: Task-Policy muss vom Model-Profil unterstützt sein.
+	const modelReasoningModes = model.reasoning_modes ?? [];
+	if (modelReasoningModes.length > 0 && !modelReasoningModes.includes(task.reasoning_policy)) {
+		throw new ProfileCompilationError(
+			PROFILE_INCOMPATIBLE,
+			`reasoning_policy '${task.reasoning_policy}' not supported by model profile`,
+		);
+	}
+	if (
+		input.adapterSupportedReasoningModes &&
+		input.adapterSupportedReasoningModes.length > 0 &&
+		!input.adapterSupportedReasoningModes.includes(task.reasoning_policy)
+	) {
 		throw new ProfileCompilationError(
 			ADAPTER_CAPABILITY_MISMATCH,
-			`adapter does not support tools: ${missing.join(', ')}`,
+			`adapter does not support reasoning mode '${task.reasoning_policy}'`,
 		);
 	}
 
@@ -277,7 +328,7 @@ export function compileEffectiveHarness(input: ProfileCompileInput): EffectiveHa
 		effective_timeout_ms: task.timeout_ms,
 		effective_max_steps: task.max_steps,
 		run_context_fingerprint: input.runContextFingerprint,
-		compiler: { version: PROFILE_COMPILER_VERSION, reason_codes: [] },
+		compiler: { version: PROFILE_COMPILER_VERSION, reason_codes: reasonCodes },
 		fingerprint: '',
 	};
 
@@ -408,19 +459,46 @@ export const DEFAULT_TASK_PROFILES: Record<TaskProfileContract['task_type'], Tas
 // ---------------------------------------------------------------------------
 
 /**
+ * Read-only-Default-Profil für nicht-kanonische Task-Typen (baseline,
+ * verify, specify, tasks, analyze, decide). Fail-closed: UNBEKANNTE
+ * Task-Typen erhalten NIEMALS Mutation — deny-by-default statt des
+ * permissivsten Profils (kein stiller Fallback auf BUILD).
+ */
+export const READONLY_TASK_PROFILE: TaskProfileContract = buildTaskProfile({
+	task_profile_id: 'readonly',
+	task_profile_version: '1.0.0',
+	task_type: 'REVIEW',
+	allowed_tools: ['read', 'grep', 'list', 'cat'],
+	context_strategy: 'full',
+	reasoning_policy: 'deep',
+	max_steps: 1,
+	timeout_ms: 300_000,
+	permissions: { mutation: false, push: false, merge: false, deploy: false, secret_access: false },
+});
+
+/**
  * Kompiliert die Effective Runtime Configuration aus EXPLIZITER
  * Konfiguration (env) + bekannter Provider-/Modell-/Worker-Information.
  *
- * - Task-Profil: `POSITRON_TASK_PROFILE_ID` (oder Default nach taskType)
+ * - Task-Profil: `POSITRON_TASK_PROFILE_ID`-basierte Defaults nach
+ *   taskType; NICHT-kanonische Task-Typen (verify/baseline/specify/
+ *   tasks/analyze/decide) erhalten das read-only Default-Profil
+ *   (mutation=false) — nie BUILD (KERNEL_DENY_WINS, fail-closed).
  * - Model-Profil: aus `POSITRON_HARNESS_PROFILE_ID` + provider/model;
  *   Provenienz nur bei tatsächlicher Kenntnis (KNOWN), sonst
  *   PROVENANCE_UNAVAILABLE — kein erfundener Revision.
  * - Kernel-Policy: KERNEL_DEFAULT_PERMISSIONS (mutation erlaubt,
  *   push/merge/deploy/secret verweigert) — Profile können nie eskalieren.
- * - Adapter-Tools: `POSITRON_HARNESS_TOOL_SURFACE`-basiert oder Defaults.
+ * - Adapter-Tools: Schnittmenge aus Profil-Allowlist, Model-Profil-
+ *   supported_tools und Adapter-Support.
  *
  * Fail-closed: ungültige Kombinationen werfen ProfileCompilationError mit
  * Reason Code (kein silent downgrade, kein Freiform-Passthrough).
+ *
+ * HINWEIS (P5.2-Scope): Die kompilierte Effective Config wird atomar am
+ * Attempt persistiert (Telemetrie + reproduzierbare Referenz). Das
+ * ENFORCEMENT der effektiven Permissions/Tools am Worker ist P5.3
+ * (Routing) vorbehalten — P5.2 führt keine Runtime-Änderung ein.
  */
 export function resolveEffectiveHarnessFromEnv(
 	env: NodeJS.ProcessEnv,
@@ -437,7 +515,8 @@ export function resolveEffectiveHarnessFromEnv(
 		(upper === 'BUILD' && DEFAULT_TASK_PROFILES.BUILD) ||
 		(upper === 'RESEARCH' && DEFAULT_TASK_PROFILES.RESEARCH) ||
 		(upper === 'REVIEW' && DEFAULT_TASK_PROFILES.REVIEW) ||
-		DEFAULT_TASK_PROFILES.BUILD;
+		// Fail-closed: nicht-kanonische Task-Typen → read-only Default.
+		READONLY_TASK_PROFILE;
 
 	const provider = input.provider ?? null;
 	const model = input.model ?? null;

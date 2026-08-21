@@ -18,6 +18,7 @@
 import { describe, expect, it } from 'vitest';
 import { KERNEL_DEFAULT_PERMISSIONS } from '../contracts.js';
 import type { ModelProfileContract } from '../contracts.js';
+import { HarnessMetadataSecretError } from '../harness-profile.js';
 import {
 	ADAPTER_CAPABILITY_MISMATCH,
 	BUILD_TASK_PROFILE,
@@ -30,11 +31,13 @@ import {
 	ProfileCompilationError,
 	RESEARCH_TASK_PROFILE,
 	REVIEW_TASK_PROFILE,
+	TOOL_NOT_ALLOWED,
 	UNKNOWN_PROFILE_DENIED,
 	UNKNOWN_PROFILE_VERSION,
 	compileEffectiveHarness,
 	computeProfileFingerprint,
 	modelProfileSemantics,
+	resolveEffectiveHarnessFromEnv,
 	resolveProfileFromRegistry,
 	taskProfileSemantics,
 	validateModelProfile,
@@ -115,6 +118,84 @@ describe('TASK_PROFILE_VALID', () => {
 	it('invalid task_type fails validation', () => {
 		const bad = { ...BUILD_TASK_PROFILE, task_type: 'EXECUTE' };
 		expect(validateTaskProfile(bad).ok).toBe(false);
+	});
+});
+
+describe('UNKNOWN_TASK_TYPE_FAIL_CLOSED', () => {
+	it('non-canonical task types (verify/baseline/specify) get read-only profile, never BUILD', () => {
+		const effectiveVerify = resolveEffectiveHarnessFromEnv(
+			{},
+			{ taskType: 'verify', workerType: 'deterministic-tools', provider: null, model: null },
+		);
+		expect(effectiveVerify.effective_permissions.mutation).toBe(false);
+		expect(effectiveVerify.effective_permissions.push).toBe(false);
+		expect(effectiveVerify.effective_tools).toEqual(['read', 'grep', 'list', 'cat']);
+		const effectiveBaseline = resolveEffectiveHarnessFromEnv(
+			{},
+			{ taskType: 'baseline', workerType: 'deterministic.baseline', provider: null, model: null },
+		);
+		expect(effectiveBaseline.effective_permissions.mutation).toBe(false);
+		const effectiveBuild = resolveEffectiveHarnessFromEnv(
+			{},
+			{ taskType: 'build', workerType: 'opencode', provider: 'p', model: 'm' },
+		);
+		expect(effectiveBuild.effective_permissions.mutation).toBe(true);
+	});
+});
+
+describe('TOOL_NOT_ALLOWED_MODEL_PROFILE', () => {
+	it('tool not supported by MODEL profile → TOOL_NOT_ALLOWED', () => {
+		const limitedModel = withModelFingerprint({
+			...MODEL_PROFILE_A,
+			supported_tools: ['read', 'grep', 'list', 'cat', 'test'],
+		});
+		expect(() =>
+			compileEffectiveHarness({
+				modelProfile: limitedModel,
+				taskProfile: BUILD_TASK_PROFILE, // will edit/write
+				kernelPermissions: KERNEL_DEFAULT_PERMISSIONS,
+				runContextFingerprint: 'ab'.repeat(32),
+				adapterSupportedTools: ['read', 'grep', 'list', 'cat', 'edit', 'write', 'test'],
+				adapterSupportedReasoningModes: ['fast', 'deep'],
+			}),
+		).toThrowError(expect.objectContaining({ code: TOOL_NOT_ALLOWED }));
+	});
+});
+
+describe('DENIED_BY_KERNEL_POLICY_REASON_CODE', () => {
+	it('profile permission above kernel is visible in reason_codes (not silent)', () => {
+		const escalating = buildEscalatingProfile({ push: true, secret_access: true });
+		const effective = compileBase(escalating);
+		expect(effective.effective_permissions.push).toBe(false);
+		expect(effective.effective_permissions.secret_access).toBe(false);
+		expect(effective.compiler.reason_codes).toContain('DENIED_BY_KERNEL_POLICY:push');
+		expect(effective.compiler.reason_codes).toContain('DENIED_BY_KERNEL_POLICY:secret_access');
+	});
+
+	it('profile within kernel bounds has empty reason_codes', () => {
+		const effective = compileBase(BUILD_TASK_PROFILE);
+		expect(effective.compiler.reason_codes).toEqual([]);
+	});
+});
+
+describe('PROFILE_SECRET_DETECTION_DEFENSE_IN_DEPTH', () => {
+	it('secret in provider_specific is rejected by the compiler', () => {
+		const badModel = withModelFingerprint({
+			...MODEL_PROFILE_A,
+			provider_specific: { api_key: 'sk-abcdefghijklmnopqrstuvwxyz123456' },
+		});
+		expect(() => compileBase(BUILD_TASK_PROFILE, { modelProfile: badModel })).toThrow(
+			HarnessMetadataSecretError,
+		);
+	});
+
+	it('secret in context_strategy is rejected by the compiler', () => {
+		const badTask = {
+			...BUILD_TASK_PROFILE,
+			context_strategy: 'Bearer abcdefghijklmnopqrstuvwxyz',
+		};
+		badTask.fingerprint = computeProfileFingerprint(taskProfileSemantics(badTask));
+		expect(() => compileBase(badTask)).toThrow(HarnessMetadataSecretError);
 	});
 });
 
@@ -303,7 +384,8 @@ describe('SECURITY_CANARY_DENIED_BY_KERNEL_POLICY', () => {
 	it('kernel policy with push=false blocks profile push request deterministically', () => {
 		const effective = compileBase(buildEscalatingProfile({ push: true }));
 		expect(effective.effective_permissions.push).toBe(false);
-		expect(effective.compiler.reason_codes).toEqual([]);
+		// Sichtbar statt still: Kernel-Denial ist im Reason Code vermerkt.
+		expect(effective.compiler.reason_codes).toContain('DENIED_BY_KERNEL_POLICY:push');
 	});
 
 	it('DENIED_BY_KERNEL_POLICY constant is defined and used for kernel denials', () => {
