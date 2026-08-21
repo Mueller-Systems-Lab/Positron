@@ -299,6 +299,8 @@ interface JobAttemptTracking {
 	leaseTtlMs: number;
 	/** P4: Heartbeat-Stopper (null wenn kein Heartbeat läuft) */
 	heartbeatStop: { stop: () => void } | null;
+	/** P4 (Review-Fix): run-scoped AbortSignal (Cancellation-Kontext) */
+	signal: AbortSignal | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -311,6 +313,24 @@ interface JobAttemptTracking {
 // ---------------------------------------------------------------------------
 
 const runHeartbeatStops = new Map<string, Set<{ stop: () => void }>>();
+
+// P4 (Review-Fix): run-scoped AbortSignal pro Run (parallel-sicher, keyed
+// by runId). Wird von runPipeline registriert und im Finally entfernt;
+// trackJobAttempt/finalizeArtifactAttempt nutzen es, um Erfolgs-Finalisierung
+// nach Abort zu verhindern (CANCELLED statt succeeded).
+const runSignals = new Map<string, AbortSignal>();
+
+function registerRunSignal(runId: string, signal: AbortSignal): void {
+	runSignals.set(runId, signal);
+}
+
+function unregisterRunSignal(runId: string): void {
+	runSignals.delete(runId);
+}
+
+function runSignalFor(runId: string): AbortSignal | null {
+	return runSignals.get(runId) ?? null;
+}
 
 function registerRunHeartbeat(runId: string, heartbeat: { stop: () => void }): void {
 	let stops = runHeartbeatStops.get(runId);
@@ -515,6 +535,7 @@ function trackJobAttempt(
 			generation: 0,
 			leaseTtlMs: 0,
 			heartbeatStop: null,
+			signal: runSignalFor(run.id),
 		};
 	}
 
@@ -551,9 +572,12 @@ function trackJobAttempt(
 	if (!duplicate && claim.claimed) {
 		// Heartbeat-Lifecycle: start nach erfolgreichem Claim; stoppt bei
 		// Erfolg/Fehler/Timeout/Cancellation (completeTrackedAttempt),
-		// Ownership-Verlust (renew liefert false → Cancellation) und bei
-		// jedem exit von runPipeline (Registry-Finally). Kein Heartbeat
-		// erneuert eine fremde/newer Fence-Epoch (Owner-Check in der DB).
+		// Ownership-Verlust (renew liefert false → Heartbeat-Cancellation)
+		// und bei jedem exit von runPipeline (Registry-Finally). Kein
+		// Heartbeat erneuert eine fremde/newer Fence-Epoch (Owner-Check in
+		// der DB). Hinweis (Review): Ownership-Verlust stoppt den Heartbeat
+		// und fenced das Endergebnis; die laufende Phase endet kontrolliert,
+		// spätere Mutationen werden verworfen (Transition-Guard + Fencing).
 		const heartbeatCancellation = createCancellationSource();
 		heartbeatStop = startLeaseHeartbeat(
 			heartbeatCancellation,
@@ -570,7 +594,16 @@ function trackJobAttempt(
 	}
 	if (!duplicate && !claim.claimed) {
 		// Paralleler Doppel-Claim desselben Attempts: abgelehnt.
-		completeAttempt(db, attempt.attempt_id, { status: 'denied', result_ref: 'duplicate-claim' });
+		// P4 (Review-Fix): Denial-Update ist gefenced (Owner + Generation) —
+		// ein fremder Claimer kann den Attempt des aktuellen Besitzers nicht
+		// beschädigen (Defense-in-Depth; praktisch unerreichbar, da attempt_id
+		// pro Prozess frisch erzeugt wird).
+		completeAttempt(
+			db,
+			attempt.attempt_id,
+			{ status: 'denied', result_ref: 'duplicate-claim' },
+			{ fencingOwnerId: ownerId, fencingGeneration: claim.generation },
+		);
 		return {
 			job: job as unknown as JobRecord,
 			attempt,
@@ -582,6 +615,7 @@ function trackJobAttempt(
 			generation: claim.generation,
 			leaseTtlMs,
 			heartbeatStop,
+			signal: runSignalFor(run.id),
 		};
 	}
 	return {
@@ -595,6 +629,7 @@ function trackJobAttempt(
 		generation: claim.generation,
 		leaseTtlMs,
 		heartbeatStop,
+		signal: runSignalFor(run.id),
 	};
 }
 
@@ -675,6 +710,16 @@ function finalizeArtifactAttempt(
 		content_ref: string;
 	},
 ): boolean {
+	// P4 (Review-Fix): Erfolg NACH Abort ist kein Erfolg — der Artefakt-
+	// Attempt wird als CANCELLED finalisiert (kein succeeded in einem
+	// gecancelten Run; konsistent zur Build-Klassifikation).
+	if (tracking.signal?.aborted) {
+		finalizeTrackedAttempt(tracking, deps, 'failed', {
+			failure_class: 'CANCELLED',
+			failure_signature: `${artifactDoc.kind}:cancelled-after-abort`,
+		});
+		return false;
+	}
 	const validation = validateContract('positron.artifact.v1', artifactDoc);
 	if (!validation.ok) {
 		finalizeTrackedAttempt(tracking, deps, 'blocked', {
@@ -2004,6 +2049,23 @@ async function executePhase(
 						);
 						break;
 					}
+					// P4 (Review-Fix): Erfolg NACH Abort ist kein Erfolg — ein
+					// Worker, der das AbortSignal ignoriert und trotzdem
+					// "success" liefert, wird als CANCELLED finalisiert
+					// (konsistent zur RETRY-Klassifikation; kein succeeded-
+					// Attempt in einem gecancelten Run).
+					if (ctx.signal.aborted) {
+						completeTrackedAttempt(tracking, deps, {
+							status: 'failed',
+							output_contract: 'positron.build-result.v1',
+							output_fingerprint: fingerprint({ phase: 'implement', status: 'cancelled' }),
+							failure_class: 'CANCELLED',
+							failure_signature: 'implement:cancelled-after-abort',
+							result_ref: `opencode:${ir.sessionId ?? 'none'}`,
+						});
+						result = markFailed(current, 'FAILED_TRANSIENT', 'Implement cancelled');
+						break;
+					}
 					completeTrackedAttempt(tracking, deps, {
 						status: 'succeeded',
 						output_contract: buildResultDoc.contract,
@@ -2938,11 +3000,13 @@ export async function runPipeline(run: RunState, deps: PipelineDeps): Promise<Ru
 	// Cancellation, Ownership-Verlust und geworfenen Exceptions stoppen ALLE
 	// Heartbeats dieses Runs (kein Timer-Leak, keine Renews nach Terminal).
 	const cancellation = createRunCancellation(run.id, deps);
+	registerRunSignal(run.id, cancellation.signal);
 	try {
 		return await runPipelineInner(run, deps, cancellation);
 	} finally {
 		cancellation.stop();
 		stopRunHeartbeats(run.id);
+		unregisterRunSignal(run.id);
 	}
 }
 

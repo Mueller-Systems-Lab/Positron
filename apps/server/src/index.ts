@@ -46,6 +46,7 @@ import {
 	persistSchedulerEvent,
 	recoverSchedulerState,
 	recoverStaleLeases,
+	renewWorkspaceLock,
 	resolveAttemptLeaseTtlMs,
 	resolveProviderCapacity,
 	resolveWorkspaceLockTtlMs,
@@ -1092,9 +1093,15 @@ export function createApp(options: ServerOptions = {}) {
 	// requeued/freigegeben. Die QUEUE überlebt den Restart (durable
 	// cp_queue); abgeschlossene Arbeit wird beim Resume nicht erneut
 	// ausgeführt (Attempt-Wiederverwendung in runPipeline).
+	//
+	// WICHTIG (Review-Fix): recoverSchedulerState läuft VOR recoverStaleLeases.
+	// Die Lease-Aliveness prüft laufende Attempts — erst nach der Requeue-
+	// Entscheidung werden abgelaufene Attempts finalisiert, sonst würde ein
+	// gecrashter Run (Attempts inzwischen final) als "lebendig" gelten und
+	// sein RUNNING-Item bliebe für immer hängen.
 	try {
-		recoverStaleLeases(getDb());
 		recoverSchedulerState(getDb(), (runId) => isRunLeaseAlive(getDb(), runId));
+		recoverStaleLeases(getDb());
 	} catch (err) {
 		log.warn(`P4 crash recovery on startup failed: ${err instanceof Error ? err.message : String(err)}`);
 	}
@@ -2497,28 +2504,33 @@ export function createApp(options: ServerOptions = {}) {
 	const dispatchRun = async (
 		item: import('@positron/control-plane').QueueItemRecord,
 		run: RunState,
-	): Promise<void> => {		try {
+	): Promise<void> => {
+		try {
 			const completed = await runFullPipeline(
 				run,
 				repository,
 				activeWorkspaceAdapter,
 				activeSpecKitAdapter,
-				activeOpenCodeAdapter,
+				instrumentedOpenCodeAdapter,
 				github,
 				syncService,
 			);
-			const terminal: 'COMPLETED' | 'FAILED' | 'BLOCKED' =
+			// P4 (Review-Fix): Cancel wird korrekt als CANCELLED finalisiert
+			// (nicht FAILED) — Ressourcen werden in allen Fällen freigegeben.
+			const terminal: 'COMPLETED' | 'FAILED' | 'BLOCKED' | 'CANCELLED' =
 				completed.status === 'done'
 					? 'COMPLETED'
 					: completed.status === 'blocked'
 						? 'BLOCKED'
-						: 'FAILED';
+						: completed.status === 'cancelled'
+							? 'CANCELLED'
+							: 'FAILED';
 			markRunFinished(
 				getDb(),
 				item.queue_item_id,
 				terminal,
 				run.id,
-				'READY',
+				terminal === 'CANCELLED' ? 'CANCELLED_BY_USER' : 'READY',
 				schedulerCfg,
 			);
 		} catch (err) {
@@ -2540,6 +2552,20 @@ export function createApp(options: ServerOptions = {}) {
 			//    Heartbeats erneuert werden (P4 Slice F — kein hängendes
 			//    RUNNING nach Controller-Crash).
 			recoverSchedulerState(getDb(), (runId) => isRunLeaseAlive(getDb(), runId));
+			// P4 (Slice D, Review-Fix): Workspace-Lock-Heartbeat — der Lock
+			// aktiver Items wird je Tick erneuert (TTL/Intervalle >> Tick),
+			// damit er während langer Runs nicht abläuft. Gecrashte Runs
+			// verlieren die Erneuerung → Lock verfällt → Stale-Recovery.
+			const lockTtl = schedulerCfg.workspaceLockTtlMs ?? 600_000;
+			for (const item of listQueueItems(getDb())) {
+				if (item.queue_state === 'RUNNING' || item.queue_state === 'ADMITTED') {
+					try {
+						renewWorkspaceLock(getDb(), item.repository_ref, item.queue_item_id, lockTtl);
+					} catch {
+						/* best-effort */
+					}
+				}
+			}
 			// 2. Admission bis Capacity (atomar; Kapazität zählt RUNNING+ADMITTED)
 			const admitted: Array<{
 				item: import('@positron/control-plane').QueueItemRecord;
@@ -2555,9 +2581,12 @@ export function createApp(options: ServerOptions = {}) {
 					Number.parseInt(item.source_ref.replace(/^issue[#/]?/, ''), 10) || 1,
 					2,
 				);
-				saveRunToDb(run);
+				// P4 (Review-Fix): markRunStarted ZUERST — erst wenn der
+				// state-guarded Übergang gelungen ist, wird die Run-Zeile
+				// persistiert (kein Orphan-Row bei Konkurrenz/Cancel).
 				const started = markRunStarted(getDb(), item.queue_item_id, run.id, schedulerCfg);
 				if (started) {
+					saveRunToDb(run);
 					admitted.push({ item, run });
 				}
 			}
@@ -3532,6 +3561,25 @@ export function createApp(options: ServerOptions = {}) {
 			const run = loadRunFromDb(id);
 			if (!run) {
 				log.warn(`R5 Recovery: Run ${id} not found in DB — skipping`);
+				continue;
+			}
+
+			// P4 (Slice F, Review-Fix): Runs, die von einem Queue-Item
+			// referenziert werden, sind Eigentum des Schedulers — die
+			// Startup-Recovery hat ihr RUNNING-Item bereits requeued und
+			// der Tick admitiert es neu (frische run_id, ordentliches
+			// markRunFinished beim Terminal). Ein paralleles R5-Resume
+			// desselben Runs würde zwei Pipeline-Instanzen auf demselben
+			// Run starten (Doppel-Dispatch-Gefahr).
+			const queueRef = database
+				.prepare(
+					"SELECT queue_item_id FROM cp_queue WHERE run_id = ? AND queue_state IN ('QUEUED', 'WAITING_DEPENDENCY', 'WAITING_RESOURCE', 'ADMITTED', 'RUNNING') LIMIT 1",
+				)
+				.get(run.id) as { queue_item_id: string } | undefined;
+			if (queueRef) {
+				log.info(
+					`R5 Recovery: Run ${run.id} is scheduler-owned (queue item ${String(queueRef.queue_item_id)}) — recovery via scheduler admission, skipping direct resume`,
+				);
 				continue;
 			}
 

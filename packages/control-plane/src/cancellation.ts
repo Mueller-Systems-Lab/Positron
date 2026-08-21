@@ -253,6 +253,10 @@ export function startLeaseHeartbeat(
 ): { stop: () => void } {
 	const intervalMs = Math.max(100, Math.floor(ttlMs / 3));
 	let stopped = false;
+	const stop = (): void => {
+		stopped = true;
+		clearInterval(timer);
+	};
 	const timer = setInterval(() => {
 		if (stopped || cancellation.cancelled) return;
 		try {
@@ -263,10 +267,9 @@ export function startLeaseHeartbeat(
 			cancellation.cancel();
 		}
 	}, intervalMs);
-	return {
-		stop: () => {
-			stopped = true;
-			clearInterval(timer);
-		},
-	};
+	// P4 (Review-Fix NIT): bei Cancellation (z. B. Ownership-Verlust) stoppt
+	// der Timer SOFORT — kein weiter tickender no-op-Intervall bis zum
+	// runPipeline-Finally.
+	cancellation.signal.addEventListener('abort', stop, { once: true });
+	return { stop };
 }

@@ -471,20 +471,6 @@ export function admitNext(
 				});
 			}
 
-			// P4 (Slice E): ATOMARES Reserve vor dem Dispatch — die Capacity
-			// wird innerhalb derselben Admission-Transaktion belegt
-			// (BEGIN IMMEDIATE serialisiert konkurrierende Scheduler →
-			// NO_PROVIDER_OVERSUBSCRIPTION). Reserve ist pro Owner idempotent.
-			if (item.provider && config.maxConcurrentByProvider) {
-				reserveProviderSlot(db, {
-					provider: item.provider,
-					model: config.defaultModel ?? null,
-					ownerId: item.queue_item_id,
-					runId: null,
-					now,
-				});
-			}
-
 			// ADMISSION: atomarer Übergang → ADMITTED
 			const admitted = db
 				.prepare(
@@ -494,6 +480,20 @@ export function admitNext(
 				)
 				.run(now, 'READY', item.queue_item_id);
 			if (admitted.changes === 1) {
+				// P4 (Slice E, Review-Fix): Reserve ERST NACH erfolgreichem
+				// ADMITTED-Update — schlägt der state-guarded Übergang fehl
+				// (Konkurrenz/Cancel), wird KEINE Reservation/kein Lock
+				// verwaist. Innerhalb derselben BEGIN-IMMEDIATE-Transaktion →
+				// NO_PROVIDER_OVERSUBSCRIPTION bleibt gewahrt.
+				if (item.provider && config.maxConcurrentByProvider) {
+					reserveProviderSlot(db, {
+						provider: item.provider,
+						model: config.defaultModel ?? null,
+						ownerId: item.queue_item_id,
+						runId: null,
+						now,
+					});
+				}
 				emit(config, {
 					queue_item_id: item.queue_item_id,
 					run_id: null,
