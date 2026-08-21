@@ -5,13 +5,16 @@
 > **LLM schlägt vor, Evaluation beweist, Positron befördert.**
 
 Status: **Vision** (Issue #422) — die Architektur-Grenze ist definiert;
-umgesetzt ist aktuell nur **P5.1** (Issue #423, siehe
-[`durable-control-plane.md`](durable-control-plane.md), Abschnitt
-P5.1 — Harness Profile Identity, Provenance & Metrics Foundation).
+umgesetzt sind aktuell **P5.1** (Issue #423) und **P5.2** (Issue #424,
+siehe [`durable-control-plane.md`](durable-control-plane.md), Abschnitte
+P5.1 — Harness Profile Identity, Provenance & Metrics Foundation und
+P5.2 — Static Model Profiles, Task Profiles & Safe Runtime Compilation).
 
 Dieses Dokument beschreibt die P5-Vision der adaptiven Modell-Harness und
 die Architektur-Grenze zwischen den Phasen. Es ist KEIN Implementierungs-
-Nachweis — P5.2 bis P5.4 sind bewusst noch NICHT umgesetzt.
+Nachweis — P5.3 und P5.4 sind bewusst noch NICHT umgesetzt (P5.1 und P5.2
+sind implementiert; Details siehe Status oben und
+[`durable-control-plane.md`](durable-control-plane.md)).
 
 ## Vision (Issue #422)
 
@@ -48,7 +51,7 @@ Ohne Evidenz gibt es keine Beförderung.
                STATIC MODEL / TASK PROFILES (Ebenen B + C)
             modellbezogene Harness-Konfiguration + Aufgabenprofil
                                    ▼
-          DETERMINISTIC PROFILE COMPILER (P5.2, #424 — später)
+          DETERMINISTIC PROFILE COMPILER (P5.2, #424 — implementiert)
             kompiliert aus statischen Profilen + Laufzeit-Kontext
                                    ▼
              EVIDENCE-BASED ROUTING (P5.3, #425 — später)
@@ -124,6 +127,33 @@ die validierten Profile/Identität aus P5.1; P5.3 braucht die kompilierten
 Profile aus P5.2 UND die KPI-Basis aus P5.1; P5.4 braucht die Routing-
 Evidenz aus P5.3.
 
+## P5.2-Status (implementiert, Issue #424)
+
+**P5.2 ist umgesetzt:** der deterministische Profile Compiler
+(`packages/control-plane/src/profile-compiler.ts`) kompiliert statische,
+versionierte Model-/Task-Profile zusammen mit der Kernel-Policy und dem
+Run-Kontext in eine sichere, reproduzierbare Effective Runtime
+Configuration (`positron.effective-harness.v1`). Die drei P5.2-Contracts
+(`positron.model-profile.v1`, `positron.task-profile.v1`,
+`positron.effective-harness.v1`) sind in `contracts.ts` registriert und
+fail-closed validiert; die kompilierte Config wird über Migration V8
+additiv, nullable und legacy-kompatibel auf `cp_attempts` persistiert
+(`effective_harness_config`, `effective_harness_fingerprint`) und atomar
+mit dem Attempt-INSERT gebunden (Live-Pfad `trackJobAttempt` +
+`durable-run.ts` verify/baseline/plan/build).
+
+**Compiler-Grenze:** effektive Permissions = **Kernel ∩ Profil**
+(`KERNEL_DEFAULT_PERMISSIONS` als Kernel-Policy) — ein Profil kann die
+Kernel-Policy NIE erweitern (`KERNEL_DENY_WINS`); unbekannte Profile/
+Versionen, invalide Contracts und nicht unterstützte Tools/Reasoning-Modi
+werden fail-closed mit Reason Code abgelehnt (kein silent downgrade, kein
+Freiform-Passthrough an OpenCode).
+
+**P5.3 (Evidence-Based Routing) und P5.4 (Controlled Evolution) sind
+weiterhin NICHT umgesetzt** — siehe Scope-Grenze oben. Details zu P5.2:
+[`durable-control-plane.md`](durable-control-plane.md), Abschnitt
+P5.2 — Static Model Profiles, Task Profiles & Safe Runtime Compilation.
+
 ## Design-Prinzipien (gelten für alle P5-Phasen)
 
 1. **Determinismus vor Intelligenz**: Jede Entscheidung (Routing,
@@ -145,5 +175,5 @@ Evidenz aus P5.3.
 ## Siehe auch
 
 - [`durable-control-plane.md`](durable-control-plane.md) — Durable Control
-  Plane (P3, P3.5, P4) und der implementierte P5.1-Status
+  Plane (P3, P3.5, P4) und der implementierte P5.1-/P5.2-Status
 - [`../architecture.md`](architecture.md) — Gesamtarchitektur / Blueprint

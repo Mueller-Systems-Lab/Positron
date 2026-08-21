@@ -985,7 +985,7 @@ Control Kernel
    ↓
 HARNESS IDENTITY (P5.1 — dieses Issue: Identität + Provenienz + Metriken)
    ↓
-P5.2 Profile Compiler (später, #424)
+P5.2 Profile Compiler (#424 — implementiert, siehe unten)
    ↓
 P5.3 Evidence-Based Routing (später, #425)
    ↓
@@ -1021,3 +1021,279 @@ unverändert gültig (P4 und früher):
 - **Privacy by Default**: keine Secrets, keine Prompts/Responses, kein
   `output_json` in der UI; Profil-Telemetrie trägt keine Secrets
   (`PROFILE_TELEMETRY_NO_SECRETS`).
+
+---
+
+# P5.2 — Static Model Profiles, Task Profiles & Safe Runtime Compilation
+
+> **P5.2 kompiliert statische, versionierte Model-/Task-Profile
+> deterministisch in eine sichere Effective Runtime Configuration für
+> genau EINEN Worker-Attempt. Es führt KEIN adaptives Routing (P5.3) und
+> KEINE Evolution/Promotion (P5.4) ein.**
+
+Status: **implementiert** (Issue #424). Die dokumentierte Semantik ist im
+Code verifiziert (`profile-compiler.ts`, `contracts.ts`, `schema.ts`,
+`store.ts`, `pipeline-runner.ts`, `durable-run.ts`,
+`apps/server/src/index.ts`; Tests in `profile-compiler.test.ts`,
+`real-two-profile-canary.test.ts`, `p5.1-profile-api.test.ts`).
+
+**Siehe auch:** [`docs/architecture/adaptive-model-harness.md`](adaptive-model-harness.md)
+— P5-Vision (Issue #422), Architektur-Grenze und Abhängigkeitskette
+P4 GREEN → #423 → #424 → #425 → #426.
+
+## Vertragsmodell (drei neue Contracts)
+
+### `positron.model-profile.v1` (Model Profile — Ebene B)
+
+Versioniert, typed, fail-closed (registriert in `contracts.ts`
+`CONTRACT_IDS` + `CONTRACT_REGISTRY`, Version 1):
+
+- `model_profile_id`, `model_profile_version`
+- `provider`, `model`
+- `provenance { status: KNOWN | PROVENANCE_UNAVAILABLE, revision: string | null }`
+  — Revision nur bei tatsächlich gemeldeter Revision, nie erfunden
+- `capabilities` (lowercase kebab-case, 1–64 Zeichen), `context_limits {
+  max_input_tokens, max_output_tokens }`, `reasoning_modes`, `supported_tools`
+- `provider_specific` (plain object, **nur String-Werte** — allowlisted, kein
+  Freiform-Passthrough)
+- `fingerprint` (SHA-256 über `modelProfileSemantics`)
+
+### `positron.task-profile.v1` (Task Profile — Ebene C)
+
+- `task_profile_id`, `task_profile_version`
+- `task_type` ∈ { `PLAN`, `BUILD`, `RESEARCH`, `REVIEW` } (kanonisch,
+  Korrespondenz zu `cp_jobs.job_type`)
+- `allowed_tools`, `context_strategy`, `reasoning_policy`, `max_steps`,
+  `timeout_ms`
+- `retry_hints { max_attempts: number | null }` — **NUR Hinweis**: die
+  Retry Policy bleibt Kernel-Autorität; kein Profil entscheidet über Retry
+- `output_requirements`, `permissions` (KernelPermissions — Profil-Wünsche),
+  `fingerprint`
+
+### `positron.effective-harness.v1` (Effective Runtime Configuration — Ebene D)
+
+Ergebnis des Compilers für genau einen Attempt:
+
+- Profil-Refs: `model_profile_ref { id, version, fingerprint }`,
+  `task_profile_ref { id, version, fingerprint }`
+- Kernel-Policy: `kernel_policy_ref` (Default `positron.runtime-policy.v1`),
+  `kernel_policy_fingerprint` (SHA-256)
+- `effective_permissions` (Kernel ∩ Profil), `effective_context_strategy`,
+  `effective_reasoning_mode`, `effective_tools`, `effective_timeout_ms`,
+  `effective_max_steps`
+- `run_context_fingerprint` (SHA-256),
+  `compiler { version: '1.0.0', reason_codes }`, `fingerprint` (SHA-256)
+
+### KernelPermissions / KERNEL_DEFAULT_PERMISSIONS
+
+`KernelPermissions { mutation, push, merge, deploy, secret_access }`
+(`contracts.ts`) ist die Kernel-Policy-Schnittstelle. Die kanonische
+Default-Policy `KERNEL_DEFAULT_PERMISSIONS`:
+
+```
+mutation: true · push: false · merge: false · deploy: false · secret_access: false
+```
+
+Mutation nur innerhalb der Build-Boundary; keine
+Push/Merge/Deploy/Secret-Eskalation (Kill-Switches, Security-Modell).
+Profile dürfen diese Policy NIE erweitern — der Compiler bildet die
+Schnittmenge.
+
+## Compiler-Pipeline (pure, deterministisch)
+
+`compileEffectiveHarness` (`profile-compiler.ts`):
+
+```
+1. validate       — Contract-Validierung Model- + Task-Profil (inkl.
+                    Fingerprint-Integrität: fingerprint == Hash der Semantik)
+2. intersect      — effective_permissions = kernel ∩ profile (NIE union)
+3. reject         — unbekannte Profile/Versionen (resolveProfileFromRegistry),
+                    nicht unterstützte Tools/Reasoning-Modi (fail-closed)
+4. canonicalize   — kanonische, typfeste Effective-Config bauen
+5. fingerprint    — reproduzierbarer SHA-256 über die effektive Semantik
+6. validate       — Ergebnis wird erneut contract-validiert (kein Bypass)
+```
+
+- **Pur/deterministisch:** kein verstecktes `Date.now()`, keine externen
+  Nebenwirkungen. Gleiche Eingaben → byte-identische Effective Config und
+  gleicher Fingerprint (`EFFECTIVE_PROFILE_REPRODUCIBLE`).
+- `computeProfileFingerprint` schließt Runtime-Werte aus
+  (`PROFILE_RUNTIME_EXCLUDE_KEYS`: run_id/job_id/attempt_id,
+  created_at/updated_at/timestamp, duration_ms, result_ref). Der
+  `run_context_fingerprint` ist im Contract enthalten, aber NICHT Teil des
+  Effective-Fingerprints — ein Kontextwechsel ändert den Fingerprint nicht
+  (Test `run context change does NOT change the effective fingerprint`).
+- `resolveProfileFromRegistry` (Registry `Map<id, Versionen[]>`): unbekannte
+  ID → `UNKNOWN_PROFILE_DENIED`, unbekannte Version →
+  `UNKNOWN_PROFILE_VERSION`, exakter Versions-Match — kein Fallback auf
+  andere Profile.
+- `resolveEffectiveHarnessFromEnv` (produktiver Pfad, P5.1-kompatibel):
+  Task-Profil per `POSITRON_TASK_PROFILE_ID` oder Default nach taskType
+  (unbekannt → BUILD); Model-Profil aus `POSITRON_HARNESS_PROFILE_ID` /
+  `POSITRON_HARNESS_PROFILE_VERSION` + provider/model (Provenienz `KNOWN`
+  nur bei tatsächlicher Kenntnis, sonst `PROVENANCE_UNAVAILABLE`, revision
+  null); Kernel = `KERNEL_DEFAULT_PERMISSIONS`; Run-Context-Fingerprint
+  über `{ worker_type, task_type }`.
+- `buildTaskProfile`: Konstruktor, der den Profil-Fingerprint automatisch
+  berechnet (die kanonischen Task-Profile unten nutzen ihn).
+
+## Permission-Modell: effective = kernel ∩ profile
+
+`intersectPermissions(kernel, profile)` (`profile-compiler.ts`) — `true`
+nur, wenn BEIDE `true` sind:
+
+```
+mutation:      kernel.mutation      && profile.mutation
+push:          kernel.push          && profile.push
+merge:         kernel.merge         && profile.merge
+deploy:        kernel.deploy        && profile.deploy
+secret_access: kernel.secret_access && profile.secret_access
+```
+
+- Profile können die Kernel-Policy NIE erweitern (**KERNEL_DENY_WINS**).
+- Ein Profil, das `push/merge/deploy/secret_access: true` verlangt,
+  kompiliert mit `false` — der Deny ist in `effective_permissions`
+  sichtbar (Tests `KERNEL_PERMISSION_CANNOT_BE_ESCALATED`,
+  `SECURITY_CANARY_DENIED_BY_KERNEL_POLICY`).
+- `DENIED_BY_KERNEL_POLICY` ist Teil des Reason-Code-Vokabulars, reserviert
+  für explizite Prüfpfade; der normale Compiler-Pfad bildet Kernel-Denys
+  über die Intersection ab (sichtbar, nie ein stiller Override).
+
+## Reason Codes (fail-closed, kein silent downgrade)
+
+`ProfileCompilationError` (`profile-compiler.ts`) trägt immer einen
+Reason Code:
+
+| Code | Bedeutung |
+|---|---|
+| `UNKNOWN_PROFILE_DENIED` | unbekannte Profil-ID in der Registry |
+| `UNKNOWN_PROFILE_VERSION` | bekannte ID, unbekannte Version |
+| `PROFILE_INVALID` | typed Contract verletzt (Schema, Fingerprint-Integrität, timeout_ms/max_steps nicht positiv) |
+| `TOOL_NOT_ALLOWED` | Tool außerhalb Kernel∩Profil (Vokabular) |
+| `PROFILE_INCOMPATIBLE` | Context-/Tool-/Capability-Mismatch, z. B. `reasoning_policy` nicht im Model-Profil |
+| `DENIED_BY_KERNEL_POLICY` | angefragte Permission über Kernel-Policy (Vokabular; Pfad: Intersection) |
+| `ADAPTER_CAPABILITY_MISMATCH` | Adapter kann Setting nicht honorieren — kein stiller Drop |
+
+**Kein silent downgrade:** Ein Tool in der Profil-Allowlist, das der
+Adapter nicht unterstützt, wird NICHT stillschweigend entfernt — der
+Compiler lehnt mit `ADAPTER_CAPABILITY_MISMATCH` ab
+(Test `ADAPTER_SETTING_NOT_SILENTLY_DROPPED`); ein Reasoning-Modus außerhalb
+des Model-Profils → `PROFILE_INCOMPATIBLE`
+(Test `PROFILE_COMPILER_UNKNOWN_CAPABILITY_DENIED`).
+
+## Kanonische Task-Profile (`DEFAULT_TASK_PROFILES`)
+
+| Profil | task_type | Tools | context | reasoning | steps | timeout | mutation |
+|---|---|---|---|---|---|---|---|
+| `PLAN_TASK_PROFILE` | PLAN | read, grep, list, cat | full | deep | 1 | 300 s | **false** (read-only) |
+| `BUILD_TASK_PROFILE` | BUILD | read, grep, list, cat, edit, write, test | compact | fast | 5 | 600 s | **true** (bounded, innerhalb Kernel) |
+| `RESEARCH_TASK_PROFILE` | RESEARCH | read, grep, list, cat, search | full | deep | 3 | 600 s | **false** (Tool-Subset, keine Workspace-Mutation) |
+| `REVIEW_TASK_PROFILE` | REVIEW | read, grep, list, cat, diff | full | deep | 1 | 300 s | **false** (read-only) |
+
+- Alle vier sind Kernel-konform konstruiert (`buildTaskProfile` mit
+  Kernel-konformen Defaults) und per `validateTaskProfile` verifiziert
+  (Test `TASK_PROFILE_VALID` — alle kanonischen Profile valid +
+  fingerprinted; ungültiger `task_type` → invalide).
+- `push`/`merge`/`deploy`/`secret_access` sind in ALLEN Profilen `false`.
+- Tests je Profil: `PLAN_PROFILE_READ_ONLY`,
+  `BUILD_PROFILE_MUTATION_ALLOWED_WITHIN_KERNEL`,
+  `RESEARCH_PROFILE_TOOL_LIMIT` (kein edit/write, enthält search),
+  `REVIEW_PROFILE_READ_ONLY` (enthält diff).
+
+## Persistenz V8 (`schema.ts` `applyV8`)
+
+Additive, nullable, idempotente, forward-safe und backward-compatible
+Migration auf `cp_attempts` (2 Spalten, NULLABLE ohne DEFAULT):
+
+```
+effective_harness_config      — validierter positron.effective-harness.v1
+                                Contract (JSON; reproduzierbar rekonstruierbare
+                                Effective Config inkl. effective permissions
+                                Kernel ∩ Profil)
+effective_harness_fingerprint — SHA-256 der Effective Config (ohne
+                                Runtime-Werte)
+```
+
+- **Idempotent:** `columnExists`-Prüfung vor jedem `ALTER TABLE` — safe
+  für Soak-DB und Produktion.
+- **Legacy-kompatibel:** historische Attempts (V1–V7) bleiben unverändert
+  lesbar; die P5.1-Referenzen (`harness_profile_id` etc.) bestehen fort.
+- `store.ts`: `AttemptRow` trägt beide Felder (`string | null`),
+  `createAttempt` persistiert sie, `mapAttemptRow` liest sie.
+
+## Bindung: kompilierte Effective Config atomar mit dem Attempt
+
+Die kompilierte Effective Runtime Configuration wird **atomar mit dem
+`createAttempt`-INSERT** persistiert, VOR der Worker-Ausführung — der
+persistierte Contract trägt exakt die Semantik, die zur Laufzeit wirksam war:
+
+- **Live-Pfad (`trackJobAttempt`, `packages/worker-pipeline/src/pipeline-runner.ts`):**
+  `resolveEffectiveHarnessFromEnv` → `createAttempt` mit
+  `effective_harness_config` (JSON) + `effective_harness_fingerprint` —
+  für plan/build/verify/decide/research/specify/tasks/analyze/baseline/review.
+- **Durable Run (`packages/control-plane/src/durable-run.ts`):** verify,
+  baseline, plan und build binden jeweils `resolveEffectiveHarnessFromEnv`
+  (taskType `verify`/`baseline`/`plan`/`build`) atomar in den Attempt-INSERT.
+- **Worker erhalten NUR kompilierte, allowlisted Felder** — keine
+  Freiform-Passthrough-Konfiguration an OpenCode/Worker-Adapter.
+- Nachweis Live-Pfad: `real-two-profile-canary.test.ts` (zwei Profile → zwei
+  verschiedene, jeweils persistierte Effective-Configs und Fingerprints;
+  Kernel-Denys gewinnen; Build-Mutation innerhalb der Kernel-Grenze;
+  Tool-Allowlist kompiliert).
+
+## API/UI (reine Projektion)
+
+- **`GET /api/runs/:id/control-plane`** (`apps/server/src/index.ts`): pro
+  Attempt werden NUR `effective_harness_fingerprint` und die effektiven
+  Permission-**Booleans** exponiert. `parseEffectivePermissions` liest aus
+  `effective_harness_config` ausschließlich `effective_permissions`
+  (`mutation/push/merge/deploy/secret_access === true`); fehlende/kaputte
+  Config → `null`, kein Absturz, kein Erfinden.
+- **Kein Raw-Contract:** der vollständige Effective-Contract (Tools,
+  Context, Reasoning, Refs) wird bewusst NICHT roh ausgegeben — Privacy by
+  Default, keine Secrets/Prompt-Inhalte (Konsistenz mit P5.1:
+  `p5.1-profile-api.test.ts` beweist die Abwesenheit).
+- **Kein `output_json`, keine rohen Contracts/Semantik, keine Secrets.**
+
+## Non-Goals (Scope-Grenze)
+
+- ❌ **kein Routing (P5.3)** — der Compiler wählt keine Profile zur Laufzeit
+  aus; `resolveEffectiveHarnessFromEnv` nutzt explizite Konfiguration +
+  Defaults, kein adaptiver Einsatz.
+- ❌ **keine Evolution/Promotion (P5.4)** — keine Profil-Promotion/Demotion,
+  kein Deployment von Profil-Entscheidungen auf Basis der KPIs.
+- ❌ **keine LLM-Permission-Entscheidungen** — Permissions sind
+  deterministische Intersection, kein LLM-Urteil über Gültigkeit oder
+  Berechtigungen.
+- ❌ **kein Freiform-Passthrough an OpenCode** — Worker/Adapter erhalten
+  nur kompilierte, allowlisted Felder.
+
+## Security-Invarianten (unverändert)
+
+P5.2 ändert keine bestehende Control-Plane-Invariante. Es bleiben
+unverändert gültig (P4 und früher):
+
+- **LLMs besitzen KEINE Scheduling Authority** — wer startet, wann, mit
+  welchen Ressourcen, entscheidet deterministisch Positron.
+- **Deterministische Gates**: Plan Gate (nur `PLAN_GATE_APPROVED` gibt den
+  Build frei), Verification (Tools messen, LLMs beurteilen nicht),
+  Decision Policy (Security Hard Block — Security ist kein
+  Mehrheitsvotum).
+- **Fail-closed Contracts**: unbekannte Contract-ID/Version → INVALID
+  (`UNKNOWN_CONTRACT` / `UNKNOWN_VERSION`); der Compiler lehnt unbekannte
+  Profile/Versionen, invalide Contracts und nicht unterstützte Settings mit
+  Reason Code ab (kein stiller Fallback, kein silent downgrade).
+- **Idempotenz & Recovery**: Idempotency Key `run_id:job_id:attempt_id`;
+  abgeschlossene Arbeit wird nach Recovery nie blind wiederholt.
+- **Attempt-Invarianten**: exakt ein Claimer pro Attempt (Claim + Lease +
+  Fencing), finale Attempts unveränderlich (Late Results / Duplicate
+  Completions überschreiben nie), `PRODUCTIVE_WORKER_BYPASS_COUNT = 0`.
+- **KPI-Invarianten**: Blind-Retry-Rate = 0, Duplicate-Mutation-Rate = 0,
+  Security-Hard-Block-Enforcement = 100 %.
+- **Privacy by Default**: keine Secrets, keine Prompts/Responses, kein
+  `output_json` in der UI; die API exponiert nur Permission-Booleans +
+  Effective-Fingerprint, nie den rohen Effective-Contract.
+- **Neu (P5.2):** effektive Permissions = Kernel ∩ Profil
+  (**KERNEL_DENY_WINS**) — Profile können die Kernel-Policy NIE erweitern;
+  Adapter-/Capability-Mismatch wird abgelehnt (`ADAPTER_CAPABILITY_MISMATCH`),
+  nie still gedroppt.
