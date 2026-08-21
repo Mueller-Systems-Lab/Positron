@@ -643,6 +643,44 @@ export function cancelQueueItem(
 // ---------------------------------------------------------------------------
 
 /**
+ * P4 (Slice F): Lease-aware Run-Aliveness.
+ *
+ * Entscheidet, ob ein RUNNING-Queue-Item einen LEBENDIGEN Run hat:
+ *
+ *   - Run-Zeile fehlt oder ist terminal (finished_at)          → tot
+ *   - laufende Attempts mit gültiger Lease (Heartbeat aktiv)    → lebt
+ *   - laufende Attempts, ALLE abgelaufen (Owner gecrasht)       → tot
+ *   - keine laufenden Attempts (noch nicht gestartet)           → lebt
+ *     (R5-Startup-Resume drivt solche Runs neu an)
+ *
+ * Damit basiert die Crash-Recovery auf ablaufenden Leases statt nur auf
+ * der Existenz einer Run-Zeile: ein gecrashter Controller/Worker wird
+ * deterministisch erkannt, sein Queue-Item requeued und ein neuer Owner
+ * übernimmt (completed boundaries werden NICHT erneut ausgeführt —
+ * Attempt-Wiederverwendung in runPipeline).
+ */
+export function isRunLeaseAlive(
+	db: Database.Database,
+	runId: string,
+	now = new Date().toISOString(),
+): boolean {
+	const row = db.prepare('SELECT finished_at FROM runs WHERE id = ?').get(runId) as
+		| { finished_at: string | null }
+		| undefined;
+	if (!row) return false;
+	if (row.finished_at) return false;
+	const running = db
+		.prepare(
+			"SELECT lease_expires_at FROM cp_attempts WHERE run_id = ? AND status = 'running'",
+		)
+		.all(runId) as Array<{ lease_expires_at: string | null }>;
+	if (running.length === 0) return true;
+	return running.some(
+		(a) => a.lease_expires_at === null || new Date(a.lease_expires_at).getTime() > new Date(now).getTime(),
+	);
+}
+
+/**
  * Recovery nach Scheduler-Crash:
  * - ADMITTED-Items ohne laufenden Run → zurück auf QUEUED (Kapazität neu berechnen)
  * - RUNNING-Items mit totem Run → zurück auf QUEUED für einen kontrollierten
@@ -658,14 +696,6 @@ export function recoverSchedulerState(
 	const requeued: string[] = [];
 	const staleAdmitted: string[] = [];
 	const deadRuns: string[] = [];
-	// P4 (Slice D): Stale Workspace-Locks (Owner gecrasht, kein Heartbeat)
-	// werden VOR der Re-Admission freigegeben — sonst blockiert ein
-	// Zombie-Lock den Workspace dauerhaft.
-	recoverStaleWorkspaceLocks(db, now);
-	// P4 (Slice E): Stale Provider-Reservierungen (Owner nicht mehr in
-	// RUNNING/ADMITTED) freigeben — Capacity steht nach Crash sofort wieder
-	// zur Verfügung (RELEASE_AFTER_RECOVERY).
-	recoverStaleProviderSlots(db, now);
 	for (const item of listQueueItems(db)) {
 		if (item.queue_state === 'ADMITTED') {
 			// ADMITTED ohne laufenden Run → stale (Controller-Crash vor Start)
@@ -687,6 +717,14 @@ export function recoverSchedulerState(
 			deadRuns.push(item.queue_item_id);
 		}
 	}
+	// P4 (Slice D): Stale Workspace-Locks (Owner gecrasht, kein Heartbeat)
+	// werden NACH dem Requeue freigegeben — sonst blockiert ein Zombie-Lock
+	// den Workspace dauerhaft (Re-Admission reclaimt mit frischer Generation).
+	recoverStaleWorkspaceLocks(db, now);
+	// P4 (Slice E): Stale Provider-Reservierungen (Owner nicht mehr in
+	// RUNNING/ADMITTED — nach dem Requeue) freigeben — Capacity steht nach
+	// Crash sofort wieder zur Verfügung (RELEASE_AFTER_RECOVERY).
+	recoverStaleProviderSlots(db, now);
 	return { requeued, staleAdmitted, deadRuns };
 }
 

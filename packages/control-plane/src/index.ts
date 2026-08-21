@@ -196,6 +196,7 @@ export {
 	markRunFinished,
 	cancelQueueItem,
 	recoverSchedulerState,
+	isRunLeaseAlive,
 	schedulerCapacity,
 	persistSchedulerEvent,
 	listSchedulerEvents,

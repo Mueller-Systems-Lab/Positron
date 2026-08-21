@@ -38,12 +38,14 @@ import {
 	computeKpis,
 	enqueueItem,
 	getQueueItem,
+	isRunLeaseAlive,
 	listQueueItems,
 	listSchedulerEvents,
 	markRunFinished,
 	markRunStarted,
 	persistSchedulerEvent,
 	recoverSchedulerState,
+	recoverStaleLeases,
 	resolveAttemptLeaseTtlMs,
 	resolveProviderCapacity,
 	resolveWorkspaceLockTtlMs,
@@ -1084,6 +1086,18 @@ export function createApp(options: ServerOptions = {}) {
 	initSignalsDb(getDb());
 	// Issue #421: Control-Plane-Tabellen (idempotent, bestehende DB)
 	applyControlPlaneMigrations(getDb());
+	// P4 (Slice F): Produktion-Crash-Recovery beim Start — abgelaufene
+	// Attempt-Leases (gecrashte Controller/Worker, kein Heartbeat) werden
+	// finalisiert (STALE_LEASE), stale Queue-/Workspace-/Provider-Zustände
+	// requeued/freigegeben. Die QUEUE überlebt den Restart (durable
+	// cp_queue); abgeschlossene Arbeit wird beim Resume nicht erneut
+	// ausgeführt (Attempt-Wiederverwendung in runPipeline).
+	try {
+		recoverStaleLeases(getDb());
+		recoverSchedulerState(getDb(), (runId) => isRunLeaseAlive(getDb(), runId));
+	} catch (err) {
+		log.warn(`P4 crash recovery on startup failed: ${err instanceof Error ? err.message : String(err)}`);
+	}
 	const repository = resolveRepositoryConfig(options.repository);
 	const { adapter: github, mode: githubMode } = resolveAdapter(options.adapter);
 	const activeWorkspaceAdapter = options.workspaceAdapter ?? workspaceAdapter;
@@ -2521,11 +2535,11 @@ export function createApp(options: ServerOptions = {}) {
 		if (schedulerLoopRunning) return;
 		schedulerLoopRunning = true;
 		try {
-			// 1. Recovery (stale Zustände nach Crash/Neustart)
-			recoverSchedulerState(getDb(), (runId) => {
-				const row = getDb().prepare('SELECT 1 FROM runs WHERE id = ?').get(runId);
-				return row !== undefined;
-			});
+			// 1. Recovery (stale Zustände nach Crash/Neustart) — lease-aware:
+			//    ein Run lebt nur, solange seine Attempt-Leases durch
+			//    Heartbeats erneuert werden (P4 Slice F — kein hängendes
+			//    RUNNING nach Controller-Crash).
+			recoverSchedulerState(getDb(), (runId) => isRunLeaseAlive(getDb(), runId));
 			// 2. Admission bis Capacity (atomar; Kapazität zählt RUNNING+ADMITTED)
 			const admitted: Array<{
 				item: import('@positron/control-plane').QueueItemRecord;
