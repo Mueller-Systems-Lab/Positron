@@ -256,3 +256,294 @@ export function assertKpiInvariants(report: KpiReport): string[] {
 	}
 	return violations;
 }
+
+// ---------------------------------------------------------------------------
+// P5.1 — Profile KPIs (Harness Profile Identity & Metrics Foundation)
+// ---------------------------------------------------------------------------
+//
+// Aggregation nach provider / model / model_profile / task_profile /
+// task_type / effective_harness_fingerprint. Kein adaptives Routing —
+// P5.1 misst und identifiziert nur.
+//
+// Verified Success (nicht-tautologisch):
+//   Ein Run zählt als verified success, wenn in `cp_decisions` eine
+//   persistierte DONE-Entscheidung existiert. Die Decision Policy koppelt
+//   DONE deterministisch an das Ergebnis der kanonischen Verification
+//   (positron.verification.v1 passed=true, ALL_HARD_GATES_GREEN) — die
+//   Metrik ist damit an die Control-Plane-Wahrheit gebunden und nicht an
+//   ein bloßes attempt.status=succeeded.
+//
+// Gruppen-Zuordnung:
+//   Ein Run wird über seine Build-Attempts (cp_jobs.job_type='build')
+//   Gruppen zugeordnet. Ein Run mit Build-Attempts in mehreren Gruppen
+//   zählt in jeder betroffenen Gruppe (Attempt-Telemetrie ist die Einheit).
+//
+// Kosten:
+//   Keine Preis-/Token-Provenienz vorhanden → COST_PER_VERIFIED_SUCCESS =
+//   NOT_AVAILABLE. Es wird NIE geschätzt.
+
+/** Kanonische Legacy-Gruppe für historische Attempts ohne P5.1-Felder. */
+export const LEGACY_PROFILE_GROUP = 'LEGACY_PROFILE_UNSPECIFIED';
+/** Kosten sind ohne belastbare Preis-Provenienz nie verfügbar (kein Schätzen). */
+export const COST_PER_VERIFIED_SUCCESS_NOT_AVAILABLE = 'NOT_AVAILABLE';
+
+export interface ProfileKpiGroup {
+	/** Effektiver Harness-Fingerprint; LEGACY_PROFILE_UNSPECIFIED für alte Rows */
+	effective_harness_fingerprint: string;
+	harness_profile_id: string | null;
+	harness_profile_version: string | null;
+	task_profile_id: string | null;
+	task_profile_version: string | null;
+	task_type: string | null;
+	provider: string | null;
+	model: string | null;
+	provider_adapter_id: string | null;
+	provider_adapter_version: string | null;
+	model_provenance_status: string | null;
+	/** Anzahl unterschiedlicher Runs mit Build-Attempt in dieser Gruppe */
+	sample_size: number;
+	/** Anzahl distinct DONE-Runs (verified success) mit Build-Attempt in Gruppe */
+	verified_success_count: number;
+	/** verified_success_count / sample_size (null bei sample_size 0) */
+	verified_success_rate: number | null;
+	first_pass_success_count: number;
+	/** DONE-Runs mit genau 1 Build-Attempt / verified_success_count */
+	first_pass_success_rate: number | null;
+	/** Build-Attempts in dieser Gruppe */
+	attempts: number;
+	/** attempts / verified_success_count (null bei 0) */
+	attempts_per_verified_success: number | null;
+	/** Median (ms) erster Build-Start → DONE-Entscheidung, nur verified successes */
+	time_to_verified_success_ms: number | null;
+	/** Build-Attempts mit previous_attempt_id / Build-Attempts (null bei 0) */
+	retry_rate: number | null;
+	/** Runs mit SPLIT/BLOCKED-Entscheidung / sample_size (null ohne Decision-Daten) */
+	escalation_rate: number | null;
+	/** Summe gemeldeter Tokens — nur bei realer Meldung, sonst null */
+	tokens_total: number | null;
+	/** Immer NOT_AVAILABLE ohne belastbare Preis-Provenienz */
+	cost_per_verified_success: typeof COST_PER_VERIFIED_SUCCESS_NOT_AVAILABLE;
+}
+
+export interface ProfileKpiReport {
+	groups: ProfileKpiGroup[];
+	generated_at: string;
+	cost_per_verified_success: typeof COST_PER_VERIFIED_SUCCESS_NOT_AVAILABLE;
+}
+
+interface AttemptRow {
+	run_id: string;
+	status: string;
+	harness_fingerprint: string | null;
+	harness_profile_id: string | null;
+	harness_profile_version: string | null;
+	task_profile_id: string | null;
+	task_profile_version: string | null;
+	task_type: string | null;
+	provider: string | null;
+	model: string | null;
+	provider_adapter_id: string | null;
+	provider_adapter_version: string | null;
+	model_provenance_status: string | null;
+	previous_attempt_id: string | null;
+	started_at: string;
+	tokens: number | null;
+}
+
+interface DecisionRunRow {
+	run_id: string;
+	decision: string;
+	created_at: string;
+}
+
+function median(sortedMs: number[]): number | null {
+	if (sortedMs.length === 0) return null;
+	const mid = Math.floor(sortedMs.length / 2);
+	const value =
+		sortedMs.length % 2 === 0
+			? (sortedMs[mid - 1]! + sortedMs[mid]!) / 2
+			: sortedMs[mid]!;
+	return Math.round(value);
+}
+
+/**
+ * Deterministische Profil-KPI-Aggregation aus cp_attempts + cp_decisions.
+ * Historische Attempts (NULL-Harness-Felder) landen in der
+ * LEGACY_PROFILE_UNSPECIFIED-Gruppe — es wird nichts erfunden.
+ */
+export function computeProfileKpis(db: Database.Database): ProfileKpiReport {
+	const attempts = db
+		.prepare(
+			`SELECT a.run_id, a.status, a.harness_fingerprint, a.harness_profile_id,
+			        a.harness_profile_version, a.task_profile_id, a.task_profile_version,
+			        a.task_type, a.provider, a.model, a.provider_adapter_id,
+			        a.provider_adapter_version, a.model_provenance_status,
+			        a.previous_attempt_id, a.started_at, a.tokens
+			 FROM cp_attempts a
+			 JOIN cp_jobs j ON j.job_id = a.job_id
+			 WHERE j.job_type = 'build'
+			 ORDER BY a.started_at ASC`,
+		)
+		.all() as unknown[] as AttemptRow[];
+
+	const decisions = db
+		.prepare(
+			'SELECT run_id, decision, created_at FROM cp_decisions ORDER BY created_at ASC',
+		)
+		.all() as unknown[] as DecisionRunRow[];
+
+	const doneRuns = new Set(
+		decisions.filter((d) => d.decision === 'DONE').map((d) => d.run_id),
+	);
+	const escalatedRuns = new Set(
+		decisions
+			.filter((d) => d.decision === 'SPLIT' || d.decision === 'BLOCKED')
+			.map((d) => d.run_id),
+	);
+	const doneDecisionAt = new Map<string, string>();
+	for (const d of decisions) {
+		if (d.decision === 'DONE' && !doneDecisionAt.has(d.run_id)) {
+			doneDecisionAt.set(d.run_id, d.created_at);
+		}
+	}
+	// Erster Build-Start je Run (für time_to_verified_success)
+	const firstBuildStartAt = new Map<string, string>();
+	for (const a of attempts) {
+		if (!firstBuildStartAt.has(a.run_id)) {
+			firstBuildStartAt.set(a.run_id, a.started_at);
+		}
+	}
+	// Build-Attempt-Zahl je Run (First-Pass-Definition: genau 1 Build-Attempt)
+	const buildAttemptsByRun = new Map<string, number>();
+	for (const a of attempts) {
+		buildAttemptsByRun.set(a.run_id, (buildAttemptsByRun.get(a.run_id) ?? 0) + 1);
+	}
+
+	const groupKeyOf = (a: AttemptRow): string =>
+		a.harness_fingerprint ?? LEGACY_PROFILE_GROUP;
+
+	const groups = new Map<
+		string,
+		{
+			fp: string;
+			harness_profile_id: string | null;
+			harness_profile_version: string | null;
+			task_profile_id: string | null;
+			task_profile_version: string | null;
+			task_type: string | null;
+			provider: string | null;
+			model: string | null;
+			provider_adapter_id: string | null;
+			provider_adapter_version: string | null;
+			model_provenance_status: string | null;
+			runs: Set<string>;
+			doneRuns: Set<string>;
+			firstPassDoneRuns: Set<string>;
+			attempts: number;
+			retryAttempts: number;
+			tokensReported: number;
+			tokensCount: number;
+			timesToSuccess: number[];
+		}
+	>();
+
+	for (const a of attempts) {
+		const key = groupKeyOf(a);
+		let g = groups.get(key);
+		if (!g) {
+			g = {
+				fp: key,
+				harness_profile_id: a.harness_profile_id,
+				harness_profile_version: a.harness_profile_version,
+				task_profile_id: a.task_profile_id,
+				task_profile_version: a.task_profile_version,
+				task_type: a.task_type,
+				provider: a.provider,
+				model: a.model,
+				provider_adapter_id: a.provider_adapter_id,
+				provider_adapter_version: a.provider_adapter_version,
+				model_provenance_status: a.model_provenance_status,
+				runs: new Set(),
+				doneRuns: new Set(),
+				firstPassDoneRuns: new Set(),
+				attempts: 0,
+				retryAttempts: 0,
+				tokensReported: 0,
+				tokensCount: 0,
+				timesToSuccess: [],
+			};
+			groups.set(key, g);
+		}
+		g.runs.add(a.run_id);
+		if (doneRuns.has(a.run_id)) g.doneRuns.add(a.run_id);
+		if (doneRuns.has(a.run_id) && (buildAttemptsByRun.get(a.run_id) ?? 0) === 1) {
+			g.firstPassDoneRuns.add(a.run_id);
+		}
+		g.attempts++;
+		if (a.previous_attempt_id !== null) g.retryAttempts++;
+		if (a.tokens !== null && a.tokens !== undefined) {
+			g.tokensReported += a.tokens;
+			g.tokensCount++;
+		}
+		// Time-to-verified-success je Gruppe: DONE-Run, erster Build-Start →
+		// DONE-Entscheidung. Nur Runs, deren Build-Attempt in dieser Gruppe
+		// liegt, zählen hier.
+		if (doneRuns.has(a.run_id)) {
+			const start = firstBuildStartAt.get(a.run_id);
+			const doneAt = doneDecisionAt.get(a.run_id);
+			if (start && doneAt) {
+				const ms = new Date(doneAt).getTime() - new Date(start).getTime();
+				if (ms >= 0) g.timesToSuccess.push(ms);
+			}
+		}
+	}
+
+	const reportGroups: ProfileKpiGroup[] = [];
+	for (const g of groups.values()) {
+		const sampleSize = g.runs.size;
+		const verified = g.doneRuns.size;
+		const withEscalation = [...g.runs].filter((r) => escalatedRuns.has(r)).length;
+		reportGroups.push({
+			effective_harness_fingerprint: g.fp,
+			harness_profile_id: g.harness_profile_id,
+			harness_profile_version: g.harness_profile_version,
+			task_profile_id: g.task_profile_id,
+			task_profile_version: g.task_profile_version,
+			task_type: g.task_type,
+			provider: g.provider,
+			model: g.model,
+			provider_adapter_id: g.provider_adapter_id,
+			provider_adapter_version: g.provider_adapter_version,
+			model_provenance_status: g.model_provenance_status,
+			sample_size: sampleSize,
+			verified_success_count: verified,
+			verified_success_rate:
+				sampleSize > 0 ? round2(verified / sampleSize) : null,
+			first_pass_success_count: g.firstPassDoneRuns.size,
+			first_pass_success_rate:
+				verified > 0 ? round2(g.firstPassDoneRuns.size / verified) : null,
+			attempts: g.attempts,
+			attempts_per_verified_success: verified > 0 ? round2(g.attempts / verified) : null,
+			time_to_verified_success_ms: median(g.timesToSuccess.sort((a, b) => a - b)),
+			retry_rate: g.attempts > 0 ? round2(g.retryAttempts / g.attempts) : null,
+			escalation_rate:
+				decisions.length > 0 && sampleSize > 0
+					? round2(withEscalation / sampleSize)
+					: null,
+			tokens_total: g.tokensCount > 0 ? g.tokensReported : null,
+			cost_per_verified_success: COST_PER_VERIFIED_SUCCESS_NOT_AVAILABLE,
+		});
+	}
+
+	reportGroups.sort((a, b) => a.effective_harness_fingerprint.localeCompare(b.effective_harness_fingerprint));
+
+	return {
+		groups: reportGroups,
+		generated_at: nowIsoLocal(),
+		cost_per_verified_success: COST_PER_VERIFIED_SUCCESS_NOT_AVAILABLE,
+	};
+}
+
+function nowIsoLocal(): string {
+	return new Date().toISOString();
+}

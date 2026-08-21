@@ -177,6 +177,12 @@ export type {
 
 // ─── KPIs ───
 export { computeKpis, assertKpiInvariants } from './kpis.js';
+export {
+	computeProfileKpis,
+	LEGACY_PROFILE_GROUP,
+	COST_PER_VERIFIED_SUCCESS_NOT_AVAILABLE,
+} from './kpis.js';
+export type { ProfileKpiGroup, ProfileKpiReport } from './kpis.js';
 export type { KpiReport } from './kpis.js';
 
 // ─── Durable Run Orchestration ───
