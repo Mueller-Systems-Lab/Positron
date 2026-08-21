@@ -26,6 +26,11 @@ import {
 	recoverStaleWorkspaceLocks,
 	releaseWorkspaceLock,
 } from './workspace-lock.js';
+import {
+	recoverStaleProviderSlots,
+	releaseProviderSlot,
+	reserveProviderSlot,
+} from './provider-capacity.js';
 
 // ---------------------------------------------------------------------------
 // Typen
@@ -67,6 +72,11 @@ export interface SchedulerConfig {
 	 * Default: DEFAULT_WORKSPACE_LOCK_TTL_MS (10 min).
 	 */
 	workspaceLockTtlMs?: number;
+	/**
+	 * P4 (Slice E): Modell für Provider-Reservierungen (falls das Queue-Item
+	 * kein Modell trägt). Die Reservierung dokumentiert provider + model.
+	 */
+	defaultModel?: string | null;
 	/** Scheduler-Events (persistiert in cp_scheduler_events, §56) */
 	emitEvent?: (event: SchedulerEvent) => void;
 }
@@ -461,6 +471,20 @@ export function admitNext(
 				});
 			}
 
+			// P4 (Slice E): ATOMARES Reserve vor dem Dispatch — die Capacity
+			// wird innerhalb derselben Admission-Transaktion belegt
+			// (BEGIN IMMEDIATE serialisiert konkurrierende Scheduler →
+			// NO_PROVIDER_OVERSUBSCRIPTION). Reserve ist pro Owner idempotent.
+			if (item.provider && config.maxConcurrentByProvider) {
+				reserveProviderSlot(db, {
+					provider: item.provider,
+					model: config.defaultModel ?? null,
+					ownerId: item.queue_item_id,
+					runId: null,
+					now,
+				});
+			}
+
 			// ADMISSION: atomarer Übergang → ADMITTED
 			const admitted = db
 				.prepare(
@@ -551,6 +575,13 @@ export function markRunFinished(
 		} catch {
 			/* Lock-Release ist best-effort — darf Finalisierung nie verhindern */
 		}
+		// P4 (Slice E): Provider-Slot-Release nach jedem terminalen Zustand.
+		// Duplikat-Release ist ein NOOP (status bereits 'released').
+		try {
+			releaseProviderSlot(db, queueItemId, now);
+		} catch {
+			/* Slot-Release ist best-effort */
+		}
 		emit(config ?? {}, {
 			queue_item_id: queueItemId,
 			run_id: runId,
@@ -584,6 +615,12 @@ export function cancelQueueItem(
 		if (updated.queue_state === 'CANCELLED') {
 			try {
 				releaseWorkspaceLock(db, updated.repository_ref, queueItemId);
+			} catch {
+				/* best-effort */
+			}
+			// P4 (Slice E): Provider-Slot des gecancelten Items freigeben
+			try {
+				releaseProviderSlot(db, queueItemId, now);
 			} catch {
 				/* best-effort */
 			}
@@ -625,6 +662,10 @@ export function recoverSchedulerState(
 	// werden VOR der Re-Admission freigegeben — sonst blockiert ein
 	// Zombie-Lock den Workspace dauerhaft.
 	recoverStaleWorkspaceLocks(db, now);
+	// P4 (Slice E): Stale Provider-Reservierungen (Owner nicht mehr in
+	// RUNNING/ADMITTED) freigeben — Capacity steht nach Crash sofort wieder
+	// zur Verfügung (RELEASE_AFTER_RECOVERY).
+	recoverStaleProviderSlots(db, now);
 	for (const item of listQueueItems(db)) {
 		if (item.queue_state === 'ADMITTED') {
 			// ADMITTED ohne laufenden Run → stale (Controller-Crash vor Start)

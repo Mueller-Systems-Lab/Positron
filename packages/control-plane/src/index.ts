@@ -230,3 +230,13 @@ export {
 	getWorkspaceLock,
 } from './workspace-lock.js';
 export type { WorkspaceLock } from './workspace-lock.js';
+
+// ─── P4 (Slice E): Provider Capacity & Reservations ───
+export {
+	resolveProviderCapacity,
+	activeProviderReservations,
+	reserveProviderSlot,
+	releaseProviderSlot,
+	recoverStaleProviderSlots,
+} from './provider-capacity.js';
+export type { ProviderReservation } from './provider-capacity.js';

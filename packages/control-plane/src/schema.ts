@@ -2,6 +2,7 @@
 
 import type Database from 'better-sqlite3';
 import { SCHEDULER_EVENTS_SCHEMA, SCHEDULER_QUEUE_SCHEMA_V4 } from './queue-schema.js';
+import { PROVIDER_RESERVATION_SCHEMA_V6 } from './provider-capacity.js';
 import { WORKSPACE_LOCK_SCHEMA_V5 } from './workspace-lock.js';
 
 /**
@@ -126,4 +127,6 @@ export function applyControlPlaneMigrations(db: Database.Database): void {
 	db.exec(SCHEDULER_EVENTS_SCHEMA);
 	// P4 (Slice D): persistenter Workspace Lock (V5, idempotent)
 	db.exec(WORKSPACE_LOCK_SCHEMA_V5);
+	// P4 (Slice E): Provider-Capacity-Reservierungen (V6, idempotent)
+	db.exec(PROVIDER_RESERVATION_SCHEMA_V6);
 }

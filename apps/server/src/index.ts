@@ -30,6 +30,7 @@ import { fileURLToPath } from 'node:url';
 
 import http from 'node:http';
 import {
+	activeProviderReservations,
 	admitNext,
 	applyControlPlaneMigrations,
 	assertKpiInvariants,
@@ -44,6 +45,7 @@ import {
 	persistSchedulerEvent,
 	recoverSchedulerState,
 	resolveAttemptLeaseTtlMs,
+	resolveProviderCapacity,
 	resolveWorkspaceLockTtlMs,
 	schedulerCapacity,
 } from '@positron/control-plane';
@@ -2449,6 +2451,13 @@ export function createApp(options: ServerOptions = {}) {
 		maxActiveRuns: Number(process.env.POSITRON_MAX_ACTIVE_RUNS ?? 2),
 		// P4 (Slice D): persistenter Workspace Lock (TTL zentral konfiguriert)
 		workspaceLockTtlMs: resolveWorkspaceLockTtlMs(process.env),
+		// P4 (Slice E): Provider-Capacity produktiv verdrahten — konfigurierte
+		// conservative Limits (POSITRON_PROVIDER_CAPACITY JSON), Capacity-Sicht
+		// aus den persistenten Reservierungen. Keine erfundenen API-Limits:
+		// nicht konfigurierte Provider bleiben unbegrenzt.
+		maxConcurrentByProvider: resolveProviderCapacity(process.env),
+		activeByProvider: () => activeProviderReservations(getDb()),
+		defaultModel: process.env.POSITRON_OPENCODE_MODEL ?? null,
 		emitEvent: persistSchedulerEvent(getDb()),
 	};
 
