@@ -11,6 +11,7 @@ import {
 	applyControlPlaneMigrations,
 	assertAttemptActive,
 	assertExecutionContext,
+	buildDecision,
 	buildVerificationContract,
 	claimAttemptWithGeneration,
 	classifyFailure,
@@ -33,7 +34,7 @@ import {
 	createCancellationSource,
 	startLeaseHeartbeat,
 } from '@positron/control-plane';
-import type { AttemptRecord, JobRecord } from '@positron/control-plane';
+import type { AttemptRecord, FindingContract, JobRecord } from '@positron/control-plane';
 import type { VerificationContract } from '@positron/control-plane';
 import type { GitHubStatusSyncService } from '@positron/github-adapter';
 import type {
@@ -445,7 +446,8 @@ function trackJobAttempt(
 		| 'specify'
 		| 'tasks'
 		| 'analyze'
-		| 'baseline',
+		| 'baseline'
+		| 'review',
 	workerType: string,
 	provider: string | null,
 	model: string | null,
@@ -1772,6 +1774,56 @@ async function executePhase(
 				const msg = `Review failed: missing artifacts: ${missing.join(', ')}`;
 				result = markFailed(current, 'FAILED_BLOCKED', msg);
 			} else {
+				// P4 (Slice G): Review-Attempt — persistierte Findings sind die
+				// Basis des deterministischen SECURITY_HARD_BLOCK-Gates im
+				// DECIDE-Pfad (blockierende HIGH/CRITICAL-Security-Findings
+				// blockieren hart, kein Mehrheitsvotum — buildDecision-Policy).
+				// Findings-Quelle produktiv: Review-Worker; für den Beweis des
+				// Gates deterministisch injizierbar via POSITRON_REVIEW_FINDINGS.
+				const reviewTracking = trackJobAttempt(
+					current,
+					deps,
+					'review',
+					'review.deterministic',
+					null,
+					null,
+					'positron.review-batch.v1',
+					fingerprint({ runId: current.id, issueNumber: current.issueNumber }),
+				);
+				if (!reviewTracking.duplicate && !reviewTracking.recovered) {
+					assertWorkerContext(current, reviewTracking, deps);
+					let findings: FindingContract[] = [];
+					const rawFindings = process.env.POSITRON_REVIEW_FINDINGS;
+					if (rawFindings) {
+						try {
+							const parsed = JSON.parse(rawFindings) as unknown;
+							if (Array.isArray(parsed)) {
+								findings = parsed.filter(
+									(f) =>
+										typeof f === 'object' &&
+										f !== null &&
+										'category' in (f as Record<string, unknown>),
+								) as FindingContract[];
+							}
+						} catch {
+							/* ungültige Findings-Injektion wird ignoriert */
+						}
+					}
+					completeTrackedAttempt(reviewTracking, deps, {
+						status: 'succeeded',
+						output_contract: 'positron.review-batch.v1',
+						output_json: JSON.stringify({
+							contract: 'positron.review-batch.v1',
+							run_id: current.id,
+							findings,
+						}),
+						output_fingerprint: fingerprint({
+							phase: 'review',
+							findings: findings.length,
+						}),
+					});
+					updateJobState(getDb(deps), reviewTracking.job.job_id, 'succeeded');
+				}
 				result = transition(
 					current,
 					'IMPLEMENT',
@@ -3105,6 +3157,57 @@ async function runPipelineInner(
 					.prepare('SELECT decision_id FROM cp_decisions WHERE run_id = ? LIMIT 1')
 					.get(next.id) as Record<string, unknown> | undefined;
 				if (!existingDecision) {
+					// P4 (Slice G): SECURITY_HARD_BLOCK durch den produktiven
+					// Pfad — persistierte Review-Findings werden durch die
+					// kanonische Decision-Policy (buildDecision) bewertet:
+					// ein blockierendes Security-Finding (HIGH/CRITICAL)
+					// blockiert hart (SECURITY_BLOCK), auch wenn alle anderen
+					// Gates grün sind. Kein Mehrheitsvotum, kein LLM-Urteil.
+					const reviewAttempt = loadLastAttempt(next.id, 'review', deps);
+					let findings: FindingContract[] = [];
+					if (reviewAttempt?.output_json) {
+						try {
+							const doc = JSON.parse(reviewAttempt.output_json) as {
+								findings?: FindingContract[];
+							};
+							findings = doc.findings ?? [];
+						} catch {
+							findings = [];
+						}
+					}
+					const policyDecision = buildDecision({
+						run_id: next.id,
+						verification: null,
+						findings,
+					});
+					if (policyDecision.reason_code === 'SECURITY_BLOCK') {
+						const blockingCount = findings.filter(
+							(f) =>
+								f.category === 'security' &&
+								f.blocking &&
+								(f.severity === 'HIGH' || f.severity === 'CRITICAL'),
+						).length;
+						next = markFailed(
+							next,
+							'FAILED_BLOCKED',
+							`SECURITY_BLOCK: ${blockingCount} blocking security finding(s) — run blocked`,
+						).run;
+						storeDecision(db, next.id, policyDecision.decision, policyDecision.reason_code, JSON.stringify(policyDecision));
+						const decideJob = createJob(db, next.id, 'decide');
+						updateJobState(db, decideJob.job_id, 'succeeded');
+						storeEvent(
+							{
+								id: createRunId(),
+								runId: next.id,
+								phase: 'FAILED_BLOCKED',
+								level: 'ERROR',
+								message: `SECURITY_BLOCK: ${blockingCount} blocking security finding(s)`,
+								payload: { decision: policyDecision },
+								createdAt: new Date().toISOString(),
+							},
+							deps,
+						);
+					} else {
 					let decision: string;
 					let reasonCode: string;
 					if (next.phase === 'DONE') {
@@ -3138,6 +3241,7 @@ async function runPipelineInner(
 					);
 					const decideJob = createJob(db, next.id, 'decide');
 					updateJobState(db, decideJob.job_id, 'succeeded');
+					}
 				}
 			}
 
