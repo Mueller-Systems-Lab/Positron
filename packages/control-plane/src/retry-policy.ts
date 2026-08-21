@@ -42,6 +42,8 @@ export interface RetryContextInput {
 	strategyDelta: string | null;
 	/** Kontext-Fingerprint (z. B. Plan- oder Workspace-Fingerprint) */
 	contextFingerprint: string | null;
+	/** P5.3: Effective Harness Fingerprint (Profiländerung zählt nur bei echtem Wechsel) */
+	effectiveHarnessFingerprint?: string | null;
 }
 
 /**
@@ -105,6 +107,14 @@ export function evaluateRetry(input: RetryContextInput): RetryDecision {
 		input.previousAttempt.input_fingerprint !== input.inputFingerprint
 	) {
 		delta.push('input_change');
+	}
+	// P5.3: Profiländerung zählt nur bei echtem Effective-Harness-Wechsel
+	if (
+		input.effectiveHarnessFingerprint &&
+		input.previousAttempt.effective_harness_fingerprint &&
+		input.effectiveHarnessFingerprint !== input.previousAttempt.effective_harness_fingerprint
+	) {
+		delta.push('profile_change');
 	}
 
 	if (delta.length === 0) {

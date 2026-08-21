@@ -188,6 +188,38 @@ function applyV8(db: Database.Database): void {
 	}
 }
 
+/**
+ * V9 (P5.3 — Two-Axis Failure Diagnosis & Evidence-Based Routing).
+ *
+ * Additive, nullable Diagnose-/Routing-Spalten auf `cp_attempts`:
+ *
+ *   failure_domain          — HARNESS | EXECUTION | STRATEGY | CAPABILITY | UNKNOWN
+ *   diagnosis_reason_code   — reason code der Diagnose-Policy
+ *   diagnosis_fingerprint   — SHA-256 der Diagnose (ohne Runtime)
+ *   routing_action          — RETRY_WITH_* | ESCALATE_MODEL_PROFILE | INSPECT_BLOCK | NO_RETRY
+ *   routing_reason_code     — reason code der Routing-Policy
+ *   routing_fingerprint     — SHA-256 der Routing-Entscheidung
+ *
+ * NULLABLE: historische Attempts (V1–V8) bleiben ohne P5.3-Felder lesbar
+ * und werden als UNKNOWN / NOT_APPLICABLE dargestellt — keine retroaktive
+ * Capability-Erfindung. Migration ist additiv, idempotent, forward-safe.
+ */
+function applyV9(db: Database.Database): void {
+	const v9Columns: Array<[string, string]> = [
+		['failure_domain', 'TEXT'],
+		['diagnosis_reason_code', 'TEXT'],
+		['diagnosis_fingerprint', 'TEXT'],
+		['routing_action', 'TEXT'],
+		['routing_reason_code', 'TEXT'],
+		['routing_fingerprint', 'TEXT'],
+	];
+	for (const [column, type] of v9Columns) {
+		if (!columnExists(db, 'cp_attempts', column)) {
+			db.exec(`ALTER TABLE cp_attempts ADD COLUMN ${column} ${type}`);
+		}
+	}
+}
+
 export function applyControlPlaneMigrations(db: Database.Database): void {
 	db.exec(CONTROL_PLANE_SCHEMA_V1);
 	applyV2(db);
@@ -203,4 +235,6 @@ export function applyControlPlaneMigrations(db: Database.Database): void {
 	applyV7(db);
 	// P5.2: Effective Runtime Configuration (V8, idempotent)
 	applyV8(db);
+	// P5.3: Two-Axis Failure Diagnosis & Routing (V9, idempotent)
+	applyV9(db);
 }

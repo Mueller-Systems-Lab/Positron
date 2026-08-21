@@ -120,6 +120,19 @@ export interface AttemptRecord {
 	effective_harness_config: string | null;
 	/** SHA-256 der Effective Config (ohne Runtime-Werte) */
 	effective_harness_fingerprint: string | null;
+	// ── P5.3 Two-Axis Failure Diagnosis & Routing (V9) ───────────────────
+	/** Failure-Domain: HARNESS | EXECUTION | STRATEGY | CAPABILITY | UNKNOWN */
+	failure_domain: string | null;
+	/** Reason Code der Diagnose-Policy */
+	diagnosis_reason_code: string | null;
+	/** SHA-256 der Diagnose */
+	diagnosis_fingerprint: string | null;
+	/** Routing-Action: RETRY_WITH_* | ESCALATE_MODEL_PROFILE | INSPECT_BLOCK | NO_RETRY */
+	routing_action: string | null;
+	/** Reason Code der Routing-Policy */
+	routing_reason_code: string | null;
+	/** SHA-256 der Routing-Entscheidung */
+	routing_fingerprint: string | null;
 }
 
 export function createId(prefix: string): string {
@@ -290,6 +303,13 @@ export function createAttempt(
 		// P5.2: Effective Runtime Configuration (additiv, nullable)
 		effective_harness_config: initial.effective_harness_config ?? null,
 		effective_harness_fingerprint: initial.effective_harness_fingerprint ?? null,
+		// P5.3: Two-Axis Failure Diagnosis & Routing (additiv, nullable)
+		failure_domain: initial.failure_domain ?? null,
+		diagnosis_reason_code: initial.diagnosis_reason_code ?? null,
+		diagnosis_fingerprint: initial.diagnosis_fingerprint ?? null,
+		routing_action: initial.routing_action ?? null,
+		routing_reason_code: initial.routing_reason_code ?? null,
+		routing_fingerprint: initial.routing_fingerprint ?? null,
 	};
 	db.prepare(
 		`INSERT INTO cp_attempts (attempt_id, run_id, job_id, status, input_contract, input_fingerprint,
@@ -298,8 +318,9 @@ export function createAttempt(
 		   previous_attempt_id, lease_owner_id, lease_generation, lease_expires_at, claimed_at,
 		   harness_profile_id, harness_profile_version, harness_fingerprint, harness_profile_ref,
 		   task_profile_id, task_profile_version, task_type, provider_adapter_id, provider_adapter_version,
-		   model_provenance_status, effective_harness_config, effective_harness_fingerprint)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		   model_provenance_status, effective_harness_config, effective_harness_fingerprint,
+		   failure_domain, diagnosis_reason_code, diagnosis_fingerprint, routing_action, routing_reason_code, routing_fingerprint)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 	).run(
 		attempt.attempt_id,
 		attempt.run_id,
@@ -338,6 +359,12 @@ export function createAttempt(
 		attempt.model_provenance_status,
 		attempt.effective_harness_config,
 		attempt.effective_harness_fingerprint,
+		attempt.failure_domain,
+		attempt.diagnosis_reason_code,
+		attempt.diagnosis_fingerprint,
+		attempt.routing_action,
+		attempt.routing_reason_code,
+		attempt.routing_fingerprint,
 	);
 	return attempt;
 }
@@ -662,7 +689,9 @@ export function completeAttempt(
 				: existing.lease_generation;
 		const base = `UPDATE cp_attempts SET status = ?, output_contract = ?, output_fingerprint = ?, output_json = ?,
 			   ended_at = ?, failure_class = ?, failure_signature = ?, new_evidence = ?, strategy_delta = ?,
-			   result_ref = ?, tokens = ?, previous_attempt_id = ?
+			   result_ref = ?, tokens = ?, previous_attempt_id = ?,
+			   failure_domain = ?, diagnosis_reason_code = ?, diagnosis_fingerprint = ?,
+			   routing_action = ?, routing_reason_code = ?, routing_fingerprint = ?
 			 WHERE attempt_id = ?`;
 		const fenced = fence ? ' AND lease_owner_id = ? AND lease_generation = ?' : '';
 		const res = db
@@ -680,6 +709,12 @@ export function completeAttempt(
 				update.result_ref ?? existing.result_ref,
 				update.tokens ?? existing.tokens,
 				update.previous_attempt_id ?? existing.previous_attempt_id,
+				update.failure_domain ?? existing.failure_domain,
+				update.diagnosis_reason_code ?? existing.diagnosis_reason_code,
+				update.diagnosis_fingerprint ?? existing.diagnosis_fingerprint,
+				update.routing_action ?? existing.routing_action,
+				update.routing_reason_code ?? existing.routing_reason_code,
+				update.routing_fingerprint ?? existing.routing_fingerprint,
 				attemptId,
 				...(fence ? [whereOwner, whereGen] : []),
 			);
@@ -743,6 +778,12 @@ export function mapAttemptRow(row: Record<string, unknown>): AttemptRecord {
 		effective_harness_fingerprint: row.effective_harness_fingerprint
 			? String(row.effective_harness_fingerprint)
 			: null,
+		failure_domain: row.failure_domain ? String(row.failure_domain) : null,
+		diagnosis_reason_code: row.diagnosis_reason_code ? String(row.diagnosis_reason_code) : null,
+		diagnosis_fingerprint: row.diagnosis_fingerprint ? String(row.diagnosis_fingerprint) : null,
+		routing_action: row.routing_action ? String(row.routing_action) : null,
+		routing_reason_code: row.routing_reason_code ? String(row.routing_reason_code) : null,
+		routing_fingerprint: row.routing_fingerprint ? String(row.routing_fingerprint) : null,
 	};
 }
 

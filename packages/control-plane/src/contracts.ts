@@ -25,7 +25,9 @@ export type ContractId =
 	| 'positron.harness-profile-ref.v1'
 	| 'positron.model-profile.v1'
 	| 'positron.task-profile.v1'
-	| 'positron.effective-harness.v1';
+	| 'positron.effective-harness.v1'
+	| 'positron.failure-diagnosis.v1'
+	| 'positron.routing-decision.v1';
 
 export const CONTRACT_IDS: readonly ContractId[] = [
 	'positron.issue.v1',
@@ -45,6 +47,8 @@ export const CONTRACT_IDS: readonly ContractId[] = [
 	'positron.model-profile.v1',
 	'positron.task-profile.v1',
 	'positron.effective-harness.v1',
+	'positron.failure-diagnosis.v1',
+	'positron.routing-decision.v1',
 ];
 
 // ---------------------------------------------------------------------------
@@ -694,6 +698,43 @@ const CONTRACT_REGISTRY: Record<ContractId, ContractSchema> = {
 				required: true,
 				requiredKeys: ['version', 'reason_codes'],
 			},
+			fingerprint: { type: 'string', required: true, pattern: /^[0-9a-f]{64}$/ },
+		},
+	},
+	// P5.3 — Failure Diagnosis (zweite Achse: WO liegt die Ursache?).
+	'positron.failure-diagnosis.v1': {
+		contractId: 'positron.failure-diagnosis.v1',
+		version: 1,
+		fields: {
+			run_id: { type: 'string', required: true, minLength: 1 },
+			job_id: { type: 'string', required: true, minLength: 1 },
+			attempt_id: { type: 'string', required: true, minLength: 1 },
+			failure_class: { type: 'string', required: true, minLength: 1 },
+			failure_domain: { type: 'string', required: true, minLength: 1 },
+			evidence_refs: { type: 'string[]', required: true },
+			sample_size: { type: 'number', required: true },
+			threshold: { type: 'number', required: true },
+			evidence_sufficient: { type: 'boolean', required: true },
+			diagnosis_reason_code: { type: 'string', required: true, minLength: 1 },
+			policy_version: { type: 'string', required: true, minLength: 1 },
+			fingerprint: { type: 'string', required: true, pattern: /^[0-9a-f]{64}$/ },
+		},
+	},
+	// P5.3 — Routing Decision (deterministische Escalation-Entscheidung).
+	'positron.routing-decision.v1': {
+		contractId: 'positron.routing-decision.v1',
+		version: 1,
+		fields: {
+			source_attempt_id: { type: 'string', required: true, minLength: 1 },
+			failure_class: { type: 'string', required: true, minLength: 1 },
+			failure_domain: { type: 'string', required: true, minLength: 1 },
+			routing_action: { type: 'string', required: true, minLength: 1 },
+			reason_code: { type: 'string', required: true, minLength: 1 },
+			evidence_refs: { type: 'string[]', required: true },
+			sample_size: { type: 'number', required: true },
+			threshold_result: { type: 'string', required: true, minLength: 1 },
+			selected_delta: { type: 'string', required: true, minLength: 1 },
+			policy_version: { type: 'string', required: true, minLength: 1 },
 			fingerprint: { type: 'string', required: true, pattern: /^[0-9a-f]{64}$/ },
 		},
 	},
