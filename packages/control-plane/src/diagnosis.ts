@@ -160,7 +160,11 @@ export function diagnoseFailureDomain(input: DiagnosisInput): DiagnosisResult {
 			evidence_sufficient: true,
 		};
 	}
-	if (fc === 'TOOL_NOT_ALLOWED' || fc === 'ADAPTER_CAPABILITY_MISMATCH' || fc === 'PROFILE_INCOMPATIBLE') {
+	if (
+		fc === 'TOOL_NOT_ALLOWED' ||
+		fc === 'ADAPTER_CAPABILITY_MISMATCH' ||
+		fc === 'PROFILE_INCOMPATIBLE'
+	) {
 		return {
 			failure_domain: 'HARNESS',
 			reason_code: DIAGNOSIS_REASON_HARNESS_TOOL,
@@ -295,7 +299,11 @@ export interface RoutingResult {
  */
 export function decideRouting(input: RoutingInput): RoutingResult {
 	// SECURITY_BLOCK → never retry, never escalate
-	if (input.isSecurityBlock || input.failure_class === 'SECURITY_BLOCK' || input.failure_class.startsWith('SECURITY_BLOCK')) {
+	if (
+		input.isSecurityBlock ||
+		input.failure_class === 'SECURITY_BLOCK' ||
+		input.failure_class.startsWith('SECURITY_BLOCK')
+	) {
 		return {
 			routing_action: 'NO_RETRY',
 			reason_code: ROUTING_REASON_SECURITY_BLOCK,
@@ -351,7 +359,6 @@ export function decideRouting(input: RoutingInput): RoutingResult {
 				threshold_result: 'CAPABILITY_ESCALATION_APPROVED',
 			};
 		}
-		case 'UNKNOWN':
 		default:
 			return {
 				routing_action: 'INSPECT_BLOCK',
@@ -491,7 +498,7 @@ export function buildRoutingDecision(input: {
 export function collectAttemptChain(
 	attempts: AttemptRecord[],
 	runId: string,
-	jobType: string,
+	_jobType: string,
 ): AttemptRecord[] {
 	// Filter by run and job type via job_id lookup would be needed in real DB
 	// For pure function, just filter by run_id and sort by started_at
@@ -506,7 +513,14 @@ export function collectAttemptChain(
  */
 export function hasRealDelta(
 	previous: AttemptRecord,
-	next: { input_fingerprint: string | null; provider: string | null; model: string | null; effective_harness_fingerprint: string | null; strategy_delta: string | null; new_evidence: string | null },
+	next: {
+		input_fingerprint: string | null;
+		provider: string | null;
+		model: string | null;
+		effective_harness_fingerprint: string | null;
+		strategy_delta: string | null;
+		new_evidence: string | null;
+	},
 ): boolean {
 	if (previous.input_fingerprint !== next.input_fingerprint) return true;
 	if (previous.provider !== next.provider) return true;

@@ -1,5 +1,6 @@
 // Positron P5.3 — Two-Axis Failure Diagnosis & Routing Tests
 import { describe, expect, it } from 'vitest';
+import { validateContract } from '../contracts.js';
 import {
 	DEFAULT_CAPABILITY_SAMPLE_THRESHOLD,
 	DIAGNOSIS_REASON_CAPABILITY,
@@ -24,7 +25,6 @@ import {
 	evaluateCapabilityEvidence,
 	hasRealDelta,
 } from '../diagnosis.js';
-import { validateContract } from '../contracts.js';
 
 // ---------------------------------------------------------------------------
 // FAILURE_DOMAIN_*
