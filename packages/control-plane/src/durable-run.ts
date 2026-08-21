@@ -39,6 +39,7 @@ import { buildDecision } from './decision-policy.js';
 import { assertAttemptActive, assertExecutionContext } from './execution-context.js';
 import { classifyFailure } from './failure.js';
 import { fingerprint } from './fingerprint.js';
+import { resolveHarnessProfileFromEnv } from './harness-profile.js';
 import { IdempotencyRegistry, idempotencyKey } from './idempotency.js';
 import { assertRealParallelism } from './parallelism.js';
 import { evaluatePlanGate } from './plan-gate.js';
@@ -955,6 +956,14 @@ export async function runDurableRun(
 		const strategyDelta = lastFailureEvidence
 			? `Fix per verification evidence: ${lastFailureEvidence.slice(0, 200)}`
 			: null;
+		// P5.1 — Harness Profile Identity: atomar mit dem Attempt gebunden,
+		// VOR der Modell-Ausführung (PROFILE_REF_BOUND_BEFORE_EXECUTION).
+		const harnessRef = resolveHarnessProfileFromEnv(process.env, {
+			taskType: 'build',
+			workerType: deps.buildWorker.workerType,
+			provider: deps.buildWorker.provider,
+			model: deps.buildWorker.model,
+		});
 		const attempt = createAttempt(db, runId, buildJob.job_id, {
 			attempt_id: buildInput.attempt_id,
 			status: 'pending',
@@ -967,6 +976,16 @@ export async function runDurableRun(
 			// P3-FIX-Kette: der neue Attempt referenziert den vorherigen
 			// (§15 — keine überschriebene Historie).
 			previous_attempt_id: previousAttempt?.attempt_id ?? null,
+			harness_profile_id: harnessRef.harness_profile_id,
+			harness_profile_version: harnessRef.harness_profile_version,
+			harness_fingerprint: harnessRef.effective_harness_fingerprint,
+			harness_profile_ref: JSON.stringify(harnessRef),
+			task_profile_id: harnessRef.task_profile_id,
+			task_profile_version: harnessRef.task_profile_version,
+			task_type: harnessRef.task_type,
+			provider_adapter_id: harnessRef.provider_adapter_id,
+			provider_adapter_version: harnessRef.provider_adapter_version,
+			model_provenance_status: harnessRef.model_provenance_status,
 		});
 
 		// Idempotenz: Dispatch ist an run:job:attempt gebunden

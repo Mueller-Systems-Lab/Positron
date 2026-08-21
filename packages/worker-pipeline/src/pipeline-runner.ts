@@ -26,6 +26,7 @@ import {
 	recoverStaleLeases,
 	renewAttemptLease,
 	resolveAttemptLeaseTtlMs,
+	resolveHarnessProfileFromEnv,
 	storeDecision,
 	updateJobState,
 	validateContract,
@@ -539,6 +540,21 @@ function trackJobAttempt(
 		};
 	}
 
+	// P5.1 — Harness Profile Identity & Provenance: Jeder NEUE produktive
+	// Attempt erhält VOR der Ausführung eine validierte Harness-Referenz
+	// (atomar mit dem createAttempt-INSERT, PROFILE_REF_BOUND_BEFORE_EXECUTION).
+	// Die Referenz stammt ausschließlich aus expliziter Konfiguration (env) +
+	// bereits bekannter Provider-/Modell-Information — nichts wird erfunden;
+	// fehlende Modell-Provenienz → PROVENANCE_UNAVAILABLE. Ungültige
+	// Konfiguration schlägt fail-closed fehl (UNKNOWN_CONTRACT /
+	// UNKNOWN_VERSION / INVALID_PROFILE_REF / INVALID_FINGERPRINT).
+	const harnessRef = resolveHarnessProfileFromEnv(process.env, {
+		taskType: jobType,
+		workerType,
+		provider,
+		model,
+	});
+
 	const attempt = createAttempt(db, run.id, String(job.job_id), {
 		status: 'pending',
 		worker_type: workerType,
@@ -547,6 +563,16 @@ function trackJobAttempt(
 		input_contract: inputContract,
 		input_fingerprint: inputFingerprint,
 		previous_attempt_id: previousAttemptId,
+		harness_profile_id: harnessRef.harness_profile_id,
+		harness_profile_version: harnessRef.harness_profile_version,
+		harness_fingerprint: harnessRef.effective_harness_fingerprint,
+		harness_profile_ref: JSON.stringify(harnessRef),
+		task_profile_id: harnessRef.task_profile_id,
+		task_profile_version: harnessRef.task_profile_version,
+		task_type: harnessRef.task_type,
+		provider_adapter_id: harnessRef.provider_adapter_id,
+		provider_adapter_version: harnessRef.provider_adapter_version,
+		model_provenance_status: harnessRef.model_provenance_status,
 	});
 	const idemKey = idempotencyKey(run.id, String(job.job_id), attempt.attempt_id);
 	const duplicate = !registry.claim(idemKey);
@@ -791,6 +817,24 @@ function loadLastAttempt(runId: string, jobType: string, deps: PipelineDeps): At
 					: 0,
 			lease_expires_at: last.lease_expires_at ? String(last.lease_expires_at) : null,
 			claimed_at: last.claimed_at ? String(last.claimed_at) : null,
+			harness_profile_id: last.harness_profile_id ? String(last.harness_profile_id) : null,
+			harness_profile_version: last.harness_profile_version
+				? String(last.harness_profile_version)
+				: null,
+			harness_fingerprint: last.harness_fingerprint ? String(last.harness_fingerprint) : null,
+			harness_profile_ref: last.harness_profile_ref ? String(last.harness_profile_ref) : null,
+			task_profile_id: last.task_profile_id ? String(last.task_profile_id) : null,
+			task_profile_version: last.task_profile_version
+				? String(last.task_profile_version)
+				: null,
+			task_type: last.task_type ? String(last.task_type) : null,
+			provider_adapter_id: last.provider_adapter_id ? String(last.provider_adapter_id) : null,
+			provider_adapter_version: last.provider_adapter_version
+				? String(last.provider_adapter_version)
+				: null,
+			model_provenance_status: last.model_provenance_status
+				? String(last.model_provenance_status)
+				: null,
 		};
 	} catch (err) {
 		console.error(`[Worker] loadLastAttempt failed: ${String(err).slice(0, 200)}`);
