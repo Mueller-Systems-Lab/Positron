@@ -2525,6 +2525,15 @@ export function createApp(options: ServerOptions = {}) {
 						: completed.status === 'cancelled'
 							? 'CANCELLED'
 							: 'FAILED';
+			// P4 (Review-WARNING): den finalen Run-Zustand persistieren —
+			// sonst bleibt runs.status 'active' und R5-Startup-Resume würde
+			// den bereits abgeschlossenen Run nach einem Restart erneut
+			// ausführen (Queue-Item ist terminal → kein QueueRef-Skip).
+			try {
+				saveRunToDb(completed);
+			} catch {
+				/* best-effort */
+			}
 			markRunFinished(
 				getDb(),
 				item.queue_item_id,

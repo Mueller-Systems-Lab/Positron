@@ -32,7 +32,6 @@ import {
 import { getWorkspaceLock } from '@positron/control-plane';
 import { activeProviderReservations } from '@positron/control-plane';
 import { createServer } from '../index.js';
-import { markRunFinished } from '@positron/control-plane';
 
 describe('P4 SLICE F — CRASH RECOVERY (Kontroll-Ebene)', () => {
 	it('RUNNING_RECOVERY_REAL: gecrashter Run (alle Leases stale) wird requeued; lebendiger Run bleibt', async () => {
