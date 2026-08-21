@@ -21,7 +21,8 @@ export type ContractId =
 	| 'positron.decision.v1'
 	| 'positron.split.v1'
 	| 'positron.run-event.v1'
-	| 'positron.artifact.v1';
+	| 'positron.artifact.v1'
+	| 'positron.harness-profile-ref.v1';
 
 export const CONTRACT_IDS: readonly ContractId[] = [
 	'positron.issue.v1',
@@ -37,6 +38,7 @@ export const CONTRACT_IDS: readonly ContractId[] = [
 	'positron.split.v1',
 	'positron.run-event.v1',
 	'positron.artifact.v1',
+	'positron.harness-profile-ref.v1',
 ];
 
 // ---------------------------------------------------------------------------
@@ -55,6 +57,8 @@ export interface FieldConstraint {
 	requiredKeys?: string[];
 	/** Objekt mit String-Werten */
 	stringMap?: boolean;
+	/** true → explizites null ist erlaubt (z. B. optionale Provenienz) */
+	nullable?: boolean;
 	/** Validator-Funktion für komplexe Constraints (deterministisch) */
 	validate?: (value: unknown, path: string) => string[];
 }
@@ -458,6 +462,55 @@ const CONTRACT_REGISTRY: Record<ContractId, ContractSchema> = {
 			content_ref: { type: 'string' },
 		},
 	},
+	// P5.1 — Harness Profile Identity & Provenance. Versionierter, typed
+	// Contract für die tatsächlich auf einem Attempt wirksame Harness-
+	// Konfiguration. Fail-closed: unbekannte Version / ungültige Profil-Ref /
+	// ungültiger Fingerprint werden abgelehnt (UNKNOWN_CONTRACT,
+	// UNKNOWN_VERSION, INVALID_PROFILE_REF, INVALID_FINGERPRINT). Die
+	// Fingerprint-Integrität (Hash über semantics) prüft der kanonische
+	// Validator in harness-profile.ts.
+	'positron.harness-profile-ref.v1': {
+		contractId: 'positron.harness-profile-ref.v1',
+		version: 1,
+		fields: {
+			harness_profile_id: { type: 'string', required: true, minLength: 1 },
+			harness_profile_version: { type: 'string', required: true, minLength: 1 },
+			task_profile_id: { type: 'string', required: true, minLength: 1 },
+			task_profile_version: { type: 'string', required: true, minLength: 1 },
+			task_type: { type: 'string', required: true, minLength: 1 },
+			provider: { type: 'string', nullable: true },
+			model: { type: 'string', nullable: true },
+			model_provenance_status: {
+				type: 'string',
+				required: true,
+				validate: (value) =>
+					['KNOWN', 'PROVENANCE_UNAVAILABLE', 'LEGACY_PROFILE_UNSPECIFIED'].includes(
+						String(value),
+					)
+						? []
+						: [
+								`model_provenance_status must be one of: KNOWN, PROVENANCE_UNAVAILABLE, LEGACY_PROFILE_UNSPECIFIED`,
+							],
+			},
+			provider_adapter_id: { type: 'string', nullable: true },
+			provider_adapter_version: { type: 'string', nullable: true },
+			effective_harness_fingerprint: {
+				type: 'string',
+				required: true,
+				pattern: /^[0-9a-f]{64}$/,
+			},
+			semantics: {
+				type: 'object',
+				required: true,
+				validate: (value) => {
+					if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+						return ['semantics must be a plain object'];
+					}
+					return [];
+				},
+			},
+		},
+	},
 };
 
 /** Gibt das Schema für eine Contract-ID zurück oder null bei unbekannter ID. */
@@ -514,6 +567,10 @@ function validateField(
 		if (constraint.required) {
 			errors.push(`${field} is required`);
 		}
+		return errors;
+	}
+
+	if (constraint.nullable && value === null) {
 		return errors;
 	}
 
@@ -822,4 +879,43 @@ export interface RunEventContract {
 	new_state: string;
 	reason_code: string;
 	level: 'INFO' | 'WARN' | 'ERROR' | 'GATE';
+}
+
+// ---------------------------------------------------------------------------
+// P5.1 — Harness Profile Ref (positron.harness-profile-ref.v1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Modell-Provenienz-Status eines Attempts. P5.1 erfindet keine Provenienz:
+ * - `KNOWN`                    — Provider + Modell aus tatsächlicher Konfiguration/Runtime
+ * - `PROVENANCE_UNAVAILABLE`   — neuer Attempt ohne belastbare Modell-Provenienz
+ * - `LEGACY_PROFILE_UNSPECIFIED` — historischer Attempt (vor P5.1) ohne P5-Felder
+ */
+export type ModelProvenanceStatus =
+	| 'KNOWN'
+	| 'PROVENANCE_UNAVAILABLE'
+	| 'LEGACY_PROFILE_UNSPECIFIED';
+
+/** Harness-Ref-Dokument (validiert über `positron.harness-profile-ref.v1`). */
+export interface HarnessProfileRefContract {
+	contract: 'positron.harness-profile-ref.v1';
+	/** Profil der tatsächlich wirksamen Harness-Konfiguration (Modell-Harness) */
+	harness_profile_id: string;
+	harness_profile_version: string;
+	/** Aufgabenprofil (z. B. PLAN / BUILD / RESEARCH / REVIEW) */
+	task_profile_id: string;
+	task_profile_version: string;
+	/** Kanonischer Task-Typ (Korrespondenz zu cp_jobs.job_type) */
+	task_type: string;
+	provider: string | null;
+	model: string | null;
+	model_provenance_status: ModelProvenanceStatus;
+	/** Technischer Model-Adapter (nur wenn tatsächlich bekannt) */
+	provider_adapter_id: string | null;
+	provider_adapter_version: string | null;
+	/** SHA-256 über die kanonische semantische Harness-Konfiguration */
+	effective_harness_fingerprint: string;
+	/** Die tatsächlich gehashte semantische Konfiguration (reproduzierbar).
+	 *  Keine run_id/job_id/attempt_id/Timestamps/Duration/Result-Refs/Logs. */
+	semantics: Record<string, unknown>;
 }

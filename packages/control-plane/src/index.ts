@@ -34,10 +34,35 @@ export type {
 	BuildInputContract,
 	BuildResultContract,
 	RunEventContract,
+	HarnessProfileRefContract,
+	ModelProvenanceStatus,
 } from './contracts.js';
 
 // ─── Fingerprints ───
 export { fingerprint, canonicalJson, semanticallyEqual } from './fingerprint.js';
+
+// ─── P5.1 Harness Profile Identity & Provenance ───
+export {
+	HARNESS_PROFILE_REF_CONTRACT,
+	PROVENANCE_UNAVAILABLE,
+	LEGACY_PROFILE_UNSPECIFIED,
+	PROVENANCE_KNOWN,
+	MODEL_PROVENANCE_STATUSES,
+	UNKNOWN_CONTRACT,
+	UNKNOWN_VERSION,
+	INVALID_PROFILE_REF,
+	INVALID_FINGERPRINT,
+	HARNESS_RUNTIME_EXCLUDE_KEYS,
+	HARNESS_SECRET_PATTERNS,
+	computeEffectiveHarnessFingerprint,
+	validateHarnessProfileRef,
+	buildHarnessProfileRef,
+	resolveHarnessProfileFromEnv,
+	isLegacyHarnessAttempt,
+	HarnessProfileValidationError,
+	HarnessMetadataSecretError,
+} from './harness-profile.js';
+export type { HarnessProfileRefInput, HarnessProfileValidationResult } from './harness-profile.js';
 
 // ─── DB-Schema (Migrationen auf bestehender SQLite-DB) ───
 export { CONTROL_PLANE_SCHEMA_V1, applyControlPlaneMigrations } from './schema.js';
