@@ -10,17 +10,14 @@
 //   TASK_PROFILE_ID_PERSISTED / TASK_PROFILE_VERSION_PERSISTED
 //   EFFECTIVE_HARNESS_FINGERPRINT_PERSISTED
 
-import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
-import {
-	CONTROL_PLANE_SCHEMA_V1,
-	applyControlPlaneMigrations,
-} from '../schema.js';
-import { SCHEDULER_QUEUE_SCHEMA_V4, SCHEDULER_EVENTS_SCHEMA } from '../queue-schema.js';
-import { WORKSPACE_LOCK_SCHEMA_V5 } from '../workspace-lock.js';
+import { describe, expect, it } from 'vitest';
+import { PROVENANCE_KNOWN, buildHarnessProfileRef } from '../harness-profile.js';
 import { PROVIDER_RESERVATION_SCHEMA_V6 } from '../provider-capacity.js';
-import { createJob, getAttempt } from '../store.js';
-import { buildHarnessProfileRef, PROVENANCE_KNOWN } from '../harness-profile.js';
+import { SCHEDULER_EVENTS_SCHEMA, SCHEDULER_QUEUE_SCHEMA_V4 } from '../queue-schema.js';
+import { CONTROL_PLANE_SCHEMA_V1, applyControlPlaneMigrations } from '../schema.js';
+import { createAttempt, createJob, getAttempt } from '../store.js';
+import { WORKSPACE_LOCK_SCHEMA_V5 } from '../workspace-lock.js';
 
 /**
  * Baut eine DB im kanonischen P4-Zustand (Schema V1–V6, OHNE V7-Spalten)
@@ -139,8 +136,13 @@ describe('MIGRATION_FROM_CANONICAL_P4', () => {
 		applyControlPlaneMigrations(db);
 
 		const row = db
-			.prepare('SELECT harness_profile_id, harness_fingerprint FROM cp_attempts WHERE attempt_id = ?')
-			.get('att_legacy_2') as { harness_profile_id: string | null; harness_fingerprint: string | null };
+			.prepare(
+				'SELECT harness_profile_id, harness_fingerprint FROM cp_attempts WHERE attempt_id = ?',
+			)
+			.get('att_legacy_2') as {
+			harness_profile_id: string | null;
+			harness_fingerprint: string | null;
+		};
 		expect(row.harness_profile_id).toBeNull();
 		expect(row.harness_fingerprint).toBeNull();
 	});
@@ -151,13 +153,17 @@ describe('MIGRATION_IDEMPOTENT', () => {
 		const db = createCanonicalP4Db();
 		applyControlPlaneMigrations(db);
 		const columnsAfterFirst = v7Columns(db).join(',');
-		const firstSchema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='cp_attempts'").get() as { sql: string };
+		const firstSchema = db
+			.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='cp_attempts'")
+			.get() as { sql: string };
 
 		applyControlPlaneMigrations(db);
 		applyControlPlaneMigrations(db);
 
 		const columnsAfterThird = v7Columns(db).join(',');
-		const thirdSchema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='cp_attempts'").get() as { sql: string };
+		const thirdSchema = db
+			.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='cp_attempts'")
+			.get() as { sql: string };
 		expect(columnsAfterThird).toBe(columnsAfterFirst);
 		expect(thirdSchema.sql).toBe(firstSchema.sql);
 	});
