@@ -258,7 +258,8 @@ let gateRuntimeMode: import('@positron/run-state').GateRuntimeMode = 'fixture';
 
 // Watcher Stop-Funktion (wird von createApp gesetzt, von Shutdown verwendet)
 let stopWatcher: (() => void) | null = null;
-
+// P4 (Slice C): Scheduler-Loop Stop-Funktion (Server-Close stoppt den Loop)
+let stopSchedulerInterval: (() => void) | null = null;
 // Server-Startzeit für Uptime-Berechnung
 const serverStartTime = Date.now();
 
@@ -2451,13 +2452,59 @@ export function createApp(options: ServerOptions = {}) {
 	// ── P4: Scheduler-Dispatch-Loop (Architektur-Review C1) ─────────────────
 	// Schließt den ADMITTED → RUNNING → terminal → Release-Zyklus:
 	//   1. recoverSchedulerState (stale ADMITTED/dead RUNNING requeuen)
-	//   2. admitNext (atomare Admission)
-	//   3. admitiertes Item → echter Run via runFullPipeline + markRunStarted
+	//   2. Admission bis zur globalen Kapazität (mehrere Items pro Tick)
+	//   3. admitierte Items → echte Runs via runFullPipeline + markRunStarted
 	//   4. fertig → markRunFinished (COMPLETED/FAILED/BLOCKED/CANCELLED)
 	// Der Loop ist idempotent: markRunStarted ist state-guarded (nur
 	// ADMITTED → RUNNING), doppelte Loop-Instanzen admitieren nicht doppelt
 	// (BEGIN IMMEDIATE) und starten nicht doppelt.
+	//
+	// P4 (Slice C): BOUNDED CONCURRENT DISPATCH — pro Tick werden bis zu
+	// maxActiveRuns Runs admitiert und PARALLEL dispatched (kein
+	// `for { await runPipeline }`); die Begrenzung kommt ausschließlich aus
+	// der Admission (globale Kapazität, Repo-Lock, Provider-Capacity).
+	// Kein unbounded Promise.all: der Admission-Loop endet bei voller
+	// Kapazität, und in-flight Dispatches werden einzeln verfolgt.
 	let schedulerLoopRunning = false;
+	const inFlightDispatches = new Set<Promise<void>>();
+
+	const dispatchRun = async (
+		item: import('@positron/control-plane').QueueItemRecord,
+		run: RunState,
+	): Promise<void> => {		try {
+			const completed = await runFullPipeline(
+				run,
+				repository,
+				activeWorkspaceAdapter,
+				activeSpecKitAdapter,
+				activeOpenCodeAdapter,
+				github,
+				syncService,
+			);
+			const terminal: 'COMPLETED' | 'FAILED' | 'BLOCKED' =
+				completed.status === 'done'
+					? 'COMPLETED'
+					: completed.status === 'blocked'
+						? 'BLOCKED'
+						: 'FAILED';
+			markRunFinished(
+				getDb(),
+				item.queue_item_id,
+				terminal,
+				run.id,
+				'READY',
+				schedulerCfg,
+			);
+		} catch (err) {
+			// Pipeline-Fehler → Item als FAILED finalisieren
+			// (Ressource freigeben, kein hängendes RUNNING).
+			markRunFinished(getDb(), item.queue_item_id, 'FAILED', run.id, 'READY', schedulerCfg);
+			console.error(
+				`[Scheduler] run ${run.id} failed: ${err instanceof Error ? err.message : String(err)}`,
+			);
+		}
+	};
+
 	const schedulerLoopTick = async (): Promise<void> => {
 		if (schedulerLoopRunning) return;
 		schedulerLoopRunning = true;
@@ -2467,65 +2514,38 @@ export function createApp(options: ServerOptions = {}) {
 				const row = getDb().prepare('SELECT 1 FROM runs WHERE id = ?').get(runId);
 				return row !== undefined;
 			});
-			// 2. EIN Item pro Tick admitieren und starten
-			const decision = admitNext(getDb(), schedulerCfg);
-			if (decision?.admitted) {
+			// 2. Admission bis Capacity (atomar; Kapazität zählt RUNNING+ADMITTED)
+			const admitted: Array<{
+				item: import('@positron/control-plane').QueueItemRecord;
+				run: RunState;
+			}> = [];
+			while (admitted.length < schedulerCfg.maxActiveRuns) {
+				const decision = admitNext(getDb(), schedulerCfg);
+				if (!decision?.admitted) break;
 				const item = getQueueItem(getDb(), decision.queue_item_id);
-				if (item) {
-					const run = createRun(
-						item.repository_ref,
-						Number.parseInt(item.source_ref.replace(/^issue[#/]?/, ''), 10) || 1,
-						2,
-					);
-					saveRunToDb(run);
-					const started = markRunStarted(
-						getDb(),
-						item.queue_item_id,
-						run.id,
-						schedulerCfg,
-					);
-					if (started) {
-						try {
-							const completed = await runFullPipeline(
-								run,
-								repository,
-								activeWorkspaceAdapter,
-								activeSpecKitAdapter,
-								activeOpenCodeAdapter,
-								github,
-								syncService,
-							);
-							const terminal: 'COMPLETED' | 'FAILED' | 'BLOCKED' =
-								completed.status === 'done'
-									? 'COMPLETED'
-									: completed.status === 'blocked'
-										? 'BLOCKED'
-										: 'FAILED';
-							markRunFinished(
-								getDb(),
-								item.queue_item_id,
-								terminal,
-								run.id,
-								terminal === 'COMPLETED' ? 'READY' : 'READY',
-								schedulerCfg,
-							);
-						} catch (err) {
-							// Pipeline-Fehler → Item als FAILED finalisieren
-							// (Ressource freigeben, kein hängendes RUNNING).
-							markRunFinished(
-								getDb(),
-								item.queue_item_id,
-								'FAILED',
-								run.id,
-								'READY',
-								schedulerCfg,
-							);
-							console.error(
-								`[Scheduler] run ${run.id} failed: ${err instanceof Error ? err.message : String(err)}`,
-							);
-						}
-					}
+				if (!item) continue;
+				const run = createRun(
+					item.repository_ref,
+					Number.parseInt(item.source_ref.replace(/^issue[#/]?/, ''), 10) || 1,
+					2,
+				);
+				saveRunToDb(run);
+				const started = markRunStarted(getDb(), item.queue_item_id, run.id, schedulerCfg);
+				if (started) {
+					admitted.push({ item, run });
 				}
+			}
+			// 3. Konkurrierender Dispatch (bounded durch Admission/Capacity):
+			//    die Dispatches laufen parallel; der Tick wartet nicht seriell
+			//    auf die Pipeline (kein `for { await runPipeline }`).
+			for (const { item, run } of admitted) {
+				const promise = dispatchRun(item, run);
+				inFlightDispatches.add(promise);
+				promise
+					.finally(() => inFlightDispatches.delete(promise))
+					.catch(() => {
+						/* Fehler sind in dispatchRun behandelt */
+					});
 			}
 		} finally {
 			schedulerLoopRunning = false;
@@ -2533,11 +2553,20 @@ export function createApp(options: ServerOptions = {}) {
 	};
 
 	// Periodischer Tick (default 5s; Tests deaktivieren via env)
+	let schedulerInterval: ReturnType<typeof setInterval> | null = null;
 	if (process.env.POSITRON_SCHEDULER_DISABLED !== 'true') {
-		setInterval(() => {
+		schedulerInterval = setInterval(() => {
 			void schedulerLoopTick();
 		}, Number(process.env.POSITRON_SCHEDULER_INTERVAL_MS ?? 5000)).unref();
 	}
+	// P4 (Slice C): Server-Close stoppt den Dispatch-Loop — kein Tick läuft
+	// nach dem Schließen weiter (kein Cross-Dispatch in geteilten Prozessen).
+	stopSchedulerInterval = () => {
+		if (schedulerInterval) {
+			clearInterval(schedulerInterval);
+			schedulerInterval = null;
+		}
+	};
 
 	app.get('/api/scheduler/queue', (_req, res) => {
 		try {
@@ -3537,12 +3566,16 @@ export function createServer(options: ServerOptions = {}) {
 	const app = createApp(options);
 	const server = http.createServer(app);
 
-	// Watcher beim Server-Close automatisch stoppen
+	// Watcher + Scheduler-Loop beim Server-Close automatisch stoppen
 	const originalClose = server.close.bind(server);
 	server.close = (callback?: (err?: Error) => void) => {
 		if (stopWatcher) {
 			stopWatcher();
 			stopWatcher = null;
+		}
+		if (stopSchedulerInterval) {
+			stopSchedulerInterval();
+			stopSchedulerInterval = null;
 		}
 		return originalClose(callback);
 	};
