@@ -337,6 +337,86 @@ export function stopRunHeartbeats(runId: string): void {
 	runHeartbeatStops.delete(runId);
 }
 
+// ---------------------------------------------------------------------------
+// P4 (Slice B): Run-Cancellation — AbortSignal-Propagation
+//
+// Cancel request → run_signals (DB, von Server/API) ODER externes
+// AbortSignal (deps.signal) → Run-AbortController → Worker-Aufrufe
+// (opencode/speckit/test-runner) → Child-Prozess-Terminierung
+// (graceful SIGTERM → forced SIGKILL, command-runner.ts).
+// ---------------------------------------------------------------------------
+
+interface RunCancellation {
+	signal: AbortSignal;
+	stop: () => void;
+}
+
+/**
+ * Erzeugt das run-scoped AbortSignal:
+ *  - externes Signal (deps.signal, z. B. Server-Cancel-Controller) wird
+ *    weitergeleitet (einmaliger Listener, kein Leak),
+ *  - ein run_signals-Watcher pollt die geteilte DB (deckt BullMQ-Worker
+ *    UND Server-Inline-Fallback ab — beide nutzen dieselbe run_signals-Tabelle).
+ * Nach Terminal/Abort muss `stop()` den Watcher beenden (kein Timer-Leak).
+ */
+function createRunCancellation(runId: string, deps: PipelineDeps): RunCancellation {
+	const controller = new AbortController();
+	const external = deps.signal;
+	if (external) {
+		if (external.aborted) {
+			controller.abort();
+		} else {
+			external.addEventListener('abort', () => controller.abort(), { once: true });
+		}
+	}
+	const db = getDb(deps);
+	const timer = setInterval(() => {
+		const sig = checkSignal(db, runId);
+		if (sig?.toLowerCase() === 'abort') controller.abort();
+	}, 1000);
+	timer.unref();
+	return {
+		signal: controller.signal,
+		stop: () => clearInterval(timer),
+	};
+}
+
+/** Baut den Run-Cancelled-Zustand (status cancelled, finishedAt gesetzt). */
+function cancelledRunState(current: RunState): RunState {
+	return {
+		...current,
+		status: 'cancelled' as RunState['status'],
+		finishedAt: new Date().toISOString(),
+	};
+}
+
+function storeCancelEvent(current: RunState, deps: PipelineDeps, reason: string): void {
+	storeEvent(
+		{
+			id: createRunId(),
+			runId: current.id,
+			phase: current.phase,
+			level: 'INFO',
+			message: reason,
+			payload: { action: 'abort' },
+			createdAt: new Date().toISOString(),
+		},
+		deps,
+	);
+}
+
+/**
+ * P4 (Slice B): Fehlerklassifikation unter Cancellation — ein Abbruch ist
+ * kein Infrastrukturfehler: der Attempt endet als `CANCELLED` (final,
+ * Transition-Guard verhindert spätere Überschreibung).
+ */
+function failureClassOrCancelled(
+	ctx: { signal: AbortSignal },
+	fallback: AttemptRecord['failure_class'],
+): AttemptRecord['failure_class'] {
+	return ctx.signal.aborted ? 'CANCELLED' : fallback;
+}
+
 /**
  * Erstellt (oder findet) den Job eines Typs für einen Run und öffnet einen
  * neuen Attempt. Idempotenz: Wurde der Dispatch bereits geclaimed, gilt der
@@ -879,7 +959,11 @@ async function generateResearchDocument(
 // Phase Executor
 // ---------------------------------------------------------------------------
 
-async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState> {
+async function executePhase(
+	run: RunState,
+	deps: PipelineDeps,
+	ctx: { signal: AbortSignal },
+): Promise<RunState> {
 	const current = run;
 	let result: TransitionResult;
 
@@ -1091,6 +1175,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						issueNumber: current.issueNumber,
 						mode: 'safe-cli',
 						aiAgent: 'opencode',
+						signal: ctx.signal,
 					});
 					if (initResult.status === 'success') {
 						storeEvent(
@@ -1111,6 +1196,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 							issueTitle: `Issue #${current.issueNumber}`,
 							issueNumber: current.issueNumber,
 							mode: 'safe-cli',
+							signal: ctx.signal,
 						});
 						if (specResult.status === 'success') {
 							// P3: Artefakt-Output-Boundary (§24)
@@ -1166,6 +1252,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				issueTitle: `Issue #${current.issueNumber}`,
 				issueNumber: current.issueNumber,
 				mode: 'artifact-only' as const,
+				signal: ctx.signal,
 			};
 			try {
 				const sr = await deps.speckit.runSpecify(input);
@@ -1199,7 +1286,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 			} catch (err) {
 				const errMsg = `Specify error: ${String(err).slice(0, 200)}`;
 				finalizeTrackedAttempt(tracking, deps, 'failed', {
-					failure_class: 'INFRA_FAILURE',
+					failure_class: failureClassOrCancelled(ctx, 'INFRA_FAILURE'),
 					failure_signature: errMsg,
 				});
 				result = markFailed(current, 'FAILED_TRANSIENT', errMsg);
@@ -1256,6 +1343,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						issueTitle: `Issue #${current.issueNumber}`,
 						issueNumber: current.issueNumber,
 						mode: 'safe-cli',
+						signal: ctx.signal,
 					});
 					if (planResult.status === 'success') {
 						// P3: Artefakt-Output-Boundary (§24)
@@ -1310,6 +1398,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				issueTitle: `Issue #${current.issueNumber}`,
 				issueNumber: current.issueNumber,
 				mode: 'artifact-only' as const,
+				signal: ctx.signal,
 			};
 			try {
 				const pr = await deps.speckit.runPlan(input);
@@ -1430,7 +1519,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 			} catch (err) {
 				const planErrMsg = `Plan error: ${String(err).slice(0, 200)}`;
 				finalizeTrackedAttempt(tracking, deps, 'failed', {
-					failure_class: 'INFRA_FAILURE',
+					failure_class: failureClassOrCancelled(ctx, 'INFRA_FAILURE'),
 					failure_signature: planErrMsg,
 				});
 				result = markFailed(current, 'FAILED_TRANSIENT', planErrMsg);
@@ -1485,6 +1574,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						issueTitle: `Issue #${current.issueNumber}`,
 						issueNumber: current.issueNumber,
 						mode: 'safe-cli',
+						signal: ctx.signal,
 					});
 					if (tasksResult.status === 'success') {
 						// P3: Artefakt-Output-Boundary (§24)
@@ -1539,6 +1629,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				issueTitle: `Issue #${current.issueNumber}`,
 				issueNumber: current.issueNumber,
 				mode: 'artifact-only' as const,
+				signal: ctx.signal,
 			};
 			try {
 				const tr = await deps.speckit.runTasks(input);
@@ -1576,7 +1667,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 			} catch (err) {
 				const tasksErrMsg = `Tasks error: ${String(err).slice(0, 200)}`;
 				finalizeTrackedAttempt(tracking, deps, 'failed', {
-					failure_class: 'INFRA_FAILURE',
+					failure_class: failureClassOrCancelled(ctx, 'INFRA_FAILURE'),
 					failure_signature: tasksErrMsg,
 				});
 				result = markFailed(current, 'FAILED_TRANSIENT', tasksErrMsg);
@@ -1624,6 +1715,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				issueTitle: `Issue #${current.issueNumber}`,
 				issueNumber: current.issueNumber,
 				mode: 'artifact-only' as const,
+				signal: ctx.signal,
 			};
 			try {
 				const ar = await deps.speckit.runAnalyze(input);
@@ -1659,7 +1751,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 					deps,
 				);
 				finalizeTrackedAttempt(tracking, deps, 'failed', {
-					failure_class: 'INFRA_FAILURE',
+					failure_class: failureClassOrCancelled(ctx, 'INFRA_FAILURE'),
 					failure_signature: `analyze:${String(err).slice(0, 200)}`,
 				});
 				result = transition(current, 'REVIEW', 'Analysis complete', 'INFO');
@@ -1697,6 +1789,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				issueNumber: current.issueNumber,
 				mode: 'safe-cli' as const,
 				autonomyLevel: current.autonomyLevel,
+				signal: ctx.signal,
 			};
 
 			// Issue #421: Persistent Attempt-Tracking mit Idempotenz.
@@ -1792,7 +1885,8 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 					);
 				} else if (outcome === 'RETRY') {
 					// Provider-/Infrastruktur-Fehler werden klassifiziert —
-					// NIE als Modellunfähigkeit gewertet.
+					// NIE als Modellunfähigkeit gewertet. Unter Cancellation
+					// ist der Abbruch die Wahrheit (CANCELLED, kein Retry).
 					const classified = classifyFailure({
 						stderr: ir.summary,
 						exitCode: ir.exitCode ?? 1,
@@ -1801,8 +1895,14 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						status: 'failed',
 						output_contract: 'positron.build-result.v1',
 						output_fingerprint: fingerprint({ phase: 'implement', status: ir.status }),
-						failure_class: classified.signature as AttemptRecord['failure_class'],
-						failure_signature: `implement:${classified.signature}`,
+						failure_class: ctx.signal.aborted
+							? 'CANCELLED'
+							: (classified.signature === 'UNKNOWN'
+									? 'INFRA_FAILURE'
+									: (classified.signature as AttemptRecord['failure_class'])),
+						failure_signature: ctx.signal.aborted
+							? 'implement:cancelled'
+							: `implement:${classified.signature}`,
 						new_evidence: ir.summary.slice(0, 500),
 						result_ref: `opencode:${ir.sessionId ?? 'none'}`,
 					});
@@ -1871,7 +1971,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 				const implErrMsg = `Implement error: ${String(err).slice(0, 200)}`;
 				completeTrackedAttempt(tracking, deps, {
 					status: 'failed',
-					failure_class: 'INFRA_FAILURE',
+					failure_class: failureClassOrCancelled(ctx, 'INFRA_FAILURE'),
 					failure_signature: `implement-error:${implErrMsg}`,
 				});
 				result = markFailed(current, 'FAILED_TRANSIENT', implErrMsg);
@@ -1996,6 +2096,7 @@ async function executePhase(run: RunState, deps: PipelineDeps): Promise<RunState
 						workspacePath: wsPath,
 						commands: detection.commands,
 						mode: 'standard',
+						signal: ctx.signal,
 					});
 
 					// Sync to GitHub (existing logic)
@@ -2784,14 +2885,20 @@ export async function runPipeline(run: RunState, deps: PipelineDeps): Promise<Ru
 	// P4: Heartbeat-Cleanup ist garantiert — bei Erfolg, Fehler, Timeout,
 	// Cancellation, Ownership-Verlust und geworfenen Exceptions stoppen ALLE
 	// Heartbeats dieses Runs (kein Timer-Leak, keine Renews nach Terminal).
+	const cancellation = createRunCancellation(run.id, deps);
 	try {
-		return await runPipelineInner(run, deps);
+		return await runPipelineInner(run, deps, cancellation);
 	} finally {
+		cancellation.stop();
 		stopRunHeartbeats(run.id);
 	}
 }
 
-async function runPipelineInner(run: RunState, deps: PipelineDeps): Promise<RunState> {
+async function runPipelineInner(
+	run: RunState,
+	deps: PipelineDeps,
+	cancellation: RunCancellation,
+): Promise<RunState> {
 	let current = run;
 	const maxSteps = 20;
 	let attempt = 0;
@@ -2830,26 +2937,19 @@ async function runPipelineInner(run: RunState, deps: PipelineDeps): Promise<RunS
 	let lastRetryTime = 0;
 
 	for (let i = 0; i < maxSteps; i++) {
+		// P4 (Slice B): Cancellation am Phasen-Boundary — kein nächster
+		// Phasenstart nach Cancel (AbortSignal UND run_signals-Tabelle).
+		if (cancellation.signal.aborted) {
+			const cancelled = cancelledRunState(current);
+			storeCancelEvent(current, deps, 'Run cancelled (abort signal — no next phase)');
+			saveRunToDb(cancelled, deps);
+			return cancelled;
+		}
 		// Check control signals (shared with server via run_signals DB table)
 		const sig = checkSignal(deps.db, current.id, current.phase);
 		if (sig?.toLowerCase() === 'abort') {
-			const cancelled = {
-				...current,
-				status: 'cancelled' as RunState['status'],
-				finishedAt: new Date().toISOString(),
-			};
-			storeEvent(
-				{
-					id: createRunId(),
-					runId: current.id,
-					phase: current.phase,
-					level: 'INFO',
-					message: 'Run aborted by user (worker)',
-					payload: { action: 'abort' },
-					createdAt: new Date().toISOString(),
-				},
-				deps,
-			);
+			const cancelled = cancelledRunState(current);
+			storeCancelEvent(current, deps, 'Run aborted by user (worker)');
 			saveRunToDb(cancelled, deps);
 			return cancelled;
 		}
@@ -2868,26 +2968,17 @@ async function runPipelineInner(run: RunState, deps: PipelineDeps): Promise<RunS
 				deps,
 			);
 			while (true) {
+				if (cancellation.signal.aborted) {
+					const cancelled = cancelledRunState(current);
+					storeCancelEvent(current, deps, 'Run cancelled while paused (abort signal)');
+					saveRunToDb(cancelled, deps);
+					return cancelled;
+				}
 				await new Promise((r) => setTimeout(r, 3000));
 				const s = checkSignal(deps.db, current.id, current.phase);
 				if (s?.toLowerCase() === 'abort') {
-					const cancelled = {
-						...current,
-						status: 'cancelled' as RunState['status'],
-						finishedAt: new Date().toISOString(),
-					};
-					storeEvent(
-						{
-							id: createRunId(),
-							runId: current.id,
-							phase: current.phase,
-							level: 'INFO',
-							message: 'Run aborted while paused (worker)',
-							payload: null,
-							createdAt: new Date().toISOString(),
-						},
-						deps,
-					);
+					const cancelled = cancelledRunState(current);
+					storeCancelEvent(current, deps, 'Run aborted while paused (worker)');
 					saveRunToDb(cancelled, deps);
 					return cancelled;
 				}
@@ -2895,7 +2986,18 @@ async function runPipelineInner(run: RunState, deps: PipelineDeps): Promise<RunS
 			}
 		}
 
-		let next = await executePhase(current, deps);
+		let next = await executePhase(current, deps, { signal: cancellation.signal });
+		// P4 (Slice B): Abort WÄHREND der Phase (Worker wurde real terminiert) —
+		// der Run endet als cancelled, die Phase wird NICHT fortgesetzt
+		// (kein nächster Phasenstart, keine weitere Mutation). Der Attempt
+		// selbst ist bereits final (CANCELLED) — Transition-Guard + Fencing
+		// verwerfen spätere Ergebnisse.
+		if (cancellation.signal.aborted) {
+			const cancelled = cancelledRunState(current);
+			storeCancelEvent(current, deps, 'Run cancelled (abort signal — worker terminated)');
+			saveRunToDb(cancelled, deps);
+			return cancelled;
+		}
 		if (next.phase === current.phase || next.phase === 'DONE' || next.phase.startsWith('FAILED')) {
 			// --- Fix-Loop (Issue #421: delta-based retry policy) ---
 			if (fixLoopEnabled && next.phase === 'FAILED_TRANSIENT' && attempt < maxAttempts) {

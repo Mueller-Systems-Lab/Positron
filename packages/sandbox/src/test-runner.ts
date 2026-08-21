@@ -10,6 +10,8 @@ export interface RunOptions {
 	workspacePath: string;
 	commands: DetectedTestCommand[];
 	mode: 'standard' | 'verbose' | 'ci';
+	/** P4 (Slice B): AbortSignal — bei abort wird der Testprozess real terminiert */
+	signal?: AbortSignal;
 }
 
 /**
@@ -25,18 +27,31 @@ export class TestRunner {
  * Führt Tests für alle erkannten Test-Kommandos aus.
  */
 async function runDetectedCommandsImpl(options: RunOptions): Promise<TestReport> {
-	const { workspacePath, commands, mode } = options;
+	const { workspacePath, commands, mode, signal } = options;
 	const results: TestCommandExecutionResult[] = [];
 	let passed = 0;
 	let failed = 0;
 	let totalDuration = 0;
 
 	for (const cmd of commands) {
+		if (signal?.aborted) {
+			failed++;
+			results.push({
+				command: `${cmd.command} ${cmd.args.join(' ')}`,
+				exitCode: null,
+				stdout: '',
+				stderr: 'cancelled',
+				durationMs: 0,
+			});
+			continue;
+		}
 		const startTime = Date.now();
 		try {
 			const result = await runCommand(cmd.command, cmd.args, {
 				cwd: workspacePath,
 				timeout: 300_000, // 5 Minuten
+				// P4 (Slice B): Cancellation terminiert den Testprozess real
+				signal,
 			});
 
 			const duration = Date.now() - startTime;

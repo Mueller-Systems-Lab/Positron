@@ -103,6 +103,9 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 			const result = await runCommand('opencode', args, {
 				cwd: input.workspacePath,
 				timeout: 300_000, // 5 Minuten für Agent-Kommandos
+				// P4 (Slice B): AbortSignal → realer Child-Prozess wird bei
+				// Cancel terminiert (graceful SIGTERM → forced SIGKILL).
+				signal: input.signal,
 			});
 
 			// CLI-Output als Evidence-Dateien speichern

@@ -89,6 +89,12 @@ export interface OpenCodeRunInput {
 	autonomyLevel?: number;
 	/** Phase-Name für spec-driven-development (z.B. "specify", "plan", "tasks") */
 	phaseName?: string;
+	/**
+	 * P4 (Slice B): AbortSignal für aktive Cancellation.
+	 * Bei abort terminiert der Adapter den Child-Prozess real
+	 * (graceful SIGTERM → forced SIGKILL) statt nur den Promise zu beenden.
+	 */
+	signal?: AbortSignal;
 }
 
 /** OpenCode Adapter Interface */

@@ -37,6 +37,11 @@ export function createCancelHandler(deps: Record<string, any>) {
 		}
 
 		deps.setRunSignal(id, 'ABORT');
+		// P4 (Slice B): in-flight Run sofort abortern (AbortSignal →
+		// runPipeline → Worker-Aufruf → Child-Prozess-Terminierung).
+		// Optional: Server ohne registrierten Controller (z. B. BullMQ-Worker
+		// in anderem Prozess) verlässt sich auf den run_signals-Watcher.
+		deps.abortRun?.(id);
 
 		const db = deps.getDb();
 		const now = new Date().toISOString();

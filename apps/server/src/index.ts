@@ -631,6 +631,14 @@ async function safeSync(
 	}
 }
 
+// P4 (Slice B): Registrierte AbortController in-flight Runs — der
+// Cancel-Endpoint aborted den laufenden Run sofort (falls im selben Prozess).
+const runAbortControllers = new Map<string, AbortController>();
+
+function abortRun(runId: string): void {
+	runAbortControllers.get(runId)?.abort();
+}
+
 async function runFullPipeline(
 	run: RunState,
 	repository: RepositoryConfig,
@@ -649,38 +657,47 @@ async function runFullPipeline(
 		options?.startFromPhase && options.startFromPhase !== run.phase
 			? { ...run, phase: options.startFromPhase as Phase, status: 'active', lastError: null }
 			: run;
-	const pipelineDeps: PipelineDeps = {
-		db: getDb(),
-		repository,
-		workspace,
-		speckit,
-		opencode,
-		github,
-		syncService,
-		gateRuntimeMode,
-		// P4: zentrale, validierte Attempt-Lease-TTL (POSITRON_ATTEMPT_LEASE_TTL_MS)
-		attemptLeaseTtlMs: resolveAttemptLeaseTtlMs(process.env),
-		// SSE-Kompatibilität: jedes gespeicherte run_event wird gebroadcastet
-		onEvent: (ev) => {
-			try {
-				broadcastSSE(ev.runId, 'run-event', ev);
-			} catch {
-				/* SSE-Fehler sind nicht kritisch */
-			}
-		},
-	};
-	const result = await runPipeline(startRun, pipelineDeps);
-	// Terminal-Broadcast für SSE-Kompatibilität
+	// P4 (Slice B): Run-scoped AbortController — Cancel-Endpoint kann den
+	// laufenden Run sofort abortern (AbortSignal → Worker → Child-Prozess).
+	const abortController = new AbortController();
+	runAbortControllers.set(run.id, abortController);
 	try {
-		broadcastSSE(result.id, 'run-update', {
-			phase: result.phase,
-			status: result.status,
-			branch: result.branch,
-		});
-	} catch {
-		/* SSE-Fehler sind nicht kritisch */
+		const pipelineDeps: PipelineDeps = {
+			db: getDb(),
+			repository,
+			workspace,
+			speckit,
+			opencode,
+			github,
+			syncService,
+			gateRuntimeMode,
+			// P4: zentrale, validierte Attempt-Lease-TTL (POSITRON_ATTEMPT_LEASE_TTL_MS)
+			attemptLeaseTtlMs: resolveAttemptLeaseTtlMs(process.env),
+			signal: abortController.signal,
+			// SSE-Kompatibilität: jedes gespeicherte run_event wird gebroadcastet
+			onEvent: (ev) => {
+				try {
+					broadcastSSE(ev.runId, 'run-event', ev);
+				} catch {
+					/* SSE-Fehler sind nicht kritisch */
+				}
+			},
+		};
+		const result = await runPipeline(startRun, pipelineDeps);
+		// Terminal-Broadcast für SSE-Kompatibilität
+		try {
+			broadcastSSE(result.id, 'run-update', {
+				phase: result.phase,
+				status: result.status,
+				branch: result.branch,
+			});
+		} catch {
+			/* SSE-Fehler sind nicht kritisch */
+		}
+		return result;
+	} finally {
+		runAbortControllers.delete(run.id);
 	}
-	return result;
 }
 
 /**
@@ -2606,10 +2623,18 @@ export function createApp(options: ServerOptions = {}) {
 	// Cancel queued/running item (write endpoint — requires admin auth)
 	app.post('/api/scheduler/items/:id/cancel', requireAdmin, express.json(), (req, res) => {
 		try {
+			const before = getQueueItem(getDb(), req.params.id as string);
 			const cancelled = cancelQueueItem(getDb(), req.params.id as string);
 			if (!cancelled) {
 				res.status(404).json({ error: 'queue item not found' });
 				return;
+			}
+			// P4 (Slice B): Cancel eines RUNNING-Items bricht den laufenden
+			// Run real ab (AbortSignal → Worker → Child-Prozess-Terminierung),
+			// damit die RUNNING-Cancellation nicht nur im Queue-State hängt.
+			if (before?.queue_state === 'RUNNING' && before.run_id) {
+				setRunSignal(before.run_id, 'ABORT');
+				abortRun(before.run_id);
 			}
 			res.json({ cancelled });
 		} catch (err) {
@@ -3296,6 +3321,7 @@ export function createApp(options: ServerOptions = {}) {
 			storeEvent,
 			broadcastSSE,
 			createRunId,
+			abortRun,
 		}),
 	);
 
