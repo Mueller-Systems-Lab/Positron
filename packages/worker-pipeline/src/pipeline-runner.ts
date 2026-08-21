@@ -26,6 +26,7 @@ import {
 	recoverStaleLeases,
 	renewAttemptLease,
 	resolveAttemptLeaseTtlMs,
+	resolveEffectiveHarnessFromEnv,
 	resolveHarnessProfileFromEnv,
 	storeDecision,
 	updateJobState,
@@ -552,6 +553,17 @@ function trackJobAttempt(
 		model,
 	});
 
+	// P5.2 — Effective Runtime Configuration: deterministischer Profile
+	// Compiler (Model/Task Profile + Kernel-Policy ∩ Profil). Fail-closed
+	// (ProfileCompilationError) — der Worker erhält NUR kompilierte,
+	// allowlisted Felder; keine Freiform-Passthrough-Konfiguration.
+	const effectiveHarness = resolveEffectiveHarnessFromEnv(process.env, {
+		taskType: jobType,
+		workerType,
+		provider,
+		model,
+	});
+
 	const attempt = createAttempt(db, run.id, String(job.job_id), {
 		status: 'pending',
 		worker_type: workerType,
@@ -570,6 +582,8 @@ function trackJobAttempt(
 		provider_adapter_id: harnessRef.provider_adapter_id,
 		provider_adapter_version: harnessRef.provider_adapter_version,
 		model_provenance_status: harnessRef.model_provenance_status,
+		effective_harness_config: JSON.stringify(effectiveHarness),
+		effective_harness_fingerprint: effectiveHarness.fingerprint,
 	});
 	const idemKey = idempotencyKey(run.id, String(job.job_id), attempt.attempt_id);
 	const duplicate = !registry.claim(idemKey);

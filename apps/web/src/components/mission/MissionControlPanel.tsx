@@ -543,6 +543,25 @@ export default function MissionControlPanel({
 													</code>
 												}
 											/>
+											{/* P5.2 — Effective Permissions (Kernel ∩ Profil, Backend Truth) */}
+											<KeyValue
+												label="effective perms"
+												value={
+													<code className="text-[11px]">
+														{last.effective_permissions
+															? [
+																	last.effective_permissions.mutation ? 'mutation' : null,
+																	last.effective_permissions.push ? 'push' : null,
+																	last.effective_permissions.merge ? 'merge' : null,
+																	last.effective_permissions.deploy ? 'deploy' : null,
+																	last.effective_permissions.secret_access ? 'secret' : null,
+																]
+																	.filter(Boolean)
+																	.join(', ') || 'read-only'
+															: '—'}
+													</code>
+												}
+											/>
 											<KeyValue
 												label="status"
 												value={
@@ -558,6 +577,10 @@ export default function MissionControlPanel({
 												<FingerprintValue
 													label="Harness"
 													value={last.harness_fingerprint ?? null}
+												/>
+												<FingerprintValue
+													label="Effective"
+													value={last.effective_harness_fingerprint ?? null}
 												/>
 											</div>
 										</>

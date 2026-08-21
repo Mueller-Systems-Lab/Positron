@@ -169,6 +169,39 @@ describe('MIGRATION_IDEMPOTENT', () => {
 	});
 });
 
+describe('MIGRATION_V8_P5_2 (Effective Runtime Configuration)', () => {
+	it('V8 adds effective config columns additively, legacy rows stay NULL', () => {
+		const db = createCanonicalP4Db();
+		const job = createJob(db, 'run_legacy_v8', 'build');
+		insertP4LegacyAttempt(db, 'run_legacy_v8', job.job_id, 'att_legacy_v8');
+
+		applyControlPlaneMigrations(db);
+
+		const columns = v7Columns(db);
+		expect(columns).toContain('effective_harness_config');
+		expect(columns).toContain('effective_harness_fingerprint');
+
+		const row = db
+			.prepare(
+				'SELECT effective_harness_config, effective_harness_fingerprint FROM cp_attempts WHERE attempt_id = ?',
+			)
+			.get('att_legacy_v8') as {
+			effective_harness_config: string | null;
+			effective_harness_fingerprint: string | null;
+		};
+		expect(row.effective_harness_config).toBeNull();
+		expect(row.effective_harness_fingerprint).toBeNull();
+	});
+
+	it('V8 is idempotent (second apply is a no-op)', () => {
+		const db = createCanonicalP4Db();
+		applyControlPlaneMigrations(db);
+		const afterFirst = v7Columns(db).join(',');
+		applyControlPlaneMigrations(db);
+		expect(v7Columns(db).join(',')).toBe(afterFirst);
+	});
+});
+
 describe('P5.1 PERSISTENCE FIELDS', () => {
 	it('HARNESS_PROFILE_ID_PERSISTED / HARNESS_PROFILE_VERSION_PERSISTED', () => {
 		const db = new Database(':memory:');

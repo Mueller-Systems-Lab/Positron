@@ -82,6 +82,7 @@ export {
 	taskProfileSemantics,
 	intersectPermissions,
 	compileEffectiveHarness,
+	resolveEffectiveHarnessFromEnv,
 	buildTaskProfile,
 	PLAN_TASK_PROFILE,
 	BUILD_TASK_PROFILE,

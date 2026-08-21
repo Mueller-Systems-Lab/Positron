@@ -115,6 +115,11 @@ export interface AttemptRecord {
 	provider_adapter_version: string | null;
 	/** KNOWN | PROVENANCE_UNAVAILABLE | LEGACY_PROFILE_UNSPECIFIED */
 	model_provenance_status: string | null;
+	// ── P5.2 Effective Runtime Configuration (V8) ─────────────────────────
+	/** Validierter positron.effective-harness.v1 Contract (JSON) */
+	effective_harness_config: string | null;
+	/** SHA-256 der Effective Config (ohne Runtime-Werte) */
+	effective_harness_fingerprint: string | null;
 }
 
 export function createId(prefix: string): string {
@@ -282,6 +287,9 @@ export function createAttempt(
 		provider_adapter_id: initial.provider_adapter_id ?? null,
 		provider_adapter_version: initial.provider_adapter_version ?? null,
 		model_provenance_status: initial.model_provenance_status ?? null,
+		// P5.2: Effective Runtime Configuration (additiv, nullable)
+		effective_harness_config: initial.effective_harness_config ?? null,
+		effective_harness_fingerprint: initial.effective_harness_fingerprint ?? null,
 	};
 	db.prepare(
 		`INSERT INTO cp_attempts (attempt_id, run_id, job_id, status, input_contract, input_fingerprint,
@@ -290,8 +298,8 @@ export function createAttempt(
 		   previous_attempt_id, lease_owner_id, lease_generation, lease_expires_at, claimed_at,
 		   harness_profile_id, harness_profile_version, harness_fingerprint, harness_profile_ref,
 		   task_profile_id, task_profile_version, task_type, provider_adapter_id, provider_adapter_version,
-		   model_provenance_status)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		   model_provenance_status, effective_harness_config, effective_harness_fingerprint)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 	).run(
 		attempt.attempt_id,
 		attempt.run_id,
@@ -328,6 +336,8 @@ export function createAttempt(
 		attempt.provider_adapter_id,
 		attempt.provider_adapter_version,
 		attempt.model_provenance_status,
+		attempt.effective_harness_config,
+		attempt.effective_harness_fingerprint,
 	);
 	return attempt;
 }
@@ -726,6 +736,12 @@ export function mapAttemptRow(row: Record<string, unknown>): AttemptRecord {
 			: null,
 		model_provenance_status: row.model_provenance_status
 			? String(row.model_provenance_status)
+			: null,
+		effective_harness_config: row.effective_harness_config
+			? String(row.effective_harness_config)
+			: null,
+		effective_harness_fingerprint: row.effective_harness_fingerprint
+			? String(row.effective_harness_fingerprint)
 			: null,
 	};
 }

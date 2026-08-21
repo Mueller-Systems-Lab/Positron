@@ -2350,6 +2350,46 @@ export function createApp(options: ServerOptions = {}) {
 	// Extrahiert strukturierte Verify-Gate-Checks aus einem cp_attempts-Row.
 	// Nur für Attempts mit output_contract positron.verification.v1; das
 	// raw output_json wird NIE exponiert (Privacy by Default).
+	/**
+	 * P5.2 — Effective Permission Summary aus dem persistierten
+	 * positron.effective-harness.v1 Contract. Es werden NUR die
+	 * effektiven Permission-Booleans exponiert (Kernel ∩ Profil) — der
+	 * vollständige Contract (inkl. Tools/Context) wird bewusst NICHT
+	 * roh ausgegeben (Privacy by Default, keine Secret-/Prompt-Inhalte).
+	 */
+	function parseEffectivePermissions(row: Record<string, unknown>): {
+		mutation: boolean;
+		push: boolean;
+		merge: boolean;
+		deploy: boolean;
+		secret_access: boolean;
+	} | null {
+		const raw = row.effective_harness_config;
+		if (typeof raw !== 'string') return null;
+		try {
+			const parsed = JSON.parse(raw) as {
+				effective_permissions?: {
+					mutation?: unknown;
+					push?: unknown;
+					merge?: unknown;
+					deploy?: unknown;
+					secret_access?: unknown;
+				};
+			};
+			const p = parsed.effective_permissions;
+			if (!p) return null;
+			return {
+				mutation: p.mutation === true,
+				push: p.push === true,
+				merge: p.merge === true,
+				deploy: p.deploy === true,
+				secret_access: p.secret_access === true,
+			};
+		} catch {
+			return null;
+		}
+	}
+
 	function parseVerifyChecks(row: Record<string, unknown>): Array<{
 		name: string;
 		passed: boolean;
@@ -2430,6 +2470,10 @@ export function createApp(options: ServerOptions = {}) {
 				provider_adapter_id: row.provider_adapter_id ?? null,
 				provider_adapter_version: row.provider_adapter_version ?? null,
 				model_provenance_status: row.model_provenance_status ?? 'LEGACY_PROFILE_UNSPECIFIED',
+				// P5.2 — Effective Permission Summary (Kernel ∩ Profil; nur
+				// Booleans, kein Raw-Contract) + Effective-Fingerprint:
+				effective_harness_fingerprint: row.effective_harness_fingerprint ?? null,
+				effective_permissions: parseEffectivePermissions(row),
 				// Strukturierte Verify-Gate-Checks (nur für verifizierte
 				// positron.verification.v1-Attempts). output_json wird
 				// bewusst NICHT exponiert (Privacy by Default) — die UI

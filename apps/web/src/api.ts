@@ -63,6 +63,16 @@ export interface ControlPlaneAttempt {
 	provider_adapter_id?: string | null;
 	provider_adapter_version?: string | null;
 	model_provenance_status?: string | null;
+	// P5.2 — Effective Runtime Configuration (Backend Truth, nur sichere
+	// Permission-Summary; kein Raw-Contract in der UI)
+	effective_harness_fingerprint?: string | null;
+	effective_permissions?: {
+		mutation: boolean;
+		push: boolean;
+		merge: boolean;
+		deploy: boolean;
+		secret_access: boolean;
+	} | null;
 }
 
 export interface ControlPlaneDecision {

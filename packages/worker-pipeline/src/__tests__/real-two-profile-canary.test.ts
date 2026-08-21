@@ -119,6 +119,8 @@ interface CanaryAttempt {
 	harness_profile_ref: string | null;
 	model_provenance_status: string | null;
 	output_fingerprint: string | null;
+	effective_harness_config: string | null;
+	effective_harness_fingerprint: string | null;
 }
 
 function buildAttemptOf(db: Database.Database, runId: string): CanaryAttempt | null {
@@ -149,6 +151,12 @@ function buildAttemptOf(db: Database.Database, runId: string): CanaryAttempt | n
 			? String(row.model_provenance_status)
 			: null,
 		output_fingerprint: row.output_fingerprint ? String(row.output_fingerprint) : null,
+		effective_harness_config: row.effective_harness_config
+			? String(row.effective_harness_config)
+			: null,
+		effective_harness_fingerprint: row.effective_harness_fingerprint
+			? String(row.effective_harness_fingerprint)
+			: null,
 	};
 }
 
@@ -264,6 +272,35 @@ describe('REAL_TWO_PROFILE_CANARY', () => {
 		expect(a.model).toBe('deepseek-v4-flash');
 		expect(a.model_provenance_status).toBe('KNOWN');
 		expect(a.task_profile_id).toBe('build-contract');
+
+		// P5.2 — Effective Runtime Configuration (kompiliert, Kernel ∩ Profil):
+		const effA = JSON.parse(a.effective_harness_config!) as {
+			effective_permissions: { mutation: boolean; push: boolean; secret_access: boolean };
+			effective_reasoning_mode: string;
+			effective_tools: string[];
+			fingerprint: string;
+		};
+		const effB = JSON.parse(b.effective_harness_config!) as {
+			effective_permissions: { mutation: boolean; push: boolean; secret_access: boolean };
+			effective_reasoning_mode: string;
+			effective_tools: string[];
+			fingerprint: string;
+		};
+		// Reproduzierbarer Effective-Fingerprint persistiert:
+		expect(a.effective_harness_fingerprint).toBe(effA.fingerprint);
+		expect(b.effective_harness_fingerprint).toBe(effB.fingerprint);
+		expect(a.effective_harness_fingerprint).not.toBe(b.effective_harness_fingerprint);
+		// Reasoning-Modi aus den Profilen wirksam:
+		expect(effA.effective_reasoning_mode).toBe('fast');
+		expect(effB.effective_reasoning_mode).toBe('deep');
+		// Kernel-Denys gewinnen (kein Push/Secret trotz Build-Profil):
+		expect(effA.effective_permissions.push).toBe(false);
+		expect(effA.effective_permissions.secret_access).toBe(false);
+		expect(effB.effective_permissions.push).toBe(false);
+		// Build-Profil darf innerhalb der Kernel-Grenze mutieren:
+		expect(effA.effective_permissions.mutation).toBe(true);
+		// Tool-Allowlist kompiliert:
+		expect(effA.effective_tools).toEqual(['read', 'grep', 'list', 'cat', 'edit', 'write', 'test']);
 
 		// Verification-Result je Attempt vorhanden (Verification-Contract):
 		const verifyA = dbA

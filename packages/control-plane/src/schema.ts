@@ -163,6 +163,31 @@ function applyV7(db: Database.Database): void {
 	}
 }
 
+/**
+ * V8 (P5.2 — Static Model Profiles & Safe Runtime Compilation).
+ *
+ * Additive Referenzen der kompilierten Effective Runtime Configuration am
+ * Attempt (gleiche DB, keine neuen Tabellen):
+ *
+ *   effective_harness_config      — validierter positron.effective-harness.v1
+ *                                   Contract (JSON; reproduzierbar
+ *                                   rekonstruierbare Effective Config inkl.
+ *                                   effective permissions Kernel ∩ Profil)
+ *   effective_harness_fingerprint — SHA-256 der Effective Config (ohne
+ *                                   Runtime-Werte)
+ *
+ * NULLABLE: historische Attempts (V1–V7) bleiben unverändert lesbar;
+ * P5.1-Referenzen (harness_profile_id etc.) bleiben bestehen.
+ */
+function applyV8(db: Database.Database): void {
+	if (!columnExists(db, 'cp_attempts', 'effective_harness_config')) {
+		db.exec('ALTER TABLE cp_attempts ADD COLUMN effective_harness_config TEXT');
+	}
+	if (!columnExists(db, 'cp_attempts', 'effective_harness_fingerprint')) {
+		db.exec('ALTER TABLE cp_attempts ADD COLUMN effective_harness_fingerprint TEXT');
+	}
+}
+
 export function applyControlPlaneMigrations(db: Database.Database): void {
 	db.exec(CONTROL_PLANE_SCHEMA_V1);
 	applyV2(db);
@@ -176,4 +201,6 @@ export function applyControlPlaneMigrations(db: Database.Database): void {
 	db.exec(PROVIDER_RESERVATION_SCHEMA_V6);
 	// P5.1: Harness Profile Identity & Provenance (V7, idempotent)
 	applyV7(db);
+	// P5.2: Effective Runtime Configuration (V8, idempotent)
+	applyV8(db);
 }

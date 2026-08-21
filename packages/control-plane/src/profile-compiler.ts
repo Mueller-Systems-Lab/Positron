@@ -30,7 +30,7 @@
 //
 // P5.2 führt KEIN Routing (P5.3) und KEINE Evolution/Promotion (P5.4) ein.
 
-import { validateContract } from './contracts.js';
+import { KERNEL_DEFAULT_PERMISSIONS, validateContract } from './contracts.js';
 import type {
 	EffectiveHarnessContract,
 	KernelPermissions,
@@ -402,6 +402,91 @@ export const DEFAULT_TASK_PROFILES: Record<TaskProfileContract['task_type'], Tas
 		RESEARCH: RESEARCH_TASK_PROFILE,
 		REVIEW: REVIEW_TASK_PROFILE,
 	};
+
+// ---------------------------------------------------------------------------
+// Env-Anbindung (produktiver Pfad, P5.1-kompatibel)
+// ---------------------------------------------------------------------------
+
+/**
+ * Kompiliert die Effective Runtime Configuration aus EXPLIZITER
+ * Konfiguration (env) + bekannter Provider-/Modell-/Worker-Information.
+ *
+ * - Task-Profil: `POSITRON_TASK_PROFILE_ID` (oder Default nach taskType)
+ * - Model-Profil: aus `POSITRON_HARNESS_PROFILE_ID` + provider/model;
+ *   Provenienz nur bei tatsächlicher Kenntnis (KNOWN), sonst
+ *   PROVENANCE_UNAVAILABLE — kein erfundener Revision.
+ * - Kernel-Policy: KERNEL_DEFAULT_PERMISSIONS (mutation erlaubt,
+ *   push/merge/deploy/secret verweigert) — Profile können nie eskalieren.
+ * - Adapter-Tools: `POSITRON_HARNESS_TOOL_SURFACE`-basiert oder Defaults.
+ *
+ * Fail-closed: ungültige Kombinationen werfen ProfileCompilationError mit
+ * Reason Code (kein silent downgrade, kein Freiform-Passthrough).
+ */
+export function resolveEffectiveHarnessFromEnv(
+	env: NodeJS.ProcessEnv,
+	input: {
+		taskType: string;
+		workerType: string;
+		provider: string | null;
+		model: string | null;
+	},
+): EffectiveHarnessContract {
+	const upper = input.taskType.toUpperCase();
+	const taskProfile =
+		(upper === 'PLAN' && DEFAULT_TASK_PROFILES.PLAN) ||
+		(upper === 'BUILD' && DEFAULT_TASK_PROFILES.BUILD) ||
+		(upper === 'RESEARCH' && DEFAULT_TASK_PROFILES.RESEARCH) ||
+		(upper === 'REVIEW' && DEFAULT_TASK_PROFILES.REVIEW) ||
+		DEFAULT_TASK_PROFILES.BUILD;
+
+	const provider = input.provider ?? null;
+	const model = input.model ?? null;
+	const modelProfile: ModelProfileContract = {
+		contract: 'positron.model-profile.v1',
+		model_profile_id: env.POSITRON_HARNESS_PROFILE_ID ?? 'unspecified',
+		model_profile_version: env.POSITRON_HARNESS_PROFILE_VERSION ?? 'unspecified',
+		provider: provider ?? 'unspecified',
+		model: model ?? 'unspecified',
+		provenance: {
+			status: provider && model ? 'KNOWN' : 'PROVENANCE_UNAVAILABLE',
+			revision: null, // kein erfundener Revision
+		},
+		capabilities: ['code', 'reasoning'],
+		context_limits: { max_input_tokens: null, max_output_tokens: null },
+		reasoning_modes: ['fast', 'deep'],
+		supported_tools: ['read', 'grep', 'list', 'cat', 'edit', 'write', 'test', 'diff', 'search'],
+		provider_specific: {},
+		fingerprint: '',
+	};
+	modelProfile.fingerprint = computeProfileFingerprint(modelProfileSemantics(modelProfile));
+
+	// Task-Profil aus expliziter Konfiguration ableiten (versioniert):
+	const configuredTaskProfile = buildTaskProfile({
+		task_profile_id: env.POSITRON_TASK_PROFILE_ID ?? taskProfile.task_profile_id,
+		task_profile_version: env.POSITRON_TASK_PROFILE_VERSION ?? taskProfile.task_profile_version,
+		task_type: taskProfile.task_type,
+		allowed_tools: taskProfile.allowed_tools,
+		context_strategy: env.POSITRON_HARNESS_CONTEXT_STRATEGY ?? taskProfile.context_strategy,
+		reasoning_policy: env.POSITRON_HARNESS_REASONING_MODE ?? taskProfile.reasoning_policy,
+		max_steps: taskProfile.max_steps,
+		timeout_ms: taskProfile.timeout_ms,
+		permissions: taskProfile.permissions,
+	});
+
+	const runContextFingerprint = computeProfileFingerprint({
+		worker_type: input.workerType,
+		task_type: input.taskType,
+	});
+
+	return compileEffectiveHarness({
+		modelProfile,
+		taskProfile: configuredTaskProfile,
+		kernelPermissions: KERNEL_DEFAULT_PERMISSIONS,
+		runContextFingerprint,
+		adapterSupportedTools: taskProfile.allowed_tools,
+		adapterSupportedReasoningModes: modelProfile.reasoning_modes,
+	});
+}
 
 // ---------------------------------------------------------------------------
 // Registry-Lookup (fail-closed)

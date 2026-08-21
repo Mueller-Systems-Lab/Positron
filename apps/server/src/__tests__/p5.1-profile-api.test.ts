@@ -114,6 +114,70 @@ describe('GET /api/runs/:id/control-plane — P5.1 Projektion', () => {
 		expect(attempt.model_provenance_status).toBe('KNOWN');
 	});
 
+	it('exposes effective permission summary and fingerprint (P5.2, no raw contract)', async () => {
+		// Befülle den Attempt mit einer kompilierten Effective Config:
+		const {
+			compileEffectiveHarness,
+			BUILD_TASK_PROFILE,
+			computeProfileFingerprint,
+			modelProfileSemantics,
+		} = await import('@positron/control-plane');
+		const modelProfileBase = {
+			contract: 'positron.model-profile.v1',
+			model_profile_id: 'profile-api-a',
+			model_profile_version: '2.0.0',
+			provider: 'openrouter',
+			model: 'deepseek-v4-flash',
+			provenance: { status: 'KNOWN', revision: null },
+			capabilities: ['code'],
+			context_limits: { max_input_tokens: null, max_output_tokens: null },
+			reasoning_modes: ['fast', 'deep'],
+			supported_tools: ['read', 'grep', 'list', 'cat', 'edit', 'write', 'test'],
+			provider_specific: {},
+		} as const;
+		const modelProfile = {
+			...modelProfileBase,
+			fingerprint: computeProfileFingerprint(modelProfileSemantics(modelProfileBase)),
+		};
+		const effective = compileEffectiveHarness({
+			modelProfile,
+			taskProfile: BUILD_TASK_PROFILE,
+			kernelPermissions: {
+				mutation: true,
+				push: false,
+				merge: false,
+				deploy: false,
+				secret_access: false,
+			},
+			runContextFingerprint: 'ef'.repeat(32),
+			adapterSupportedTools: ['read', 'grep', 'list', 'cat', 'edit', 'write', 'test'],
+			adapterSupportedReasoningModes: ['fast', 'deep'],
+		});
+		const db = new Database(dbPath);
+		db.prepare(
+			'UPDATE cp_attempts SET effective_harness_config = ?, effective_harness_fingerprint = ? WHERE run_id = ?',
+		).run(JSON.stringify(effective), effective.fingerprint, 'run_profile_api');
+		db.close();
+
+		const res = await fetch(`${baseUrl}/api/runs/run_profile_api/control-plane`);
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as {
+			attempts: Array<Record<string, unknown>>;
+		};
+		const attempt = body.attempts[0]!;
+		expect(attempt.effective_harness_fingerprint).toMatch(/^[0-9a-f]{64}$/);
+		expect(attempt.effective_permissions).toEqual({
+			mutation: true,
+			push: false,
+			merge: false,
+			deploy: false,
+			secret_access: false,
+		});
+		// Kein Raw-Contract in der Projektion:
+		expect(attempt.effective_harness_config).toBeUndefined();
+		expect(JSON.stringify(body)).not.toContain('effective_tools');
+	});
+
 	it('historical attempts stay readable as LEGACY_PROFILE_UNSPECIFIED (no invention)', async () => {
 		const res = await fetch(`${baseUrl}/api/runs/run_legacy_api/control-plane`);
 		expect(res.status).toBe(200);

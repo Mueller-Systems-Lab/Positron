@@ -43,6 +43,7 @@ import { resolveHarnessProfileFromEnv } from './harness-profile.js';
 import { IdempotencyRegistry, idempotencyKey } from './idempotency.js';
 import { assertRealParallelism } from './parallelism.js';
 import { evaluatePlanGate } from './plan-gate.js';
+import { resolveEffectiveHarnessFromEnv } from './profile-compiler.js';
 import { runParallelResearch } from './research.js';
 import type {
 	ParallelResearchOutcome,
@@ -340,6 +341,13 @@ async function runVerifyStep(
 	const verifyJob = createJob(db, runId, 'verify', buildJobId);
 	// P5.1 — Harness-Identität auch für den Verification-Attempt (additiv;
 	// deterministischer Worker ohne Modell-Provenienz → PROVENANCE_UNAVAILABLE).
+	// P5.2 — Effective Runtime Configuration (Kernel ∩ Profil).
+	const verifyEffective = resolveEffectiveHarnessFromEnv(process.env, {
+		taskType: 'verify',
+		workerType: 'deterministic-tools',
+		provider: null,
+		model: null,
+	});
 	const verifyHarnessRef = resolveHarnessProfileFromEnv(process.env, {
 		taskType: 'verify',
 		workerType: 'deterministic-tools',
@@ -363,6 +371,8 @@ async function runVerifyStep(
 		provider_adapter_id: verifyHarnessRef.provider_adapter_id,
 		provider_adapter_version: verifyHarnessRef.provider_adapter_version,
 		model_provenance_status: verifyHarnessRef.model_provenance_status,
+		effective_harness_config: JSON.stringify(verifyEffective),
+		effective_harness_fingerprint: verifyEffective.fingerprint,
 	});
 	const leaseTtlMs = deps.timeoutMs ? deps.timeoutMs + 15_000 : 0;
 	const claim = claimAttemptWithGeneration(db, verifyAttempt.attempt_id, {
@@ -602,6 +612,13 @@ export async function runDurableRun(
 	} else {
 		updateJobState(db, baselineJob.job_id, 'running');
 		// P5.1 — Harness-Identität auch für den Baseline-Attempt (additiv).
+		// P5.2 — Effective Runtime Configuration (Kernel ∩ Profil).
+		const baselineEffective = resolveEffectiveHarnessFromEnv(process.env, {
+			taskType: 'baseline',
+			workerType: 'deterministic.baseline',
+			provider: null,
+			model: null,
+		});
 		const baselineHarnessRef = resolveHarnessProfileFromEnv(process.env, {
 			taskType: 'baseline',
 			workerType: 'deterministic.baseline',
@@ -629,6 +646,8 @@ export async function runDurableRun(
 			provider_adapter_id: baselineHarnessRef.provider_adapter_id,
 			provider_adapter_version: baselineHarnessRef.provider_adapter_version,
 			model_provenance_status: baselineHarnessRef.model_provenance_status,
+			effective_harness_config: JSON.stringify(baselineEffective),
+			effective_harness_fingerprint: baselineEffective.fingerprint,
 		});
 		// P3: deterministischer Worker läuft nur in geclaimtem Attempt.
 		assertExecutionContext({
@@ -799,6 +818,14 @@ export async function runDurableRun(
 	} else {
 		updateJobState(db, planJob.job_id, 'running');
 		// P5.1 — Harness-Identität auch für den Plan-Attempt (additiv).
+		// P5.1 — Harness-Identität auch für den Plan-Attempt (additiv).
+		// P5.2 — Effective Runtime Configuration (Kernel ∩ Profil).
+		const planEffective = resolveEffectiveHarnessFromEnv(process.env, {
+			taskType: 'plan',
+			workerType: deps.planWorker?.workerType ?? 'deterministic.plan',
+			provider: deps.planWorker?.provider ?? null,
+			model: deps.planWorker?.model ?? null,
+		});
 		const planHarnessRef = resolveHarnessProfileFromEnv(process.env, {
 			taskType: 'plan',
 			workerType: deps.planWorker?.workerType ?? 'deterministic.plan',
@@ -822,6 +849,8 @@ export async function runDurableRun(
 			provider_adapter_id: planHarnessRef.provider_adapter_id,
 			provider_adapter_version: planHarnessRef.provider_adapter_version,
 			model_provenance_status: planHarnessRef.model_provenance_status,
+			effective_harness_config: JSON.stringify(planEffective),
+			effective_harness_fingerprint: planEffective.fingerprint,
 		});
 		// P3: Plan-Worker läuft nur in geclaimtem Attempt.
 		assertExecutionContext({
@@ -1010,6 +1039,13 @@ export async function runDurableRun(
 			: null;
 		// P5.1 — Harness Profile Identity: atomar mit dem Attempt gebunden,
 		// VOR der Modell-Ausführung (PROFILE_REF_BOUND_BEFORE_EXECUTION).
+		// P5.2 — Effective Runtime Configuration (Kernel ∩ Profil).
+		const buildEffective = resolveEffectiveHarnessFromEnv(process.env, {
+			taskType: 'build',
+			workerType: deps.buildWorker.workerType,
+			provider: deps.buildWorker.provider,
+			model: deps.buildWorker.model,
+		});
 		const harnessRef = resolveHarnessProfileFromEnv(process.env, {
 			taskType: 'build',
 			workerType: deps.buildWorker.workerType,
@@ -1038,6 +1074,8 @@ export async function runDurableRun(
 			provider_adapter_id: harnessRef.provider_adapter_id,
 			provider_adapter_version: harnessRef.provider_adapter_version,
 			model_provenance_status: harnessRef.model_provenance_status,
+			effective_harness_config: JSON.stringify(buildEffective),
+			effective_harness_fingerprint: buildEffective.fingerprint,
 		});
 
 		// Idempotenz: Dispatch ist an run:job:attempt gebunden
