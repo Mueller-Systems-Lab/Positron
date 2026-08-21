@@ -274,24 +274,6 @@ export function compileEffectiveHarness(input: ProfileCompileInput): EffectiveHa
 		);
 	}
 
-	// 4. Reasoning-Modus: Task-Policy muss vom Model-Profil unterstützt sein.
-	if (model.reasoning_modes.length > 0 && !model.reasoning_modes.includes(task.reasoning_policy)) {
-		throw new ProfileCompilationError(
-			PROFILE_INCOMPATIBLE,
-			`reasoning_policy '${task.reasoning_policy}' not supported by model profile`,
-		);
-	}
-	if (
-		input.adapterSupportedReasoningModes &&
-		input.adapterSupportedReasoningModes.length > 0 &&
-		!input.adapterSupportedReasoningModes.includes(task.reasoning_policy)
-	) {
-		throw new ProfileCompilationError(
-			ADAPTER_CAPABILITY_MISMATCH,
-			`adapter does not support reasoning mode '${task.reasoning_policy}'`,
-		);
-	}
-
 	// 5. Timeout/Steps: positive, finite Werte
 	if (!Number.isFinite(task.timeout_ms) || task.timeout_ms <= 0) {
 		throw new ProfileCompilationError(PROFILE_INVALID, 'timeout_ms must be positive');
