@@ -311,7 +311,10 @@ export interface ProfileKpiGroup {
 	first_pass_success_rate: number | null;
 	/** Build-Attempts in dieser Gruppe */
 	attempts: number;
-	/** attempts / verified_success_count (null bei 0) */
+	/** Build-Attempts in dieser Gruppe (inkl. Attempts nicht-erfolgreicher
+	 *  Runs) / verified_success_count — „Beobachtete Attempts je
+	 *  Verified Success" (kann durch fehlgeschlagene/abgebrochene Runs in
+	 *  derselben Gruppe erhöht werden; bewusst, keine Schätzung). */
 	attempts_per_verified_success: number | null;
 	/** Median (ms) erster Build-Start → DONE-Entscheidung, nur verified successes */
 	time_to_verified_success_ms: number | null;
@@ -380,7 +383,7 @@ export function computeProfileKpis(db: Database.Database): ProfileKpiReport {
 			 FROM cp_attempts a
 			 JOIN cp_jobs j ON j.job_id = a.job_id
 			 WHERE j.job_type = 'build'
-			 ORDER BY a.started_at ASC`,
+			 ORDER BY a.started_at IS NULL, a.started_at ASC`,
 		)
 		.all() as unknown[] as AttemptRow[];
 
@@ -394,16 +397,22 @@ export function computeProfileKpis(db: Database.Database): ProfileKpiReport {
 			.filter((d) => d.decision === 'SPLIT' || d.decision === 'BLOCKED')
 			.map((d) => d.run_id),
 	);
+	// Runs mit mindestens einer persistierten Decision — Grundlage für die
+	// per-Gruppe gültige escalation_rate (null, wenn die Gruppe keine
+	// Decision-Daten trägt, statt global verdünnter 0.0).
+	const runsWithDecisions = new Set(decisions.map((d) => d.run_id));
 	const doneDecisionAt = new Map<string, string>();
 	for (const d of decisions) {
 		if (d.decision === 'DONE' && !doneDecisionAt.has(d.run_id)) {
 			doneDecisionAt.set(d.run_id, d.created_at);
 		}
 	}
-	// Erster Build-Start je Run (für time_to_verified_success)
+	// Erster Build-Start je Run (für time_to_verified_success). NULL-
+	// started_at (nur bei defekten Legacy-Rows möglich) wird übersprungen,
+	// damit es den echten ersten Start nicht blockiert.
 	const firstBuildStartAt = new Map<string, string>();
 	for (const a of attempts) {
-		if (!firstBuildStartAt.has(a.run_id)) {
+		if (a.started_at !== null && a.started_at !== undefined && !firstBuildStartAt.has(a.run_id)) {
 			firstBuildStartAt.set(a.run_id, a.started_at);
 		}
 	}
@@ -413,7 +422,13 @@ export function computeProfileKpis(db: Database.Database): ProfileKpiReport {
 		buildAttemptsByRun.set(a.run_id, (buildAttemptsByRun.get(a.run_id) ?? 0) + 1);
 	}
 
-	const groupKeyOf = (a: AttemptRow): string => a.harness_fingerprint ?? LEGACY_PROFILE_GROUP;
+	// Gruppen-Schlüssel = effektiver Harness-Fingerprint. Konsistent zu
+	// isLegacyHarnessAttempt: eine Row ist legacy, wenn weder Profil-ID noch
+	// Fingerprint gesetzt sind — partiell beschriebene Rows (id ohne
+	// fingerprint) dürfen NICHT als legacy erscheinen.
+	const groupKeyOf = (a: AttemptRow): string =>
+		a.harness_fingerprint ??
+		(a.harness_profile_id === null ? LEGACY_PROFILE_GROUP : 'PARTIAL_PROFILE_UNSPECIFIED');
 
 	const groups = new Map<
 		string,
@@ -437,6 +452,7 @@ export function computeProfileKpis(db: Database.Database): ProfileKpiReport {
 			tokensReported: number;
 			tokensCount: number;
 			timesToSuccess: number[];
+			countedDoneRuns: Set<string>;
 		}
 	>();
 
@@ -459,6 +475,7 @@ export function computeProfileKpis(db: Database.Database): ProfileKpiReport {
 				runs: new Set(),
 				doneRuns: new Set(),
 				firstPassDoneRuns: new Set(),
+				countedDoneRuns: new Set(),
 				attempts: 0,
 				retryAttempts: 0,
 				tokensReported: 0,
@@ -478,10 +495,13 @@ export function computeProfileKpis(db: Database.Database): ProfileKpiReport {
 			g.tokensReported += a.tokens;
 			g.tokensCount++;
 		}
-		// Time-to-verified-success je Gruppe: DONE-Run, erster Build-Start →
-		// DONE-Entscheidung. Nur Runs, deren Build-Attempt in dieser Gruppe
-		// liegt, zählen hier.
-		if (doneRuns.has(a.run_id)) {
+		// Time-to-verified-success je Gruppe: EIN Wert pro DONE-Run
+		// (erster Build-Start → DONE-Entscheidung). Nur Runs, deren
+		// Build-Attempt in dieser Gruppe liegt, zählen hier. Dedupe über
+		// countedDoneRuns: ein Run mit N Build-Attempts (Fix-Kette) darf die
+		// Dauer nicht N-fach in den Median einbringen.
+		if (doneRuns.has(a.run_id) && !g.countedDoneRuns.has(a.run_id)) {
+			g.countedDoneRuns.add(a.run_id);
 			const start = firstBuildStartAt.get(a.run_id);
 			const doneAt = doneDecisionAt.get(a.run_id);
 			if (start && doneAt) {
@@ -518,7 +538,9 @@ export function computeProfileKpis(db: Database.Database): ProfileKpiReport {
 			time_to_verified_success_ms: median(g.timesToSuccess.sort((a, b) => a - b)),
 			retry_rate: g.attempts > 0 ? round2(g.retryAttempts / g.attempts) : null,
 			escalation_rate:
-				decisions.length > 0 && sampleSize > 0 ? round2(withEscalation / sampleSize) : null,
+				[...g.runs].some((r) => runsWithDecisions.has(r)) && sampleSize > 0
+					? round2(withEscalation / sampleSize)
+					: null,
 			tokens_total: g.tokensCount > 0 ? g.tokensReported : null,
 			cost_per_verified_success: COST_PER_VERIFIED_SUCCESS_NOT_AVAILABLE,
 		});

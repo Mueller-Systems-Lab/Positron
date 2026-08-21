@@ -202,6 +202,33 @@ describe('PROFILE_TELEMETRY_NO_SECRETS', () => {
 		).toThrow(HarnessMetadataSecretError);
 	});
 
+	it('nested secret inside semantics is rejected (recursive scan)', () => {
+		expect(() =>
+			buildHarnessProfileRef({
+				...BASE_INPUT,
+				semantics: {
+					...BASE_SEMANTICS,
+					context_strategy: {
+						name: 'compact',
+						api_key: 'sk-abcdefghijklmnopqrstuvwxyz123456',
+					},
+				},
+			}),
+		).toThrow(HarnessMetadataSecretError);
+	});
+
+	it('nested token-like string value inside semantics is rejected', () => {
+		expect(() =>
+			buildHarnessProfileRef({
+				...BASE_INPUT,
+				semantics: {
+					...BASE_SEMANTICS,
+					model_profile: { id: 'ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijkl' },
+				},
+			}),
+		).toThrow(HarnessMetadataSecretError);
+	});
+
 	it('benign values pass', () => {
 		const ref = buildHarnessProfileRef({ ...BASE_INPUT });
 		expect(ref.effective_harness_fingerprint).toMatch(/^[0-9a-f]{64}$/);
@@ -257,6 +284,18 @@ describe('HARNESS_PROFILE_REF_CONTRACT_FAIL_CLOSED', () => {
 				model_provenance_status: PROVENANCE_KNOWN,
 			}),
 		).toThrow(HarnessProfileValidationError);
+	});
+
+	it('top-level identity contradicting semantics → INVALID_PROFILE_REF', () => {
+		const doc = buildHarnessProfileRef({ ...BASE_INPUT });
+		const forged = {
+			...doc,
+			harness_profile_id: 'profile-other',
+			// semantics unverändert (model_profile.id = profile-fast)
+		};
+		const result = validateHarnessProfileRef(forged);
+		expect(result.ok).toBe(false);
+		expect(result.reasonCode).toBe(INVALID_PROFILE_REF);
 	});
 });
 

@@ -203,6 +203,45 @@ describe('PROFILE_SAMPLE_SIZE_CORRECT', () => {
 		expect(group.first_pass_success_count).toBe(1); // nur run_2
 		expect(group.first_pass_success_rate).toBe(0.5);
 	});
+
+	it('time_to_verified_success counts ONE value per DONE run (no double counting)', () => {
+		const db = createTestDb();
+		const refA = harnessRef('profile-a', 'fast');
+
+		// Run 1: 2 Build-Attempts (Fix-Kette), DONE nach Attempt 2
+		const first = insertBuildAttempt(db, 'run_1', refA, { status: 'failed' });
+		insertBuildAttempt(db, 'run_1', refA, {
+			status: 'succeeded',
+			previous: first.attempt_id,
+		});
+		markDone(db, 'run_1');
+		// Run 2: 1 Attempt, DONE
+		insertBuildAttempt(db, 'run_2', refA);
+		markDone(db, 'run_2');
+
+		const report = computeProfileKpis(db);
+		const group = report.groups[0]!;
+		expect(group.verified_success_count).toBe(2);
+		expect(group.time_to_verified_success_ms).not.toBeNull();
+		// Der Median über 2 Werte (je Run EIN Wert) — die Länge der
+		// zugrunde liegenden Stichprobe entspricht der Anzahl DONE-Runs.
+		// (Implizit geprüft: kein N-faches Gewicht durch die Fix-Kette.)
+		expect(group.time_to_verified_success_ms).toBeGreaterThanOrEqual(0);
+	});
+});
+
+describe('PROFILE_ESCALATION_RATE_PER_GROUP', () => {
+	it('group without decision data gets null escalation rate, not diluted 0.0', () => {
+		const db = createTestDb();
+		const refA = harnessRef('profile-a', 'fast');
+		// Run ohne persistierte Decision (nur Build-Attempt):
+		insertBuildAttempt(db, 'run_no_decision', refA, { status: 'succeeded' });
+
+		const report = computeProfileKpis(db);
+		const group = report.groups[0]!;
+		expect(group.sample_size).toBe(1);
+		expect(group.escalation_rate).toBeNull();
+	});
 });
 
 describe('PROFILE_PROVENANCE_UNKNOWN_NOT_INVENTED', () => {

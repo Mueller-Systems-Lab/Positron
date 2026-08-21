@@ -338,6 +338,14 @@ async function runVerifyStep(
 	}
 
 	const verifyJob = createJob(db, runId, 'verify', buildJobId);
+	// P5.1 — Harness-Identität auch für den Verification-Attempt (additiv;
+	// deterministischer Worker ohne Modell-Provenienz → PROVENANCE_UNAVAILABLE).
+	const verifyHarnessRef = resolveHarnessProfileFromEnv(process.env, {
+		taskType: 'verify',
+		workerType: 'deterministic-tools',
+		provider: null,
+		model: null,
+	});
 	const verifyAttempt = createAttempt(db, runId, verifyJob.job_id, {
 		status: 'pending',
 		worker_type: 'deterministic-tools',
@@ -345,6 +353,16 @@ async function runVerifyStep(
 		model: null,
 		input_contract: 'positron.verification.v1',
 		input_fingerprint: verifyInputFingerprint,
+		harness_profile_id: verifyHarnessRef.harness_profile_id,
+		harness_profile_version: verifyHarnessRef.harness_profile_version,
+		harness_fingerprint: verifyHarnessRef.effective_harness_fingerprint,
+		harness_profile_ref: JSON.stringify(verifyHarnessRef),
+		task_profile_id: verifyHarnessRef.task_profile_id,
+		task_profile_version: verifyHarnessRef.task_profile_version,
+		task_type: verifyHarnessRef.task_type,
+		provider_adapter_id: verifyHarnessRef.provider_adapter_id,
+		provider_adapter_version: verifyHarnessRef.provider_adapter_version,
+		model_provenance_status: verifyHarnessRef.model_provenance_status,
 	});
 	const leaseTtlMs = deps.timeoutMs ? deps.timeoutMs + 15_000 : 0;
 	const claim = claimAttemptWithGeneration(db, verifyAttempt.attempt_id, {
@@ -583,6 +601,13 @@ export async function runDurableRun(
 		}
 	} else {
 		updateJobState(db, baselineJob.job_id, 'running');
+		// P5.1 — Harness-Identität auch für den Baseline-Attempt (additiv).
+		const baselineHarnessRef = resolveHarnessProfileFromEnv(process.env, {
+			taskType: 'baseline',
+			workerType: 'deterministic.baseline',
+			provider: null,
+			model: null,
+		});
 		const baselineAttempt = createAttempt(db, runId, baselineJob.job_id, {
 			status: 'pending',
 			worker_type: 'deterministic.baseline',
@@ -594,6 +619,16 @@ export async function runDurableRun(
 				repository_ref: deps.workspace.repositoryRef,
 				workspace: deps.workspace.path,
 			}),
+			harness_profile_id: baselineHarnessRef.harness_profile_id,
+			harness_profile_version: baselineHarnessRef.harness_profile_version,
+			harness_fingerprint: baselineHarnessRef.effective_harness_fingerprint,
+			harness_profile_ref: JSON.stringify(baselineHarnessRef),
+			task_profile_id: baselineHarnessRef.task_profile_id,
+			task_profile_version: baselineHarnessRef.task_profile_version,
+			task_type: baselineHarnessRef.task_type,
+			provider_adapter_id: baselineHarnessRef.provider_adapter_id,
+			provider_adapter_version: baselineHarnessRef.provider_adapter_version,
+			model_provenance_status: baselineHarnessRef.model_provenance_status,
 		});
 		// P3: deterministischer Worker läuft nur in geclaimtem Attempt.
 		assertExecutionContext({
@@ -763,6 +798,13 @@ export async function runDurableRun(
 		}
 	} else {
 		updateJobState(db, planJob.job_id, 'running');
+		// P5.1 — Harness-Identität auch für den Plan-Attempt (additiv).
+		const planHarnessRef = resolveHarnessProfileFromEnv(process.env, {
+			taskType: 'plan',
+			workerType: deps.planWorker?.workerType ?? 'deterministic.plan',
+			provider: deps.planWorker?.provider ?? null,
+			model: deps.planWorker?.model ?? null,
+		});
 		const planAttempt = createAttempt(db, runId, planJob.job_id, {
 			status: 'pending',
 			worker_type: deps.planWorker?.workerType ?? 'deterministic.plan',
@@ -770,6 +812,16 @@ export async function runDurableRun(
 			model: deps.planWorker?.model ?? null,
 			input_contract: 'positron.plan.v1',
 			input_fingerprint: fingerprint({ run_id: runId, issue: input.issue }),
+			harness_profile_id: planHarnessRef.harness_profile_id,
+			harness_profile_version: planHarnessRef.harness_profile_version,
+			harness_fingerprint: planHarnessRef.effective_harness_fingerprint,
+			harness_profile_ref: JSON.stringify(planHarnessRef),
+			task_profile_id: planHarnessRef.task_profile_id,
+			task_profile_version: planHarnessRef.task_profile_version,
+			task_type: planHarnessRef.task_type,
+			provider_adapter_id: planHarnessRef.provider_adapter_id,
+			provider_adapter_version: planHarnessRef.provider_adapter_version,
+			model_provenance_status: planHarnessRef.model_provenance_status,
 		});
 		// P3: Plan-Worker läuft nur in geclaimtem Attempt.
 		assertExecutionContext({

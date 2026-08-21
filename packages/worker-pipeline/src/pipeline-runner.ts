@@ -783,52 +783,9 @@ function loadLastAttempt(runId: string, jobType: string, deps: PipelineDeps): At
 			.all(runId, jobType) as Array<Record<string, unknown>>;
 		if (rows.length === 0) return null;
 		const last = rows[rows.length - 1]!;
-		return {
-			attempt_id: String(last.attempt_id),
-			run_id: String(last.run_id),
-			job_id: String(last.job_id),
-			status: String(last.status) as AttemptRecord['status'],
-			input_contract: last.input_contract ? String(last.input_contract) : null,
-			input_fingerprint: last.input_fingerprint ? String(last.input_fingerprint) : null,
-			output_contract: last.output_contract ? String(last.output_contract) : null,
-			output_fingerprint: last.output_fingerprint ? String(last.output_fingerprint) : null,
-			output_json: last.output_json ? String(last.output_json) : null,
-			worker_type: last.worker_type ? String(last.worker_type) : null,
-			provider: last.provider ? String(last.provider) : null,
-			model: last.model ? String(last.model) : null,
-			started_at: String(last.started_at),
-			ended_at: last.ended_at ? String(last.ended_at) : null,
-			failure_class: last.failure_class ? String(last.failure_class) : null,
-			failure_signature: last.failure_signature ? String(last.failure_signature) : null,
-			new_evidence: last.new_evidence ? String(last.new_evidence) : null,
-			strategy_delta: last.strategy_delta ? String(last.strategy_delta) : null,
-			result_ref: last.result_ref ? String(last.result_ref) : null,
-			tokens: last.tokens !== null && last.tokens !== undefined ? Number(last.tokens) : null,
-			previous_attempt_id: last.previous_attempt_id ? String(last.previous_attempt_id) : null,
-			lease_owner_id: last.lease_owner_id ? String(last.lease_owner_id) : null,
-			lease_generation:
-				last.lease_generation !== null && last.lease_generation !== undefined
-					? Number(last.lease_generation)
-					: 0,
-			lease_expires_at: last.lease_expires_at ? String(last.lease_expires_at) : null,
-			claimed_at: last.claimed_at ? String(last.claimed_at) : null,
-			harness_profile_id: last.harness_profile_id ? String(last.harness_profile_id) : null,
-			harness_profile_version: last.harness_profile_version
-				? String(last.harness_profile_version)
-				: null,
-			harness_fingerprint: last.harness_fingerprint ? String(last.harness_fingerprint) : null,
-			harness_profile_ref: last.harness_profile_ref ? String(last.harness_profile_ref) : null,
-			task_profile_id: last.task_profile_id ? String(last.task_profile_id) : null,
-			task_profile_version: last.task_profile_version ? String(last.task_profile_version) : null,
-			task_type: last.task_type ? String(last.task_type) : null,
-			provider_adapter_id: last.provider_adapter_id ? String(last.provider_adapter_id) : null,
-			provider_adapter_version: last.provider_adapter_version
-				? String(last.provider_adapter_version)
-				: null,
-			model_provenance_status: last.model_provenance_status
-				? String(last.model_provenance_status)
-				: null,
-		};
+		// Kanonisches Mapping über mapAttemptRow — keine zweite, divergierende
+		// Rekonstruktion der (inzwischen P5.1-erweiterten) Attempt-Records.
+		return mapAttemptRow(last);
 	} catch (err) {
 		console.error(`[Worker] loadLastAttempt failed: ${String(err).slice(0, 200)}`);
 		return null;

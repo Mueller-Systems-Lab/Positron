@@ -128,12 +128,22 @@ export class HarnessMetadataSecretError extends Error {
 	}
 }
 
+/** Maximale Rekursionstiefe der Secret-Detection (analog SSE-Redaction). */
+const SECRET_SCAN_MAX_DEPTH = 8;
+
 /**
- * Erkennt token-ähnliche Werte in Harness-Metadaten. Wirft bei Treffer —
- * Profil-Metadaten mit Secret-Mustern dürfen NIE persistiert werden
- * (PROFILE_TELEMETRY_NO_SECRETS).
+ * Erkennt token-ähnliche Werte in Harness-Metadaten — REKURSIV über alle
+ * Verschachtelungsebenen (Semantik-Objekte eingeschlossen). Wirft bei
+ * Treffer: Profil-Metadaten mit Secret-Mustern dürfen NIE persistiert
+ * werden (PROFILE_TELEMETRY_NO_SECRETS). Die Detection deckt die bekannten
+ * Positron-Token-Formate ab (ghp_, sk-, Bearer, AIza, xox, AKIA, …) sowie
+ * secret-ähnliche Schlüsselnamen; hoch-entropische, frei kodierte Blobs
+ * (base64/hex ohne bekanntes Präfix) sind eine dokumentierte Grenze.
  */
-export function assertNoSecretInHarnessMetadata(values: Record<string, unknown>): void {
+export function assertNoSecretInHarnessMetadata(values: Record<string, unknown>, depth = 0): void {
+	if (depth > SECRET_SCAN_MAX_DEPTH) {
+		throw new HarnessMetadataSecretError('metadata nesting exceeds scan depth');
+	}
 	for (const [key, value] of Object.entries(values)) {
 		const lowerKey = key.toLowerCase();
 		if (SECRET_KEY_HINTS.some((hint) => lowerKey.includes(hint))) {
@@ -143,6 +153,22 @@ export function assertNoSecretInHarnessMetadata(values: Record<string, unknown>)
 			for (const pattern of HARNESS_SECRET_PATTERNS) {
 				if (pattern.test(value)) {
 					throw new HarnessMetadataSecretError(`value of '${key}' matches secret pattern`);
+				}
+			}
+		} else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+			assertNoSecretInHarnessMetadata(value as Record<string, unknown>, depth + 1);
+		} else if (Array.isArray(value)) {
+			for (const [i, item] of value.entries()) {
+				if (typeof item === 'string') {
+					for (const pattern of HARNESS_SECRET_PATTERNS) {
+						if (pattern.test(item)) {
+							throw new HarnessMetadataSecretError(
+								`value of '${key}[${i}]' matches secret pattern`,
+							);
+						}
+					}
+				} else if (typeof item === 'object' && item !== null) {
+					assertNoSecretInHarnessMetadata(item as Record<string, unknown>, depth + 1);
 				}
 			}
 		}
@@ -172,9 +198,13 @@ function toReasonCode(errors: string[]): string {
 /**
  * Deterministische, fail-closed Validierung einer Harness-Referenz:
  * - unbekannter Contract → UNKNOWN_CONTRACT
- * - unbekannte Version  → UNKNOWN_VERSION
+ * - unbekannte Version  → UNKNOWN_VERSION (erreichbar über die kanonische
+ *   validateContract-API mit expliziter Version; der Contract trägt die
+ *   Version in der ID, daher ist der Pfad über validateHarnessProfileRef
+ *   mit hart kodierter Version 1 auf den v1-Contract fixiert)
  * - fehlende/leere Profil-IDs oder falsche Typen → INVALID_PROFILE_REF
  * - Fingerprint entspricht nicht dem Hash der Semantik → INVALID_FINGERPRINT
+ * - Top-Level-Identitätsfelder, die der Semantik widersprechen → INVALID_PROFILE_REF
  */
 export function validateHarnessProfileRef(doc: unknown): HarnessProfileValidationResult {
 	// Fail-closed vor der Registry-Validierung: Das Dokument muss explizit
@@ -218,12 +248,27 @@ export function validateHarnessProfileRef(doc: unknown): HarnessProfileValidatio
 		};
 	}
 
-	// Provenance-Konsistenz: KNOWN erfordert provider + model.
-	if (ref.model_provenance_status === 'KNOWN' && (!ref.provider || !ref.model)) {
+	// Cross-Field-Konsistenz (Defense-in-Depth): Die Top-Level-Identitäts-
+	// felder müssen der gehashten Semantik entsprechen — ein Dokument darf
+	// nicht `harness_profile_id: 'A'` behaupten, während die Semantik
+	// `model_profile.id: 'B'` trägt (keine widersprüchliche Provenienz).
+	const semanticsProfileId = (ref.semantics.model_profile as { id?: unknown } | undefined)?.id;
+	const semanticsTaskProfileId = (ref.semantics.task_profile as { id?: unknown } | undefined)?.id;
+	const semanticsProvider = ref.semantics.provider;
+	const semanticsModel = ref.semantics.model;
+	if (
+		(typeof semanticsProfileId === 'string' && semanticsProfileId !== ref.harness_profile_id) ||
+		(typeof semanticsTaskProfileId === 'string' &&
+			semanticsTaskProfileId !== ref.task_profile_id) ||
+		(semanticsProvider !== undefined &&
+			semanticsProvider !== null &&
+			semanticsProvider !== ref.provider) ||
+		(semanticsModel !== undefined && semanticsModel !== null && semanticsModel !== ref.model)
+	) {
 		return {
 			ok: false,
 			reasonCode: INVALID_PROFILE_REF,
-			errors: ['INVALID_PROFILE_REF: model_provenance_status=KNOWN requires provider and model'],
+			errors: ['INVALID_PROFILE_REF: top-level identity fields contradict semantics'],
 		};
 	}
 
