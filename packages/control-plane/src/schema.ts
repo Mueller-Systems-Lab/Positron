@@ -2,6 +2,7 @@
 
 import type Database from 'better-sqlite3';
 import { SCHEDULER_EVENTS_SCHEMA, SCHEDULER_QUEUE_SCHEMA_V4 } from './queue-schema.js';
+import { WORKSPACE_LOCK_SCHEMA_V5 } from './workspace-lock.js';
 
 /**
  * Control-Plane-Migrationen. Laufen auf der SELBEN SQLite-DB wie run-state
@@ -123,4 +124,6 @@ export function applyControlPlaneMigrations(db: Database.Database): void {
 	// P4 (Multi-Issue Scheduling): durable Intake-Queue (V4, idempotent)
 	db.exec(SCHEDULER_QUEUE_SCHEMA_V4);
 	db.exec(SCHEDULER_EVENTS_SCHEMA);
+	// P4 (Slice D): persistenter Workspace Lock (V5, idempotent)
+	db.exec(WORKSPACE_LOCK_SCHEMA_V5);
 }

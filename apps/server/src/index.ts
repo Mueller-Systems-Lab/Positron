@@ -44,6 +44,7 @@ import {
 	persistSchedulerEvent,
 	recoverSchedulerState,
 	resolveAttemptLeaseTtlMs,
+	resolveWorkspaceLockTtlMs,
 	schedulerCapacity,
 } from '@positron/control-plane';
 import {
@@ -2446,6 +2447,8 @@ export function createApp(options: ServerOptions = {}) {
 
 	const schedulerCfg = {
 		maxActiveRuns: Number(process.env.POSITRON_MAX_ACTIVE_RUNS ?? 2),
+		// P4 (Slice D): persistenter Workspace Lock (TTL zentral konfiguriert)
+		workspaceLockTtlMs: resolveWorkspaceLockTtlMs(process.env),
 		emitEvent: persistSchedulerEvent(getDb()),
 	};
 

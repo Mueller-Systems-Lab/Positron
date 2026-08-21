@@ -217,3 +217,16 @@ export type {
 	QueuePriority,
 	SchedulerReasonCode,
 } from './queue-schema.js';
+
+// ─── P4 (Slice D): Persistenter Workspace Lock ───
+export {
+	DEFAULT_WORKSPACE_LOCK_TTL_MS,
+	resolveWorkspaceLockTtlMs,
+	acquireWorkspaceLock,
+	renewWorkspaceLock,
+	isWorkspaceLockValid,
+	releaseWorkspaceLock,
+	recoverStaleWorkspaceLocks,
+	getWorkspaceLock,
+} from './workspace-lock.js';
+export type { WorkspaceLock } from './workspace-lock.js';

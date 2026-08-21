@@ -20,6 +20,12 @@ import {
 	queueDedupKey,
 } from './queue-schema.js';
 import type { QueuePriority, QueueState, SchedulerReasonCode } from './queue-schema.js';
+import {
+	DEFAULT_WORKSPACE_LOCK_TTL_MS,
+	acquireWorkspaceLock,
+	recoverStaleWorkspaceLocks,
+	releaseWorkspaceLock,
+} from './workspace-lock.js';
 
 // ---------------------------------------------------------------------------
 // Typen
@@ -56,6 +62,11 @@ export interface SchedulerConfig {
 	activeByProvider?: () => Record<string, number>;
 	/** Aging: nach N Sekunden Wartezeit steigt ein NORMAL/LOW-Item eine Stufe (default 0 = aus) */
 	agingSeconds?: number;
+	/**
+	 * P4 (Slice D): TTL des persistenten Workspace-Locks (ms).
+	 * Default: DEFAULT_WORKSPACE_LOCK_TTL_MS (10 min).
+	 */
+	workspaceLockTtlMs?: number;
 	/** Scheduler-Events (persistiert in cp_scheduler_events, §56) */
 	emitEvent?: (event: SchedulerEvent) => void;
 }
@@ -116,46 +127,61 @@ export function enqueueItem(db: Database.Database, input: EnqueueInput): QueueIt
 			}
 		}
 
-		const item: QueueItemRecord = {
-			queue_item_id: crypto.randomUUID(),
-			source_type: input.source_type,
-			source_ref: input.source_ref,
-			repository_ref: input.repository_ref,
-			run_id: null,
-			priority: normalizePriority(input.priority),
-			queue_state: 'QUEUED',
-			dependency_refs: input.dependency_refs ?? [],
-			enqueued_at: new Date().toISOString(),
-			admitted_at: null,
-			started_at: null,
-			finished_at: null,
-			reason_code: 'READY',
-			dedup_key: dedupKey,
-			provider: input.provider ?? null,
-		};
-		db.prepare(
-			`INSERT INTO cp_queue (queue_item_id, source_type, source_ref, repository_ref, run_id,
-			   priority, queue_state, dependency_refs, enqueued_at, admitted_at, started_at, finished_at,
-			   reason_code, dedup_key, provider)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		).run(
-			item.queue_item_id,
-			item.source_type,
-			item.source_ref,
-			item.repository_ref,
-			item.run_id,
-			item.priority,
-			item.queue_state,
-			JSON.stringify(item.dependency_refs),
-			item.enqueued_at,
-			item.admitted_at,
-			item.started_at,
-			item.finished_at,
-			item.reason_code,
-			item.dedup_key,
-			item.provider,
-		);
-		return item;
+		try {
+			const item: QueueItemRecord = {
+				queue_item_id: crypto.randomUUID(),
+				source_type: input.source_type,
+				source_ref: input.source_ref,
+				repository_ref: input.repository_ref,
+				run_id: null,
+				priority: normalizePriority(input.priority),
+				queue_state: 'QUEUED',
+				dependency_refs: input.dependency_refs ?? [],
+				enqueued_at: new Date().toISOString(),
+				admitted_at: null,
+				started_at: null,
+				finished_at: null,
+				reason_code: 'READY',
+				dedup_key: dedupKey,
+				provider: input.provider ?? null,
+			};
+			db.prepare(
+				`INSERT INTO cp_queue (queue_item_id, source_type, source_ref, repository_ref, run_id,
+				   priority, queue_state, dependency_refs, enqueued_at, admitted_at, started_at, finished_at,
+				   reason_code, dedup_key, provider)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			).run(
+				item.queue_item_id,
+				item.source_type,
+				item.source_ref,
+				item.repository_ref,
+				item.run_id,
+				item.priority,
+				item.queue_state,
+				JSON.stringify(item.dependency_refs),
+				item.enqueued_at,
+				item.admitted_at,
+				item.started_at,
+				item.finished_at,
+				item.reason_code,
+				item.dedup_key,
+				item.provider,
+			);
+			return item;
+		} catch (err) {
+			// M4 (Architektur-Review): forceRerun kann mit einem requeued/
+			// aktiven Item desselben dedup_key kollidieren (partieller
+			// UNIQUE-Index). Idempotent auf das bestehende aktive Item
+			// zurückfallen statt SQLITE_CONSTRAINT nach außen zu reichen.
+			const active = db
+				.prepare(
+					`SELECT * FROM cp_queue WHERE dedup_key = ? AND queue_state IN
+					 ('QUEUED', 'WAITING_DEPENDENCY', 'WAITING_RESOURCE', 'ADMITTED', 'RUNNING')`,
+				)
+				.get(dedupKey) as Record<string, unknown> | undefined;
+			if (active) return mapQueueRow(active);
+			throw err;
+		}
 	})();
 }
 
@@ -407,6 +433,34 @@ export function admitNext(
 			}
 			if (providerBlocked) continue;
 
+			// P4 (Slice D): Persistenter Workspace Lock — Mutation-Exklusivität
+			// über den QUEUE-State hinaus (überlebt Scheduler-/Worker-Crashs,
+			// lease-/fence-aware). Workspace-Identity = repository_ref des Items
+			// (isolierte disposable Workspaces sind 1:1 daran gebunden).
+			// Der Lock wird ATOMAR innerhalb der Admission-Transaktion geclaimt
+			// (nach ALLEN Prüfungen): konkurrierende Scheduler-Prozesse können
+			// denselben Workspace nicht doppelt vergeben. Ein fremder gültiger
+			// Lock blockiert (WORKSPACE_LOCKED); ein stale Lock wird per
+			// Reclaim mit frischer Generation übernommen (FENCE_ADVANCED).
+			const lockTtlMs = config.workspaceLockTtlMs ?? DEFAULT_WORKSPACE_LOCK_TTL_MS;
+			const lock = acquireWorkspaceLock(db, item.repository_ref, item.queue_item_id, lockTtlMs, now);
+			if (!lock.acquired) {
+				updateQueueItem(db, item.queue_item_id, {
+					queue_state: 'WAITING_RESOURCE',
+					reason_code: 'WORKSPACE_LOCKED',
+				});
+				continue;
+			}
+			if (lock.reclaimed) {
+				emit(config, {
+					queue_item_id: item.queue_item_id,
+					run_id: null,
+					event: 'WORKSPACE_LOCK_RECLAIMED',
+					timestamp: now,
+					reason_code: 'WORKSPACE_LOCKED',
+				});
+			}
+
 			// ADMISSION: atomarer Übergang → ADMITTED
 			const admitted = db
 				.prepare(
@@ -447,12 +501,16 @@ export function markRunStarted(
 	config?: Pick<SchedulerConfig, 'emitEvent'>,
 	now = new Date().toISOString(),
 ): QueueItemRecord | null {
-	const updated = updateQueueItem(db, queueItemId, {
-		queue_state: 'RUNNING',
-		run_id: runId,
-		started_at: now,
-		reason_code: 'READY',
-	});
+	// M5 (Architektur-Review): state-guarded — nur ADMITTED darf zu RUNNING
+	// wechseln; ein doppelter Dispatch überschreibt keine finalen Items.
+	const res = db
+		.prepare(
+			`UPDATE cp_queue SET queue_state = 'RUNNING', run_id = ?, started_at = ?, reason_code = 'READY'
+			 WHERE queue_item_id = ? AND queue_state = 'ADMITTED'`,
+		)
+		.run(runId, now, queueItemId);
+	if (res.changes !== 1) return null;
+	const updated = getQueueItem(db, queueItemId);
 	if (updated) {
 		emit(config ?? {}, {
 			queue_item_id: queueItemId,
@@ -474,12 +532,25 @@ export function markRunFinished(
 	config?: Pick<SchedulerConfig, 'emitEvent'>,
 	now = new Date().toISOString(),
 ): QueueItemRecord | null {
+	// M1 (Architektur-Review): FAILED/TIMEOUT sind EIGENE terminale States —
+	// sie werden NICHT zu COMPLETED kollabiert, sonst würden abhängige Runs
+	// nach einer fehlgeschlagenen Dependency fälschlich freigegeben.
+	const queueState = state === 'COMPLETED' ? 'COMPLETED' : state;
 	const updated = updateQueueItem(db, queueItemId, {
-		queue_state: state === 'FAILED' || state === 'TIMEOUT' ? 'COMPLETED' : state,
+		queue_state: queueState as QueueState,
 		finished_at: now,
 		reason_code: reasonCode,
 	});
 	if (updated) {
+		// P4 (Slice D): Lock-Release für ALLE terminalen Zustände
+		// (COMPLETED/FAILED/BLOCKED/CANCELLED/TIMEOUT) — gefenced auf den
+		// Owner (queue_item_id); ein alter Owner nach Reclaim kann den
+		// Lock des neuen Besitzers nicht freigeben.
+		try {
+			releaseWorkspaceLock(db, updated.repository_ref, queueItemId);
+		} catch {
+			/* Lock-Release ist best-effort — darf Finalisierung nie verhindern */
+		}
 		emit(config ?? {}, {
 			queue_item_id: queueItemId,
 			run_id: runId,
@@ -507,6 +578,16 @@ export function cancelQueueItem(
 		reason_code: 'CANCELLED_BY_USER',
 	});
 	if (updated) {
+		// P4 (Slice D): Cancel eines terminalen QUEUED/WAITING-Items gibt den
+		// Workspace-Lock frei (falls gehalten — RUNNING-Items release im
+		// markRunFinished-Pfad).
+		if (updated.queue_state === 'CANCELLED') {
+			try {
+				releaseWorkspaceLock(db, updated.repository_ref, queueItemId);
+			} catch {
+				/* best-effort */
+			}
+		}
 		// Event wird über die übergebene Config persistiert (Review-Fix:
 		// `emit({emitEvent: undefined})` hat das Event still verworfen).
 		emit(config ?? {}, {
@@ -540,6 +621,10 @@ export function recoverSchedulerState(
 	const requeued: string[] = [];
 	const staleAdmitted: string[] = [];
 	const deadRuns: string[] = [];
+	// P4 (Slice D): Stale Workspace-Locks (Owner gecrasht, kein Heartbeat)
+	// werden VOR der Re-Admission freigegeben — sonst blockiert ein
+	// Zombie-Lock den Workspace dauerhaft.
+	recoverStaleWorkspaceLocks(db, now);
 	for (const item of listQueueItems(db)) {
 		if (item.queue_state === 'ADMITTED') {
 			// ADMITTED ohne laufenden Run → stale (Controller-Crash vor Start)
