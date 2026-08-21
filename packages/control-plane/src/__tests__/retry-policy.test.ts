@@ -32,6 +32,16 @@ function makeAttempt(overrides: Partial<AttemptRecord> = {}): AttemptRecord {
 		lease_generation: 0,
 		lease_expires_at: null,
 		claimed_at: null,
+		harness_profile_id: null,
+		harness_profile_version: null,
+		harness_fingerprint: null,
+		harness_profile_ref: null,
+		task_profile_id: null,
+		task_profile_version: null,
+		task_type: null,
+		provider_adapter_id: null,
+		provider_adapter_version: null,
+		model_provenance_status: null,
 		...overrides,
 	};
 }

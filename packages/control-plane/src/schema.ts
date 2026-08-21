@@ -118,6 +118,51 @@ function applyV3(db: Database.Database): void {
 	}
 }
 
+/**
+ * V7 (P5.1 — Harness Profile Identity, Provenance & Metrics Foundation).
+ *
+ * Additive, nullable P5.1-Telemetrie-Spalten auf `cp_attempts`:
+ *
+ *   harness_profile_id        — Modell-Harness-Profil (Identity-Ebene B)
+ *   harness_profile_version   — versionierte Profil-Konfiguration
+ *   harness_fingerprint       — effektiver Harness-Fingerprint (SHA-256,
+ *                               kanonische Fingerprint-Primitive)
+ *   harness_profile_ref       — validierter positron.harness-profile-ref.v1
+ *                               Contract (JSON, reproduzierbare Semantik)
+ *   task_profile_id           — Aufgabenprofil (Identity-Ebene C)
+ *   task_profile_version      — Profil-Version des Aufgabenprofils
+ *   task_type                 — kanonischer Task-Typ (Korrespondenz job_type)
+ *   provider_adapter_id       — technischer Model-Adapter (nur wenn bekannt)
+ *   provider_adapter_version  — Adapter-Version (nur wenn tatsächlich bekannt)
+ *   model_provenance_status   — KNOWN | PROVENANCE_UNAVAILABLE |
+ *                               LEGACY_PROFILE_UNSPECIFIED (kein Erfinden)
+ *
+ * Alle Spalten sind NULLABLE (kein DEFAULT): historische Attempts (V1–V6)
+ * bleiben ohne P5-Felder lesbar und werden als LEGACY_PROFILE_UNSPECIFIED /
+ * PROVENANCE_UNAVAILABLE dargestellt — es wird NIE rückwirkend ein Profil
+ * erfunden. Migration ist additiv, idempotent, forward-safe und
+ * backward-compatible; keine bestehende Control-Plane-Invariante ändert sich.
+ */
+function applyV7(db: Database.Database): void {
+	const v7Columns: Array<[string, string]> = [
+		['harness_profile_id', 'TEXT'],
+		['harness_profile_version', 'TEXT'],
+		['harness_fingerprint', 'TEXT'],
+		['harness_profile_ref', 'TEXT'],
+		['task_profile_id', 'TEXT'],
+		['task_profile_version', 'TEXT'],
+		['task_type', 'TEXT'],
+		['provider_adapter_id', 'TEXT'],
+		['provider_adapter_version', 'TEXT'],
+		['model_provenance_status', 'TEXT'],
+	];
+	for (const [column, type] of v7Columns) {
+		if (!columnExists(db, 'cp_attempts', column)) {
+			db.exec(`ALTER TABLE cp_attempts ADD COLUMN ${column} ${type}`);
+		}
+	}
+}
+
 export function applyControlPlaneMigrations(db: Database.Database): void {
 	db.exec(CONTROL_PLANE_SCHEMA_V1);
 	applyV2(db);
@@ -129,4 +174,6 @@ export function applyControlPlaneMigrations(db: Database.Database): void {
 	db.exec(WORKSPACE_LOCK_SCHEMA_V5);
 	// P4 (Slice E): Provider-Capacity-Reservierungen (V6, idempotent)
 	db.exec(PROVIDER_RESERVATION_SCHEMA_V6);
+	// P5.1: Harness Profile Identity & Provenance (V7, idempotent)
+	applyV7(db);
 }

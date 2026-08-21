@@ -96,6 +96,25 @@ export interface AttemptRecord {
 	lease_expires_at: string | null;
 	/** Claim-Zeitpunkt (Diagnose) */
 	claimed_at: string | null;
+	// ── P5.1 Harness Profile Identity & Provenance (V7) ──────────────────
+	/** Modell-Harness-Profil (Identity-Ebene B); NULL → LEGACY_PROFILE_UNSPECIFIED */
+	harness_profile_id: string | null;
+	/** Version des Modell-Harness-Profils */
+	harness_profile_version: string | null;
+	/** Effektiver Harness-Fingerprint (SHA-256 über semantische Konfiguration) */
+	harness_fingerprint: string | null;
+	/** Validierter positron.harness-profile-ref.v1 Contract (JSON) */
+	harness_profile_ref: string | null;
+	/** Aufgabenprofil (Identity-Ebene C); Korrespondenz job_type */
+	task_profile_id: string | null;
+	task_profile_version: string | null;
+	/** Kanonischer Task-Typ */
+	task_type: string | null;
+	/** Technischer Model-Adapter (nur wenn tatsächlich bekannt) */
+	provider_adapter_id: string | null;
+	provider_adapter_version: string | null;
+	/** KNOWN | PROVENANCE_UNAVAILABLE | LEGACY_PROFILE_UNSPECIFIED */
+	model_provenance_status: string | null;
 }
 
 export function createId(prefix: string): string {
@@ -252,13 +271,27 @@ export function createAttempt(
 		lease_generation: initial.lease_generation ?? 0,
 		lease_expires_at: initial.lease_expires_at ?? null,
 		claimed_at: initial.claimed_at ?? null,
+		// P5.1: Harness Profile Identity (additiv, nullable — Legacy kompatibel)
+		harness_profile_id: initial.harness_profile_id ?? null,
+		harness_profile_version: initial.harness_profile_version ?? null,
+		harness_fingerprint: initial.harness_fingerprint ?? null,
+		harness_profile_ref: initial.harness_profile_ref ?? null,
+		task_profile_id: initial.task_profile_id ?? null,
+		task_profile_version: initial.task_profile_version ?? null,
+		task_type: initial.task_type ?? null,
+		provider_adapter_id: initial.provider_adapter_id ?? null,
+		provider_adapter_version: initial.provider_adapter_version ?? null,
+		model_provenance_status: initial.model_provenance_status ?? null,
 	};
 	db.prepare(
 		`INSERT INTO cp_attempts (attempt_id, run_id, job_id, status, input_contract, input_fingerprint,
 		   output_contract, output_fingerprint, output_json, worker_type, provider, model, started_at,
 		   ended_at, failure_class, failure_signature, new_evidence, strategy_delta, result_ref, tokens,
-		   previous_attempt_id, lease_owner_id, lease_generation, lease_expires_at, claimed_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		   previous_attempt_id, lease_owner_id, lease_generation, lease_expires_at, claimed_at,
+		   harness_profile_id, harness_profile_version, harness_fingerprint, harness_profile_ref,
+		   task_profile_id, task_profile_version, task_type, provider_adapter_id, provider_adapter_version,
+		   model_provenance_status)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 	).run(
 		attempt.attempt_id,
 		attempt.run_id,
@@ -285,6 +318,16 @@ export function createAttempt(
 		attempt.lease_generation,
 		attempt.lease_expires_at,
 		attempt.claimed_at,
+		attempt.harness_profile_id,
+		attempt.harness_profile_version,
+		attempt.harness_fingerprint,
+		attempt.harness_profile_ref,
+		attempt.task_profile_id,
+		attempt.task_profile_version,
+		attempt.task_type,
+		attempt.provider_adapter_id,
+		attempt.provider_adapter_version,
+		attempt.model_provenance_status,
 	);
 	return attempt;
 }
@@ -428,6 +471,86 @@ export function recoverStaleLeases(
 		if (updated) recovered.push(updated);
 	}
 	return recovered;
+}
+
+/**
+ * P5.1 — Bindet eine validierte Harness-Referenz atomar an einen Attempt.
+ *
+ * Die Profilidentität ist Teil des tatsächlichen Execution Contexts und wird
+ * VOR der Modell-Ausführung gebunden (PROFILE_REF_BOUND_BEFORE_EXECUTION).
+ * Idempotent: bereits gebundene identische Refs sind ein No-op; ein
+ * semantischer Mismatch (anderer Fingerprint auf demselben Attempt) wird
+ * abgelehnt (kein nachträgliches Umschreiben der Historie).
+ *
+ * @returns `true` bei erfolgreicher Bindung, `false` bei Mismatch/finalem Attempt
+ */
+export function bindHarnessProfileToAttempt(
+	db: Database.Database,
+	attemptId: string,
+	ref: {
+		harness_profile_id: string;
+		harness_profile_version: string;
+		harness_fingerprint: string;
+		harness_profile_ref: string;
+		task_profile_id: string;
+		task_profile_version: string;
+		task_type: string;
+		provider_adapter_id: string | null;
+		provider_adapter_version: string | null;
+		model_provenance_status: string;
+	},
+): boolean {
+	return db.transaction((): boolean => {
+		const existing = getAttempt(db, attemptId);
+		if (!existing) return false;
+		if (
+			existing.status === 'failed' ||
+			existing.status === 'blocked' ||
+			existing.status === 'timed_out' ||
+			existing.status === 'denied' ||
+			existing.status === 'succeeded'
+		) {
+			// Finale Attempts sind unveränderlich — keine nachträgliche Bindung.
+			return false;
+		}
+		if (
+			existing.harness_fingerprint !== null &&
+			existing.harness_fingerprint !== ref.harness_fingerprint
+		) {
+			// Semantischer Mismatch: die gebundene Konfiguration widerspricht
+			// der bereits persistierten — ablehnen statt überschreiben.
+			return false;
+		}
+		const res = db
+			.prepare(
+				`UPDATE cp_attempts SET
+				   harness_profile_id = ?,
+				   harness_profile_version = ?,
+				   harness_fingerprint = ?,
+				   harness_profile_ref = ?,
+				   task_profile_id = ?,
+				   task_profile_version = ?,
+				   task_type = ?,
+				   provider_adapter_id = ?,
+				   provider_adapter_version = ?,
+				   model_provenance_status = ?
+				 WHERE attempt_id = ?`,
+			)
+			.run(
+				ref.harness_profile_id,
+				ref.harness_profile_version,
+				ref.harness_fingerprint,
+				ref.harness_profile_ref,
+				ref.task_profile_id,
+				ref.task_profile_version,
+				ref.task_type,
+				ref.provider_adapter_id,
+				ref.provider_adapter_version,
+				ref.model_provenance_status,
+				attemptId,
+			);
+		return res.changes === 1;
+	})();
 }
 
 export function getAttempt(db: Database.Database, attemptId: string): AttemptRecord | null {
@@ -580,6 +703,24 @@ export function mapAttemptRow(row: Record<string, unknown>): AttemptRecord {
 				: 0,
 		lease_expires_at: row.lease_expires_at ? String(row.lease_expires_at) : null,
 		claimed_at: row.claimed_at ? String(row.claimed_at) : null,
+		harness_profile_id: row.harness_profile_id ? String(row.harness_profile_id) : null,
+		harness_profile_version: row.harness_profile_version
+			? String(row.harness_profile_version)
+			: null,
+		harness_fingerprint: row.harness_fingerprint ? String(row.harness_fingerprint) : null,
+		harness_profile_ref: row.harness_profile_ref ? String(row.harness_profile_ref) : null,
+		task_profile_id: row.task_profile_id ? String(row.task_profile_id) : null,
+		task_profile_version: row.task_profile_version
+			? String(row.task_profile_version)
+			: null,
+		task_type: row.task_type ? String(row.task_type) : null,
+		provider_adapter_id: row.provider_adapter_id ? String(row.provider_adapter_id) : null,
+		provider_adapter_version: row.provider_adapter_version
+			? String(row.provider_adapter_version)
+			: null,
+		model_provenance_status: row.model_provenance_status
+			? String(row.model_provenance_status)
+			: null,
 	};
 }
 

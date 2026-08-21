@@ -87,6 +87,7 @@ export {
 	recoverStaleLeases,
 	canTransitionAttempt,
 	mapAttemptRow,
+	bindHarnessProfileToAttempt,
 	storeDecision,
 	listDecisions,
 	storeTransition,
