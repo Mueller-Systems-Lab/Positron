@@ -176,6 +176,66 @@ export default function KpiPanel(): React.ReactElement {
 				<KpiCell label="p50 Stage Duration" value={formatDurationMs(kpis.p50_stage_duration_ms)} />
 				<KpiCell label="p95 Stage Duration" value={formatDurationMs(kpis.p95_stage_duration_ms)} />
 			</div>
+
+			{/* P5.1 — Harness Profile KPIs (Backend Truth, keine Client-Berechnung) */}
+			<div className="mt-4" data-testid="profile-kpi-panel">
+				<div className="flex items-center justify-between mb-2">
+					<h4 className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+						Profile KPIs
+					</h4>
+					<span className="text-[10px] text-slate-600">
+						cost/verified success: {state.data.profile?.cost_per_verified_success ?? 'NOT_AVAILABLE'}
+					</span>
+				</div>
+				{!state.data.profile || state.data.profile.groups.length === 0 ? (
+					<p className="text-xs text-slate-500">No profile data yet.</p>
+				) : (
+					<div className="overflow-x-auto">
+						<table className="w-full text-[11px]">
+							<thead>
+								<tr className="text-left text-slate-500">
+									<th className="py-1 pr-2 font-medium">Profile</th>
+									<th className="py-1 pr-2 font-medium">Task</th>
+									<th className="py-1 pr-2 font-medium text-right">Sample</th>
+									<th className="py-1 pr-2 font-medium text-right">Verified Success</th>
+									<th className="py-1 pr-2 font-medium text-right">First Pass</th>
+									<th className="py-1 pr-2 font-medium text-right">Attempts/Success</th>
+									<th className="py-1 pr-2 font-medium text-right">Retry</th>
+								</tr>
+							</thead>
+							<tbody>
+								{state.data.profile.groups.map((g) => (
+									<tr key={g.effective_harness_fingerprint} className="border-t border-slate-800/60">
+										<td className="py-1 pr-2 font-mono text-slate-300">
+											{g.harness_profile_id ?? 'LEGACY_PROFILE_UNSPECIFIED'}
+											{g.harness_profile_version ? (
+												<span className="text-slate-500"> @{g.harness_profile_version}</span>
+											) : null}
+										</td>
+										<td className="py-1 pr-2 text-slate-400">
+											{g.task_profile_id ?? '—'}
+											{g.task_type ? <span className="text-slate-600"> ({g.task_type})</span> : null}
+										</td>
+										<td className="py-1 pr-2 text-right text-slate-300">{g.sample_size}</td>
+										<td className="py-1 pr-2 text-right text-slate-300">
+											{formatRate(g.verified_success_rate)}
+										</td>
+										<td className="py-1 pr-2 text-right text-slate-300">
+											{formatRate(g.first_pass_success_rate)}
+										</td>
+										<td className="py-1 pr-2 text-right text-slate-300">
+											{formatCount(g.attempts_per_verified_success)}
+										</td>
+										<td className="py-1 pr-2 text-right text-slate-300">
+											{formatRate(g.retry_rate)}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				)}
+			</div>
 		</div>
 	);
 }

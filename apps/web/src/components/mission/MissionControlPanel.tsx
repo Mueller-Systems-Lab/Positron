@@ -512,6 +512,35 @@ export default function MissionControlPanel({
 												label="model"
 												value={<code className="text-[11px]">{last.model ?? '—'}</code>}
 											/>
+											{/* P5.1 — Harness Profile Identity & Provenance (Backend Truth) */}
+											<KeyValue
+												label="harness profile"
+												value={
+													<code className="text-[11px]">
+														{last.harness_profile_id ?? 'LEGACY_PROFILE_UNSPECIFIED'}
+													</code>
+												}
+											/>
+											<KeyValue
+												label="profile version"
+												value={<code className="text-[11px]">{last.harness_profile_version ?? '—'}</code>}
+											/>
+											<KeyValue
+												label="task profile"
+												value={<code className="text-[11px]">{last.task_profile_id ?? '—'}</code>}
+											/>
+											<KeyValue
+												label="task type"
+												value={<code className="text-[11px]">{last.task_type ?? '—'}</code>}
+											/>
+											<KeyValue
+												label="provenance"
+												value={
+													<code className="text-[11px]">
+														{last.model_provenance_status ?? 'LEGACY_PROFILE_UNSPECIFIED'}
+													</code>
+												}
+											/>
 											<KeyValue
 												label="status"
 												value={
@@ -524,6 +553,7 @@ export default function MissionControlPanel({
 											<div className="flex flex-wrap gap-3 mt-1">
 												<FingerprintValue label="Input" value={last.input_fingerprint} />
 												<FingerprintValue label="Output" value={last.output_fingerprint} />
+												<FingerprintValue label="Harness" value={last.harness_fingerprint ?? null} />
 											</div>
 										</>
 									);

@@ -52,6 +52,17 @@ export interface ControlPlaneAttempt {
 	result_ref: string | null;
 	/** Strukturierte Verify-Gate-Checks (Backend-Truth, nur verification-Attempts) */
 	checks?: Array<{ name: string; passed: boolean; kind: string }> | null;
+	// P5.1 — Harness Profile Identity & Provenance (sichere Metadaten,
+	// Backend-Truth; historische Attempts: null + LEGACY_PROFILE_UNSPECIFIED)
+	harness_profile_id?: string | null;
+	harness_profile_version?: string | null;
+	harness_fingerprint?: string | null;
+	task_profile_id?: string | null;
+	task_profile_version?: string | null;
+	task_type?: string | null;
+	provider_adapter_id?: string | null;
+	provider_adapter_version?: string | null;
+	model_provenance_status?: string | null;
 }
 
 export interface ControlPlaneDecision {
@@ -97,8 +108,35 @@ export interface KpiReport {
 	p95_stage_duration_ms: number | null;
 }
 
+export interface ProfileKpiGroup {
+	effective_harness_fingerprint: string;
+	harness_profile_id: string | null;
+	harness_profile_version: string | null;
+	task_profile_id: string | null;
+	task_profile_version: string | null;
+	task_type: string | null;
+	provider: string | null;
+	model: string | null;
+	provider_adapter_id: string | null;
+	provider_adapter_version: string | null;
+	model_provenance_status: string | null;
+	sample_size: number;
+	verified_success_count: number;
+	verified_success_rate: number | null;
+	first_pass_success_count: number;
+	first_pass_success_rate: number | null;
+	attempts: number;
+	attempts_per_verified_success: number | null;
+	time_to_verified_success_ms: number | null;
+	retry_rate: number | null;
+	escalation_rate: number | null;
+	tokens_total: number | null;
+	cost_per_verified_success: string;
+}
+
 export interface KpisResponse {
 	kpis: KpiReport;
+	profile?: { groups: ProfileKpiGroup[]; generated_at: string; cost_per_verified_success: string };
 	invariants: { violations: string[] };
 }
 
