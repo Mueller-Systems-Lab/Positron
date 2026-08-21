@@ -1,8 +1,8 @@
 // Positron Control Plane — DB-Schema (Migrationen auf bestehender SQLite-DB)
 
 import type Database from 'better-sqlite3';
-import { SCHEDULER_EVENTS_SCHEMA, SCHEDULER_QUEUE_SCHEMA_V4 } from './queue-schema.js';
 import { PROVIDER_RESERVATION_SCHEMA_V6 } from './provider-capacity.js';
+import { SCHEDULER_EVENTS_SCHEMA, SCHEDULER_QUEUE_SCHEMA_V4 } from './queue-schema.js';
 import { WORKSPACE_LOCK_SCHEMA_V5 } from './workspace-lock.js';
 
 /**

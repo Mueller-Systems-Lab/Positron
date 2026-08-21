@@ -59,8 +59,6 @@ import {
 	createRealGitHubAdapter,
 } from '@positron/github-adapter';
 import type { GitHubAdapter } from '@positron/github-adapter';
-import type { PipelineDeps } from '@positron/worker-pipeline';
-import { runPipeline } from '@positron/worker-pipeline';
 import type {
 	EvidenceItem,
 	GitHubStatusSyncInput,
@@ -98,6 +96,8 @@ import type {
 } from '@positron/shared';
 import { FakeSpecKitAdapter, RealSpecKitAdapter } from '@positron/speckit-adapter';
 import { GatewayService, ToolRegistry, createAuditSink } from '@positron/tool-gateway';
+import type { PipelineDeps } from '@positron/worker-pipeline';
+import { runPipeline } from '@positron/worker-pipeline';
 import type Database from 'better-sqlite3';
 import express from 'express';
 import { getManagedTargetProjects } from './data/managed-target-projects.js';
@@ -1104,7 +1104,9 @@ export function createApp(options: ServerOptions = {}) {
 		recoverSchedulerState(getDb(), (runId) => isRunLeaseAlive(getDb(), runId));
 		recoverStaleLeases(getDb());
 	} catch (err) {
-		log.warn(`P4 crash recovery on startup failed: ${err instanceof Error ? err.message : String(err)}`);
+		log.warn(
+			`P4 crash recovery on startup failed: ${err instanceof Error ? err.message : String(err)}`,
+		);
 	}
 	const repository = resolveRepositoryConfig(options.repository);
 	const { adapter: github, mode: githubMode } = resolveAdapter(options.adapter);
@@ -2427,8 +2429,7 @@ export function createApp(options: ServerOptions = {}) {
 				task_type: row.task_type ?? null,
 				provider_adapter_id: row.provider_adapter_id ?? null,
 				provider_adapter_version: row.provider_adapter_version ?? null,
-				model_provenance_status:
-					row.model_provenance_status ?? 'LEGACY_PROFILE_UNSPECIFIED',
+				model_provenance_status: row.model_provenance_status ?? 'LEGACY_PROFILE_UNSPECIFIED',
 				// Strukturierte Verify-Gate-Checks (nur für verifizierte
 				// positron.verification.v1-Attempts). output_json wird
 				// bewusst NICHT exponiert (Privacy by Default) — die UI
@@ -2640,9 +2641,12 @@ export function createApp(options: ServerOptions = {}) {
 	// Periodischer Tick (default 5s; Tests deaktivieren via env)
 	let schedulerInterval: ReturnType<typeof setInterval> | null = null;
 	if (process.env.POSITRON_SCHEDULER_DISABLED !== 'true') {
-		schedulerInterval = setInterval(() => {
-			void schedulerLoopTick();
-		}, Number(process.env.POSITRON_SCHEDULER_INTERVAL_MS ?? 5000)).unref();
+		schedulerInterval = setInterval(
+			() => {
+				void schedulerLoopTick();
+			},
+			Number(process.env.POSITRON_SCHEDULER_INTERVAL_MS ?? 5000),
+		).unref();
 	}
 	// P4 (Slice C): Server-Close stoppt den Dispatch-Loop — kein Tick läuft
 	// nach dem Schließen weiter (kein Cross-Dispatch in geteilten Prozessen).
@@ -2691,12 +2695,9 @@ export function createApp(options: ServerOptions = {}) {
 		try {
 			const { source_ref } = req.query as { source_ref?: string };
 			const items = listQueueItems(getDb()).filter(
-				(q) =>
-					q.queue_state === 'WAITING_DEPENDENCY' || q.queue_state === 'WAITING_RESOURCE',
+				(q) => q.queue_state === 'WAITING_DEPENDENCY' || q.queue_state === 'WAITING_RESOURCE',
 			);
-			const target = source_ref
-				? items.find((q) => q.source_ref === source_ref)
-				: items[0];
+			const target = source_ref ? items.find((q) => q.source_ref === source_ref) : items[0];
 			if (source_ref && !target) {
 				res.status(404).json({ error: 'queue item not found' });
 				return;
