@@ -36,6 +36,7 @@ import {
 	assertKpiInvariants,
 	cancelQueueItem,
 	computeKpis,
+	computeProfileKpis,
 	enqueueItem,
 	getQueueItem,
 	isRunLeaseAlive,
@@ -2412,6 +2413,22 @@ export function createApp(options: ServerOptions = {}) {
 				new_evidence: row.new_evidence ?? null,
 				strategy_delta: row.strategy_delta ?? null,
 				result_ref: row.result_ref ?? null,
+				// P5.1 — Harness Profile Identity & Provenance (sichere Metadaten;
+				// der vollständige Contract inkl. semantics wird bewusst NICHT
+				// exponiert — Privacy by Default, keine Secrets/Prompts/Responses).
+				// Historische Attempts (vor P5.1) bleiben lesbar:
+				//   model_provenance_status → LEGACY_PROFILE_UNSPECIFIED
+				//   profile/version/fingerprint → null (kein Erfinden)
+				harness_profile_id: row.harness_profile_id ?? null,
+				harness_profile_version: row.harness_profile_version ?? null,
+				harness_fingerprint: row.harness_fingerprint ?? null,
+				task_profile_id: row.task_profile_id ?? null,
+				task_profile_version: row.task_profile_version ?? null,
+				task_type: row.task_type ?? null,
+				provider_adapter_id: row.provider_adapter_id ?? null,
+				provider_adapter_version: row.provider_adapter_version ?? null,
+				model_provenance_status:
+					row.model_provenance_status ?? 'LEGACY_PROFILE_UNSPECIFIED',
 				// Strukturierte Verify-Gate-Checks (nur für verifizierte
 				// positron.verification.v1-Attempts). output_json wird
 				// bewusst NICHT exponiert (Privacy by Default) — die UI
@@ -2459,7 +2476,11 @@ export function createApp(options: ServerOptions = {}) {
 			const database = getDb();
 			const report = computeKpis(database);
 			const violations = assertKpiInvariants(report);
-			res.json({ kpis: report, invariants: { violations } });
+			// P5.1 — Profile KPIs (Backend Truth, keine Client-Berechnung).
+			// Gruppierung nach Provider/Modell/Profil/Task-Typ/Fingerprint;
+			// Kosten sind ohne Preis-Provenienz NOT_AVAILABLE (kein Schätzen).
+			const profile = computeProfileKpis(database);
+			res.json({ kpis: report, profile, invariants: { violations } });
 		} catch (err) {
 			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
 		}
