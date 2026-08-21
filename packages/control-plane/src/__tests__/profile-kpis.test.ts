@@ -9,16 +9,16 @@
 //   PROFILE_SAMPLE_SIZE_CORRECT
 //   PROFILE_PROVENANCE_UNKNOWN_NOT_INVENTED (LEGACY-Gruppe)
 
-import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
-import { applyControlPlaneMigrations } from '../schema.js';
-import { createJob, createAttempt, storeDecision } from '../store.js';
+import { describe, expect, it } from 'vitest';
+import { PROVENANCE_KNOWN, buildHarnessProfileRef } from '../harness-profile.js';
 import {
-	computeProfileKpis,
-	LEGACY_PROFILE_GROUP,
 	COST_PER_VERIFIED_SUCCESS_NOT_AVAILABLE,
+	LEGACY_PROFILE_GROUP,
+	computeProfileKpis,
 } from '../kpis.js';
-import { buildHarnessProfileRef, PROVENANCE_KNOWN } from '../harness-profile.js';
+import { applyControlPlaneMigrations } from '../schema.js';
+import { createAttempt, createJob, storeDecision } from '../store.js';
 
 function createTestDb(): Database.Database {
 	const db = new Database(':memory:');

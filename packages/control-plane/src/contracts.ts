@@ -484,12 +484,10 @@ const CONTRACT_REGISTRY: Record<ContractId, ContractSchema> = {
 				type: 'string',
 				required: true,
 				validate: (value) =>
-					['KNOWN', 'PROVENANCE_UNAVAILABLE', 'LEGACY_PROFILE_UNSPECIFIED'].includes(
-						String(value),
-					)
+					['KNOWN', 'PROVENANCE_UNAVAILABLE', 'LEGACY_PROFILE_UNSPECIFIED'].includes(String(value))
 						? []
 						: [
-								`model_provenance_status must be one of: KNOWN, PROVENANCE_UNAVAILABLE, LEGACY_PROFILE_UNSPECIFIED`,
+								'model_provenance_status must be one of: KNOWN, PROVENANCE_UNAVAILABLE, LEGACY_PROFILE_UNSPECIFIED',
 							],
 			},
 			provider_adapter_id: { type: 'string', nullable: true },

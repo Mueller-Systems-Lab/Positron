@@ -523,7 +523,9 @@ export default function MissionControlPanel({
 											/>
 											<KeyValue
 												label="profile version"
-												value={<code className="text-[11px]">{last.harness_profile_version ?? '—'}</code>}
+												value={
+													<code className="text-[11px]">{last.harness_profile_version ?? '—'}</code>
+												}
 											/>
 											<KeyValue
 												label="task profile"
@@ -553,7 +555,10 @@ export default function MissionControlPanel({
 											<div className="flex flex-wrap gap-3 mt-1">
 												<FingerprintValue label="Input" value={last.input_fingerprint} />
 												<FingerprintValue label="Output" value={last.output_fingerprint} />
-												<FingerprintValue label="Harness" value={last.harness_fingerprint ?? null} />
+												<FingerprintValue
+													label="Harness"
+													value={last.harness_fingerprint ?? null}
+												/>
 											</div>
 										</>
 									);

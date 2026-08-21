@@ -616,8 +616,7 @@ export function completeAttempt(
 		//   STALE_EXECUTION_RESULT → REJECTED (kein State-Update).
 		if (options.fencingOwnerId !== undefined || options.fencingGeneration !== undefined) {
 			const ownerOk =
-				options.fencingOwnerId === undefined ||
-				existing.lease_owner_id === options.fencingOwnerId;
+				options.fencingOwnerId === undefined || existing.lease_owner_id === options.fencingOwnerId;
 			const genOk =
 				options.fencingGeneration === undefined ||
 				existing.lease_generation === options.fencingGeneration;
@@ -636,35 +635,36 @@ export function completeAttempt(
 		// Konkurrenz; BEGIN DEFERRED serialisiert den Write-Lock).
 		// Nur anwenden, wenn der Aufrufer explizite Fencing-Optionen setzt;
 		// Legacy-Attempts (lease_owner_id NULL) bleiben kompatibel.
-		const fence =
-			options.fencingOwnerId !== undefined || options.fencingGeneration !== undefined;
+		const fence = options.fencingOwnerId !== undefined || options.fencingGeneration !== undefined;
 		const whereOwner =
 			options.fencingOwnerId !== undefined ? options.fencingOwnerId : existing.lease_owner_id;
 		const whereGen =
-			options.fencingGeneration !== undefined ? options.fencingGeneration : existing.lease_generation;
+			options.fencingGeneration !== undefined
+				? options.fencingGeneration
+				: existing.lease_generation;
 		const base = `UPDATE cp_attempts SET status = ?, output_contract = ?, output_fingerprint = ?, output_json = ?,
 			   ended_at = ?, failure_class = ?, failure_signature = ?, new_evidence = ?, strategy_delta = ?,
 			   result_ref = ?, tokens = ?, previous_attempt_id = ?
 			 WHERE attempt_id = ?`;
-		const fenced = fence
-			? ` AND lease_owner_id = ? AND lease_generation = ?`
-			: '';
-		const res = db.prepare(base + fenced).run(
-			to,
-			update.output_contract ?? existing.output_contract,
-			update.output_fingerprint ?? existing.output_fingerprint,
-			update.output_json ?? existing.output_json,
-			update.ended_at ?? nowIso(),
-			update.failure_class ?? existing.failure_class,
-			update.failure_signature ?? existing.failure_signature,
-			update.new_evidence ?? existing.new_evidence,
-			update.strategy_delta ?? existing.strategy_delta,
-			update.result_ref ?? existing.result_ref,
-			update.tokens ?? existing.tokens,
-			update.previous_attempt_id ?? existing.previous_attempt_id,
-			attemptId,
-			...(fence ? [whereOwner, whereGen] : []),
-		);
+		const fenced = fence ? ' AND lease_owner_id = ? AND lease_generation = ?' : '';
+		const res = db
+			.prepare(base + fenced)
+			.run(
+				to,
+				update.output_contract ?? existing.output_contract,
+				update.output_fingerprint ?? existing.output_fingerprint,
+				update.output_json ?? existing.output_json,
+				update.ended_at ?? nowIso(),
+				update.failure_class ?? existing.failure_class,
+				update.failure_signature ?? existing.failure_signature,
+				update.new_evidence ?? existing.new_evidence,
+				update.strategy_delta ?? existing.strategy_delta,
+				update.result_ref ?? existing.result_ref,
+				update.tokens ?? existing.tokens,
+				update.previous_attempt_id ?? existing.previous_attempt_id,
+				attemptId,
+				...(fence ? [whereOwner, whereGen] : []),
+			);
 		if (res.changes === 0) {
 			// Fencing-Konflikt beim Write (Owner/Generation seit Read geändert)
 			return null;
@@ -710,9 +710,7 @@ export function mapAttemptRow(row: Record<string, unknown>): AttemptRecord {
 		harness_fingerprint: row.harness_fingerprint ? String(row.harness_fingerprint) : null,
 		harness_profile_ref: row.harness_profile_ref ? String(row.harness_profile_ref) : null,
 		task_profile_id: row.task_profile_id ? String(row.task_profile_id) : null,
-		task_profile_version: row.task_profile_version
-			? String(row.task_profile_version)
-			: null,
+		task_profile_version: row.task_profile_version ? String(row.task_profile_version) : null,
 		task_type: row.task_type ? String(row.task_type) : null,
 		provider_adapter_id: row.provider_adapter_id ? String(row.provider_adapter_id) : null,
 		provider_adapter_version: row.provider_adapter_version

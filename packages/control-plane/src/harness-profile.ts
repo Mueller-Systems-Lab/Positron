@@ -25,9 +25,9 @@
 // - Fail-closed für neue produktive Attempts: UNKNOWN_CONTRACT,
 //   UNKNOWN_VERSION, INVALID_PROFILE_REF, INVALID_FINGERPRINT.
 
-import { fingerprint } from './fingerprint.js';
 import { validateContract } from './contracts.js';
 import type { HarnessProfileRefContract, ModelProvenanceStatus } from './contracts.js';
+import { fingerprint } from './fingerprint.js';
 
 // ---------------------------------------------------------------------------
 // Kanonische Konstanten
@@ -93,9 +93,7 @@ export const HARNESS_RUNTIME_EXCLUDE_KEYS: ReadonlySet<string> = new Set([
  *   semantische Änderung → anderer Hash (SEMANTIC_PROFILE_CHANGE_CHANGES_FINGERPRINT)
  *   Runtime-Metadaten-Änderung → gleicher Hash (RUNTIME_METADATA_IGNORED)
  */
-export function computeEffectiveHarnessFingerprint(
-	semantics: Record<string, unknown>,
-): string {
+export function computeEffectiveHarnessFingerprint(semantics: Record<string, unknown>): string {
 	return fingerprint(semantics, { excludeKeys: HARNESS_RUNTIME_EXCLUDE_KEYS });
 }
 
@@ -181,7 +179,11 @@ function toReasonCode(errors: string[]): string {
 export function validateHarnessProfileRef(doc: unknown): HarnessProfileValidationResult {
 	// Fail-closed vor der Registry-Validierung: Das Dokument muss explizit
 	// den kanonischen Contract tragen — sonst UNKNOWN_CONTRACT.
-	if (typeof doc !== 'object' || doc === null || (doc as { contract?: unknown }).contract !== HARNESS_PROFILE_REF_CONTRACT) {
+	if (
+		typeof doc !== 'object' ||
+		doc === null ||
+		(doc as { contract?: unknown }).contract !== HARNESS_PROFILE_REF_CONTRACT
+	) {
 		return {
 			ok: false,
 			reasonCode: UNKNOWN_CONTRACT,
@@ -203,9 +205,7 @@ export function validateHarnessProfileRef(doc: unknown): HarnessProfileValidatio
 		return {
 			ok: false,
 			reasonCode: INVALID_FINGERPRINT,
-			errors: [
-				`INVALID_FINGERPRINT: effective_harness_fingerprint does not match semantics hash`,
-			],
+			errors: ['INVALID_FINGERPRINT: effective_harness_fingerprint does not match semantics hash'],
 		};
 	}
 
@@ -214,9 +214,16 @@ export function validateHarnessProfileRef(doc: unknown): HarnessProfileValidatio
 		return {
 			ok: false,
 			reasonCode: INVALID_PROFILE_REF,
-			errors: [
-				`INVALID_PROFILE_REF: model_provenance_status=KNOWN requires provider and model`,
-			],
+			errors: ['INVALID_PROFILE_REF: model_provenance_status=KNOWN requires provider and model'],
+		};
+	}
+
+	// Provenance-Konsistenz: KNOWN erfordert provider + model.
+	if (ref.model_provenance_status === 'KNOWN' && (!ref.provider || !ref.model)) {
+		return {
+			ok: false,
+			reasonCode: INVALID_PROFILE_REF,
+			errors: ['INVALID_PROFILE_REF: model_provenance_status=KNOWN requires provider and model'],
 		};
 	}
 

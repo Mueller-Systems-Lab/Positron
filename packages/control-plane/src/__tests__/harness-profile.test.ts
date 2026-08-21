@@ -11,20 +11,20 @@
 import { describe, expect, it } from 'vitest';
 import { validateContract } from '../contracts.js';
 import {
-	buildHarnessProfileRef,
-	computeEffectiveHarnessFingerprint,
 	HARNESS_PROFILE_REF_CONTRACT,
 	HarnessMetadataSecretError,
 	HarnessProfileValidationError,
 	INVALID_FINGERPRINT,
 	INVALID_PROFILE_REF,
-	isLegacyHarnessAttempt,
 	LEGACY_PROFILE_UNSPECIFIED,
 	PROVENANCE_KNOWN,
 	PROVENANCE_UNAVAILABLE,
-	resolveHarnessProfileFromEnv,
 	UNKNOWN_CONTRACT,
 	UNKNOWN_VERSION,
+	buildHarnessProfileRef,
+	computeEffectiveHarnessFingerprint,
+	isLegacyHarnessAttempt,
+	resolveHarnessProfileFromEnv,
 	validateHarnessProfileRef,
 } from '../harness-profile.js';
 
@@ -140,7 +140,7 @@ describe('PROFILE_PROVENANCE_UNKNOWN_NOT_INVENTED', () => {
 		expect(ref.provider).toBeNull();
 		expect(ref.model).toBeNull();
 		// Kein erfundener Alias als revision:
-		expect(ref.semantics['revision']).toBeUndefined();
+		expect(ref.semantics.revision).toBeUndefined();
 	});
 
 	it('explicit env config is honored without invention', () => {
@@ -159,9 +159,9 @@ describe('PROFILE_PROVENANCE_UNKNOWN_NOT_INVENTED', () => {
 		expect(ref.harness_profile_version).toBe('2.1.0');
 		expect(ref.task_profile_id).toBe('build-contract');
 		expect(ref.task_profile_version).toBe('3.0.0');
-		expect(ref.semantics['reasoning_mode']).toBe('fast');
+		expect(ref.semantics.reasoning_mode).toBe('fast');
 		// Kein erfundener revision:
-		expect(ref.semantics['revision']).toBeUndefined();
+		expect(ref.semantics.revision).toBeUndefined();
 	});
 
 	it('missing profile config falls back to unspecified without invention', () => {
@@ -262,11 +262,14 @@ describe('HARNESS_PROFILE_REF_CONTRACT_FAIL_CLOSED', () => {
 
 describe('LEGACY_PROFILE_UNSPECIFIED', () => {
 	it('legacy attempt (all P5.1 fields null) is detected', () => {
+		expect(isLegacyHarnessAttempt({ harness_profile_id: null, harness_fingerprint: null })).toBe(
+			true,
+		);
 		expect(
-			isLegacyHarnessAttempt({ harness_profile_id: null, harness_fingerprint: null }),
-		).toBe(true);
-		expect(
-			isLegacyHarnessAttempt({ harness_profile_id: 'profile-a', harness_fingerprint: 'ab'.repeat(32) }),
+			isLegacyHarnessAttempt({
+				harness_profile_id: 'profile-a',
+				harness_fingerprint: 'ab'.repeat(32),
+			}),
 		).toBe(false);
 		expect(LEGACY_PROFILE_UNSPECIFIED).toBe('LEGACY_PROFILE_UNSPECIFIED');
 	});

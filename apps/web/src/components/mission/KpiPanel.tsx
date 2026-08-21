@@ -53,7 +53,10 @@ function KpiCell({
 	);
 }
 
-function invariantOk(report: KpiReport, key: 'blind_retry_rate' | 'duplicate_mutation_rate'): boolean {
+function invariantOk(
+	report: KpiReport,
+	key: 'blind_retry_rate' | 'duplicate_mutation_rate',
+): boolean {
 	return report[key] === 0;
 }
 
@@ -139,7 +142,10 @@ export default function KpiPanel(): React.ReactElement {
 			</div>
 
 			{invariants.violations.length > 0 && (
-				<div className="mb-3 p-2 rounded-md border border-red-700 bg-red-900/40" data-testid="kpi-invariant-violation">
+				<div
+					className="mb-3 p-2 rounded-md border border-red-700 bg-red-900/40"
+					data-testid="kpi-invariant-violation"
+				>
 					<p className="text-[11px] font-bold text-red-300">INVARIANT VIOLATION</p>
 					<ul className="list-disc ml-4 text-[11px] text-red-300/90">
 						{invariants.violations.map((v) => (
@@ -184,7 +190,8 @@ export default function KpiPanel(): React.ReactElement {
 						Profile KPIs
 					</h4>
 					<span className="text-[10px] text-slate-600">
-						cost/verified success: {state.data.profile?.cost_per_verified_success ?? 'NOT_AVAILABLE'}
+						cost/verified success:{' '}
+						{state.data.profile?.cost_per_verified_success ?? 'NOT_AVAILABLE'}
 					</span>
 				</div>
 				{!state.data.profile || state.data.profile.groups.length === 0 ? (
@@ -205,7 +212,10 @@ export default function KpiPanel(): React.ReactElement {
 							</thead>
 							<tbody>
 								{state.data.profile.groups.map((g) => (
-									<tr key={g.effective_harness_fingerprint} className="border-t border-slate-800/60">
+									<tr
+										key={g.effective_harness_fingerprint}
+										className="border-t border-slate-800/60"
+									>
 										<td className="py-1 pr-2 font-mono text-slate-300">
 											{g.harness_profile_id ?? 'LEGACY_PROFILE_UNSPECIFIED'}
 											{g.harness_profile_version ? (
@@ -214,7 +224,9 @@ export default function KpiPanel(): React.ReactElement {
 										</td>
 										<td className="py-1 pr-2 text-slate-400">
 											{g.task_profile_id ?? '—'}
-											{g.task_type ? <span className="text-slate-600"> ({g.task_type})</span> : null}
+											{g.task_type ? (
+												<span className="text-slate-600"> ({g.task_type})</span>
+											) : null}
 										</td>
 										<td className="py-1 pr-2 text-right text-slate-300">{g.sample_size}</td>
 										<td className="py-1 pr-2 text-right text-slate-300">
