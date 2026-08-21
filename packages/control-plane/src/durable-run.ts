@@ -18,6 +18,12 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import type Database from 'better-sqlite3';
+import {
+	CancellationError,
+	createCancellationSource,
+	startLeaseHeartbeat,
+	withCancellableTimeout,
+} from './cancellation.js';
 import { validateContract } from './contracts.js';
 import type {
 	BuildInputContract,
@@ -29,12 +35,6 @@ import type {
 	VerificationContract,
 } from './contracts.js';
 import type { VerificationCheck } from './contracts.js';
-import {
-	CancellationError,
-	createCancellationSource,
-	startLeaseHeartbeat,
-	withCancellableTimeout,
-} from './cancellation.js';
 import { buildDecision } from './decision-policy.js';
 import { assertAttemptActive, assertExecutionContext } from './execution-context.js';
 import { classifyFailure } from './failure.js';

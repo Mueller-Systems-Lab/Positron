@@ -16,6 +16,7 @@
 // Runtime übergeben (der profile-aware OpenCode-Adapter sieht das Profil zur
 // Laufzeit und erzeugt eine profil-spezifische Implementierung).
 
+import fs from 'node:fs';
 import { FakeGitHubAdapter } from '@positron/github-adapter';
 import type { GitHubAdapter } from '@positron/github-adapter';
 import { FakeOpenCodeAdapter } from '@positron/opencode-adapter';
@@ -36,7 +37,6 @@ import type {
 } from '@positron/shared';
 import { FakeSpecKitAdapter } from '@positron/speckit-adapter';
 import Database from 'better-sqlite3';
-import fs from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runPipeline } from '../index.js';
 import type { PipelineDeps } from '../pipeline-runner.js';
@@ -142,9 +142,7 @@ function buildAttemptOf(db: Database.Database, runId: string): CanaryAttempt | n
 			? String(row.harness_profile_version)
 			: null,
 		task_profile_id: row.task_profile_id ? String(row.task_profile_id) : null,
-		task_profile_version: row.task_profile_version
-			? String(row.task_profile_version)
-			: null,
+		task_profile_version: row.task_profile_version ? String(row.task_profile_version) : null,
 		harness_fingerprint: row.harness_fingerprint ? String(row.harness_fingerprint) : null,
 		harness_profile_ref: row.harness_profile_ref ? String(row.harness_profile_ref) : null,
 		model_provenance_status: row.model_provenance_status

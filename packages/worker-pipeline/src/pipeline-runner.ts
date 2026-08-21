@@ -31,10 +31,7 @@ import {
 	updateJobState,
 	validateContract,
 } from '@positron/control-plane';
-import {
-	createCancellationSource,
-	startLeaseHeartbeat,
-} from '@positron/control-plane';
+import { createCancellationSource, startLeaseHeartbeat } from '@positron/control-plane';
 import type { AttemptRecord, FindingContract, JobRecord } from '@positron/control-plane';
 import type { VerificationContract } from '@positron/control-plane';
 import type { GitHubStatusSyncService } from '@positron/github-adapter';
@@ -677,12 +674,10 @@ function completeTrackedAttempt(
 		unregisterRunHeartbeat(tracking.attempt.run_id, heartbeat);
 	}
 	// P3.5 (C2): Fencing — stale/fremde Abschlüsse werden abgewiesen.
-	completeAttempt(
-		getDb(deps),
-		tracking.attempt.attempt_id,
-		update,
-		{ fencingOwnerId: tracking.ownerId, fencingGeneration: tracking.generation },
-	);
+	completeAttempt(getDb(deps), tracking.attempt.attempt_id, update, {
+		fencingOwnerId: tracking.ownerId,
+		fencingGeneration: tracking.generation,
+	});
 	if (!tracking.duplicate) {
 		tracking.registry.complete(tracking.idemKey, update.result_ref ?? null);
 	}
@@ -824,9 +819,7 @@ function loadLastAttempt(runId: string, jobType: string, deps: PipelineDeps): At
 			harness_fingerprint: last.harness_fingerprint ? String(last.harness_fingerprint) : null,
 			harness_profile_ref: last.harness_profile_ref ? String(last.harness_profile_ref) : null,
 			task_profile_id: last.task_profile_id ? String(last.task_profile_id) : null,
-			task_profile_version: last.task_profile_version
-				? String(last.task_profile_version)
-				: null,
+			task_profile_version: last.task_profile_version ? String(last.task_profile_version) : null,
 			task_type: last.task_type ? String(last.task_type) : null,
 			provider_adapter_id: last.provider_adapter_id ? String(last.provider_adapter_id) : null,
 			provider_adapter_version: last.provider_adapter_version
@@ -2038,9 +2031,9 @@ async function executePhase(
 						output_fingerprint: fingerprint({ phase: 'implement', status: ir.status }),
 						failure_class: ctx.signal.aborted
 							? 'CANCELLED'
-							: (classified.signature === 'UNKNOWN'
-									? 'INFRA_FAILURE'
-									: (classified.signature as AttemptRecord['failure_class'])),
+							: classified.signature === 'UNKNOWN'
+								? 'INFRA_FAILURE'
+								: (classified.signature as AttemptRecord['failure_class']),
 						failure_signature: ctx.signal.aborted
 							? 'implement:cancelled'
 							: `implement:${classified.signature}`,
@@ -3300,7 +3293,13 @@ async function runPipelineInner(
 							'FAILED_BLOCKED',
 							`SECURITY_BLOCK: ${blockingCount} blocking security finding(s) — run blocked`,
 						).run;
-						storeDecision(db, next.id, policyDecision.decision, policyDecision.reason_code, JSON.stringify(policyDecision));
+						storeDecision(
+							db,
+							next.id,
+							policyDecision.decision,
+							policyDecision.reason_code,
+							JSON.stringify(policyDecision),
+						);
 						const decideJob = createJob(db, next.id, 'decide');
 						updateJobState(db, decideJob.job_id, 'succeeded');
 						storeEvent(
@@ -3316,39 +3315,39 @@ async function runPipelineInner(
 							deps,
 						);
 					} else {
-					let decision: string;
-					let reasonCode: string;
-					if (next.phase === 'DONE') {
-						decision = 'DONE';
-						reasonCode = 'ALL_HARD_GATES_GREEN';
-					} else if (next.phase === 'FAILED_BLOCKED') {
-						decision = 'BLOCKED';
-						reasonCode = 'POLICY_BLOCK';
-					} else if (next.phase.startsWith('FAILED')) {
-						decision = 'BLOCKED';
-						reasonCode = 'PIPELINE_FAILED';
-					} else if (next.status === 'cancelled') {
-						decision = 'BLOCKED';
-						reasonCode = 'RUN_CANCELLED';
-					} else {
-						decision = 'BLOCKED';
-						reasonCode = 'NO_VERIFICATION';
-					}
-					storeDecision(
-						db,
-						next.id,
-						decision,
-						reasonCode,
-						JSON.stringify({
-							contract: 'positron.decision.v1',
-							run_id: next.id,
+						let decision: string;
+						let reasonCode: string;
+						if (next.phase === 'DONE') {
+							decision = 'DONE';
+							reasonCode = 'ALL_HARD_GATES_GREEN';
+						} else if (next.phase === 'FAILED_BLOCKED') {
+							decision = 'BLOCKED';
+							reasonCode = 'POLICY_BLOCK';
+						} else if (next.phase.startsWith('FAILED')) {
+							decision = 'BLOCKED';
+							reasonCode = 'PIPELINE_FAILED';
+						} else if (next.status === 'cancelled') {
+							decision = 'BLOCKED';
+							reasonCode = 'RUN_CANCELLED';
+						} else {
+							decision = 'BLOCKED';
+							reasonCode = 'NO_VERIFICATION';
+						}
+						storeDecision(
+							db,
+							next.id,
 							decision,
-							reason_code: reasonCode,
-							basis: { phase: next.phase, message: next.lastError ?? null },
-						}),
-					);
-					const decideJob = createJob(db, next.id, 'decide');
-					updateJobState(db, decideJob.job_id, 'succeeded');
+							reasonCode,
+							JSON.stringify({
+								contract: 'positron.decision.v1',
+								run_id: next.id,
+								decision,
+								reason_code: reasonCode,
+								basis: { phase: next.phase, message: next.lastError ?? null },
+							}),
+						);
+						const decideJob = createJob(db, next.id, 'decide');
+						updateJobState(db, decideJob.job_id, 'succeeded');
 					}
 				}
 			}

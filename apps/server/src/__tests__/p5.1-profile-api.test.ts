@@ -10,14 +10,14 @@
 // - GET /api/kpis liefert Profile-KPI-Gruppen (Backend Truth)
 
 import fs from 'node:fs';
+import type http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import type http from 'node:http';
+import { applyControlPlaneMigrations } from '@positron/control-plane';
+import { createAttempt, createJob, storeDecision } from '@positron/control-plane';
+import { PROVENANCE_KNOWN, buildHarnessProfileRef } from '@positron/control-plane';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { applyControlPlaneMigrations } from '@positron/control-plane';
-import { createJob, createAttempt, storeDecision } from '@positron/control-plane';
-import { buildHarnessProfileRef, PROVENANCE_KNOWN } from '@positron/control-plane';
 import { createServer } from '../index.js';
 
 let server: http.Server;
@@ -158,9 +158,7 @@ describe('GET /api/kpis — Profile KPIs (Backend Truth)', () => {
 			};
 		};
 		expect(Array.isArray(body.profile.groups)).toBe(true);
-		const profileGroup = body.profile.groups.find(
-			(g) => g.harness_profile_id === 'profile-api-a',
-		);
+		const profileGroup = body.profile.groups.find((g) => g.harness_profile_id === 'profile-api-a');
 		expect(profileGroup).toBeTruthy();
 		expect(profileGroup!.sample_size).toBe(1);
 		expect(profileGroup!.verified_success_count).toBe(1);

@@ -360,9 +360,7 @@ function median(sortedMs: number[]): number | null {
 	if (sortedMs.length === 0) return null;
 	const mid = Math.floor(sortedMs.length / 2);
 	const value =
-		sortedMs.length % 2 === 0
-			? (sortedMs[mid - 1]! + sortedMs[mid]!) / 2
-			: sortedMs[mid]!;
+		sortedMs.length % 2 === 0 ? (sortedMs[mid - 1]! + sortedMs[mid]!) / 2 : sortedMs[mid]!;
 	return Math.round(value);
 }
 
@@ -387,14 +385,10 @@ export function computeProfileKpis(db: Database.Database): ProfileKpiReport {
 		.all() as unknown[] as AttemptRow[];
 
 	const decisions = db
-		.prepare(
-			'SELECT run_id, decision, created_at FROM cp_decisions ORDER BY created_at ASC',
-		)
+		.prepare('SELECT run_id, decision, created_at FROM cp_decisions ORDER BY created_at ASC')
 		.all() as unknown[] as DecisionRunRow[];
 
-	const doneRuns = new Set(
-		decisions.filter((d) => d.decision === 'DONE').map((d) => d.run_id),
-	);
+	const doneRuns = new Set(decisions.filter((d) => d.decision === 'DONE').map((d) => d.run_id));
 	const escalatedRuns = new Set(
 		decisions
 			.filter((d) => d.decision === 'SPLIT' || d.decision === 'BLOCKED')
@@ -419,8 +413,7 @@ export function computeProfileKpis(db: Database.Database): ProfileKpiReport {
 		buildAttemptsByRun.set(a.run_id, (buildAttemptsByRun.get(a.run_id) ?? 0) + 1);
 	}
 
-	const groupKeyOf = (a: AttemptRow): string =>
-		a.harness_fingerprint ?? LEGACY_PROFILE_GROUP;
+	const groupKeyOf = (a: AttemptRow): string => a.harness_fingerprint ?? LEGACY_PROFILE_GROUP;
 
 	const groups = new Map<
 		string,
@@ -517,25 +510,23 @@ export function computeProfileKpis(db: Database.Database): ProfileKpiReport {
 			model_provenance_status: g.model_provenance_status,
 			sample_size: sampleSize,
 			verified_success_count: verified,
-			verified_success_rate:
-				sampleSize > 0 ? round2(verified / sampleSize) : null,
+			verified_success_rate: sampleSize > 0 ? round2(verified / sampleSize) : null,
 			first_pass_success_count: g.firstPassDoneRuns.size,
-			first_pass_success_rate:
-				verified > 0 ? round2(g.firstPassDoneRuns.size / verified) : null,
+			first_pass_success_rate: verified > 0 ? round2(g.firstPassDoneRuns.size / verified) : null,
 			attempts: g.attempts,
 			attempts_per_verified_success: verified > 0 ? round2(g.attempts / verified) : null,
 			time_to_verified_success_ms: median(g.timesToSuccess.sort((a, b) => a - b)),
 			retry_rate: g.attempts > 0 ? round2(g.retryAttempts / g.attempts) : null,
 			escalation_rate:
-				decisions.length > 0 && sampleSize > 0
-					? round2(withEscalation / sampleSize)
-					: null,
+				decisions.length > 0 && sampleSize > 0 ? round2(withEscalation / sampleSize) : null,
 			tokens_total: g.tokensCount > 0 ? g.tokensReported : null,
 			cost_per_verified_success: COST_PER_VERIFIED_SUCCESS_NOT_AVAILABLE,
 		});
 	}
 
-	reportGroups.sort((a, b) => a.effective_harness_fingerprint.localeCompare(b.effective_harness_fingerprint));
+	reportGroups.sort((a, b) =>
+		a.effective_harness_fingerprint.localeCompare(b.effective_harness_fingerprint),
+	);
 
 	return {
 		groups: reportGroups,
