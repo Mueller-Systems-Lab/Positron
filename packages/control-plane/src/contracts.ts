@@ -22,7 +22,10 @@ export type ContractId =
 	| 'positron.split.v1'
 	| 'positron.run-event.v1'
 	| 'positron.artifact.v1'
-	| 'positron.harness-profile-ref.v1';
+	| 'positron.harness-profile-ref.v1'
+	| 'positron.model-profile.v1'
+	| 'positron.task-profile.v1'
+	| 'positron.effective-harness.v1';
 
 export const CONTRACT_IDS: readonly ContractId[] = [
 	'positron.issue.v1',
@@ -39,6 +42,9 @@ export const CONTRACT_IDS: readonly ContractId[] = [
 	'positron.run-event.v1',
 	'positron.artifact.v1',
 	'positron.harness-profile-ref.v1',
+	'positron.model-profile.v1',
+	'positron.task-profile.v1',
+	'positron.effective-harness.v1',
 ];
 
 // ---------------------------------------------------------------------------
@@ -509,6 +515,156 @@ const CONTRACT_REGISTRY: Record<ContractId, ContractSchema> = {
 			},
 		},
 	},
+	// P5.2 — Static Model Profile (versioniert, typed, fail-closed).
+	// Technische Adapter-Kompatibilität + empirische Model-Defaults.
+	// Kein Freiform-Passthrough: capabilities/context/reasoning/tools sind
+	// typisiert und werden vom Profile Compiler allowlist-validiert.
+	'positron.model-profile.v1': {
+		contractId: 'positron.model-profile.v1',
+		version: 1,
+		fields: {
+			model_profile_id: { type: 'string', required: true, minLength: 1 },
+			model_profile_version: { type: 'string', required: true, minLength: 1 },
+			provider: { type: 'string', required: true, minLength: 1 },
+			model: { type: 'string', required: true, minLength: 1 },
+			provenance: {
+				type: 'object',
+				required: true,
+				requiredKeys: ['status'],
+				validate: (value) => {
+					if (typeof value !== 'object' || value === null) return ['provenance must be an object'];
+					const p = value as Record<string, unknown>;
+					if (p.status !== 'KNOWN' && p.status !== 'PROVENANCE_UNAVAILABLE') {
+						return ['provenance.status must be KNOWN or PROVENANCE_UNAVAILABLE'];
+					}
+					return [];
+				},
+			},
+			capabilities: {
+				type: 'string[]',
+				validate: (value) => {
+					if (value === undefined) return [];
+					const arr = value as string[];
+					if (arr.some((c) => !/^[a-z0-9-]{1,64}$/.test(c))) {
+						return ['capabilities must be lowercase kebab-case identifiers'];
+					}
+					return [];
+				},
+			},
+			context_limits: {
+				type: 'object',
+				required: true,
+				requiredKeys: ['max_input_tokens', 'max_output_tokens'],
+			},
+			reasoning_modes: { type: 'string[]' },
+			supported_tools: { type: 'string[]' },
+			provider_specific: {
+				type: 'object',
+				validate: (value) => {
+					if (value === undefined) return [];
+					if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+						return ['provider_specific must be a plain object'];
+					}
+					for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+						if (typeof v !== 'string') {
+							return [`provider_specific.${k} must be a string`];
+						}
+					}
+					return [];
+				},
+			},
+			fingerprint: { type: 'string', required: true, pattern: /^[0-9a-f]{64}$/ },
+		},
+	},
+	// P5.2 — Static Task Profile (PLAN / BUILD / RESEARCH / REVIEW).
+	// `retry_hints` sind NUR Hinweise — die Retry Policy bleibt Kernel.
+	// `permissions` sind Profil-Wünsche; der Compiler schneidet sie mit der
+	// Kernel-Policy (Intersection, nie Union/Override).
+	'positron.task-profile.v1': {
+		contractId: 'positron.task-profile.v1',
+		version: 1,
+		fields: {
+			task_profile_id: { type: 'string', required: true, minLength: 1 },
+			task_profile_version: { type: 'string', required: true, minLength: 1 },
+			task_type: {
+				type: 'string',
+				required: true,
+				validate: (value) =>
+					['PLAN', 'BUILD', 'RESEARCH', 'REVIEW'].includes(String(value))
+						? []
+						: ['task_type must be one of: PLAN, BUILD, RESEARCH, REVIEW'],
+			},
+			allowed_tools: { type: 'string[]' },
+			context_strategy: { type: 'string', required: true, minLength: 1 },
+			reasoning_policy: { type: 'string', required: true, minLength: 1 },
+			max_steps: { type: 'number', required: true },
+			timeout_ms: { type: 'number', required: true },
+			retry_hints: {
+				type: 'object',
+				requiredKeys: ['max_attempts'],
+				validate: (value) => {
+					if (value === undefined) return [];
+					if (typeof value !== 'object' || value === null) {
+						return ['retry_hints must be an object'];
+					}
+					const r = value as Record<string, unknown>;
+					if (
+						r.max_attempts !== null &&
+						(typeof r.max_attempts !== 'number' || r.max_attempts <= 0)
+					) {
+						return ['retry_hints.max_attempts must be a positive number or null'];
+					}
+					return [];
+				},
+			},
+			output_requirements: { type: 'string[]' },
+			permissions: {
+				type: 'object',
+				required: true,
+				requiredKeys: ['mutation', 'push', 'merge', 'deploy', 'secret_access'],
+			},
+			fingerprint: { type: 'string', required: true, pattern: /^[0-9a-f]{64}$/ },
+		},
+	},
+	// P5.2 — Effective Harness (kompilierte Effective Runtime Configuration).
+	// Ergebnis des deterministischen Profile Compilers für genau EINEN
+	// Attempt. Reproduzierbar rekonstruierbar; trägt effective permissions
+	// (Kernel ∩ Profile) und den Run-Context-Fingerprint.
+	'positron.effective-harness.v1': {
+		contractId: 'positron.effective-harness.v1',
+		version: 1,
+		fields: {
+			model_profile_ref: {
+				type: 'object',
+				required: true,
+				requiredKeys: ['id', 'version', 'fingerprint'],
+			},
+			task_profile_ref: {
+				type: 'object',
+				required: true,
+				requiredKeys: ['id', 'version', 'fingerprint'],
+			},
+			kernel_policy_ref: { type: 'string', required: true, minLength: 1 },
+			kernel_policy_fingerprint: { type: 'string', required: true, pattern: /^[0-9a-f]{64}$/ },
+			effective_permissions: {
+				type: 'object',
+				required: true,
+				requiredKeys: ['mutation', 'push', 'merge', 'deploy', 'secret_access'],
+			},
+			effective_context_strategy: { type: 'string', required: true, minLength: 1 },
+			effective_reasoning_mode: { type: 'string', required: true, minLength: 1 },
+			effective_tools: { type: 'string[]', required: true },
+			effective_timeout_ms: { type: 'number', required: true },
+			effective_max_steps: { type: 'number', required: true },
+			run_context_fingerprint: { type: 'string', required: true, pattern: /^[0-9a-f]{64}$/ },
+			compiler: {
+				type: 'object',
+				required: true,
+				requiredKeys: ['version', 'reason_codes'],
+			},
+			fingerprint: { type: 'string', required: true, pattern: /^[0-9a-f]{64}$/ },
+		},
+	},
 };
 
 /** Gibt das Schema für eine Contract-ID zurück oder null bei unbekannter ID. */
@@ -916,4 +1072,93 @@ export interface HarnessProfileRefContract {
 	/** Die tatsächlich gehashte semantische Konfiguration (reproduzierbar).
 	 *  Keine run_id/job_id/attempt_id/Timestamps/Duration/Result-Refs/Logs. */
 	semantics: Record<string, unknown>;
+}
+
+// ---------------------------------------------------------------------------
+// P5.2 — Static Model Profiles, Task Profiles & Effective Harness
+// ---------------------------------------------------------------------------
+
+/**
+ * Kernel-Permissions (Positron-Default-Policy). Profile dürfen diese NIE
+ * erweitern — der Compiler bildet die Schnittmenge
+ * (effective = kernel ∩ profile). Defaults: mutation erlaubt (Build),
+ * push/merge/deploy/secret_access verweigert (Kill-Switches, Security).
+ */
+export interface KernelPermissions {
+	mutation: boolean;
+	push: boolean;
+	merge: boolean;
+	deploy: boolean;
+	secret_access: boolean;
+}
+
+/** Kanonische Kernel-Default-Policy (Positron Security-Modell). */
+export const KERNEL_DEFAULT_PERMISSIONS: KernelPermissions = {
+	mutation: true,
+	push: false,
+	merge: false,
+	deploy: false,
+	secret_access: false,
+};
+
+/** Kanonische Task-Typen (P5.2). */
+export type ProfileTaskType = 'PLAN' | 'BUILD' | 'RESEARCH' | 'REVIEW';
+
+export interface ModelProfileContract {
+	contract: 'positron.model-profile.v1';
+	model_profile_id: string;
+	model_profile_version: string;
+	provider: string;
+	model: string;
+	provenance: {
+		status: 'KNOWN' | 'PROVENANCE_UNAVAILABLE';
+		/** Nur tatsächlich gemeldete Revision; sonst null (kein Erfinden) */
+		revision: string | null;
+	};
+	capabilities: string[];
+	context_limits: {
+		max_input_tokens: number | null;
+		max_output_tokens: number | null;
+	};
+	reasoning_modes: string[];
+	supported_tools: string[];
+	/** Validierte, allowlisted Provider-Metadaten (nur Strings) */
+	provider_specific: Record<string, string>;
+	/** SHA-256 über die semantische Profil-Konfiguration */
+	fingerprint: string;
+}
+
+export interface TaskProfileContract {
+	contract: 'positron.task-profile.v1';
+	task_profile_id: string;
+	task_profile_version: string;
+	task_type: ProfileTaskType;
+	allowed_tools: string[];
+	context_strategy: string;
+	reasoning_policy: string;
+	max_steps: number;
+	timeout_ms: number;
+	/** Nur Hinweis — die Retry Policy bleibt Kernel-Autorität */
+	retry_hints: { max_attempts: number | null };
+	output_requirements: string[];
+	/** Profil-Wünsche; wirksam wird Kernel ∩ Profile */
+	permissions: KernelPermissions;
+	fingerprint: string;
+}
+
+export interface EffectiveHarnessContract {
+	contract: 'positron.effective-harness.v1';
+	model_profile_ref: { id: string; version: string; fingerprint: string };
+	task_profile_ref: { id: string; version: string; fingerprint: string };
+	kernel_policy_ref: string;
+	kernel_policy_fingerprint: string;
+	effective_permissions: KernelPermissions;
+	effective_context_strategy: string;
+	effective_reasoning_mode: string;
+	effective_tools: string[];
+	effective_timeout_ms: number;
+	effective_max_steps: number;
+	run_context_fingerprint: string;
+	compiler: { version: string; reason_codes: string[] };
+	fingerprint: string;
 }

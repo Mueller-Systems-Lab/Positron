@@ -64,6 +64,37 @@ export {
 } from './harness-profile.js';
 export type { HarnessProfileRefInput, HarnessProfileValidationResult } from './harness-profile.js';
 
+// ─── P5.2 Static Model Profiles, Task Profiles & Profile Compiler ───
+export {
+	PROFILE_COMPILER_VERSION,
+	KERNEL_POLICY_REF,
+	UNKNOWN_PROFILE_DENIED,
+	UNKNOWN_PROFILE_VERSION,
+	PROFILE_INVALID,
+	TOOL_NOT_ALLOWED,
+	PROFILE_INCOMPATIBLE,
+	DENIED_BY_KERNEL_POLICY,
+	ADAPTER_CAPABILITY_MISMATCH,
+	computeProfileFingerprint,
+	validateModelProfile,
+	validateTaskProfile,
+	modelProfileSemantics,
+	taskProfileSemantics,
+	intersectPermissions,
+	compileEffectiveHarness,
+	buildTaskProfile,
+	PLAN_TASK_PROFILE,
+	BUILD_TASK_PROFILE,
+	RESEARCH_TASK_PROFILE,
+	REVIEW_TASK_PROFILE,
+	DEFAULT_TASK_PROFILES,
+	resolveProfileFromRegistry,
+	ProfileCompilationError,
+} from './profile-compiler.js';
+export type { ProfileCompileInput } from './profile-compiler.js';
+export { KERNEL_DEFAULT_PERMISSIONS } from './contracts.js';
+export type { KernelPermissions, ProfileTaskType } from './contracts.js';
+
 // ─── DB-Schema (Migrationen auf bestehender SQLite-DB) ───
 export { CONTROL_PLANE_SCHEMA_V1, applyControlPlaneMigrations } from './schema.js';
 
