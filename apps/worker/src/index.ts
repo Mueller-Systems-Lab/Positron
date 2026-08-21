@@ -17,6 +17,7 @@ import {
 	registerWorkspaceCleanup,
 	resolveGateRuntimeMode,
 } from '@positron/run-state';
+import { resolveAttemptLeaseTtlMs } from '@positron/control-plane';
 import type { RunState } from '@positron/run-state';
 import { FakeGitWorkspaceAdapter, RealGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
@@ -203,6 +204,8 @@ const worker = new Worker<PipelineJobData, PipelineJobResult>(
 			syncService,
 			gateway: workerGateway,
 			gateRuntimeMode,
+			// P4: zentrale, validierte Attempt-Lease-TTL (POSITRON_ATTEMPT_LEASE_TTL_MS)
+			attemptLeaseTtlMs: resolveAttemptLeaseTtlMs(process.env),
 		};
 
 		// Run the pipeline

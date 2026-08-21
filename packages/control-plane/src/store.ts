@@ -107,6 +107,41 @@ export function nowIso(): string {
 }
 
 // ---------------------------------------------------------------------------
+// Lease-TTL-Konfiguration (P4 — zentral, validiert, bounded)
+// ---------------------------------------------------------------------------
+
+/**
+ * P4: Zentraler Default der Attempt-Lease-TTL (5 Minuten).
+ * Kein Magic Infinity, kein undefined: jeder produktive Claim trägt eine
+ * reale bounded TTL, damit abgelaufene Leases deterministisch recovered
+ * werden können (kein Zombie-Owner, der nach einem Crash weiter mutiert).
+ */
+export const DEFAULT_ATTEMPT_LEASE_TTL_MS = 300_000;
+
+/**
+ * P4: Löst die Attempt-Lease-TTL aus der zentralen Runtime-Konfiguration.
+ *
+ * - `POSITRON_ATTEMPT_LEASE_TTL_MS` (Millisekunden) überschreibt den Default.
+ * - Ungültige Werte (nicht numerisch, nicht endlich, <= 0) werfen — Fail-Closed:
+ *   eine kaputte Konfiguration darf nie zu einer unbegrenzten Lease führen.
+ * - Tests steuern eine kontrolliert kleine TTL über dieselbe Variable oder
+ *   über `deps.attemptLeaseTtlMs`.
+ */
+export function resolveAttemptLeaseTtlMs(env: NodeJS.ProcessEnv = process.env): number {
+	const raw = env.POSITRON_ATTEMPT_LEASE_TTL_MS;
+	if (raw === undefined || raw.trim() === '') {
+		return DEFAULT_ATTEMPT_LEASE_TTL_MS;
+	}
+	const parsed = Number(raw);
+	if (!Number.isFinite(parsed) || parsed <= 0) {
+		throw new Error(
+			`POSITRON_ATTEMPT_LEASE_TTL_MS invalid: '${raw}' — must be a positive finite number of milliseconds`,
+		);
+	}
+	return Math.floor(parsed);
+}
+
+// ---------------------------------------------------------------------------
 // Jobs
 // ---------------------------------------------------------------------------
 

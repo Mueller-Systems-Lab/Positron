@@ -36,10 +36,14 @@ import {
 	cancelQueueItem,
 	computeKpis,
 	enqueueItem,
+	getQueueItem,
 	listQueueItems,
 	listSchedulerEvents,
+	markRunFinished,
+	markRunStarted,
 	persistSchedulerEvent,
 	recoverSchedulerState,
+	resolveAttemptLeaseTtlMs,
 	schedulerCapacity,
 } from '@positron/control-plane';
 import {
@@ -654,6 +658,8 @@ async function runFullPipeline(
 		github,
 		syncService,
 		gateRuntimeMode,
+		// P4: zentrale, validierte Attempt-Lease-TTL (POSITRON_ATTEMPT_LEASE_TTL_MS)
+		attemptLeaseTtlMs: resolveAttemptLeaseTtlMs(process.env),
 		// SSE-Kompatibilität: jedes gespeicherte run_event wird gebroadcastet
 		onEvent: (ev) => {
 			try {
@@ -2425,6 +2431,97 @@ export function createApp(options: ServerOptions = {}) {
 		emitEvent: persistSchedulerEvent(getDb()),
 	};
 
+	// ── P4: Scheduler-Dispatch-Loop (Architektur-Review C1) ─────────────────
+	// Schließt den ADMITTED → RUNNING → terminal → Release-Zyklus:
+	//   1. recoverSchedulerState (stale ADMITTED/dead RUNNING requeuen)
+	//   2. admitNext (atomare Admission)
+	//   3. admitiertes Item → echter Run via runFullPipeline + markRunStarted
+	//   4. fertig → markRunFinished (COMPLETED/FAILED/BLOCKED/CANCELLED)
+	// Der Loop ist idempotent: markRunStarted ist state-guarded (nur
+	// ADMITTED → RUNNING), doppelte Loop-Instanzen admitieren nicht doppelt
+	// (BEGIN IMMEDIATE) und starten nicht doppelt.
+	let schedulerLoopRunning = false;
+	const schedulerLoopTick = async (): Promise<void> => {
+		if (schedulerLoopRunning) return;
+		schedulerLoopRunning = true;
+		try {
+			// 1. Recovery (stale Zustände nach Crash/Neustart)
+			recoverSchedulerState(getDb(), (runId) => {
+				const row = getDb().prepare('SELECT 1 FROM runs WHERE id = ?').get(runId);
+				return row !== undefined;
+			});
+			// 2. EIN Item pro Tick admitieren und starten
+			const decision = admitNext(getDb(), schedulerCfg);
+			if (decision?.admitted) {
+				const item = getQueueItem(getDb(), decision.queue_item_id);
+				if (item) {
+					const run = createRun(
+						item.repository_ref,
+						Number.parseInt(item.source_ref.replace(/^issue[#/]?/, ''), 10) || 1,
+						2,
+					);
+					saveRunToDb(run);
+					const started = markRunStarted(
+						getDb(),
+						item.queue_item_id,
+						run.id,
+						schedulerCfg,
+					);
+					if (started) {
+						try {
+							const completed = await runFullPipeline(
+								run,
+								repository,
+								activeWorkspaceAdapter,
+								activeSpecKitAdapter,
+								activeOpenCodeAdapter,
+								github,
+								syncService,
+							);
+							const terminal: 'COMPLETED' | 'FAILED' | 'BLOCKED' =
+								completed.status === 'done'
+									? 'COMPLETED'
+									: completed.status === 'blocked'
+										? 'BLOCKED'
+										: 'FAILED';
+							markRunFinished(
+								getDb(),
+								item.queue_item_id,
+								terminal,
+								run.id,
+								terminal === 'COMPLETED' ? 'READY' : 'READY',
+								schedulerCfg,
+							);
+						} catch (err) {
+							// Pipeline-Fehler → Item als FAILED finalisieren
+							// (Ressource freigeben, kein hängendes RUNNING).
+							markRunFinished(
+								getDb(),
+								item.queue_item_id,
+								'FAILED',
+								run.id,
+								'READY',
+								schedulerCfg,
+							);
+							console.error(
+								`[Scheduler] run ${run.id} failed: ${err instanceof Error ? err.message : String(err)}`,
+							);
+						}
+					}
+				}
+			}
+		} finally {
+			schedulerLoopRunning = false;
+		}
+	};
+
+	// Periodischer Tick (default 5s; Tests deaktivieren via env)
+	if (process.env.POSITRON_SCHEDULER_DISABLED !== 'true') {
+		setInterval(() => {
+			void schedulerLoopTick();
+		}, Number(process.env.POSITRON_SCHEDULER_INTERVAL_MS ?? 5000)).unref();
+	}
+
 	app.get('/api/scheduler/queue', (_req, res) => {
 		try {
 			const items = listQueueItems(getDb()).map((q) => ({
@@ -2551,12 +2648,14 @@ export function createApp(options: ServerOptions = {}) {
 	});
 
 	// P4: Scheduler-Tick (write endpoint — requires admin auth; deterministisch)
+	// Admitiert EIN Item (Admission-Teil des Loops); der periodische
+	// Scheduler-Loop (Produktion) übernimmt Dispatch + Run-Start + Release.
 	app.post('/api/scheduler/tick', requireAdmin, express.json(), (_req, res) => {
 		try {
 			const decision = admitNext(getDb(), schedulerCfg);
-			res.json({ decision });
+			res.json({ decision, capacity: schedulerCapacity(getDb(), schedulerCfg) });
 		} catch (err) {
-			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
+			res.status(500).json({ error: 'Datenbankfehler', details: 'internal error' });
 		}
 	});
 

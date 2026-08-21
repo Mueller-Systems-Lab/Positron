@@ -12,7 +12,7 @@ import {
 	assertAttemptActive,
 	assertExecutionContext,
 	buildVerificationContract,
-	claimAttempt,
+	claimAttemptWithGeneration,
 	classifyFailure,
 	completeAttempt,
 	createAttempt,
@@ -22,9 +22,16 @@ import {
 	fingerprint,
 	idempotencyKey,
 	mapAttemptRow,
+	recoverStaleLeases,
+	renewAttemptLease,
+	resolveAttemptLeaseTtlMs,
 	storeDecision,
 	updateJobState,
 	validateContract,
+} from '@positron/control-plane';
+import {
+	createCancellationSource,
+	startLeaseHeartbeat,
 } from '@positron/control-plane';
 import type { AttemptRecord, JobRecord } from '@positron/control-plane';
 import type { VerificationContract } from '@positron/control-plane';
@@ -90,7 +97,19 @@ export interface PipelineDeps {
 	/** Issue #385: Gate runtime mode for pipeline outcome resolution */
 	gateRuntimeMode: GateRuntimeMode;
 	/**
-	 * P3: Optionaler Event-Hook (z. B. für SSE-Broadcast beim Inline-Fallback
+	 * P4: Attempt-Lease-TTL in Millisekunden (zentral konfiguriert über
+	 * `POSITRON_ATTEMPT_LEASE_TTL_MS`, Default 5 Minuten). Produktive Claims
+	 * tragen IMMER eine reale bounded TTL — kein undefined/Infinity.
+	 * Tests setzen hier eine kontrolliert kleine TTL.
+	 */
+	attemptLeaseTtlMs?: number;
+	/**
+	 * P4: Externes AbortSignal (z. B. Server-Cancel) — wird an laufende
+	 * Worker-Aufrufe propagiert (graceful → forced termination).
+	 */
+	signal?: AbortSignal;
+	/**
+	 * P4: Optionaler Event-Hook (z. B. für SSE-Broadcast beim Inline-Fallback
 	 * des Servers). Wird nach jedem gespeicherten run_event aufgerufen.
 	 */
 	onEvent?: (event: RunEventData) => void;
@@ -272,6 +291,50 @@ interface JobAttemptTracking {
 	recovered: boolean;
 	registry: IdempotencyRegistry;
 	idemKey: string;
+	/** P3.5 (Phase B/C2): Instanz-scoped Lease-Owner + Fencing-Generation */
+	ownerId: string;
+	generation: number;
+	/** P4: Lease-TTL des Claims (real, bounded — nie undefined) */
+	leaseTtlMs: number;
+	/** P4: Heartbeat-Stopper (null wenn kein Heartbeat läuft) */
+	heartbeatStop: { stop: () => void } | null;
+}
+
+// ---------------------------------------------------------------------------
+// P4: Heartbeat-Registry (pro Run)
+//
+// Jeder geclaimte produktive Attempt hält seine Lease durch Heartbeats am
+// Leben. Die Registry erlaubt `runPipeline`, ALLE Heartbeats eines Runs
+// garantiert zu stoppen — bei Erfolg, Fehler, Timeout, Cancellation,
+// Ownership-Verlust und geworfenen Exceptions. Kein Timer-Leak.
+// ---------------------------------------------------------------------------
+
+const runHeartbeatStops = new Map<string, Set<{ stop: () => void }>>();
+
+function registerRunHeartbeat(runId: string, heartbeat: { stop: () => void }): void {
+	let stops = runHeartbeatStops.get(runId);
+	if (!stops) {
+		stops = new Set();
+		runHeartbeatStops.set(runId, stops);
+	}
+	stops.add(heartbeat);
+}
+
+function unregisterRunHeartbeat(runId: string, heartbeat: { stop: () => void }): void {
+	runHeartbeatStops.get(runId)?.delete(heartbeat);
+}
+
+export function stopRunHeartbeats(runId: string): void {
+	const stops = runHeartbeatStops.get(runId);
+	if (!stops) return;
+	for (const heartbeat of stops) {
+		try {
+			heartbeat.stop();
+		} catch {
+			/* Heartbeat-Stop ist best-effort */
+		}
+	}
+	runHeartbeatStops.delete(runId);
 }
 
 /**
@@ -366,6 +429,10 @@ function trackJobAttempt(
 			recovered: true,
 			registry,
 			idemKey: '',
+			ownerId: '',
+			generation: 0,
+			leaseTtlMs: 0,
+			heartbeatStop: null,
 		};
 	}
 
@@ -382,7 +449,44 @@ function trackJobAttempt(
 	const duplicate = !registry.claim(idemKey);
 	if (duplicate) {
 		completeAttempt(db, attempt.attempt_id, { status: 'denied', result_ref: 'duplicate-dispatch' });
-	} else if (!claimAttempt(db, attempt.attempt_id)) {
+	}
+	// P3.5 (Phase B/C2): Claim mit INSTANZ-scoped Owner + Lease — Fencing
+	// zwischen zwei Worker-/Controller-Prozessen greift real; abgelaufene
+	// Leases können über recoverStaleLeases (Prefix ctl:<runId>:)
+	// deterministisch zurückgeholt werden.
+	//
+	// P4: Der produktive Claim trägt IMMER eine reale bounded TTL
+	// (zentral konfiguriert, validiert — kein undefined, kein Infinity).
+	// Nach erfolgreichem Claim startet der Heartbeat (Intervall TTL/3),
+	// damit lange Worker-Jobs ihre Lease aktiv halten.
+	const ownerId = `ctl:${run.id}:${crypto.randomUUID()}`;
+	const leaseTtlMs = deps.attemptLeaseTtlMs ?? resolveAttemptLeaseTtlMs(process.env);
+	const claim = claimAttemptWithGeneration(db, attempt.attempt_id, {
+		ownerId,
+		leaseTtlMs,
+	});
+	let heartbeatStop: { stop: () => void } | null = null;
+	if (!duplicate && claim.claimed) {
+		// Heartbeat-Lifecycle: start nach erfolgreichem Claim; stoppt bei
+		// Erfolg/Fehler/Timeout/Cancellation (completeTrackedAttempt),
+		// Ownership-Verlust (renew liefert false → Cancellation) und bei
+		// jedem exit von runPipeline (Registry-Finally). Kein Heartbeat
+		// erneuert eine fremde/newer Fence-Epoch (Owner-Check in der DB).
+		const heartbeatCancellation = createCancellationSource();
+		heartbeatStop = startLeaseHeartbeat(
+			heartbeatCancellation,
+			() => {
+				if (!renewAttemptLease(db, attempt.attempt_id, ownerId, leaseTtlMs)) {
+					// Lease verloren (fremder Owner / newer Epoch / final) →
+					// Heartbeat sofort stoppen, kein fremdes Lease erneuern.
+					heartbeatCancellation.cancel();
+				}
+			},
+			leaseTtlMs,
+		);
+		registerRunHeartbeat(run.id, heartbeatStop);
+	}
+	if (!duplicate && !claim.claimed) {
 		// Paralleler Doppel-Claim desselben Attempts: abgelehnt.
 		completeAttempt(db, attempt.attempt_id, { status: 'denied', result_ref: 'duplicate-claim' });
 		return {
@@ -392,6 +496,10 @@ function trackJobAttempt(
 			recovered: false,
 			registry,
 			idemKey,
+			ownerId,
+			generation: claim.generation,
+			leaseTtlMs,
+			heartbeatStop,
 		};
 	}
 	return {
@@ -401,6 +509,10 @@ function trackJobAttempt(
 		recovered: false,
 		registry,
 		idemKey,
+		ownerId,
+		generation: claim.generation,
+		leaseTtlMs,
+		heartbeatStop,
 	};
 }
 
@@ -409,7 +521,25 @@ function completeTrackedAttempt(
 	deps: PipelineDeps,
 	update: Partial<AttemptRecord>,
 ): void {
-	completeAttempt(getDb(deps), tracking.attempt.attempt_id, update);
+	// P4: Heartbeat stoppt VOR der Finalisierung — keine Heartbeats nach
+	// Terminal State, kein Renew auf einem finalen Attempt.
+	if (tracking.heartbeatStop) {
+		const heartbeat = tracking.heartbeatStop;
+		try {
+			heartbeat.stop();
+		} catch {
+			/* best-effort */
+		}
+		tracking.heartbeatStop = null;
+		unregisterRunHeartbeat(tracking.attempt.run_id, heartbeat);
+	}
+	// P3.5 (C2): Fencing — stale/fremde Abschlüsse werden abgewiesen.
+	completeAttempt(
+		getDb(deps),
+		tracking.attempt.attempt_id,
+		update,
+		{ fencingOwnerId: tracking.ownerId, fencingGeneration: tracking.generation },
+	);
 	if (!tracking.duplicate) {
 		tracking.registry.complete(tracking.idemKey, update.result_ref ?? null);
 	}
@@ -429,7 +559,7 @@ function assertWorkerContext(
 		job_id: tracking.job.job_id,
 		attempt_id: tracking.attempt.attempt_id,
 	});
-	assertAttemptActive(getDb(deps), tracking.attempt.attempt_id);
+	assertAttemptActive(getDb(deps), tracking.attempt.attempt_id, tracking.ownerId);
 }
 
 /** Finalisiert einen getrackten Worker-Attempt und den zugehörigen Job. */
@@ -2651,6 +2781,17 @@ function checkSignal(db: Database.Database, runId: string, phase?: string): stri
 }
 
 export async function runPipeline(run: RunState, deps: PipelineDeps): Promise<RunState> {
+	// P4: Heartbeat-Cleanup ist garantiert — bei Erfolg, Fehler, Timeout,
+	// Cancellation, Ownership-Verlust und geworfenen Exceptions stoppen ALLE
+	// Heartbeats dieses Runs (kein Timer-Leak, keine Renews nach Terminal).
+	try {
+		return await runPipelineInner(run, deps);
+	} finally {
+		stopRunHeartbeats(run.id);
+	}
+}
+
+async function runPipelineInner(run: RunState, deps: PipelineDeps): Promise<RunState> {
 	let current = run;
 	const maxSteps = 20;
 	let attempt = 0;
@@ -2664,6 +2805,12 @@ export async function runPipeline(run: RunState, deps: PipelineDeps): Promise<Ru
 	// P3: INTAKE-Job (find-or-create) — der Run ist ab sofort Teil der
 	// kanonischen cp_jobs-Hierarchie (INTAKE → … → DECIDE).
 	ensureControlPlane(getDb(deps));
+	// P4 (Slice A): Stale-Lease-Recovery beim Run-Start (deterministisch,
+	// konsistent zu runDurableRun): abgelaufene Leases DIESES Runs (jede
+	// Instanz, Prefix-Match) werden finalisiert (STALE_LEASE) — ein
+	// gecrashter alter Owner kann danach weder heartbeat-en noch mutieren
+	// (Fencing: neuer Claim erzeugt eine fresh Generation).
+	recoverStaleLeases(getDb(deps), { ownerIdPrefix: `ctl:${current.id}:` });
 	{
 		const db = getDb(deps);
 		const existingIntake = db

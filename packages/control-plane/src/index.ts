@@ -56,6 +56,10 @@ export {
 	listJobAttempts,
 	completeAttempt,
 	claimAttempt,
+	claimAttemptWithGeneration,
+	renewAttemptLease,
+	isAttemptLeaseValid,
+	recoverStaleLeases,
 	canTransitionAttempt,
 	mapAttemptRow,
 	storeDecision,
@@ -71,6 +75,10 @@ export type {
 	AttemptRecord,
 	DecisionRecord,
 	TransitionRecord,
+} from './store.js';
+export {
+	DEFAULT_ATTEMPT_LEASE_TTL_MS,
+	resolveAttemptLeaseTtlMs,
 } from './store.js';
 
 // ─── Execution Context Enforcement (P3) ───
@@ -161,6 +169,20 @@ export type {
 	DurableRunInput,
 	IssueContract,
 } from './durable-run.js';
+
+// ─── Cancellation & Lease-Heartbeat (P3.5/P4) ───
+export {
+	createCancellationSource,
+	terminateChildProcess,
+	waitForProcessExit,
+	withCancellableTimeout,
+	CancellationError,
+	startLeaseHeartbeat,
+} from './cancellation.js';
+export type {
+	CancellationSource,
+	CancellableTimeoutResult,
+} from './cancellation.js';
 
 // ─── P4: Deterministic Scheduler (Multi-Issue Scheduling) ───
 export {
