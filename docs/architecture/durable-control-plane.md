@@ -839,7 +839,14 @@ wirft bei token-ähnlichen Schlüsseln/Werten
 Metadaten mit Secret-Mustern werden NIE persistiert
 (`PROFILE_TELEMETRY_NO_SECRETS`). Muster identisch zu
 `apps/server` sse/broadcaster.ts (ghp_, gho_, github_pat_, sk-,
-AIza, Bearer, xox, AKIA …).
+AIza, Bearer, xox, AKIA …). Die Prüfung ist **rekursiv** (Objekte und
+Arrays, Tiefenlimit 8, fail-closed bei Überschreitung) und deckt
+secret-ähnliche Schlüsselnamen ab. **Dokumentierte Grenze:**
+hoch-entropische, frei kodierte Blobs (base64/hex ohne bekanntes Präfix)
+werden nicht erkannt — die Detection verteidigt gegen die bekannten
+Positron-Token-Formate; Profilwerte sind operator-kontrollierte
+Identitätsstrings, und die gefährdeten Felder werden in der API nicht
+exponiert.
 
 ## Effektiver Harness-Fingerprint (Semantik)
 

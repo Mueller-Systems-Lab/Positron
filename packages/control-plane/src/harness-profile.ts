@@ -391,6 +391,14 @@ export interface HarnessEnvConfig {
  * fehlende IDs → 'unspecified'; fehlende Modell-Provenienz →
  * PROVENANCE_UNAVAILABLE (ehrlich statt erfundener Präzision).
  *
+ * FAIL-CLOSED (bewusst, dokumentiert): Eine ungültige/secret-artige
+ * Konfiguration wirft `HarnessProfileValidationError` bzw.
+ * `HarnessMetadataSecretError`, BEVOR ein Attempt erstellt wird — der
+ * produktive Pfad verweigert die Ausführung statt eine unsichere Referenz
+ * zu persistieren. Da `process.env` global ist, betrifft ein Fehler alle
+ * Runs (Verfügbarkeits-Blast-Radius bei Operator-Fehlkonfiguration, kein
+ * Angriffsvektor: env ist server-seitig kontrolliert).
+ *
  * Der effektive Harness-Fingerprint wird über die tatsächlich wirksame
  * semantische Konfiguration berechnet (Adapter-Identität/-Version,
  * Modellprofil-Identität/-Version, Taskprofil-Identität/-Version,

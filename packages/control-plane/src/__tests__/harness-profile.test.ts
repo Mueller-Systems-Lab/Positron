@@ -229,6 +229,28 @@ describe('PROFILE_TELEMETRY_NO_SECRETS', () => {
 		).toThrow(HarnessMetadataSecretError);
 	});
 
+	it('secret inside an array item is rejected', () => {
+		expect(() =>
+			buildHarnessProfileRef({
+				...BASE_INPUT,
+				semantics: { ...BASE_SEMANTICS, tags: ['ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijkl'] },
+			}),
+		).toThrow(HarnessMetadataSecretError);
+	});
+
+	it('excessive nesting depth fails closed', () => {
+		const deep: Record<string, unknown> = { value: 'ok' };
+		let current: Record<string, unknown> = deep;
+		for (let i = 0; i < 12; i++) {
+			const next: Record<string, unknown> = {};
+			current['nested'] = next;
+			current = next;
+		}
+		expect(() => buildHarnessProfileRef({ ...BASE_INPUT, semantics: deep })).toThrow(
+			HarnessMetadataSecretError,
+		);
+	});
+
 	it('benign values pass', () => {
 		const ref = buildHarnessProfileRef({ ...BASE_INPUT });
 		expect(ref.effective_harness_fingerprint).toMatch(/^[0-9a-f]{64}$/);

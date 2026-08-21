@@ -52,7 +52,12 @@ function insertBuildAttempt(
 	db: Database.Database,
 	runId: string,
 	ref: ReturnType<typeof harnessRef>,
-	opts: { status?: string; tokens?: number | null; previous?: string | null } = {},
+	opts: {
+		status?: string;
+		tokens?: number | null;
+		previous?: string | null;
+		startedAt?: string;
+	} = {},
 ) {
 	const job = createJob(db, runId, 'build');
 	const attempt = createAttempt(db, runId, job.job_id, {
@@ -61,6 +66,7 @@ function insertBuildAttempt(
 		model: ref.model ?? undefined,
 		input_contract: 'positron.build-input.v1',
 		input_fingerprint: `fp_${runId}_${Math.random()}`,
+		started_at: opts.startedAt,
 		harness_profile_id: ref.harness_profile_id,
 		harness_profile_version: ref.harness_profile_version,
 		harness_fingerprint: ref.effective_harness_fingerprint,
@@ -77,8 +83,15 @@ function insertBuildAttempt(
 	return attempt;
 }
 
-function markDone(db: Database.Database, runId: string) {
-	storeDecision(db, runId, 'DONE', 'ALL_HARD_GATES_GREEN', JSON.stringify({ decision: 'DONE' }));
+function markDone(db: Database.Database, runId: string, createdAt?: string) {
+	storeDecision(
+		db,
+		runId,
+		'DONE',
+		'ALL_HARD_GATES_GREEN',
+		JSON.stringify({ decision: 'DONE' }),
+		createdAt,
+	);
 }
 
 describe('PROFILE_KPI_GROUPING', () => {
@@ -208,25 +221,29 @@ describe('PROFILE_SAMPLE_SIZE_CORRECT', () => {
 		const db = createTestDb();
 		const refA = harnessRef('profile-a', 'fast');
 
-		// Run 1: 2 Build-Attempts (Fix-Kette), DONE nach Attempt 2
-		const first = insertBuildAttempt(db, 'run_1', refA, { status: 'failed' });
+		// Run 1: 2 Build-Attempts (Fix-Kette), DONE nach 10 min
+		const first = insertBuildAttempt(db, 'run_1', refA, {
+			status: 'failed',
+			startedAt: '2026-08-21T10:00:00.000Z',
+		});
 		insertBuildAttempt(db, 'run_1', refA, {
 			status: 'succeeded',
 			previous: first.attempt_id,
+			startedAt: '2026-08-21T10:03:00.000Z',
 		});
-		markDone(db, 'run_1');
-		// Run 2: 1 Attempt, DONE
-		insertBuildAttempt(db, 'run_2', refA);
-		markDone(db, 'run_2');
+		markDone(db, 'run_1', '2026-08-21T10:10:00.000Z'); // 600000 ms
+		// Run 2: 1 Attempt, DONE nach 7 min
+		insertBuildAttempt(db, 'run_2', refA, {
+			startedAt: '2026-08-21T10:05:00.000Z',
+		});
+		markDone(db, 'run_2', '2026-08-21T10:12:00.000Z'); // 420000 ms
 
 		const report = computeProfileKpis(db);
 		const group = report.groups[0]!;
 		expect(group.verified_success_count).toBe(2);
-		expect(group.time_to_verified_success_ms).not.toBeNull();
-		// Der Median über 2 Werte (je Run EIN Wert) — die Länge der
-		// zugrunde liegenden Stichprobe entspricht der Anzahl DONE-Runs.
-		// (Implizit geprüft: kein N-faches Gewicht durch die Fix-Kette.)
-		expect(group.time_to_verified_success_ms).toBeGreaterThanOrEqual(0);
+		// Korrekt (dedupliziert): Median über [600000, 420000] = 510000.
+		// Mit Double-Counting-Bug: [600000, 600000, 420000] → Median 600000.
+		expect(group.time_to_verified_success_ms).toBe(510000);
 	});
 });
 

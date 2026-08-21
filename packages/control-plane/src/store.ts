@@ -476,11 +476,19 @@ export function recoverStaleLeases(
 /**
  * P5.1 — Bindet eine validierte Harness-Referenz atomar an einen Attempt.
  *
+ * @deprecated Nicht verdrahtet: Die kanonische Bindung erfolgt ATOMAR über
+ * `createAttempt` (Insert inkl. P5.1-Feldern) in `trackJobAttempt`
+ * (worker-pipeline) und den produktiven Pfaden von `durable-run.ts`
+ * (PROFILE_REF_BOUND_BEFORE_EXECUTION). Diese Funktion bleibt als
+ * expliziter Re-Bind-Pfad für künftige Szenarien verfügbar und ist
+ * idempotent/mismatch-geschützt — sie wird aktuell von keinem produktiven
+ * Pfad aufgerufen und ist NICHT Teil des Security-Contracts.
+ *
  * Die Profilidentität ist Teil des tatsächlichen Execution Contexts und wird
- * VOR der Modell-Ausführung gebunden (PROFILE_REF_BOUND_BEFORE_EXECUTION).
- * Idempotent: bereits gebundene identische Refs sind ein No-op; ein
- * semantischer Mismatch (anderer Fingerprint auf demselben Attempt) wird
- * abgelehnt (kein nachträgliches Umschreiben der Historie).
+ * VOR der Modell-Ausführung gebunden. Idempotent: bereits gebundene
+ * identische Refs sind ein No-op; ein semantischer Mismatch (anderer
+ * Fingerprint auf demselben Attempt) wird abgelehnt (kein nachträgliches
+ * Umschreiben der Historie).
  *
  * @returns `true` bei erfolgreicher Bindung, `false` bei Mismatch/finalem Attempt
  */
@@ -741,6 +749,7 @@ export function storeDecision(
 	decision: string,
 	reasonCode: string,
 	contractJson: string,
+	createdAt?: string,
 ): DecisionRecord {
 	const record: DecisionRecord = {
 		decision_id: createId('dec'),
@@ -748,7 +757,7 @@ export function storeDecision(
 		decision,
 		reason_code: reasonCode,
 		contract_json: contractJson,
-		created_at: nowIso(),
+		created_at: createdAt ?? nowIso(),
 	};
 	db.prepare(
 		`INSERT INTO cp_decisions (decision_id, run_id, decision, reason_code, contract_json, created_at)
