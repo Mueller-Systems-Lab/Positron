@@ -32,6 +32,22 @@ export interface PipelineJobResult {
 export const PIPELINE_QUEUE = 'positron-pipeline';
 
 /**
+ * Resolve the queue used for a run.
+ *
+ * Default operation keeps the historical shared queue. R6/live isolation can
+ * opt into one queue per run so a worker scoped with POSITRON_RECOVERY_RUN_ID
+ * cannot claim another run's job.
+ */
+export function resolvePipelineQueueName(
+	runId?: string,
+	scoped = process.env.POSITRON_QUEUE_SCOPED === 'true',
+): string {
+	if (!scoped) return PIPELINE_QUEUE;
+	if (!runId?.trim()) throw new Error('run-scoped queue requires a run ID');
+	return `${PIPELINE_QUEUE}-${runId.trim()}`;
+}
+
+/**
  * Redis-Verbindungs-URL.
  * Default: localhost:6379, konfigurierbar via POSITRON_REDIS_URL.
  */

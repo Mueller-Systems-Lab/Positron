@@ -1,23 +1,23 @@
-// Positron P5.3 — Real Canaries (STRATEGY, EXECUTION, CAPABILITY)
-import Database from 'better-sqlite3';
-import { describe, expect, it } from 'vitest';
 import {
 	applyControlPlaneMigrations,
+	completeAttempt,
 	createAttempt,
 	createJob,
-	completeAttempt,
 	getAttempt,
 } from '@positron/control-plane';
 import {
-	diagnoseFailureDomain,
-	decideRouting,
-	evaluateCapabilityEvidence,
+	DEFAULT_CAPABILITY_SAMPLE_THRESHOLD,
 	buildFailureDiagnosis,
 	buildRoutingDecision,
+	decideRouting,
+	diagnoseFailureDomain,
+	evaluateCapabilityEvidence,
 	hasRealDelta,
-	DEFAULT_CAPABILITY_SAMPLE_THRESHOLD,
 } from '@positron/control-plane';
 import { validateContract } from '@positron/control-plane';
+// Positron P5.3 — Real Canaries (STRATEGY, EXECUTION, CAPABILITY)
+import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 
 function makeDb(): Database.Database {
 	const db = new Database(':memory:');
@@ -105,14 +105,16 @@ describe('REAL_STRATEGY_CANARY', () => {
 			previous_attempt_id: att1.attempt_id,
 			strategy_delta: 'improved test strategy',
 		});
-		expect(hasRealDelta(att1, {
-			input_fingerprint: att2.input_fingerprint,
-			provider: att2.provider,
-			model: att2.model,
-			effective_harness_fingerprint: att2.effective_harness_fingerprint,
-			strategy_delta: att2.strategy_delta,
-			new_evidence: null,
-		})).toBe(true);
+		expect(
+			hasRealDelta(att1, {
+				input_fingerprint: att2.input_fingerprint,
+				provider: att2.provider,
+				model: att2.model,
+				effective_harness_fingerprint: att2.effective_harness_fingerprint,
+				strategy_delta: att2.strategy_delta,
+				new_evidence: null,
+			}),
+		).toBe(true);
 		expect(att2.attempt_id).not.toBe(att1.attempt_id);
 		expect(att2.previous_attempt_id).toBe(att1.attempt_id);
 	});
@@ -182,7 +184,7 @@ describe('REAL_CAPABILITY_ESCALATION_CANARY', () => {
 				input_fingerprint: `fp-${i}`,
 				effective_harness_fingerprint: 'harness-fp-a',
 				strategy_delta: i > 0 ? `strategy-delta-${i}` : null,
-				previous_attempt_id: i > 0 ? attempts[i - 1].attempt_id : null,
+				previous_attempt_id: i > 0 ? attempts[i - 1]!.attempt_id : null,
 			});
 			attempts.push(att);
 		}
@@ -245,27 +247,29 @@ describe('REAL_CAPABILITY_ESCALATION_CANARY', () => {
 			model: 'model-b', // different model
 			input_fingerprint: 'fp-escalated',
 			effective_harness_fingerprint: 'harness-fp-b', // different harness
-			previous_attempt_id: lastAtt.attempt_id,
+			previous_attempt_id: lastAtt!.attempt_id,
 		});
 
 		expect(escalated.model).toBe('model-b');
-		expect(escalated.model).not.toBe(lastAtt.model);
-		expect(escalated.effective_harness_fingerprint).not.toBe(lastAtt.effective_harness_fingerprint);
-		expect(escalated.previous_attempt_id).toBe(lastAtt.attempt_id);
-		expect(hasRealDelta(lastAtt, {
-			input_fingerprint: escalated.input_fingerprint,
-			provider: escalated.provider,
-			model: escalated.model,
-			effective_harness_fingerprint: escalated.effective_harness_fingerprint,
-			strategy_delta: null,
-			new_evidence: null,
-		})).toBe(true);
+		expect(escalated.model).not.toBe(lastAtt!.model);
+		expect(escalated.effective_harness_fingerprint).not.toBe(lastAtt!.effective_harness_fingerprint);
+		expect(escalated.previous_attempt_id).toBe(lastAtt!.attempt_id);
+		expect(
+			hasRealDelta(lastAtt!, {
+				input_fingerprint: escalated.input_fingerprint,
+				provider: escalated.provider,
+				model: escalated.model,
+				effective_harness_fingerprint: escalated.effective_harness_fingerprint,
+				strategy_delta: null,
+				new_evidence: null,
+			}),
+		).toBe(true);
 
 		// Persist diagnosis + routing
 		const diagDoc = buildFailureDiagnosis({
-			run_id: lastAtt.run_id,
-			job_id: lastAtt.job_id,
-			attempt_id: lastAtt.attempt_id,
+			run_id: lastAtt!.run_id,
+			job_id: lastAtt!.job_id,
+			attempt_id: lastAtt!.attempt_id,
 			failure_class: 'TEST_FAILURE',
 			failure_domain: 'CAPABILITY',
 			evidence_refs: attempts.map((a) => a.attempt_id),
@@ -275,7 +279,7 @@ describe('REAL_CAPABILITY_ESCALATION_CANARY', () => {
 			diagnosis_reason_code: diagnosis.reason_code,
 		});
 		const routeDoc = buildRoutingDecision({
-			source_attempt_id: lastAtt.attempt_id,
+			source_attempt_id: lastAtt!.attempt_id,
 			failure_class: 'TEST_FAILURE',
 			failure_domain: 'CAPABILITY',
 			routing_action: routing.routing_action,
@@ -290,10 +294,10 @@ describe('REAL_CAPABILITY_ESCALATION_CANARY', () => {
 		expect(validateContract('positron.routing-decision.v1', routeDoc, 1).ok).toBe(true);
 
 		// Verify immutable chain
-		expect(attempts[0].previous_attempt_id).toBe(null);
-		expect(attempts[1].previous_attempt_id).toBe(attempts[0].attempt_id);
-		expect(attempts[2].previous_attempt_id).toBe(attempts[1].attempt_id);
-		expect(escalated.previous_attempt_id).toBe(attempts[2].attempt_id);
+		expect(attempts[0]!.previous_attempt_id).toBe(null);
+		expect(attempts[1]!.previous_attempt_id).toBe(attempts[0]!.attempt_id);
+		expect(attempts[2]!.previous_attempt_id).toBe(attempts[1]!.attempt_id);
+		expect(escalated.previous_attempt_id).toBe(attempts[2]!.attempt_id);
 	});
 });
 
@@ -353,7 +357,13 @@ describe('ADVERSARIAL_TESTS', () => {
 
 	it('ESCALATION_PERMISSION_EXPANSION_REJECTED — kernel ∩ profile', async () => {
 		const { intersectPermissions } = await import('@positron/control-plane');
-		const kernel = { mutation: true, push: false, merge: false, deploy: false, secret_access: false };
+		const kernel = {
+			mutation: true,
+			push: false,
+			merge: false,
+			deploy: false,
+			secret_access: false,
+		};
 		const profile = { mutation: true, push: true, merge: true, deploy: true, secret_access: true };
 		const eff = intersectPermissions(kernel, profile);
 		expect(eff.push).toBe(false);

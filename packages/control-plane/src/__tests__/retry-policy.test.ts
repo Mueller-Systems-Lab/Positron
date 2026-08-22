@@ -44,6 +44,12 @@ function makeAttempt(overrides: Partial<AttemptRecord> = {}): AttemptRecord {
 		model_provenance_status: null,
 		effective_harness_config: null,
 		effective_harness_fingerprint: null,
+		failure_domain: null,
+		diagnosis_reason_code: null,
+		diagnosis_fingerprint: null,
+		routing_action: null,
+		routing_reason_code: null,
+		routing_fingerprint: null,
 		...overrides,
 	};
 }
