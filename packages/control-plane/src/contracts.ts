@@ -27,7 +27,10 @@ export type ContractId =
 	| 'positron.task-profile.v1'
 	| 'positron.effective-harness.v1'
 	| 'positron.failure-diagnosis.v1'
-	| 'positron.routing-decision.v1';
+	| 'positron.routing-decision.v1'
+	| 'positron.harness-candidate.v1'
+	| 'positron.harness-evaluation.v1'
+	| 'positron.harness-promotion-decision.v1';
 
 export const CONTRACT_IDS: readonly ContractId[] = [
 	'positron.issue.v1',
@@ -38,6 +41,9 @@ export const CONTRACT_IDS: readonly ContractId[] = [
 	'positron.build-result.v1',
 	'positron.verification.v1',
 	'positron.finding.v1',
+	'positron.harness-candidate.v1',
+	'positron.harness-evaluation.v1',
+	'positron.harness-promotion-decision.v1',
 	'positron.review-batch.v1',
 	'positron.decision.v1',
 	'positron.split.v1',
@@ -738,6 +744,98 @@ const CONTRACT_REGISTRY: Record<ContractId, ContractSchema> = {
 			fingerprint: { type: 'string', required: true, pattern: /^[0-9a-f]{64}$/ },
 		},
 	},
+	// P5.4 — Harness Candidate (versionierter typed Contract, hypothesis = metadata).
+	'positron.harness-candidate.v1': {
+		contractId: 'positron.harness-candidate.v1',
+		version: 1,
+		fields: {
+			candidate_id: { type: 'string', required: true, minLength: 1 },
+			parent_profile_id: { type: 'string', required: true, minLength: 1 },
+			parent_profile_version: { type: 'string', required: true, minLength: 1 },
+			parent_profile_fingerprint: { type: 'string', required: true, pattern: /^[0-9a-f]{64}$/ },
+			candidate_version: { type: 'string', required: true, minLength: 1 },
+			candidate_fingerprint: { type: 'string', required: true, pattern: /^[0-9a-f]{64}$/ },
+			hypothesis: { type: 'string', required: true, minLength: 1 },
+			created_from_evidence_refs: { type: 'string[]', required: true, minLength: 1 },
+			proposer_type: { type: 'string', required: true, minLength: 1 },
+			proposer_ref: { type: 'string', required: true, minLength: 1 },
+			candidate_profile_ref: { type: 'object', required: true, requiredKeys: ['profile_id'] },
+			created_at: { type: 'string', required: true, minLength: 1 },
+			status: { type: 'string', required: true, minLength: 1 },
+		},
+		additional: (doc) => {
+			const errors: string[] = [];
+			const status = doc.status as string;
+			const allowed = ['PROPOSED', 'VALIDATING', 'REJECTED', 'SHADOW', 'CANARY', 'PROMOTED', 'ROLLED_BACK'];
+			if (!allowed.includes(status)) {
+				errors.push(`status must be one of ${allowed.join(', ')}`);
+			}
+			return errors;
+		},
+	},
+	// P5.4 — Harness Evaluation (A/B/C, compute-matched, holdout).
+	'positron.harness-evaluation.v1': {
+		contractId: 'positron.harness-evaluation.v1',
+		version: 1,
+		fields: {
+			evaluation_id: { type: 'string', required: true, minLength: 1 },
+			candidate_id: { type: 'string', required: true, minLength: 1 },
+			baseline_profile_ref: { type: 'object', required: true, requiredKeys: ['profile_id'] },
+			candidate_profile_ref: { type: 'object', required: true, requiredKeys: ['profile_id'] },
+			compute_matched_profile_ref: { type: 'object', required: true, requiredKeys: ['profile_id'] },
+			dataset_partition: { type: 'string', required: true, minLength: 1 },
+			sample_size: { type: 'number', required: true },
+			verified_success: { type: 'number', required: true },
+			first_pass_success: { type: 'number', required: true },
+			regressions: { type: 'string[]' },
+			security_result: { type: 'string', required: true, minLength: 1 },
+			contract_result: { type: 'string', required: true, minLength: 1 },
+			recovery_result: { type: 'string', required: true, minLength: 1 },
+			permission_result: { type: 'string', required: true, minLength: 1 },
+			scheduler_result: { type: 'string', required: true, minLength: 1 },
+			evaluation_fingerprint: { type: 'string', required: true, pattern: /^[0-9a-f]{64}$/ },
+			reason_code: { type: 'string', required: true, minLength: 1 },
+		},
+	},
+	// P5.4 — Harness Promotion Decision (deterministic, kernel-authorized).
+	'positron.harness-promotion-decision.v1': {
+		contractId: 'positron.harness-promotion-decision.v1',
+		version: 1,
+		fields: {
+			candidate_id: { type: 'string', required: true, minLength: 1 },
+			current_profile_id: { type: 'string', required: true, minLength: 1 },
+			current_profile_fingerprint: { type: 'string', required: true, pattern: /^[0-9a-f]{64}$/ },
+			candidate_profile_id: { type: 'string', required: true, minLength: 1 },
+			candidate_profile_fingerprint: { type: 'string', required: true, pattern: /^[0-9a-f]{64}$/ },
+			evaluation_refs: { type: 'string[]', required: true, minLength: 1 },
+			holdout_result: { type: 'string', required: true, minLength: 1 },
+			compute_matched_result: { type: 'string', required: true, minLength: 1 },
+			security_result: { type: 'string', required: true, minLength: 1 },
+			contract_result: { type: 'string', required: true, minLength: 1 },
+			recovery_result: { type: 'string', required: true, minLength: 1 },
+			permission_result: { type: 'string', required: true, minLength: 1 },
+			scheduler_budget_result: { type: 'string', required: true, minLength: 1 },
+			sample_size: { type: 'number', required: true },
+			decision: { type: 'string', required: true, minLength: 1 },
+			reason_code: { type: 'string', required: true, minLength: 1 },
+			policy_version: { type: 'string', required: true, minLength: 1 },
+			actor_authority: { type: 'string', required: true, minLength: 1 },
+			decision_fingerprint: { type: 'string', required: true, pattern: /^[0-9a-f]{64}$/ },
+		},
+		additional: (doc) => {
+			const errors: string[] = [];
+			const decision = doc.decision as string;
+			const allowedDecisions = ['PROMOTE', 'REJECT', 'INSUFFICIENT_EVIDENCE', 'ROLLBACK_REQUIRED'];
+			if (!allowedDecisions.includes(decision)) {
+				errors.push(`decision must be one of ${allowedDecisions.join(', ')}`);
+			}
+			const authority = doc.actor_authority as string;
+			if (!['KERNEL', 'SYSTEM', 'TEST'].includes(authority)) {
+				errors.push('actor_authority must be KERNEL, SYSTEM, or TEST');
+			}
+			return errors;
+		},
+	},
 };
 
 /** Gibt das Schema für eine Contract-ID zurück oder null bei unbekannter ID. */
@@ -1234,4 +1332,121 @@ export interface EffectiveHarnessContract {
 	run_context_fingerprint: string;
 	compiler: { version: string; reason_codes: string[] };
 	fingerprint: string;
+}
+
+// ---------------------------------------------------------------------------
+// P5.4 — Harness Evolution (Candidate, Evaluation, Promotion)
+// ---------------------------------------------------------------------------
+
+export type CandidateStatus =
+	| 'PROPOSED'
+	| 'VALIDATING'
+	| 'REJECTED'
+	| 'SHADOW'
+	| 'CANARY'
+	| 'PROMOTED'
+	| 'ROLLED_BACK';
+
+export const CANDIDATE_STATUSES: readonly CandidateStatus[] = [
+	'PROPOSED',
+	'VALIDATING',
+	'REJECTED',
+	'SHADOW',
+	'CANARY',
+	'PROMOTED',
+	'ROLLED_BACK',
+] as const;
+
+export function isCandidateStatus(value: string): value is CandidateStatus {
+	return (CANDIDATE_STATUSES as readonly string[]).includes(value);
+}
+
+export interface HarnessCandidateContract {
+	contract: 'positron.harness-candidate.v1';
+	candidate_id: string;
+	parent_profile_id: string;
+	parent_profile_version: string;
+	parent_profile_fingerprint: string;
+	candidate_version: string;
+	candidate_fingerprint: string;
+	hypothesis: string;
+	created_from_evidence_refs: string[];
+	proposer_type: string;
+	proposer_ref: string;
+	candidate_profile_ref: Record<string, unknown>;
+	created_at: string;
+	status: CandidateStatus;
+}
+
+export type EvaluationResult =
+	| 'CANDIDATE_BETTER'
+	| 'NO_MEANINGFUL_DIFFERENCE'
+	| 'BASELINE_BETTER'
+	| 'COMPUTE_ADVANTAGE_NOT_HARNESS'
+	| 'INSUFFICIENT_EVIDENCE'
+	| 'EVALUATION_INVALID'
+	| 'SECURITY_REGRESSION'
+	| 'CRITICAL_REGRESSION';
+
+export interface HarnessEvaluationContract {
+	contract: 'positron.harness-evaluation.v1';
+	evaluation_id: string;
+	candidate_id: string;
+	baseline_profile_ref: Record<string, unknown>;
+	candidate_profile_ref: Record<string, unknown>;
+	compute_matched_profile_ref: Record<string, unknown>;
+	dataset_partition: string;
+	task_family: string | null;
+	sample_size: number;
+	verified_success: number;
+	first_pass_success: number;
+	attempts_per_success: number | null;
+	time_to_verified_success: number | null;
+	tool_calls: number | null;
+	tokens: number | null;
+	cost: string | number;
+	regressions: string[];
+	security_result: string;
+	contract_result: string;
+	recovery_result: string;
+	permission_result: string;
+	scheduler_result: string;
+	evaluation_fingerprint: string;
+	reason_code: string;
+}
+
+export type PromotionDecision =
+	| 'PROMOTE'
+	| 'REJECT'
+	| 'INSUFFICIENT_EVIDENCE'
+	| 'ROLLBACK_REQUIRED';
+
+export const PROMOTION_DECISIONS: readonly PromotionDecision[] = [
+	'PROMOTE',
+	'REJECT',
+	'INSUFFICIENT_EVIDENCE',
+	'ROLLBACK_REQUIRED',
+] as const;
+
+export interface HarnessPromotionDecisionContract {
+	contract: 'positron.harness-promotion-decision.v1';
+	candidate_id: string;
+	current_profile_id: string;
+	current_profile_fingerprint: string;
+	candidate_profile_id: string;
+	candidate_profile_fingerprint: string;
+	evaluation_refs: string[];
+	holdout_result: string;
+	compute_matched_result: string;
+	security_result: string;
+	contract_result: string;
+	recovery_result: string;
+	permission_result: string;
+	scheduler_budget_result: string;
+	sample_size: number;
+	decision: PromotionDecision;
+	reason_code: string;
+	policy_version: string;
+	actor_authority: string;
+	decision_fingerprint: string;
 }

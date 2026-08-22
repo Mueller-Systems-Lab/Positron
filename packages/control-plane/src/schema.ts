@@ -220,6 +220,155 @@ function applyV9(db: Database.Database): void {
 	}
 }
 
+/**
+ * V10 (P5.4 — Harness Evolution Sandbox, Compute-Matched Evaluation & Deterministic Promotion).
+ *
+ * Additive, idempotent, historical compatible. Same SQLite DB, no new DB.
+ * 8 neue Tabellen für Candidate Lifecycle, Evaluation, Promotion, Shadow, Canary, Pointer.
+ * Keine bestehende Attempt-Historie wird verändert.
+ */
+export const CONTROL_PLANE_SCHEMA_V10 = `
+CREATE TABLE IF NOT EXISTS cp_harness_candidates (
+  candidate_id TEXT PRIMARY KEY,
+  parent_profile_id TEXT NOT NULL,
+  parent_profile_version TEXT NOT NULL,
+  parent_profile_fingerprint TEXT NOT NULL,
+  candidate_version TEXT NOT NULL,
+  candidate_fingerprint TEXT NOT NULL UNIQUE,
+  hypothesis TEXT NOT NULL,
+  created_from_evidence_refs TEXT NOT NULL,
+  proposer_type TEXT NOT NULL,
+  proposer_ref TEXT NOT NULL,
+  candidate_profile_ref TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  status TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cp_candidate_transitions (
+  transition_id TEXT PRIMARY KEY,
+  candidate_id TEXT NOT NULL REFERENCES cp_harness_candidates(candidate_id),
+  previous_status TEXT,
+  new_status TEXT NOT NULL,
+  reason_code TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cp_dataset_partitions (
+  partition_id TEXT PRIMARY KEY,
+  partition_type TEXT NOT NULL,
+  dataset_fingerprint TEXT NOT NULL,
+  partition_fingerprint TEXT NOT NULL,
+  task_count INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cp_harness_evaluations (
+  evaluation_id TEXT PRIMARY KEY,
+  candidate_id TEXT NOT NULL REFERENCES cp_harness_candidates(candidate_id),
+  baseline_profile_ref TEXT NOT NULL,
+  candidate_profile_ref TEXT NOT NULL,
+  compute_matched_profile_ref TEXT NOT NULL,
+  dataset_partition TEXT NOT NULL REFERENCES cp_dataset_partitions(partition_id),
+  task_family TEXT,
+  sample_size INTEGER NOT NULL,
+  verified_success REAL NOT NULL,
+  first_pass_success REAL NOT NULL,
+  attempts_per_success REAL,
+  time_to_verified_success REAL,
+  tool_calls INTEGER,
+  tokens INTEGER,
+  cost TEXT NOT NULL,
+  regressions TEXT NOT NULL,
+  security_result TEXT NOT NULL,
+  contract_result TEXT NOT NULL,
+  recovery_result TEXT NOT NULL,
+  permission_result TEXT NOT NULL,
+  scheduler_result TEXT NOT NULL,
+  evaluation_fingerprint TEXT NOT NULL,
+  reason_code TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cp_promotion_decisions (
+  decision_id TEXT PRIMARY KEY,
+  candidate_id TEXT NOT NULL REFERENCES cp_harness_candidates(candidate_id),
+  current_profile_id TEXT NOT NULL,
+  current_profile_fingerprint TEXT NOT NULL,
+  candidate_profile_id TEXT NOT NULL,
+  candidate_profile_fingerprint TEXT NOT NULL,
+  evaluation_refs TEXT NOT NULL,
+  holdout_result TEXT NOT NULL,
+  compute_matched_result TEXT NOT NULL,
+  security_result TEXT NOT NULL,
+  contract_result TEXT NOT NULL,
+  recovery_result TEXT NOT NULL,
+  permission_result TEXT NOT NULL,
+  scheduler_budget_result TEXT NOT NULL,
+  sample_size INTEGER NOT NULL,
+  decision TEXT NOT NULL,
+  reason_code TEXT NOT NULL,
+  policy_version TEXT NOT NULL,
+  actor_authority TEXT NOT NULL,
+  decision_fingerprint TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cp_shadow_runs (
+  shadow_run_id TEXT PRIMARY KEY,
+  candidate_id TEXT NOT NULL REFERENCES cp_harness_candidates(candidate_id),
+  baseline_ref TEXT NOT NULL,
+  candidate_ref TEXT NOT NULL,
+  result_metrics TEXT NOT NULL,
+  profile_fingerprints TEXT NOT NULL,
+  production_pointer_before TEXT NOT NULL,
+  production_pointer_after TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cp_canary_runs (
+  canary_run_id TEXT PRIMARY KEY,
+  candidate_id TEXT NOT NULL REFERENCES cp_harness_candidates(candidate_id),
+  bounds TEXT NOT NULL,
+  status TEXT NOT NULL,
+  metrics TEXT NOT NULL,
+  kill_switch_triggered INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  ended_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS cp_production_profile_pointer (
+  pointer_id TEXT PRIMARY KEY,
+  profile_id TEXT NOT NULL,
+  profile_version TEXT NOT NULL,
+  profile_fingerprint TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  updated_by TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cp_profile_transitions (
+  transition_id TEXT PRIMARY KEY,
+  previous_profile_id TEXT,
+  previous_fingerprint TEXT,
+  new_profile_id TEXT NOT NULL,
+  new_fingerprint TEXT NOT NULL,
+  reason_code TEXT NOT NULL,
+  actor_authority TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_cp_candidates_fingerprint ON cp_harness_candidates(candidate_fingerprint);
+CREATE INDEX IF NOT EXISTS idx_cp_candidates_status ON cp_harness_candidates(status);
+CREATE INDEX IF NOT EXISTS idx_cp_candidate_transitions_candidate ON cp_candidate_transitions(candidate_id);
+CREATE INDEX IF NOT EXISTS idx_cp_evaluations_candidate ON cp_harness_evaluations(candidate_id);
+CREATE INDEX IF NOT EXISTS idx_cp_promotion_candidate ON cp_promotion_decisions(candidate_id);
+CREATE INDEX IF NOT EXISTS idx_cp_shadow_candidate ON cp_shadow_runs(candidate_id);
+CREATE INDEX IF NOT EXISTS idx_cp_canary_candidate ON cp_canary_runs(candidate_id);
+`;
+
+function applyV10(db: Database.Database): void {
+	db.exec(CONTROL_PLANE_SCHEMA_V10);
+}
+
 export function applyControlPlaneMigrations(db: Database.Database): void {
 	db.exec(CONTROL_PLANE_SCHEMA_V1);
 	applyV2(db);
@@ -237,4 +386,6 @@ export function applyControlPlaneMigrations(db: Database.Database): void {
 	applyV8(db);
 	// P5.3: Two-Axis Failure Diagnosis & Routing (V9, idempotent)
 	applyV9(db);
+	// P5.4: Harness Evolution Sandbox (V10, idempotent)
+	applyV10(db);
 }

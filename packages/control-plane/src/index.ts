@@ -208,13 +208,13 @@ export type {
 } from './research.js';
 
 // ─── KPIs ───
-export { computeKpis, assertKpiInvariants } from './kpis.js';
+export { computeKpis, assertKpiInvariants, computeEvolutionKpis } from './kpis.js';
 export {
 	computeProfileKpis,
 	LEGACY_PROFILE_GROUP,
 	COST_PER_VERIFIED_SUCCESS_NOT_AVAILABLE,
 } from './kpis.js';
-export type { ProfileKpiGroup, ProfileKpiReport } from './kpis.js';
+export type { ProfileKpiGroup, ProfileKpiReport, EvolutionKpiReport } from './kpis.js';
 export type { KpiReport } from './kpis.js';
 
 // ─── Durable Run Orchestration ───
@@ -351,3 +351,90 @@ export type {
 	FailureDiagnosisContract,
 	RoutingDecisionContract,
 } from './diagnosis.js';
+
+// ─── P5.4 Harness Evolution Sandbox ───
+export {
+	TUNABLE_FIELDS,
+	NON_TUNABLE_FIELDS,
+	isTunableField,
+	isNonTunableField,
+	computeCandidateFingerprint,
+	validateCandidate,
+	buildCandidate,
+	isValidTransition,
+	CANDIDATE_TRANSITIONS,
+	CANDIDATE_CANNOT_SELF_PROMOTE,
+	MODEL_CANNOT_SELF_PROMOTE,
+	CANDIDATE_INVALID,
+	CANDIDATE_NON_TUNABLE_VIOLATION,
+} from './harness-evolution.js';
+export type { CandidateValidationResult, BuildCandidateInput } from './harness-evolution.js';
+export {
+	COMPUTE_MATCH_POLICY_VERSION,
+	computeMatchedBudget,
+	isComputeMatched,
+	buildPartitionFingerprint,
+	isHoldoutIsolated,
+	checkLeakage,
+	hasLeakage,
+	MIN_SAMPLE_SIZE,
+	DEFAULT_SAMPLE_THRESHOLD,
+	evaluateResult,
+	computeEvaluationFingerprint,
+	buildEvaluation,
+} from './evaluation.js';
+export type {
+	ComputeBudget,
+	PartitionType,
+	DatasetPartition,
+	LeakageType,
+	LeakageCheck,
+	EvaluationResult,
+	EvaluationInput,
+	BuildEvaluationInput,
+} from './evaluation.js';
+export {
+	KERNEL_AUTHORITY,
+	isKernelAuthority,
+	EVALUATOR_CANNOT_PROMOTE,
+	HARD_GATES,
+	PROMOTION_POLICY_VERSION,
+	evaluatePromotionGate,
+	computePromotionFingerprint,
+	buildPromotionDecision,
+} from './promotion.js';
+export type { HardGate, GateResult, PromotionGateInput, PromotionGateOutput, BuildPromotionDecisionInput } from './promotion.js';
+export {
+	getProductionPointer,
+	initProductionPointer,
+	atomicPromotion,
+	rollbackToPrevious,
+	getProfileTransitions,
+	PROMOTION_CONFLICT,
+	PROMOTION_DUPLICATE_NOOP,
+	ROLLBACK_NOT_PROVEN,
+} from './production-pointer.js';
+export type { ProductionPointer, ProfileTransition, AtomicPromotionInput, AtomicPromotionResult, RollbackResult } from './production-pointer.js';
+export {
+	runShadow,
+	getShadowRuns,
+	startCanary,
+	checkCanaryKillSwitch,
+	stopCanary,
+	completeCanary,
+	getCanaryRuns,
+	isCanaryBounded,
+	CANARY_BOUNDED,
+	CANARY_KILL_SWITCH,
+	CANARY_STOPPED,
+} from './shadow.js';
+export type { ShadowRun, ShadowResult, CanaryBounds, CanaryRun } from './shadow.js';
+export { CONTROL_PLANE_SCHEMA_V10 } from './schema.js';
+export type {
+	CandidateStatus,
+	HarnessCandidateContract,
+	HarnessEvaluationContract,
+	HarnessPromotionDecisionContract,
+	PromotionDecision,
+} from './contracts.js';
+export { CANDIDATE_STATUSES, isCandidateStatus, PROMOTION_DECISIONS } from './contracts.js';
