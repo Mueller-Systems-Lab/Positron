@@ -19,11 +19,11 @@ import type { GitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitStatusSummary } from '@positron/shared';
 import type { OpenCodeAdapter, OpenCodeCommandResult, SpecKitAdapter } from '@positron/shared';
 import { FakeSpecKitAdapter } from '@positron/speckit-adapter';
-import Database from 'better-sqlite3';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 // Direct import to avoid side effects from @positron/worker's top-level module code
 import { runPipeline } from '@positron/worker-pipeline';
 import type { PipelineDeps } from '@positron/worker-pipeline';
+import Database from 'better-sqlite3';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Instrumented Adapters that record mutation calls

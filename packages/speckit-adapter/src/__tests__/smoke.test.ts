@@ -1,7 +1,7 @@
 // Positron — SpecKit Adapter: Smoke-Tests
 
-import { describe, expect, test } from 'vitest';
 import fs from 'node:fs';
+import { describe, expect, test } from 'vitest';
 import { computeSha256, isPathSafe, scanWorkspace } from '../artifact-scanner.js';
 import {
 	FAKE_HEALTH_AVAILABLE,

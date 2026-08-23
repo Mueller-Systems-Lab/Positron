@@ -29,10 +29,10 @@ import type {
 	SpecKitRunInput,
 } from '@positron/shared';
 import { FakeSpecKitAdapter } from '@positron/speckit-adapter';
-import Database from 'better-sqlite3';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runPipeline } from '@positron/worker-pipeline';
 import type { PipelineDeps } from '@positron/worker-pipeline';
+import Database from 'better-sqlite3';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const HEAD = 'a'.repeat(40);
 

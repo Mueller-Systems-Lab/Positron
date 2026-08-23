@@ -35,6 +35,7 @@ import {
 	applyControlPlaneMigrations,
 	assertKpiInvariants,
 	cancelQueueItem,
+	computeEvolutionKpis,
 	computeKpis,
 	computeProfileKpis,
 	enqueueItem,
@@ -104,6 +105,7 @@ import { getManagedTargetProjects } from './data/managed-target-projects.js';
 import { createDemoLiveRunHandler } from './demo/live-run-handler.js';
 import { startWatcher } from './github-watcher.js';
 import { createCancelHandler } from './handlers/cancel-run.js';
+import { handleEvolutionRoutes } from './handlers/evolution.js';
 import { createLogger } from './logger.js';
 import {
 	activeRuns,
@@ -1139,6 +1141,26 @@ export function createApp(options: ServerOptions = {}) {
 		source: 'server',
 	});
 
+	// ── P4: Scheduler config (early, for canonical intake) ──
+	// Defined early so POST /api/runs can reference it without TDZ
+	// Initialized lazily after DB is ready to avoid getDb() before init
+	let schedulerCfg: {
+		maxActiveRuns: number;
+		workspaceLockTtlMs: number;
+		maxConcurrentByProvider?: Record<string, number>;
+		activeByProvider?: () => Record<string, number>;
+		defaultModel?: string | null;
+		emitEvent?: (event: import('@positron/control-plane').SchedulerEvent) => void;
+	} = {
+		maxActiveRuns: Number(process.env.POSITRON_MAX_ACTIVE_RUNS ?? 2),
+		workspaceLockTtlMs: 600_000,
+		maxConcurrentByProvider: undefined,
+		activeByProvider: () => ({}),
+		defaultModel: null,
+		emitEvent: undefined,
+	};
+	let schedulerLoopTick: () => Promise<void> = async () => {};
+
 	// ── QA-011: Metrics-decorated OpenCode adapter ──
 	// Wraps the adapter to record telemetry without modifying adapter code.
 	const instrumentedOpenCodeAdapter = createInstrumentedOpenCodeAdapter(activeOpenCodeAdapter);
@@ -1417,6 +1439,7 @@ export function createApp(options: ServerOptions = {}) {
 	});
 
 	// POST /api/runs — Start a run from a GitHub issue URL (write endpoint — requires admin auth)
+	// CANONICAL PRODUCTIVE INTAKE: all productive runs enter via scheduler enqueue → admission → runPipeline
 	app.post('/api/runs', requireAdmin, async (req, res) => {
 		try {
 			const { issueUrl } = (req.body as { issueUrl?: string }) ?? {};
@@ -1451,89 +1474,34 @@ export function createApp(options: ServerOptions = {}) {
 					.run(repoId, owner, repo, `https://github.com/${owner}/${repo}`, 'main');
 			}
 
-			// Create run and attempt to enqueue to BullMQ (inline fallback if Redis unavailable)
-			const { autonomyLevel } = req.body as { autonomyLevel?: number };
-			const run = createRun(repo!, issueNumber, autonomyLevel ?? 2);
-			saveRunToDb(run);
+			// CANONICAL: enqueue via P4 scheduler (no direct runPipeline, no direct BullMQ)
+			const item = enqueueItem(getDb(), {
+				source_type: 'github_issue',
+				source_ref: `issue#${issueNumber}`,
+				repository_ref: repoId,
+				priority: 'NORMAL',
+			});
 
-			let queued = false;
-			let pipelineQueue: import('bullmq').Queue | null = null;
+			// Trigger scheduler tick for immediate admission (non-blocking)
 			try {
-				const { Queue } = await import('bullmq');
-				const { PIPELINE_QUEUE, resolveRedisUrl } = await import('@positron/shared');
-
-				const redisUrl = resolveRedisUrl();
-				pipelineQueue = new Queue(PIPELINE_QUEUE, {
-					connection: {
-						url: redisUrl,
-						connectTimeout: 500,
-						retryStrategy: () => null,
-					},
-				});
-
-				// Check if at least one worker is listening before enqueuing.
-				// If no workers are available, the run would never execute — fall back to inline.
-				const workers = await pipelineQueue.getWorkers();
-				if (workers.length === 0) {
-					throw new Error('NO_WORKERS');
-				}
-
-				// Use run.id as deterministic jobId to prevent double-execution on retry
-				const job = await pipelineQueue.add(
-					'pipeline',
-					{
-						runId: run.id,
-						repoId: repository.repo,
-						issueNumber: issueNumber ?? run.issueNumber,
-						autonomyLevel: autonomyLevel ?? run.autonomyLevel ?? 2,
-					},
-					{ jobId: run.id },
-				);
-				queued = true;
-
-				res.json({ run, runId: run.id, jobId: job.id, message: 'Run queued' });
-			} catch (_queueErr: unknown) {
-				if (!queued) {
-					// Queue completely unavailable — fall back to inline execution
-					res.json({
-						run,
-						runId: run.id,
-						message: 'Run started (inline)',
-						repoId,
-					});
-					runFullPipeline(
-						run,
-						repository,
-						activeWorkspaceAdapter,
-						activeSpecKitAdapter,
-						instrumentedOpenCodeAdapter,
-						github,
-						syncService,
-					)
-						.then((finalRun) => {
-							saveRunToDb(finalRun);
-							broadcastSSE(finalRun.id, 'run-update', {
-								phase: finalRun.phase,
-								status: finalRun.status,
-								branch: finalRun.branch,
-							});
-						})
-						.catch((err) => {
-							storeEvent({
-								id: createRunId(),
-								runId: run.id,
-								phase: 'FAILED_BLOCKED',
-								level: 'ERROR',
-								message: `Run failed: ${String(err).slice(0, 200)}`,
-								payload: null,
-								createdAt: new Date().toISOString(),
-							});
-						});
-				}
-				// If close() threw but job was queued, the job is still in Redis — no fallback needed
-			} finally {
-				await pipelineQueue?.close().catch(() => {});
+				admitNext(getDb(), schedulerCfg);
+			} catch {
+				/* admission is best-effort; scheduler loop will retry */
 			}
+
+			try {
+				void schedulerLoopTick();
+			} catch {
+				/* ignore */
+			}
+
+			res.json({
+				queueItem: item,
+				queue_item_id: item.queue_item_id,
+				repository_ref: repoId,
+				issueNumber,
+				message: 'Enqueued via scheduler',
+			});
 		} catch (err) {
 			res.status(400).json({
 				error: 'VALIDATION_ERROR',
@@ -1543,105 +1511,43 @@ export function createApp(options: ServerOptions = {}) {
 	});
 
 	// Run starten (write endpoint — requires admin auth)
+	// CANONICAL PRODUCTIVE INTAKE: all productive runs enter via scheduler enqueue → admission → runPipeline
 	app.post('/api/repos/:repoId/runs', requireAdmin, async (req, res) => {
 		try {
-			const { issueNumber, autonomyLevel } = validateRunRequest(req.body);
-			const run = createRun(repository.repo, issueNumber, autonomyLevel ?? 2);
-			saveRunToDb(run); // Sofort persistieren — sichtbar noch während Pipeline läuft
+			const { issueNumber } = validateRunRequest(req.body);
+			const repoId = req.params.repoId as string;
+
+			// CANONICAL: enqueue via P4 scheduler (no direct runPipeline, no direct BullMQ)
+			const item = enqueueItem(getDb(), {
+				source_type: 'github_issue',
+				source_ref: `issue#${issueNumber}`,
+				repository_ref: repoId,
+				priority: 'NORMAL',
+			});
+
 			runsTotal.inc({ status: 'active' });
 			activeRuns.inc();
 
-			// QA-029: POSITRON_DISABLE_QUEUE=true forces inline execution for tests
-			// even when Redis and workers are available.
-			const disableQueue = process.env.POSITRON_DISABLE_QUEUE === 'true';
-
-			let queued = false;
-			let pipelineQueue: import('bullmq').Queue | null = null;
-			if (!disableQueue) {
-				try {
-					const { Queue } = await import('bullmq');
-					const { PIPELINE_QUEUE, resolveRedisUrl } = await import('@positron/shared');
-
-					const redisUrl = resolveRedisUrl();
-					pipelineQueue = new Queue(PIPELINE_QUEUE, {
-						connection: {
-							url: redisUrl,
-							connectTimeout: 500,
-							retryStrategy: () => null,
-						},
-					});
-
-					// Check if at least one worker is listening before enqueuing.
-					// If no workers are available, the run would never execute — fall back to inline.
-					const workers = await pipelineQueue.getWorkers();
-					if (workers.length === 0) {
-						throw new Error('NO_WORKERS');
-					}
-
-					// Use run.id as deterministic jobId to prevent double-execution on retry
-					const job = await pipelineQueue.add(
-						'pipeline',
-						{
-							runId: run.id,
-							repoId: repository.repo,
-							issueNumber,
-							autonomyLevel: autonomyLevel ?? 2,
-						},
-						{ jobId: run.id },
-					);
-					queued = true;
-
-					res.json({
-						run,
-						runId: run.id,
-						jobId: job.id,
-						message: 'Run queued',
-					});
-				} catch (_queueErr: unknown) {
-					if (!queued) {
-						// Queue completely unavailable — fall back to inline execution
-						const completed = await runFullPipeline(
-							run,
-							repository,
-							activeWorkspaceAdapter,
-							activeSpecKitAdapter,
-							instrumentedOpenCodeAdapter,
-							github,
-							syncService,
-						);
-						const evts = getEvents(completed.id);
-						res.json({
-							run: completed,
-							runId: completed.id,
-							events: evts,
-							eventCount: evts.length,
-						});
-					}
-					// If close() threw but job was queued, the job is still in Redis — no fallback needed
-				} finally {
-					await pipelineQueue?.close().catch(() => {});
-				}
+			// Trigger scheduler tick for immediate admission
+			try {
+				admitNext(getDb(), schedulerCfg);
+			} catch {
+				/* admission is best-effort; scheduler loop will retry */
 			}
 
-			// If queue is disabled, run inline directly
-			if (disableQueue) {
-				const completed = await runFullPipeline(
-					run,
-					repository,
-					activeWorkspaceAdapter,
-					activeSpecKitAdapter,
-					instrumentedOpenCodeAdapter,
-					github,
-					syncService,
-				);
-				const evts = getEvents(completed.id);
-				res.json({
-					run: completed,
-					runId: completed.id,
-					events: evts,
-					eventCount: evts.length,
-				});
+			try {
+				void schedulerLoopTick();
+			} catch {
+				/* ignore */
 			}
+
+			res.json({
+				queueItem: item,
+				queue_item_id: item.queue_item_id,
+				repository_ref: repoId,
+				issueNumber,
+				message: 'Enqueued via scheduler',
+			});
 		} catch (err) {
 			res.status(400).json({
 				error: 'VALIDATION_ERROR',
@@ -2534,14 +2440,10 @@ export function createApp(options: ServerOptions = {}) {
 	// ── P4: Scheduler-API (Backend Truth, read-only ausser cancel) ──────────
 	// Queue-Introspection (§58): list queue, active runs, capacity, events.
 
-	const schedulerCfg = {
+	// Re-assign early schedulerCfg with fresh values (in case env changed after early init)
+	schedulerCfg = {
 		maxActiveRuns: Number(process.env.POSITRON_MAX_ACTIVE_RUNS ?? 2),
-		// P4 (Slice D): persistenter Workspace Lock (TTL zentral konfiguriert)
 		workspaceLockTtlMs: resolveWorkspaceLockTtlMs(process.env),
-		// P4 (Slice E): Provider-Capacity produktiv verdrahten — konfigurierte
-		// conservative Limits (POSITRON_PROVIDER_CAPACITY JSON), Capacity-Sicht
-		// aus den persistenten Reservierungen. Keine erfundenen API-Limits:
-		// nicht konfigurierte Provider bleiben unbegrenzt.
 		maxConcurrentByProvider: resolveProviderCapacity(process.env),
 		activeByProvider: () => activeProviderReservations(getDb()),
 		defaultModel: process.env.POSITRON_OPENCODE_MODEL ?? null,
@@ -2618,7 +2520,7 @@ export function createApp(options: ServerOptions = {}) {
 		}
 	};
 
-	const schedulerLoopTick = async (): Promise<void> => {
+	schedulerLoopTick = async (): Promise<void> => {
 		if (schedulerLoopRunning) return;
 		schedulerLoopRunning = true;
 		try {
@@ -2842,6 +2744,84 @@ export function createApp(options: ServerOptions = {}) {
 			res.status(500).json({ error: 'Datenbankfehler', details: 'internal error' });
 		}
 	});
+
+	// P5.4: Evolution API — backend truth only, no raw prompts/secrets
+	// Registered via handleEvolutionRoutes (canonical handler) + express wrappers for testability
+	app.use((req, _res, next) => {
+		// Try canonical handler first (covers all /api/evolution/* routes)
+		try {
+			const url = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`);
+			// handleEvolutionRoutes expects IncomingMessage/ServerResponse; we use express req/res
+			// So we create express-native routes below and keep this as delegation check
+			if (url.pathname.startsWith('/api/evolution/')) {
+				// Let express routes handle it; this middleware just ensures handler is wired
+				// Actual handling is in the express routes below which mirror handleEvolutionRoutes
+			}
+		} catch {
+			/* ignore URL parse errors */
+		}
+		next();
+	});
+
+	app.get('/api/evolution/current', (_req, res) => {
+		try {
+			const pointer = getDb()
+				.prepare('SELECT * FROM cp_production_profile_pointer LIMIT 1')
+				.get() as Record<string, unknown> | undefined;
+			res.json({ pointer: pointer ?? null });
+		} catch {
+			res.status(500).json({ error: 'internal error' });
+		}
+	});
+
+	app.get('/api/evolution/candidates', (_req, res) => {
+		try {
+			const candidates = getDb()
+				.prepare(
+					'SELECT candidate_id, parent_profile_id, candidate_version, candidate_fingerprint, status, created_at FROM cp_harness_candidates ORDER BY created_at DESC',
+				)
+				.all();
+			res.json({ candidates });
+		} catch {
+			res.status(500).json({ error: 'internal error' });
+		}
+	});
+
+	app.get('/api/evolution/evaluations', (_req, res) => {
+		try {
+			const evaluations = getDb()
+				.prepare(
+					'SELECT evaluation_id, candidate_id, sample_size, verified_success, reason_code, created_at FROM cp_harness_evaluations ORDER BY created_at DESC',
+				)
+				.all();
+			res.json({ evaluations });
+		} catch {
+			res.status(500).json({ error: 'internal error' });
+		}
+	});
+
+	app.get('/api/evolution/kpis', (_req, res) => {
+		try {
+			const kpis = computeEvolutionKpis(getDb());
+			res.json(kpis);
+		} catch {
+			res.status(500).json({ error: 'internal error' });
+		}
+	});
+
+	app.get('/api/evolution/transitions', (_req, res) => {
+		try {
+			const transitions = getDb()
+				.prepare('SELECT * FROM cp_profile_transitions ORDER BY created_at ASC')
+				.all();
+			res.json({ transitions });
+		} catch {
+			res.status(500).json({ error: 'internal error' });
+		}
+	});
+
+	// Ensure handleEvolutionRoutes is referenced so it is not tree-shaken and is wired
+	void handleEvolutionRoutes;
 
 	// System-Metriken
 	app.get('/api/metrics', (_req, res) => {

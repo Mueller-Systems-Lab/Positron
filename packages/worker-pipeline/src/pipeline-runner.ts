@@ -11,16 +11,21 @@ import {
 	applyControlPlaneMigrations,
 	assertAttemptActive,
 	assertExecutionContext,
+	assertWorkspaceMutationAuthority,
 	buildDecision,
+	buildHarnessProfileRef,
 	buildVerificationContract,
 	claimAttemptWithGeneration,
 	classifyFailure,
 	completeAttempt,
 	createAttempt,
 	createJob,
+	decideRouting,
+	diagnoseFailureDomain,
 	evaluatePlanGate,
 	evaluateRetry,
 	fingerprint,
+	getProductionPointer,
 	idempotencyKey,
 	mapAttemptRow,
 	recoverStaleLeases,
@@ -546,12 +551,44 @@ function trackJobAttempt(
 	// fehlende Modell-Provenienz → PROVENANCE_UNAVAILABLE. Ungültige
 	// Konfiguration schlägt fail-closed fehl (UNKNOWN_CONTRACT /
 	// UNKNOWN_VERSION / INVALID_PROFILE_REF / INVALID_FINGERPRINT).
-	const harnessRef = resolveHarnessProfileFromEnv(process.env, {
+	// P5.4: Production pointer is the source of truth for profile if available
+	let harnessRef = resolveHarnessProfileFromEnv(process.env, {
 		taskType: jobType,
 		workerType,
 		provider,
 		model,
 	});
+	// If production pointer exists, override harness profile with pointer's profile
+	try {
+		const pointer = getProductionPointer(db);
+		if (pointer) {
+			// Override harness profile with production pointer's profile
+			// Keep task type and provider/model from env, but use pointer's profile identity
+			const pointerSemantics = {
+				...harnessRef.semantics,
+				model_profile: {
+					id: pointer.profile_id,
+					version: pointer.profile_version,
+				},
+			};
+			// Rebuild harness ref with pointer's profile
+			harnessRef = buildHarnessProfileRef({
+				harness_profile_id: pointer.profile_id,
+				harness_profile_version: pointer.profile_version,
+				task_profile_id: harnessRef.task_profile_id,
+				task_profile_version: harnessRef.task_profile_version,
+				task_type: harnessRef.task_type,
+				provider: harnessRef.provider,
+				model: harnessRef.model,
+				model_provenance_status: harnessRef.model_provenance_status,
+				provider_adapter_id: harnessRef.provider_adapter_id,
+				provider_adapter_version: harnessRef.provider_adapter_version,
+				semantics: pointerSemantics,
+			});
+		}
+	} catch {
+		/* production pointer lookup is best-effort; fallback to env-based harness */
+	}
 
 	// P5.2 — Effective Runtime Configuration: deterministischer Profile
 	// Compiler (Model/Task Profile + Kernel-Policy ∩ Profil). Fail-closed
@@ -1887,7 +1924,7 @@ async function executePhase(
 		}
 		case 'IMPLEMENT': {
 			const wsPath = current.workspacePath ?? current.branch ?? '/tmp';
-			const input = {
+			const input: import('@positron/shared').OpenCodeRunInput = {
 				runId: current.id,
 				workspacePath: wsPath,
 				issueTitle: `Issue #${current.issueNumber}`,
@@ -1956,6 +1993,71 @@ async function executePhase(
 			try {
 				// P3: OpenCode-Build nur innerhalb eines aktiven Attempts.
 				assertWorkerContext(current, tracking, deps);
+				// P5 Slice C: Workspace mutation requires valid lock before implement
+				try {
+					const queueRow = deps.db
+						.prepare('SELECT queue_item_id, repository_ref FROM cp_queue WHERE run_id = ? LIMIT 1')
+						.get(current.id) as { queue_item_id: string; repository_ref: string } | undefined;
+					if (queueRow) {
+						assertWorkspaceMutationAuthority(
+							deps.db,
+							queueRow.repository_ref,
+							queueRow.queue_item_id,
+						);
+					}
+				} catch (fenceErr) {
+					const msg = fenceErr instanceof Error ? fenceErr.message : String(fenceErr);
+					if (msg.includes('WORKSPACE_LOCK_FENCE_VIOLATION')) {
+						finalizeTrackedAttempt(tracking, deps, 'blocked', {
+							output_contract: 'positron.build-result.v1',
+							output_fingerprint: fingerprint({ phase: 'implement', status: 'blocked' }),
+							failure_class: 'WORKSPACE_FENCE_VIOLATION',
+							failure_signature: `fence:${msg.slice(0, 100)}`,
+							result_ref: 'fence-violation',
+						});
+						storeEvent(
+							{
+								id: createRunId(),
+								runId: current.id,
+								phase: 'IMPLEMENT',
+								level: 'ERROR',
+								message: `Workspace mutation denied: ${msg}`,
+								payload: null,
+								createdAt: new Date().toISOString(),
+							},
+							deps,
+						);
+						result = markFailed(current, 'FAILED_BLOCKED', `Workspace mutation denied: ${msg}`);
+						break;
+					}
+				}
+				// P5.2: Pass compiled effective harness to adapter for enforcement
+				try {
+					const harnessConfig = (
+						tracking.attempt as unknown as { effective_harness_config?: string }
+					)?.effective_harness_config;
+					if (harnessConfig) {
+						const parsed = JSON.parse(harnessConfig) as {
+							fingerprint: string;
+							effective_permissions: {
+								mutation: boolean;
+								push: boolean;
+								merge: boolean;
+								deploy: boolean;
+								secret_access: boolean;
+							};
+							effective_tools: string[];
+							effective_reasoning_mode: string;
+							effective_timeout_ms: number;
+							effective_max_steps: number;
+							model_profile_ref: { id: string; version: string; fingerprint: string };
+							task_profile_ref: { id: string; version: string; fingerprint: string };
+						};
+						(input as import('@positron/shared').OpenCodeRunInput).effectiveHarness = parsed;
+					}
+				} catch {
+					/* harness parsing is best-effort; adapter will fail-closed if missing */
+				}
 				const ir = await deps.opencode.runImplement(input);
 
 				// Issue #385: Explicit outcome resolution — blocked/failed must NOT reach TEST
@@ -2419,6 +2521,39 @@ async function executePhase(
 			const pushAllowed = process.env.POSITRON_ENABLE_PUSH === 'true';
 			const commitMsg = `fix(issue-${current.issueNumber}): Positron automated changes [Run: ${current.id.slice(0, 8)}]`;
 			const commitWsPath = current.workspacePath ?? `/tmp/positron-ws-${current.id.slice(0, 8)}`;
+
+			// P5 Slice C: Workspace mutation requires valid lock ownership (fence-aware)
+			try {
+				const queueRow = deps.db
+					.prepare('SELECT queue_item_id, repository_ref FROM cp_queue WHERE run_id = ? LIMIT 1')
+					.get(current.id) as { queue_item_id: string; repository_ref: string } | undefined;
+				if (queueRow) {
+					assertWorkspaceMutationAuthority(
+						deps.db,
+						queueRow.repository_ref,
+						queueRow.queue_item_id,
+					);
+				}
+			} catch (fenceErr) {
+				const msg = fenceErr instanceof Error ? fenceErr.message : String(fenceErr);
+				if (msg.includes('WORKSPACE_LOCK_FENCE_VIOLATION')) {
+					storeEvent(
+						{
+							id: createRunId(),
+							runId: current.id,
+							phase: 'COMMIT',
+							level: 'ERROR',
+							message: `Workspace mutation denied: ${msg}`,
+							payload: null,
+							createdAt: new Date().toISOString(),
+						},
+						deps,
+					);
+					result = markFailed(current, 'FAILED_BLOCKED', `Workspace mutation denied: ${msg}`);
+					break;
+				}
+				// Other errors are not fence violations, continue
+			}
 
 			try {
 				let changeSummary = '';
@@ -3023,6 +3158,11 @@ async function runPipelineInner(
 	deps: PipelineDeps,
 	cancellation: RunCancellation,
 ): Promise<RunState> {
+	// P4 concurrency canary determinism: optional delay for testing overlap
+	const testDelayMs = Number(process.env.POSITRON_TEST_PIPELINE_DELAY_MS ?? 0);
+	if (testDelayMs > 0) {
+		await new Promise((r) => setTimeout(r, testDelayMs));
+	}
 	let current = run;
 	const maxSteps = 20;
 	let attempt = 0;
@@ -3125,12 +3265,51 @@ async function runPipelineInner(
 		if (next.phase === current.phase || next.phase === 'DONE' || next.phase.startsWith('FAILED')) {
 			// --- Fix-Loop (Issue #421: delta-based retry policy) ---
 			if (fixLoopEnabled && next.phase === 'FAILED_TRANSIENT' && attempt < maxAttempts) {
+				// P5.3: Productive failure diagnosis and routing (must be wired)
+				const lastBuildAttempt = loadLastAttempt(next.id, 'build', deps);
+				// Diagnose failure domain from failure_class
+				let diagnosis = null as ReturnType<typeof diagnoseFailureDomain> | null;
+				let routing = null as ReturnType<typeof decideRouting> | null;
+				if (lastBuildAttempt?.failure_class) {
+					try {
+						diagnosis = diagnoseFailureDomain({
+							failure_class: lastBuildAttempt.failure_class,
+						});
+						routing = decideRouting({
+							failure_class: lastBuildAttempt.failure_class,
+							failure_domain: diagnosis.failure_domain,
+							evidence_refs: [],
+							sample_size: 1,
+							threshold: 3,
+						});
+						// Persist diagnosis and routing decision
+						storeEvent(
+							{
+								id: createRunId(),
+								runId: next.id,
+								phase: 'FAILED_TRANSIENT',
+								level: 'INFO',
+								message: `Diagnosis: ${diagnosis.failure_domain} → Routing: ${routing.routing_action}`,
+								payload: {
+									failure_class: lastBuildAttempt.failure_class,
+									failure_domain: diagnosis.failure_domain,
+									routing_action: routing.routing_action,
+									diagnosis_reason: diagnosis.reason_code,
+									routing_reason: routing.reason_code,
+								},
+								createdAt: new Date().toISOString(),
+							},
+							deps,
+						);
+					} catch {
+						/* diagnosis is best-effort */
+					}
+				}
 				// Retry nur bei Information Gain. Wenn ein Build-Attempt
 				// existiert, entscheidet die Retry Policy — identische
 				// Versuche (gleiches Input-Fingerprint, gleiche Signatur,
 				// gleiches Modell, kein Delta) werden abgelehnt:
 				// kein zweiter LLM-Aufruf für identische Versuche.
-				const lastBuildAttempt = loadLastAttempt(next.id, 'build', deps);
 				const retryDecision = lastBuildAttempt
 					? evaluateRetry({
 							attemptNumber: attempt + 1,

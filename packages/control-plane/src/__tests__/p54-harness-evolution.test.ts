@@ -1,48 +1,48 @@
-// Positron P5.4 — Harness Evolution Tests (Adversarial + Canaries)
-import { describe, expect, it, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
-import { applyControlPlaneMigrations } from '../schema.js';
+// Positron P5.4 — Harness Evolution Tests (Adversarial + Canaries)
+import { beforeEach, describe, expect, it } from 'vitest';
 import { validateContract } from '../contracts.js';
+import {
+	MIN_SAMPLE_SIZE,
+	buildEvaluation,
+	checkLeakage,
+	computeMatchedBudget,
+	evaluateResult,
+	hasLeakage,
+	isComputeMatched,
+	isHoldoutIsolated,
+} from '../evaluation.js';
 import {
 	buildCandidate,
 	computeCandidateFingerprint,
-	validateCandidate,
-	isValidTransition,
-	isTunableField,
 	isNonTunableField,
+	isTunableField,
+	isValidTransition,
+	validateCandidate,
 } from '../harness-evolution.js';
+import { computeEvolutionKpis } from '../kpis.js';
 import {
-	computeMatchedBudget,
-	isComputeMatched,
-	isHoldoutIsolated,
-	checkLeakage,
-	hasLeakage,
-	evaluateResult,
-	buildEvaluation,
-	MIN_SAMPLE_SIZE,
-} from '../evaluation.js';
-import {
-	evaluatePromotionGate,
-	buildPromotionDecision,
-	isKernelAuthority,
-	HARD_GATES,
-} from '../promotion.js';
-import {
-	getProductionPointer,
-	initProductionPointer,
 	atomicPromotion,
-	rollbackToPrevious,
+	getProductionPointer,
 	getProfileTransitions,
+	initProductionPointer,
+	rollbackToPrevious,
 } from '../production-pointer.js';
 import {
-	runShadow,
-	startCanary,
+	HARD_GATES,
+	buildPromotionDecision,
+	evaluatePromotionGate,
+	isKernelAuthority,
+} from '../promotion.js';
+import { applyControlPlaneMigrations } from '../schema.js';
+import {
 	checkCanaryKillSwitch,
-	stopCanary,
 	completeCanary,
 	isCanaryBounded,
+	runShadow,
+	startCanary,
+	stopCanary,
 } from '../shadow.js';
-import { computeEvolutionKpis } from '../kpis.js';
 
 function createTestDb(): Database.Database {
 	const db = new Database(':memory:');

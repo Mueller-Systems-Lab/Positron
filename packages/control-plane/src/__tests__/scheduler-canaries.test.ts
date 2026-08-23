@@ -12,7 +12,6 @@
 
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { applyControlPlaneMigrations } from '../schema.js';
 import {
 	admitNext,
 	cancelQueueItem,
@@ -24,6 +23,7 @@ import {
 	recoverSchedulerState,
 	schedulerCapacity,
 } from '../scheduler.js';
+import { applyControlPlaneMigrations } from '../schema.js';
 
 let db: Database.Database;
 

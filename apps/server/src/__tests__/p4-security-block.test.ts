@@ -7,12 +7,12 @@
 //   lease (Attempt final), workspace lock (released), provider reservation
 //   (released).
 
-import type http from 'node:http';
 import fs from 'node:fs';
+import type http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer } from '../index.js';
 
 const BLOCKING_FINDINGS = JSON.stringify([

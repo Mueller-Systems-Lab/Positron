@@ -24,10 +24,10 @@ import { FakeGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitHubPullRequest, OpenCodeAdapter, SpecKitAdapter } from '@positron/shared';
 import { FakeSpecKitAdapter } from '@positron/speckit-adapter';
-import Database from 'better-sqlite3';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runPipeline } from '@positron/worker-pipeline';
 import type { PipelineDeps } from '@positron/worker-pipeline';
+import Database from 'better-sqlite3';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Instrumented Adapter: records PR creation and can simulate existing PR

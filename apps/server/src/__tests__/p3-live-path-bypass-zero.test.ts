@@ -17,6 +17,9 @@
 // §20 ATTEMPT_OWNERSHIP, §33 LEGACY_PATH_ELIMINATION, §39 REAL E2E,
 // §55 PRODUCTIVE_WORKER_BYPASS_COUNT_ZERO
 
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { FakeGitHubAdapter } from '@positron/github-adapter';
 import type { GitHubAdapter, GitHubIssueRef, GitHubIssueSummary } from '@positron/github-adapter';
 import { FakeOpenCodeAdapter } from '@positron/opencode-adapter';
@@ -41,14 +44,11 @@ import type {
 	SpecKitRunInput,
 } from '@positron/shared';
 import { FakeSpecKitAdapter } from '@positron/speckit-adapter';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import type Database from 'better-sqlite3';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runPipeline } from '@positron/worker-pipeline';
 import { isTerminalRunRecord } from '@positron/worker-pipeline';
 import type { PipelineDeps } from '@positron/worker-pipeline';
+import type Database from 'better-sqlite3';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Zählende + prüfende Adapter-Wrapper

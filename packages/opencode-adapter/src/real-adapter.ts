@@ -182,6 +182,40 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 	 * aber keine Source-Code-Änderungen vornimmt.
 	 */
 	async runImplement(input: OpenCodeRunInput): Promise<OpenCodeCommandResult> {
+		// P5.2: Enforce effective harness at adapter boundary (fail-closed, never widen)
+		if (input.effectiveHarness) {
+			const h = input.effectiveHarness;
+			// Mutation check: if harness denies mutation, block implement
+			if (h.effective_permissions.mutation === false) {
+				return {
+					phase: 'implement',
+					status: 'blocked',
+					command: 'opencode run --command speckit.implement',
+					args: [],
+					cwd: input.workspacePath,
+					exitCode: null,
+					durationMs: 0,
+					summary: 'Blocked by effective harness: mutation not allowed',
+					blockedReason: 'DENIED_BY_EFFECTIVE_HARNESS: mutation=false',
+				};
+			}
+			// Tool check: if no tools allowed, block
+			if (h.effective_tools.length === 0) {
+				return {
+					phase: 'implement',
+					status: 'blocked',
+					command: 'opencode run --command speckit.implement',
+					args: [],
+					cwd: input.workspacePath,
+					exitCode: null,
+					durationMs: 0,
+					summary: 'Blocked by effective harness: no tools allowed',
+					blockedReason: 'DENIED_BY_EFFECTIVE_HARNESS: no tools',
+				};
+			}
+			// Timeout/max_steps are enforced via runCommand timeout (h.effective_timeout_ms)
+			// Provider/model are already validated at compile time
+		}
 		// Verify native speckit.implement command is available
 		if (input.workspacePath) {
 			const cmdFile = path.join(

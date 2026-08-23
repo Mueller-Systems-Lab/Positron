@@ -1,10 +1,10 @@
 import { resolvePipelineQueueName } from '@positron/shared';
-import { describe, expect, it } from 'vitest';
 import {
 	isFaultTargetedToRun,
 	isRunInWorkerScope,
 	isTerminalRunRecord,
 } from '@positron/worker-pipeline';
+import { describe, expect, it } from 'vitest';
 
 describe('R6 isolation closure contract', () => {
 	describe('run-scoped queue routing', () => {

@@ -13,9 +13,9 @@
 // - IDEMPOTENT_DISPATCH: gleicher Run 2x → keine doppelte Mutation
 // - FIX_CHAIN: attempt 2 referenziert attempt 1 (previous_attempt_id)
 
-import type Database from 'better-sqlite3';
 import fs from 'node:fs';
 import path from 'node:path';
+import type Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import type { FindingContract, PlanContract, ResearchBatchContract } from '../contracts.js';
 import { runDurableRun } from '../durable-run.js';

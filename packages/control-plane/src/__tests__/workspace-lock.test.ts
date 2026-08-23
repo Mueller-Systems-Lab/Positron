@@ -10,8 +10,8 @@
 
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
+import { admitNext, enqueueItem, markRunFinished, recoverSchedulerState } from '../scheduler.js';
 import { applyControlPlaneMigrations } from '../schema.js';
-import { enqueueItem, markRunFinished, recoverSchedulerState, admitNext } from '../scheduler.js';
 import {
 	acquireWorkspaceLock,
 	getWorkspaceLock,

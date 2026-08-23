@@ -285,14 +285,15 @@ export type {
 
 // ─── P4 (Slice D): Persistenter Workspace Lock ───
 export {
-	DEFAULT_WORKSPACE_LOCK_TTL_MS,
-	resolveWorkspaceLockTtlMs,
 	acquireWorkspaceLock,
 	renewWorkspaceLock,
 	isWorkspaceLockValid,
 	releaseWorkspaceLock,
 	recoverStaleWorkspaceLocks,
 	getWorkspaceLock,
+	assertWorkspaceMutationAuthority,
+	canMutateWorkspace,
+	resolveWorkspaceLockTtlMs,
 } from './workspace-lock.js';
 export type { WorkspaceLock } from './workspace-lock.js';
 
@@ -419,6 +420,8 @@ export {
 	PROMOTION_CONFLICT,
 	PROMOTION_DUPLICATE_NOOP,
 	ROLLBACK_NOT_PROVEN,
+	KERNEL_CAPABILITY,
+	isKernelCapability,
 } from './production-pointer.js';
 export type {
 	ProductionPointer,
@@ -442,6 +445,11 @@ export {
 } from './shadow.js';
 export type { ShadowRun, ShadowResult, CanaryBounds, CanaryRun } from './shadow.js';
 export { CONTROL_PLANE_SCHEMA_V10 } from './schema.js';
+export {
+	validateMigrationShape,
+	getMigrationVersion,
+	setMigrationVersion,
+} from './schema.js';
 export type {
 	CandidateStatus,
 	HarnessCandidateContract,

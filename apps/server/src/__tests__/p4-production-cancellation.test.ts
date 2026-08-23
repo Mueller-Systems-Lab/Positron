@@ -9,6 +9,10 @@
 //   NO_POST_CANCEL_MUTATION          = PASS
 //   LATE_RESULT_AFTER_CANCEL_REJECTED = PASS
 
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { completeAttempt, getAttempt } from '@positron/control-plane';
 import { FakeGitHubAdapter } from '@positron/github-adapter';
 import { FakeOpenCodeAdapter } from '@positron/opencode-adapter';
 import type {
@@ -16,7 +20,6 @@ import type {
 	OpenCodeCommandResult,
 	OpenCodeRunInput,
 } from '@positron/opencode-adapter';
-import { runCommand } from '@positron/sandbox';
 import {
 	applyMigrations,
 	assembleGateEvaluators,
@@ -24,18 +27,15 @@ import {
 	createRun,
 } from '@positron/run-state';
 import type { GateRuntimeMode, RunState } from '@positron/run-state';
+import { runCommand } from '@positron/sandbox';
 import { FakeGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
 import type { SpecKitAdapter } from '@positron/shared';
 import { FakeSpecKitAdapter } from '@positron/speckit-adapter';
-import { completeAttempt, getAttempt } from '@positron/control-plane';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import type Database from 'better-sqlite3';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runPipeline } from '@positron/worker-pipeline';
 import type { PipelineDeps } from '@positron/worker-pipeline';
+import type Database from 'better-sqlite3';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Adapter, der das AbortSignal beobachtet und daraufhin "stirbt"

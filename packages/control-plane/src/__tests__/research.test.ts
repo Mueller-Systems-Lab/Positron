@@ -16,7 +16,7 @@ import { validateContract } from '../contracts.js';
 import type { ResearchBatchContract } from '../contracts.js';
 import { fingerprint } from '../fingerprint.js';
 import { evaluateResearchBarrier, runParallelResearch } from '../research.js';
-import type { ResearchKind, ResearchWorker, ParallelResearchResult } from '../research.js';
+import type { ParallelResearchResult, ResearchKind, ResearchWorker } from '../research.js';
 import { listJobAttempts, listJobs } from '../store.js';
 import { cleanupWorkspace, createTestDb, createTestWorkspace } from './vertical-slice-helpers.js';
 import type { TestWorkspace } from './vertical-slice-helpers.js';

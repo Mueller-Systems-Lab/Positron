@@ -9,12 +9,9 @@
 //   DUPLICATE_EFFECT = 0         = PASS
 
 import fs from 'node:fs';
+import type http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import type http from 'node:http';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import Database from 'better-sqlite3';
-import { applyMigrations } from '@positron/run-state';
 import { applyControlPlaneMigrations } from '@positron/control-plane';
 import {
 	claimAttemptWithGeneration,
@@ -25,12 +22,15 @@ import {
 import {
 	admitNext,
 	enqueueItem,
+	isRunLeaseAlive,
 	markRunStarted,
 	recoverSchedulerState,
-	isRunLeaseAlive,
 } from '@positron/control-plane';
 import { getWorkspaceLock } from '@positron/control-plane';
 import { activeProviderReservations } from '@positron/control-plane';
+import { applyMigrations } from '@positron/run-state';
+import Database from 'better-sqlite3';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer } from '../index.js';
 
 describe('P4 SLICE F — CRASH RECOVERY (Kontroll-Ebene)', () => {

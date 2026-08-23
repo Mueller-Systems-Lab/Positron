@@ -1,22 +1,22 @@
+import Database from 'better-sqlite3';
 // Positron P5.4 — Real Canaries A-H (with persisted evidence)
 import { describe, expect, it } from 'vitest';
-import Database from 'better-sqlite3';
-import { applyControlPlaneMigrations } from '../schema.js';
-import { buildCandidate, validateCandidate } from '../harness-evolution.js';
 import { buildEvaluation, evaluateResult, isHoldoutIsolated } from '../evaluation.js';
-import { evaluatePromotionGate, buildPromotionDecision } from '../promotion.js';
+import { buildCandidate, validateCandidate } from '../harness-evolution.js';
 import {
+	atomicPromotion,
 	getProductionPointer,
 	initProductionPointer,
-	atomicPromotion,
 	rollbackToPrevious,
 } from '../production-pointer.js';
+import { buildPromotionDecision, evaluatePromotionGate } from '../promotion.js';
+import { applyControlPlaneMigrations } from '../schema.js';
 import {
+	checkCanaryKillSwitch,
+	completeCanary,
 	runShadow,
 	startCanary,
-	checkCanaryKillSwitch,
 	stopCanary,
-	completeCanary,
 } from '../shadow.js';
 
 function createTestDb(): Database.Database {

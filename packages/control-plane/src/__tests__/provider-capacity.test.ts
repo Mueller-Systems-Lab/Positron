@@ -10,14 +10,6 @@
 
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
-import { applyControlPlaneMigrations } from '../schema.js';
-import {
-	admitNext,
-	cancelQueueItem,
-	enqueueItem,
-	markRunFinished,
-	recoverSchedulerState,
-} from '../scheduler.js';
 import {
 	activeProviderReservations,
 	recoverStaleProviderSlots,
@@ -25,6 +17,14 @@ import {
 	reserveProviderSlot,
 	resolveProviderCapacity,
 } from '../provider-capacity.js';
+import {
+	admitNext,
+	cancelQueueItem,
+	enqueueItem,
+	markRunFinished,
+	recoverSchedulerState,
+} from '../scheduler.js';
+import { applyControlPlaneMigrations } from '../schema.js';
 
 function makeDb(): Database.Database {
 	const db = new Database(':memory:');

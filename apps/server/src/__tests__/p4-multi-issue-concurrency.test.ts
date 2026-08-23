@@ -101,9 +101,11 @@ describe('P4 SLICE C — CAPACITY_2_OVERLAP (zwei Runs, isolierte Workspaces)', 
 
 	beforeAll(async () => {
 		process.env.POSITRON_SCHEDULER_DISABLED = 'false';
-		process.env.POSITRON_SCHEDULER_INTERVAL_MS = '100';
+		process.env.POSITRON_SCHEDULER_INTERVAL_MS = '50';
 		process.env.POSITRON_MAX_ACTIVE_RUNS = '2';
 		process.env.POSITRON_ADMIN_TOKEN = 'test-admin-token-p4c';
+		// Make pipeline take longer to ensure deterministic overlap (avoid 0ms due to fast fake adapters)
+		process.env.POSITRON_TEST_PIPELINE_DELAY_MS = '300';
 		server = createServer({
 			repository: { owner: 'test-owner', repo: 'test-repo' },
 			dbPath: ':memory:',

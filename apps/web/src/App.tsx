@@ -6,6 +6,7 @@ import RunDetail from './components/RunDetail.jsx';
 import AdminPage from './components/admin/AdminPage.jsx';
 import DashboardPage from './components/dashboard/DashboardPage.jsx';
 import EvidencePage from './components/evidence/EvidencePage.jsx';
+import EvolutionPanel from './components/evolution/EvolutionPanel.jsx';
 import AppShell from './components/layout/AppShell.jsx';
 import ProjectsPage from './components/projects/ProjectsPage.jsx';
 import RunsPage from './components/runs/RunsPage.jsx';
@@ -21,6 +22,7 @@ export default function App(): React.ReactElement {
 				<Route path="/evidence" element={<EvidencePage />} />
 				<Route path="/projects" element={<ProjectsPage />} />
 				<Route path="/repos" element={<Repositories />} />
+				<Route path="/evolution" element={<EvolutionPanel />} />
 				<Route path="/settings" element={<SettingsPage />} />
 				<Route path="/admin" element={<AdminPage />} />
 				<Route path="*" element={<NotFound />} />

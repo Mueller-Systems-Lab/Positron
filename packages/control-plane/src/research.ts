@@ -18,9 +18,9 @@
 
 import crypto from 'node:crypto';
 import type Database from 'better-sqlite3';
+import { createCancellationSource, withCancellableTimeout } from './cancellation.js';
 import { validateContract } from './contracts.js';
 import type { FailureClass, ResearchBatchContract } from './contracts.js';
-import { createCancellationSource, withCancellableTimeout } from './cancellation.js';
 import { assertAttemptActive, assertExecutionContext } from './execution-context.js';
 import { classifyFailure } from './failure.js';
 import { fingerprint } from './fingerprint.js';

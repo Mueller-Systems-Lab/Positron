@@ -8,8 +8,8 @@
 //   → provider reservations aktiv (kein Oversubscription) + released
 
 import type http from 'node:http';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer } from '../index.js';
 
 describe('P4 — FINAL VERTICAL SLICE (zwei reale Runs, volle P4-Ressourcen)', () => {

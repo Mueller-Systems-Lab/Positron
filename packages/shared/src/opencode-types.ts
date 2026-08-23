@@ -95,6 +95,27 @@ export interface OpenCodeRunInput {
 	 * (graceful SIGTERM → forced SIGKILL) statt nur den Promise zu beenden.
 	 */
 	signal?: AbortSignal;
+	/**
+	 * P5.2: Effective harness config (compiled, persisted, enforced at adapter).
+	 * The adapter MUST enforce effective_permissions, effective_tools, etc.
+	 * and MUST NOT widen capabilities beyond the compiled harness.
+	 */
+	effectiveHarness?: {
+		fingerprint: string;
+		effective_permissions: {
+			mutation: boolean;
+			push: boolean;
+			merge: boolean;
+			deploy: boolean;
+			secret_access: boolean;
+		};
+		effective_tools: string[];
+		effective_reasoning_mode: string;
+		effective_timeout_ms: number;
+		effective_max_steps: number;
+		model_profile_ref: { id: string; version: string; fingerprint: string };
+		task_profile_ref: { id: string; version: string; fingerprint: string };
+	};
 }
 
 /** OpenCode Adapter Interface */

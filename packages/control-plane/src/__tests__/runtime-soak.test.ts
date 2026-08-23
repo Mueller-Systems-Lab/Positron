@@ -18,11 +18,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { TestCommandDetector, TestRunner } from '@positron/sandbox';
 import { afterAll, describe, expect, it } from 'vitest';
-import type { AttemptRecord } from '../store.js';
 import type { FindingContract, PlanContract } from '../contracts.js';
 import { runDurableRun } from '../durable-run.js';
 import { assertKpiInvariants, computeKpis } from '../kpis.js';
 import type { ResearchWorker } from '../research.js';
+import type { AttemptRecord } from '../store.js';
 import { listJobAttempts, listJobs, listTransitions } from '../store.js';
 import {
 	ScriptedBuildWorker,

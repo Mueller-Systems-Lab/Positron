@@ -9,8 +9,8 @@
 
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { applyControlPlaneMigrations } from '../schema.js';
 import { admitNext, enqueueItem, getQueueItem, markRunStarted } from '../scheduler.js';
+import { applyControlPlaneMigrations } from '../schema.js';
 import {
 	claimAttemptWithGeneration,
 	completeAttempt,

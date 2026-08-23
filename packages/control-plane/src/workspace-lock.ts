@@ -226,3 +226,34 @@ export function recoverStaleWorkspaceLocks(
 	}
 	return recovered;
 }
+
+/**
+ * P5 Slice C: Workspace mutation authority check.
+ * Every state-changing workspace operation must be protected by a valid
+ * workspace lock. This function asserts that the caller holds the current
+ * lock for the workspace (fence-aware).
+ */
+export function assertWorkspaceMutationAuthority(
+	db: Database.Database,
+	workspaceKey: string,
+	ownerId: string,
+	now = new Date().toISOString(),
+): void {
+	if (!isWorkspaceLockValid(db, workspaceKey, ownerId, now)) {
+		throw new Error(
+			`WORKSPACE_LOCK_FENCE_VIOLATION: workspace '${workspaceKey}' not owned by '${ownerId}' or lock expired`,
+		);
+	}
+}
+
+/**
+ * Check if workspace mutation is allowed (non-throwing version).
+ */
+export function canMutateWorkspace(
+	db: Database.Database,
+	workspaceKey: string,
+	ownerId: string,
+	now = new Date().toISOString(),
+): boolean {
+	return isWorkspaceLockValid(db, workspaceKey, ownerId, now);
+}

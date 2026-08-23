@@ -6,13 +6,14 @@
 // über runDurableRun. Kein Fake-GREEN: Concurrency wird über tatsächliche
 // started_at/ended_at-Überlappung gemessen (§61/§63).
 
-import fs from 'node:fs';
 import { execSync } from 'node:child_process';
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { applyControlPlaneMigrations } from '../schema.js';
+import { runDurableRun } from '../durable-run.js';
+import type { DurableRunDeps, DurableRunInput } from '../durable-run.js';
 import {
 	admitNext,
 	cancelQueueItem,
@@ -26,8 +27,7 @@ import {
 	recoverSchedulerState,
 	schedulerCapacity,
 } from '../scheduler.js';
-import { runDurableRun } from '../durable-run.js';
-import type { DurableRunDeps, DurableRunInput } from '../durable-run.js';
+import { applyControlPlaneMigrations } from '../schema.js';
 
 let db: Database.Database;
 let workspaces: string[] = [];

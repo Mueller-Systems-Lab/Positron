@@ -14,6 +14,11 @@
 // können dasselbe Item nicht doppelt admitieren (ONE_ADMISSION, §55).
 
 import type Database from 'better-sqlite3';
+import {
+	recoverStaleProviderSlots,
+	releaseProviderSlot,
+	reserveProviderSlot,
+} from './provider-capacity.js';
 import { QUEUE_PRIORITY_ORDER, normalizePriority, queueDedupKey } from './queue-schema.js';
 import type { QueuePriority, QueueState, SchedulerReasonCode } from './queue-schema.js';
 import {
@@ -22,11 +27,6 @@ import {
 	recoverStaleWorkspaceLocks,
 	releaseWorkspaceLock,
 } from './workspace-lock.js';
-import {
-	recoverStaleProviderSlots,
-	releaseProviderSlot,
-	reserveProviderSlot,
-} from './provider-capacity.js';
 
 // ---------------------------------------------------------------------------
 // Typen

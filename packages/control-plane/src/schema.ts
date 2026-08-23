@@ -348,8 +348,10 @@ CREATE TABLE IF NOT EXISTS cp_production_profile_pointer (
 CREATE TABLE IF NOT EXISTS cp_profile_transitions (
   transition_id TEXT PRIMARY KEY,
   previous_profile_id TEXT,
+  previous_profile_version TEXT,
   previous_fingerprint TEXT,
   new_profile_id TEXT NOT NULL,
+  new_profile_version TEXT NOT NULL,
   new_fingerprint TEXT NOT NULL,
   reason_code TEXT NOT NULL,
   actor_authority TEXT NOT NULL,
@@ -367,25 +369,135 @@ CREATE INDEX IF NOT EXISTS idx_cp_canary_candidate ON cp_canary_runs(candidate_i
 
 function applyV10(db: Database.Database): void {
 	db.exec(CONTROL_PLANE_SCHEMA_V10);
+	// P5.4 fix: ensure version columns exist for general rollback (idempotent)
+	try {
+		const cols = db.prepare('PRAGMA table_info(cp_profile_transitions)').all() as Array<{
+			name: string;
+		}>;
+		const hasPrevVersion = cols.some((c) => c.name === 'previous_profile_version');
+		const hasNewVersion = cols.some((c) => c.name === 'new_profile_version');
+		if (!hasPrevVersion) {
+			db.exec('ALTER TABLE cp_profile_transitions ADD COLUMN previous_profile_version TEXT');
+		}
+		if (!hasNewVersion) {
+			db.exec('ALTER TABLE cp_profile_transitions ADD COLUMN new_profile_version TEXT');
+			// Backfill existing rows with default version
+			db.exec(
+				"UPDATE cp_profile_transitions SET new_profile_version = '1.0.0' WHERE new_profile_version IS NULL",
+			);
+		}
+	} catch {
+		/* migration is best-effort */
+	}
 }
 
 export function applyControlPlaneMigrations(db: Database.Database): void {
-	db.exec(CONTROL_PLANE_SCHEMA_V1);
-	applyV2(db);
-	applyV3(db);
-	// P4 (Multi-Issue Scheduling): durable Intake-Queue (V4, idempotent)
-	db.exec(SCHEDULER_QUEUE_SCHEMA_V4);
-	db.exec(SCHEDULER_EVENTS_SCHEMA);
-	// P4 (Slice D): persistenter Workspace Lock (V5, idempotent)
-	db.exec(WORKSPACE_LOCK_SCHEMA_V5);
-	// P4 (Slice E): Provider-Capacity-Reservierungen (V6, idempotent)
-	db.exec(PROVIDER_RESERVATION_SCHEMA_V6);
-	// P5.1: Harness Profile Identity & Provenance (V7, idempotent)
-	applyV7(db);
-	// P5.2: Effective Runtime Configuration (V8, idempotent)
-	applyV8(db);
-	// P5.3: Two-Axis Failure Diagnosis & Routing (V9, idempotent)
-	applyV9(db);
-	// P5.4: Harness Evolution Sandbox (V10, idempotent)
-	applyV10(db);
+	// P5 migration production safety: wrap in transaction where safe (SQLite)
+	// For SQLite, DDL is transactional, so we can use a transaction for the whole migration
+	const doMigrate = db.transaction(() => {
+		db.exec(CONTROL_PLANE_SCHEMA_V1);
+		applyV2(db);
+		applyV3(db);
+		// P4 (Multi-Issue Scheduling): durable Intake-Queue (V4, idempotent)
+		db.exec(SCHEDULER_QUEUE_SCHEMA_V4);
+		db.exec(SCHEDULER_EVENTS_SCHEMA);
+		// P4 (Slice D): persistenter Workspace Lock (V5, idempotent)
+		db.exec(WORKSPACE_LOCK_SCHEMA_V5);
+		// P4 (Slice E): Provider-Capacity-Reservierungen (V6, idempotent)
+		db.exec(PROVIDER_RESERVATION_SCHEMA_V6);
+		// P5.1: Harness Profile Identity & Provenance (V7, idempotent)
+		applyV7(db);
+		// P5.2: Effective Runtime Configuration (V8, idempotent)
+		applyV8(db);
+		// P5.3: Two-Axis Failure Diagnosis & Routing (V9, idempotent)
+		applyV9(db);
+		// P5.4: Harness Evolution Sandbox (V10, idempotent)
+		applyV10(db);
+	});
+	try {
+		doMigrate();
+	} catch (e) {
+		// If transaction fails, try non-transactional fallback (for older SQLite)
+		db.exec(CONTROL_PLANE_SCHEMA_V1);
+		applyV2(db);
+		applyV3(db);
+		db.exec(SCHEDULER_QUEUE_SCHEMA_V4);
+		db.exec(SCHEDULER_EVENTS_SCHEMA);
+		db.exec(WORKSPACE_LOCK_SCHEMA_V5);
+		db.exec(PROVIDER_RESERVATION_SCHEMA_V6);
+		applyV7(db);
+		applyV8(db);
+		applyV9(db);
+		applyV10(db);
+		throw e;
+	}
+	// Validate shape after migration
+	validateMigrationShape(db);
+}
+
+/**
+ * P5 migration production safety: validate table shape (not just existence)
+ * For V10-critical tables, validate required columns exist
+ */
+export function validateMigrationShape(db: Database.Database): void {
+	const requiredTables: Record<string, string[]> = {
+		cp_attempts: [
+			'attempt_id',
+			'run_id',
+			'job_id',
+			'status',
+			'harness_profile_id',
+			'harness_fingerprint',
+			'effective_harness_config',
+			'effective_harness_fingerprint',
+		],
+		cp_production_profile_pointer: [
+			'pointer_id',
+			'profile_id',
+			'profile_version',
+			'profile_fingerprint',
+		],
+		cp_profile_transitions: [
+			'transition_id',
+			'previous_profile_id',
+			'new_profile_id',
+			'new_fingerprint',
+		],
+		cp_harness_candidates: ['candidate_id', 'candidate_fingerprint', 'status'],
+		cp_queue: ['queue_item_id', 'queue_state', 'dedup_key'],
+	};
+	for (const [table, cols] of Object.entries(requiredTables)) {
+		const existing = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+		const existingNames = new Set(existing.map((c) => c.name));
+		for (const col of cols) {
+			if (!existingNames.has(col)) {
+				throw new Error(`Migration shape validation failed: table ${table} missing column ${col}`);
+			}
+		}
+	}
+}
+
+/**
+ * Migration version ledger: persist applied version
+ */
+export function getMigrationVersion(db: Database.Database): string {
+	try {
+		const row = db.prepare("SELECT value FROM cp_kv WHERE key = 'migration_version'").get() as
+			| { value: string }
+			| undefined;
+		return row?.value ?? 'unknown';
+	} catch {
+		return 'unknown';
+	}
+}
+
+export function setMigrationVersion(db: Database.Database, version: string): void {
+	try {
+		db.exec('CREATE TABLE IF NOT EXISTS cp_kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+		db.prepare("INSERT OR REPLACE INTO cp_kv (key, value) VALUES ('migration_version', ?)").run(
+			version,
+		);
+	} catch {
+		/* best-effort */
+	}
 }

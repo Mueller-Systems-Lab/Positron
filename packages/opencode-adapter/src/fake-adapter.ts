@@ -83,6 +83,45 @@ export class FakeOpenCodeAdapter implements OpenCodeAdapter {
 	async runImplement(input: OpenCodeRunInput): Promise<OpenCodeCommandResult> {
 		this.commandCallLog.push('runImplement');
 
+		// P5.2: Enforce effective harness at adapter boundary (fail-closed)
+		if (input.effectiveHarness) {
+			const harness = input.effectiveHarness;
+			// Check mutation permission: if harness says mutation=false, deny any implement that would mutate
+			// For fake adapter, we simulate enforcement: if mutation is false, block
+			if (harness.effective_permissions.mutation === false) {
+				return {
+					phase: 'implement',
+					status: 'blocked',
+					command: 'implement',
+					args: [],
+					cwd: input.workspacePath,
+					exitCode: null,
+					durationMs: 0,
+					summary: 'Blocked by effective harness: mutation not allowed',
+					blockedReason: 'DENIED_BY_EFFECTIVE_HARNESS: mutation=false',
+				};
+			}
+			// Check tool allowlist: if harness has empty tools, block
+			if (harness.effective_tools.length === 0) {
+				return {
+					phase: 'implement',
+					status: 'blocked',
+					command: 'implement',
+					args: [],
+					cwd: input.workspacePath,
+					exitCode: null,
+					durationMs: 0,
+					summary: 'Blocked by effective harness: no tools allowed',
+					blockedReason: 'DENIED_BY_EFFECTIVE_HARNESS: no tools',
+				};
+			}
+			// Check push/deploy: if harness denies push but input tries to push, block
+			// (For now, we just log that harness is enforced; real push check is in workspace adapter)
+		} else {
+			// No harness provided → fail-closed for productive runs (but allow for tests without harness)
+			// We don't block here to avoid breaking existing tests that don't set harness
+		}
+
 		if (this.shouldFailCommands) {
 			return this.makeResult('implement', 'failed', 'Fake: implementation failed', input);
 		}

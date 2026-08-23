@@ -14,9 +14,9 @@ import { FakeGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
 import type { OpenCodeAdapter, SpecKitAdapter } from '@positron/shared';
 import { FakeSpecKitAdapter } from '@positron/speckit-adapter';
+import type { PipelineDeps } from '@positron/worker-pipeline';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { PipelineDeps } from '@positron/worker-pipeline';
 
 // Minimal local type matching shared RepositoryConfig
 interface RepositoryConfig {
