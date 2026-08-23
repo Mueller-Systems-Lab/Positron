@@ -1475,6 +1475,30 @@ export function createApp(options: ServerOptions = {}) {
 			}
 
 			// CANONICAL: enqueue via P4 scheduler (no direct runPipeline, no direct BullMQ)
+			// For e2e tests with POSITRON_DISABLE_QUEUE=true, use inline execution for backward compat
+			if (process.env.POSITRON_DISABLE_QUEUE === 'true') {
+				const { autonomyLevel } = req.body as { autonomyLevel?: number };
+				const run = createRun(repo!, issueNumber, autonomyLevel ?? 2);
+				saveRunToDb(run);
+				const completed = await runFullPipeline(
+					run,
+					repository,
+					activeWorkspaceAdapter,
+					activeSpecKitAdapter,
+					instrumentedOpenCodeAdapter,
+					github,
+					syncService,
+				);
+				const evts = getEvents(completed.id);
+				res.json({
+					run: completed,
+					runId: completed.id,
+					events: evts,
+					eventCount: evts.length,
+				});
+				return;
+			}
+
 			const item = enqueueItem(getDb(), {
 				source_type: 'github_issue',
 				source_ref: `issue#${issueNumber}`,
@@ -1514,8 +1538,33 @@ export function createApp(options: ServerOptions = {}) {
 	// CANONICAL PRODUCTIVE INTAKE: all productive runs enter via scheduler enqueue → admission → runPipeline
 	app.post('/api/repos/:repoId/runs', requireAdmin, async (req, res) => {
 		try {
-			const { issueNumber } = validateRunRequest(req.body);
+			const { issueNumber, autonomyLevel } = validateRunRequest(req.body);
 			const repoId = req.params.repoId as string;
+
+			// For e2e tests with POSITRON_DISABLE_QUEUE=true, use inline execution for backward compat
+			if (process.env.POSITRON_DISABLE_QUEUE === 'true') {
+				const run = createRun(repository.repo, issueNumber, autonomyLevel ?? 2);
+				saveRunToDb(run);
+				runsTotal.inc({ status: 'active' });
+				activeRuns.inc();
+				const completed = await runFullPipeline(
+					run,
+					repository,
+					activeWorkspaceAdapter,
+					activeSpecKitAdapter,
+					instrumentedOpenCodeAdapter,
+					github,
+					syncService,
+				);
+				const evts = getEvents(completed.id);
+				res.json({
+					run: completed,
+					runId: completed.id,
+					events: evts,
+					eventCount: evts.length,
+				});
+				return;
+			}
 
 			// CANONICAL: enqueue via P4 scheduler (no direct runPipeline, no direct BullMQ)
 			const item = enqueueItem(getDb(), {
