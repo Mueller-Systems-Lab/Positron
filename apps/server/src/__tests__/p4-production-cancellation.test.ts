@@ -71,7 +71,11 @@ class CancellableOpenCodeAdapter extends FakeOpenCodeAdapter {
 	}
 }
 
-function makeDeps(db: Database.Database, opencode: OpenCodeAdapter, signal?: AbortSignal): PipelineDeps {
+function makeDeps(
+	db: Database.Database,
+	opencode: OpenCodeAdapter,
+	signal?: AbortSignal,
+): PipelineDeps {
 	const repository = {
 		owner: 'xxammaxx',
 		repo: 'test-repo',
@@ -165,7 +169,10 @@ describe('P4 SLICE B — RUNNING CANCELLATION (produktiver Pfad)', () => {
 			db,
 			attempt?.attempt_id ?? '',
 			{ status: 'succeeded', output_json: JSON.stringify({ late: true }) },
-			{ fencingOwnerId: attempt?.lease_owner_id ?? '', fencingGeneration: attempt?.lease_generation ?? 0 },
+			{
+				fencingOwnerId: attempt?.lease_owner_id ?? '',
+				fencingGeneration: attempt?.lease_generation ?? 0,
+			},
 		);
 		expect(late).toBeNull();
 		expect(getAttempt(db, attempt?.attempt_id ?? '')?.status).toBe('failed');

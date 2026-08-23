@@ -137,9 +137,7 @@ describe('POST /api/scheduler/* (write — requireAdmin)', () => {
 
 		// Events persistiert (ADMITTED sichtbar)
 		const events = (await (
-			await fetch(
-				`${baseUrl}/api/scheduler/events?queue_item_id=${enqBody.item.queue_item_id}`,
-			)
+			await fetch(`${baseUrl}/api/scheduler/events?queue_item_id=${enqBody.item.queue_item_id}`)
 		).json()) as { events: Array<{ event: string }> };
 		expect(events.events.map((e) => e.event)).toContain('ADMITTED');
 	});

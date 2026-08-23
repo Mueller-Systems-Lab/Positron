@@ -47,7 +47,9 @@ export interface ProviderReservation {
  * Ungültig (kein JSON, nicht-positiv, nicht-ganzzahlig) → Fail-Closed (Error).
  * Nicht konfigurierte Provider sind NICHT begrenzt (keine erfundenen Limits).
  */
-export function resolveProviderCapacity(env: NodeJS.ProcessEnv = process.env): Record<string, number> {
+export function resolveProviderCapacity(
+	env: NodeJS.ProcessEnv = process.env,
+): Record<string, number> {
 	const raw = env.POSITRON_PROVIDER_CAPACITY;
 	if (raw === undefined || raw.trim() === '') {
 		return {};
@@ -109,7 +111,13 @@ export function activeProviderReservations(db: Database.Database): Record<string
  */
 export function reserveProviderSlot(
 	db: Database.Database,
-	input: { provider: string; model?: string | null; ownerId: string; runId?: string | null; now?: string },
+	input: {
+		provider: string;
+		model?: string | null;
+		ownerId: string;
+		runId?: string | null;
+		now?: string;
+	},
 ): { reserved: boolean; reservation_id: string } {
 	const now = input.now ?? new Date().toISOString();
 	return db.transaction((): { reserved: boolean; reservation_id: string } => {

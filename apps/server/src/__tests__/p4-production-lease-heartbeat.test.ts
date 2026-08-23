@@ -303,9 +303,7 @@ describe('P4 SLICE A — STALE RECOVERY + FENCING (produktiver Pfad)', () => {
 		expect(newAttempt?.lease_generation).toBe(1);
 
 		// OLD_OWNER_HEARTBEAT_REJECTED: alter Owner kann nichts mehr erneuern
-		expect(renewAttemptLease(db, crashedAttempt.attempt_id, crashedOwnerId, 30_000)).toBe(
-			false,
-		);
+		expect(renewAttemptLease(db, crashedAttempt.attempt_id, crashedOwnerId, 30_000)).toBe(false);
 
 		// OLD_OWNER_COMPLETION_REJECTED: alter Completion-Pfad wird verworfen
 		const oldCompletion = completeAttempt(

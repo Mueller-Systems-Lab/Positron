@@ -8,10 +8,7 @@
 //   - kontrolliert kleine TTL für Tests möglich
 
 import { describe, expect, it } from 'vitest';
-import {
-	DEFAULT_ATTEMPT_LEASE_TTL_MS,
-	resolveAttemptLeaseTtlMs,
-} from '../store.js';
+import { DEFAULT_ATTEMPT_LEASE_TTL_MS, resolveAttemptLeaseTtlMs } from '../store.js';
 
 describe('P4 — LEASE TTL CONFIG (PRODUCTION_ATTEMPT_LEASE_TTL_CONFIGURED)', () => {
 	it('DEFAULT: liefert eine reale bounded TTL — kein undefined, kein Infinity', () => {

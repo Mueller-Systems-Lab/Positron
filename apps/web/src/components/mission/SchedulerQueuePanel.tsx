@@ -152,9 +152,7 @@ export default function SchedulerQueuePanel(): React.JSX.Element {
 								</span>
 							</div>
 							<div className="mt-1 flex items-center justify-between text-[11px] text-zinc-500">
-								<span className={PRIORITY_COLOR[q.priority] ?? 'text-zinc-300'}>
-									{q.priority}
-								</span>
+								<span className={PRIORITY_COLOR[q.priority] ?? 'text-zinc-300'}>{q.priority}</span>
 								<span>{q.reason_code ?? '—'}</span>
 							</div>
 						</li>

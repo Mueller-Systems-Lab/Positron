@@ -92,9 +92,8 @@ describe('P4 — FINAL VERTICAL SLICE (zwei reale Runs, volle P4-Ressourcen)', (
 
 			// OVERLAP: beide durchliefen RUNNING, überlappend
 			const eventsFor = async (id: string) =>
-				(
-					await (await fetch(`${baseUrl}/api/scheduler/events?queue_item_id=${id}`)).json()
-				).events as Array<{ event: string; timestamp: string }>;
+				(await (await fetch(`${baseUrl}/api/scheduler/events?queue_item_id=${id}`)).json())
+					.events as Array<{ event: string; timestamp: string }>;
 			const evA = await eventsFor(a.item.queue_item_id);
 			const evB = await eventsFor(b.item.queue_item_id);
 			const aStart = evA.find((e) => e.event === 'RUN_STARTED')?.timestamp ?? '';
@@ -118,9 +117,7 @@ describe('P4 — FINAL VERTICAL SLICE (zwei reale Runs, volle P4-Ressourcen)', (
 			for (const lock of locks) expect(lock.released_at).toBeTruthy();
 
 			const reservations = db
-				.prepare(
-					"SELECT status FROM cp_provider_reservations WHERE owner_id IN (?, ?)",
-				)
+				.prepare('SELECT status FROM cp_provider_reservations WHERE owner_id IN (?, ?)')
 				.all(a.item.queue_item_id, b.item.queue_item_id) as Array<{ status: string }>;
 			expect(reservations.length).toBe(2);
 			for (const r of reservations) expect(r.status).toBe('released');

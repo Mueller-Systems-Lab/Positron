@@ -100,6 +100,10 @@ export function normalizePriority(raw: string | null | undefined): QueuePriority
 }
 
 /** Deterministischer Dedup-Key (Auftrag §48): source_type:repo:ref */
-export function queueDedupKey(sourceType: string, repositoryRef: string, sourceRef: string): string {
+export function queueDedupKey(
+	sourceType: string,
+	repositoryRef: string,
+	sourceRef: string,
+): string {
 	return `${sourceType}:${repositoryRef}:${sourceRef}`;
 }

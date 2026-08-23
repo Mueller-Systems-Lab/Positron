@@ -99,8 +99,12 @@ describe('CANDIDATE_STORE', () => {
 			candidate_profile_ref: { profile_id: 'profile-b', version: '1.0.1' },
 			status: 'PROPOSED' as const,
 		};
-		const fp1 = computeCandidateFingerprint(input as unknown as Parameters<typeof computeCandidateFingerprint>[0]);
-		const fp2 = computeCandidateFingerprint(input as unknown as Parameters<typeof computeCandidateFingerprint>[0]);
+		const fp1 = computeCandidateFingerprint(
+			input as unknown as Parameters<typeof computeCandidateFingerprint>[0],
+		);
+		const fp2 = computeCandidateFingerprint(
+			input as unknown as Parameters<typeof computeCandidateFingerprint>[0],
+		);
 		expect(fp1).toBe(fp2);
 	});
 
@@ -164,7 +168,11 @@ describe('CANDIDATE_STORE', () => {
 			proposer_ref: 'model-x',
 			candidate_profile_ref: { profile_id: 'profile-b', version: '1.0.1' },
 		});
-		const result = validateContract('positron.harness-candidate.v1', c as unknown as Record<string, unknown>, 1);
+		const result = validateContract(
+			'positron.harness-candidate.v1',
+			c as unknown as Record<string, unknown>,
+			1,
+		);
 		expect(result.ok).toBe(true);
 	});
 
@@ -199,7 +207,11 @@ describe('TUNABLE_SURFACE_ALLOWLIST', () => {
 			created_from_evidence_refs: ['att-1'],
 			proposer_type: 'LLM',
 			proposer_ref: 'model-x',
-			candidate_profile_ref: { profile_id: 'profile-b', version: '1.0.1', kernel_permissions: { push: true } },
+			candidate_profile_ref: {
+				profile_id: 'profile-b',
+				version: '1.0.1',
+				kernel_permissions: { push: true },
+			},
 		});
 		const result = validateCandidate(c);
 		expect(result.ok).toBe(false);
@@ -213,8 +225,20 @@ describe('TUNABLE_SURFACE_ALLOWLIST', () => {
 
 describe('A_B_C_EVALUATION', () => {
 	it('COMPUTE_MATCHED_BASELINE_REQUIRED', () => {
-		const baseline = { attempts: 1, model_calls: 1, token_budget: 1000, reasoning_budget: 100, wall_clock_ms: 1000 };
-		const candidate = { attempts: 3, model_calls: 3, token_budget: 3000, reasoning_budget: 300, wall_clock_ms: 3000 };
+		const baseline = {
+			attempts: 1,
+			model_calls: 1,
+			token_budget: 1000,
+			reasoning_budget: 100,
+			wall_clock_ms: 1000,
+		};
+		const candidate = {
+			attempts: 3,
+			model_calls: 3,
+			token_budget: 3000,
+			reasoning_budget: 300,
+			wall_clock_ms: 3000,
+		};
 		const matched = computeMatchedBudget(baseline, candidate);
 		expect(matched.attempts).toBe(3);
 		expect(matched.token_budget).toBe(3000);
@@ -249,7 +273,11 @@ describe('A_B_C_EVALUATION', () => {
 			candidate_id: 'cand-1',
 			baseline_profile_ref: { profile_id: 'profile-a', version: '1.0.0' },
 			candidate_profile_ref: { profile_id: 'profile-b', version: '1.0.1' },
-			compute_matched_profile_ref: { profile_id: 'profile-a', version: '1.0.0', compute_matched: true },
+			compute_matched_profile_ref: {
+				profile_id: 'profile-a',
+				version: '1.0.0',
+				compute_matched: true,
+			},
 			dataset_partition: 'part-1',
 			sample_size: 10,
 			verified_success: 0.8,
@@ -261,7 +289,11 @@ describe('A_B_C_EVALUATION', () => {
 			scheduler_result: 'PASS',
 			reason_code: 'CANDIDATE_BETTER',
 		});
-		const result = validateContract('positron.harness-evaluation.v1', evalContract as unknown as Record<string, unknown>, 1);
+		const result = validateContract(
+			'positron.harness-evaluation.v1',
+			evalContract as unknown as Record<string, unknown>,
+			1,
+		);
 		expect(result.ok).toBe(true);
 		expect(evalContract.cost).toBe('NOT_AVAILABLE');
 	});
@@ -376,7 +408,10 @@ describe('PROMOTION_GATE', () => {
 	it('CANDIDATE_CANNOT_SELF_PROMOTE', () => {
 		const result = evaluatePromotionGate({
 			actor_authority: 'CANDIDATE',
-			gates: Object.fromEntries(HARD_GATES.map((g) => [g, true])) as Record<typeof HARD_GATES[number], boolean>,
+			gates: Object.fromEntries(HARD_GATES.map((g) => [g, true])) as Record<
+				(typeof HARD_GATES)[number],
+				boolean
+			>,
 		});
 		expect(result.decision).toBe('REJECT');
 		expect(result.reason_code).toContain('NOT_KERNEL_AUTHORITY');
@@ -385,7 +420,10 @@ describe('PROMOTION_GATE', () => {
 	it('MODEL_CANNOT_SELF_PROMOTE', () => {
 		const result = evaluatePromotionGate({
 			actor_authority: 'MODEL',
-			gates: Object.fromEntries(HARD_GATES.map((g) => [g, true])) as Record<typeof HARD_GATES[number], boolean>,
+			gates: Object.fromEntries(HARD_GATES.map((g) => [g, true])) as Record<
+				(typeof HARD_GATES)[number],
+				boolean
+			>,
 		});
 		expect(result.decision).toBe('REJECT');
 	});
@@ -393,7 +431,10 @@ describe('PROMOTION_GATE', () => {
 	it('EVALUATOR_CANNOT_PROMOTE', () => {
 		const result = evaluatePromotionGate({
 			actor_authority: 'EVALUATOR',
-			gates: Object.fromEntries(HARD_GATES.map((g) => [g, true])) as Record<typeof HARD_GATES[number], boolean>,
+			gates: Object.fromEntries(HARD_GATES.map((g) => [g, true])) as Record<
+				(typeof HARD_GATES)[number],
+				boolean
+			>,
 		});
 		expect(result.decision).toBe('REJECT');
 	});
@@ -401,7 +442,10 @@ describe('PROMOTION_GATE', () => {
 	it('KERNEL can promote when all gates pass', () => {
 		const result = evaluatePromotionGate({
 			actor_authority: 'KERNEL',
-			gates: Object.fromEntries(HARD_GATES.map((g) => [g, true])) as Record<typeof HARD_GATES[number], boolean>,
+			gates: Object.fromEntries(HARD_GATES.map((g) => [g, true])) as Record<
+				(typeof HARD_GATES)[number],
+				boolean
+			>,
 		});
 		expect(result.decision).toBe('PROMOTE');
 		expect(result.allGatesPassed).toBe(true);
@@ -410,7 +454,10 @@ describe('PROMOTION_GATE', () => {
 	it('SECURITY_REGRESSION_DENIES_PROMOTION', () => {
 		const result = evaluatePromotionGate({
 			actor_authority: 'KERNEL',
-			gates: Object.fromEntries(HARD_GATES.map((g) => [g, true])) as Record<typeof HARD_GATES[number], boolean>,
+			gates: Object.fromEntries(HARD_GATES.map((g) => [g, true])) as Record<
+				(typeof HARD_GATES)[number],
+				boolean
+			>,
 			securityRegression: true,
 		});
 		expect(result.decision).toBe('REJECT');
@@ -418,7 +465,10 @@ describe('PROMOTION_GATE', () => {
 	});
 
 	it('VERIFIED_SUCCESS_REGRESSION_DENIES_PROMOTION', () => {
-		const gates = Object.fromEntries(HARD_GATES.map((g) => [g, true])) as Record<typeof HARD_GATES[number], boolean>;
+		const gates = Object.fromEntries(HARD_GATES.map((g) => [g, true])) as Record<
+			(typeof HARD_GATES)[number],
+			boolean
+		>;
 		gates.VERIFIED_SUCCESS_NON_REGRESSION = false;
 		const result = evaluatePromotionGate({
 			actor_authority: 'KERNEL',
@@ -429,7 +479,10 @@ describe('PROMOTION_GATE', () => {
 	});
 
 	it('CRITICAL_REGRESSION_DENIES_PROMOTION', () => {
-		const gates = Object.fromEntries(HARD_GATES.map((g) => [g, true])) as Record<typeof HARD_GATES[number], boolean>;
+		const gates = Object.fromEntries(HARD_GATES.map((g) => [g, true])) as Record<
+			(typeof HARD_GATES)[number],
+			boolean
+		>;
 		gates.CRITICAL_SUITE_PASS = false;
 		const result = evaluatePromotionGate({
 			actor_authority: 'KERNEL',
@@ -440,7 +493,10 @@ describe('PROMOTION_GATE', () => {
 	});
 
 	it('INSUFFICIENT_SAMPLE_DENIES_PROMOTION', () => {
-		const gates = Object.fromEntries(HARD_GATES.map((g) => [g, true])) as Record<typeof HARD_GATES[number], boolean>;
+		const gates = Object.fromEntries(HARD_GATES.map((g) => [g, true])) as Record<
+			(typeof HARD_GATES)[number],
+			boolean
+		>;
 		gates.MIN_SAMPLE_PASS = false;
 		const result = evaluatePromotionGate({
 			actor_authority: 'KERNEL',
@@ -452,7 +508,10 @@ describe('PROMOTION_GATE', () => {
 	});
 
 	it('ROLLBACK_UNAVAILABLE_DENIES_PROMOTION', () => {
-		const gates = Object.fromEntries(HARD_GATES.map((g) => [g, true])) as Record<typeof HARD_GATES[number], boolean>;
+		const gates = Object.fromEntries(HARD_GATES.map((g) => [g, true])) as Record<
+			(typeof HARD_GATES)[number],
+			boolean
+		>;
 		gates.ROLLBACK_AVAILABLE = false;
 		const result = evaluatePromotionGate({
 			actor_authority: 'KERNEL',
@@ -483,14 +542,21 @@ describe('PROMOTION_GATE', () => {
 			reason_code: 'PROMOTE_ALL_GATES_PASSED',
 			actor_authority: 'KERNEL',
 		});
-		const result = validateContract('positron.harness-promotion-decision.v1', decision as unknown as Record<string, unknown>, 1);
+		const result = validateContract(
+			'positron.harness-promotion-decision.v1',
+			decision as unknown as Record<string, unknown>,
+			1,
+		);
 		expect(result.ok).toBe(true);
 	});
 
 	it('PROMOTION_GATE_DETERMINISTIC', () => {
 		const input = {
 			actor_authority: 'KERNEL',
-			gates: Object.fromEntries(HARD_GATES.map((g) => [g, true])) as Record<typeof HARD_GATES[number], boolean>,
+			gates: Object.fromEntries(HARD_GATES.map((g) => [g, true])) as Record<
+				(typeof HARD_GATES)[number],
+				boolean
+			>,
 		};
 		const r1 = evaluatePromotionGate(input);
 		const r2 = evaluatePromotionGate(input);
@@ -598,7 +664,9 @@ describe('CANARY_BOUNDED', () => {
 		const check = checkCanaryKillSwitch(db, canary.canary_run_id, { securityRegression: true });
 		expect(check.shouldStop).toBe(true);
 		stopCanary(db, canary.canary_run_id, check.reason, true);
-		const runs = db.prepare('SELECT status, kill_switch_triggered FROM cp_canary_runs WHERE canary_run_id = ?').get(canary.canary_run_id) as { status: string; kill_switch_triggered: number };
+		const runs = db
+			.prepare('SELECT status, kill_switch_triggered FROM cp_canary_runs WHERE canary_run_id = ?')
+			.get(canary.canary_run_id) as { status: string; kill_switch_triggered: number };
 		expect(runs.status).toBe('STOPPED');
 		expect(runs.kill_switch_triggered).toBe(1);
 	});
@@ -849,21 +917,27 @@ describe('P5_4_KPIS', () => {
 
 describe('P5_4_CONTRACTS', () => {
 	it('all 3 contracts are known', () => {
-		expect(validateContract('positron.harness-candidate.v1', {
-			contract: 'positron.harness-candidate.v1',
-			candidate_id: 'cand-1',
-			parent_profile_id: 'p-a',
-			parent_profile_version: '1.0.0',
-			parent_profile_fingerprint: 'a'.repeat(64),
-			candidate_version: '1.0.1',
-			candidate_fingerprint: 'b'.repeat(64),
-			hypothesis: 'test',
-			created_from_evidence_refs: ['att-1'],
-			proposer_type: 'LLM',
-			proposer_ref: 'model-x',
-			candidate_profile_ref: { profile_id: 'p-b' },
-			created_at: new Date().toISOString(),
-			status: 'PROPOSED',
-		} as unknown as Record<string, unknown>, 1).ok).toBe(true);
+		expect(
+			validateContract(
+				'positron.harness-candidate.v1',
+				{
+					contract: 'positron.harness-candidate.v1',
+					candidate_id: 'cand-1',
+					parent_profile_id: 'p-a',
+					parent_profile_version: '1.0.0',
+					parent_profile_fingerprint: 'a'.repeat(64),
+					candidate_version: '1.0.1',
+					candidate_fingerprint: 'b'.repeat(64),
+					hypothesis: 'test',
+					created_from_evidence_refs: ['att-1'],
+					proposer_type: 'LLM',
+					proposer_ref: 'model-x',
+					candidate_profile_ref: { profile_id: 'p-b' },
+					created_at: new Date().toISOString(),
+					status: 'PROPOSED',
+				} as unknown as Record<string, unknown>,
+				1,
+			).ok,
+		).toBe(true);
 	});
 });

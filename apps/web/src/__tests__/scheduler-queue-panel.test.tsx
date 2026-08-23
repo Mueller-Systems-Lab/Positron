@@ -50,7 +50,13 @@ describe('SchedulerQueuePanel — Backend Truth Projection', () => {
 					reason_code: 'GLOBAL_RUN_LIMIT',
 				},
 			],
-			capacity: { maxActiveRuns: 2, activeRuns: 1, queueDepth: 1, waitingDependency: 0, waitingResource: 1 },
+			capacity: {
+				maxActiveRuns: 2,
+				activeRuns: 1,
+				queueDepth: 1,
+				waitingDependency: 0,
+				waitingResource: 1,
+			},
 		});
 		vi.spyOn(api, 'getSchedulerCapacity').mockResolvedValue({
 			maxActiveRuns: 2,
@@ -81,7 +87,13 @@ describe('SchedulerQueuePanel — Backend Truth Projection', () => {
 	it('leere Queue: Hinweis ohne Absturz', async () => {
 		vi.spyOn(api, 'getSchedulerQueue').mockResolvedValue({
 			queue: [],
-			capacity: { maxActiveRuns: 2, activeRuns: 0, queueDepth: 0, waitingDependency: 0, waitingResource: 0 },
+			capacity: {
+				maxActiveRuns: 2,
+				activeRuns: 0,
+				queueDepth: 0,
+				waitingDependency: 0,
+				waitingResource: 0,
+			},
 		});
 		vi.spyOn(api, 'getSchedulerCapacity').mockResolvedValue({
 			maxActiveRuns: 2,
@@ -91,9 +103,7 @@ describe('SchedulerQueuePanel — Backend Truth Projection', () => {
 			waitingResource: 0,
 		});
 		render(<SchedulerQueuePanel />);
-		await waitFor(() =>
-			expect(screen.getByText(/Keine Runs in der Intake-Queue/)).toBeTruthy(),
-		);
+		await waitFor(() => expect(screen.getByText(/Keine Runs in der Intake-Queue/)).toBeTruthy());
 	});
 
 	it('Backend-Fehler: Fehlerzustand statt Absturz', async () => {

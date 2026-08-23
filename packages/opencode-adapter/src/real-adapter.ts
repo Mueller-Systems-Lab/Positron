@@ -182,10 +182,14 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 	 * aber keine Source-Code-Änderungen vornimmt.
 	 */
 	async runImplement(input: OpenCodeRunInput): Promise<OpenCodeCommandResult> {
-
 		// Verify native speckit.implement command is available
 		if (input.workspacePath) {
-			const cmdFile = path.join(input.workspacePath, '.opencode', 'commands', 'speckit.implement.md');
+			const cmdFile = path.join(
+				input.workspacePath,
+				'.opencode',
+				'commands',
+				'speckit.implement.md',
+			);
 			if (!fs.existsSync(cmdFile)) {
 				return {
 					phase: 'implement',
@@ -195,8 +199,10 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 					cwd: input.workspacePath,
 					exitCode: null,
 					durationMs: 0,
-					summary: 'Native speckit.implement command not available — run specify init --integration opencode first',
-					blockedReason: 'IMPLEMENT_COMMAND_UNAVAILABLE: .opencode/commands/speckit.implement.md missing',
+					summary:
+						'Native speckit.implement command not available — run specify init --integration opencode first',
+					blockedReason:
+						'IMPLEMENT_COMMAND_UNAVAILABLE: .opencode/commands/speckit.implement.md missing',
 				};
 			}
 
@@ -205,14 +211,19 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 			// This provides the FEATURE_DIR context that speckit.implement expects.
 			let effectiveInput = input;
 			try {
-				const prereqScript = path.join(input.workspacePath, '.specify', 'scripts', 'bash', 'check-prerequisites.sh');
+				const prereqScript = path.join(
+					input.workspacePath,
+					'.specify',
+					'scripts',
+					'bash',
+					'check-prerequisites.sh',
+				);
 				if (fs.existsSync(prereqScript)) {
-					const prereqResult = await runCommand('bash', [
-						prereqScript,
-						'--json',
-						'--require-tasks',
-						'--include-tasks',
-					], { cwd: input.workspacePath, timeout: 15_000 });
+					const prereqResult = await runCommand(
+						'bash',
+						[prereqScript, '--json', '--require-tasks', '--include-tasks'],
+						{ cwd: input.workspacePath, timeout: 15_000 },
+					);
 
 					if (prereqResult.exitCode === 0 && prereqResult.stdout) {
 						try {

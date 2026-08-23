@@ -49,7 +49,10 @@ class ThrowingCommitWorkspaceAdapter extends FakeGitWorkspaceAdapter {
 		throw new Error('SIMULATED_COMMIT_FAILURE: disk full');
 	}
 
-	async push(_options: { workspacePath: string; branch: string }): Promise<{ pushed: boolean; ref: string }> {
+	async push(_options: { workspacePath: string; branch: string }): Promise<{
+		pushed: boolean;
+		ref: string;
+	}> {
 		this.counters.pushCalls++;
 		throw new Error('PUSH_SHOULD_NEVER_BE_CALLED_AFTER_COMMIT_FAILURE');
 	}

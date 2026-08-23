@@ -348,7 +348,9 @@ describe('FENCING — stale Worker verliert; neuer Besitzer bleibt Authority', (
 		expect(bDone?.status).toBe('succeeded');
 
 		// DUPLICATE_EFFECT_ZERO: kein doppelter Effekt — A schrieb nie
-		const all = db.prepare("SELECT output_json FROM cp_attempts WHERE output_json IS NOT NULL").all() as Array<{
+		const all = db
+			.prepare('SELECT output_json FROM cp_attempts WHERE output_json IS NOT NULL')
+			.all() as Array<{
 			output_json: string;
 		}>;
 		expect(all.length).toBe(1);

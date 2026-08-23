@@ -252,7 +252,9 @@ describe('REAL_CAPABILITY_ESCALATION_CANARY', () => {
 
 		expect(escalated.model).toBe('model-b');
 		expect(escalated.model).not.toBe(lastAtt!.model);
-		expect(escalated.effective_harness_fingerprint).not.toBe(lastAtt!.effective_harness_fingerprint);
+		expect(escalated.effective_harness_fingerprint).not.toBe(
+			lastAtt!.effective_harness_fingerprint,
+		);
 		expect(escalated.previous_attempt_id).toBe(lastAtt!.attempt_id);
 		expect(
 			hasRealDelta(lastAtt!, {

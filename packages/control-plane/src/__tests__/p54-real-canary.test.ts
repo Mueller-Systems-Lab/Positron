@@ -5,8 +5,19 @@ import { applyControlPlaneMigrations } from '../schema.js';
 import { buildCandidate, validateCandidate } from '../harness-evolution.js';
 import { buildEvaluation, evaluateResult, isHoldoutIsolated } from '../evaluation.js';
 import { evaluatePromotionGate, buildPromotionDecision } from '../promotion.js';
-import { getProductionPointer, initProductionPointer, atomicPromotion, rollbackToPrevious } from '../production-pointer.js';
-import { runShadow, startCanary, checkCanaryKillSwitch, stopCanary, completeCanary } from '../shadow.js';
+import {
+	getProductionPointer,
+	initProductionPointer,
+	atomicPromotion,
+	rollbackToPrevious,
+} from '../production-pointer.js';
+import {
+	runShadow,
+	startCanary,
+	checkCanaryKillSwitch,
+	stopCanary,
+	completeCanary,
+} from '../shadow.js';
 
 function createTestDb(): Database.Database {
 	const db = new Database(':memory:');
@@ -20,7 +31,12 @@ describe('REAL_CANARY_A — A/B/C', () => {
 		// A = current, B = candidate, C = current + compute-matched
 		const baseline = { profile_id: 'profile-a', version: '1.0.0', fingerprint: 'a'.repeat(64) };
 		const candidate = { profile_id: 'profile-b', version: '1.0.1', fingerprint: 'b'.repeat(64) };
-		const computeMatched = { profile_id: 'profile-a', version: '1.0.0', fingerprint: 'a'.repeat(64), compute_matched: true };
+		const computeMatched = {
+			profile_id: 'profile-a',
+			version: '1.0.0',
+			fingerprint: 'a'.repeat(64),
+			compute_matched: true,
+		};
 
 		const evalResult = buildEvaluation({
 			evaluation_id: 'eval-a',
@@ -93,7 +109,9 @@ describe('REAL_CANARY_A — A/B/C', () => {
 			new Date().toISOString(),
 		);
 
-		const stored = db.prepare('SELECT * FROM cp_harness_evaluations WHERE evaluation_id = ?').get('eval-a') as Record<string, unknown>;
+		const stored = db
+			.prepare('SELECT * FROM cp_harness_evaluations WHERE evaluation_id = ?')
+			.get('eval-a') as Record<string, unknown>;
 		expect(stored).toBeDefined();
 		expect(stored.verified_success).toBe(0.85);
 	});
@@ -181,7 +199,11 @@ describe('REAL_CANARY_D — SECURITY REGRESSION', () => {
 			created_from_evidence_refs: ['att-1'],
 			proposer_type: 'LLM',
 			proposer_ref: 'model-x',
-			candidate_profile_ref: { profile_id: 'profile-b', version: '1.0.1', kernel_permissions: { push: true } },
+			candidate_profile_ref: {
+				profile_id: 'profile-b',
+				version: '1.0.1',
+				kernel_permissions: { push: true },
+			},
 		});
 
 		// Should be invalid due to non-tunable
@@ -300,7 +322,9 @@ describe('REAL_CANARY_F — BOUNDED CANARY', () => {
 		expect(canary.bounds.max_runs).toBe(2);
 
 		completeCanary(db, canary.canary_run_id, { verified_success: 0.85 });
-		const stored = db.prepare('SELECT status FROM cp_canary_runs WHERE canary_run_id = ?').get(canary.canary_run_id) as { status: string };
+		const stored = db
+			.prepare('SELECT status FROM cp_canary_runs WHERE canary_run_id = ?')
+			.get(canary.canary_run_id) as { status: string };
 		expect(stored.status).toBe('PASSED');
 	});
 });
@@ -329,7 +353,9 @@ describe('REAL_CANARY_G — ATOMIC PROMOTION', () => {
 		expect(result.ok).toBe(true);
 		expect(getProductionPointer(db)!.profile_fingerprint).toBe('b'.repeat(64));
 
-		const transitions = db.prepare('SELECT * FROM cp_profile_transitions ORDER BY created_at ASC').all() as Array<Record<string, unknown>>;
+		const transitions = db
+			.prepare('SELECT * FROM cp_profile_transitions ORDER BY created_at ASC')
+			.all() as Array<Record<string, unknown>>;
 		expect(transitions).toHaveLength(2);
 		expect(transitions[1]!.new_fingerprint).toBe('b'.repeat(64));
 		expect(transitions[1]!.previous_fingerprint).toBe('a'.repeat(64));
@@ -364,7 +390,9 @@ describe('REAL_CANARY_H — ROLLBACK', () => {
 		expect(getProductionPointer(db)!.profile_fingerprint).toBe('a'.repeat(64));
 		expect(getProductionPointer(db)!.profile_id).toBe('profile-a');
 
-		const transitions = db.prepare('SELECT * FROM cp_profile_transitions ORDER BY created_at ASC').all() as Array<Record<string, unknown>>;
+		const transitions = db
+			.prepare('SELECT * FROM cp_profile_transitions ORDER BY created_at ASC')
+			.all() as Array<Record<string, unknown>>;
 		expect(transitions).toHaveLength(3);
 		expect(transitions[0]!.new_fingerprint).toBe('a'.repeat(64));
 		expect(transitions[1]!.new_fingerprint).toBe('b'.repeat(64));

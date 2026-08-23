@@ -77,10 +77,13 @@ function mapLockRow(row: Record<string, unknown>): WorkspaceLock {
 	};
 }
 
-export function getWorkspaceLock(db: Database.Database, workspaceKey: string): WorkspaceLock | null {
-	const row = db.prepare('SELECT * FROM cp_workspace_locks WHERE workspace_key = ?').get(workspaceKey) as
-		| Record<string, unknown>
-		| undefined;
+export function getWorkspaceLock(
+	db: Database.Database,
+	workspaceKey: string,
+): WorkspaceLock | null {
+	const row = db
+		.prepare('SELECT * FROM cp_workspace_locks WHERE workspace_key = ?')
+		.get(workspaceKey) as Record<string, unknown> | undefined;
 	return row ? mapLockRow(row) : null;
 }
 

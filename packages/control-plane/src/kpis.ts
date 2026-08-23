@@ -579,30 +579,56 @@ export interface EvolutionKpiReport {
 }
 
 export function computeEvolutionKpis(db: Database.Database): EvolutionKpiReport {
-	const candidates = db.prepare('SELECT status FROM cp_harness_candidates').all() as Array<{ status: string }>;
+	const candidates = db.prepare('SELECT status FROM cp_harness_candidates').all() as Array<{
+		status: string;
+	}>;
 	const candidateCount = candidates.length;
 	const rejected = candidates.filter((c) => c.status === 'REJECTED').length;
 	const promoted = candidates.filter((c) => c.status === 'PROMOTED').length;
 
-	const evaluations = db.prepare('SELECT reason_code FROM cp_harness_evaluations').all() as Array<{ reason_code: string }>;
-	const insufficient = evaluations.filter((e) => e.reason_code === 'INSUFFICIENT_SAMPLE_SIZE' || e.reason_code === 'INSUFFICIENT_EVIDENCE').length;
-	const computeAdvantage = evaluations.filter((e) => e.reason_code === 'COMPUTE_ADVANTAGE_NOT_HARNESS').length;
+	const evaluations = db.prepare('SELECT reason_code FROM cp_harness_evaluations').all() as Array<{
+		reason_code: string;
+	}>;
+	const insufficient = evaluations.filter(
+		(e) =>
+			e.reason_code === 'INSUFFICIENT_SAMPLE_SIZE' || e.reason_code === 'INSUFFICIENT_EVIDENCE',
+	).length;
+	const computeAdvantage = evaluations.filter(
+		(e) => e.reason_code === 'COMPUTE_ADVANTAGE_NOT_HARNESS',
+	).length;
 
-	const shadowRuns = db.prepare('SELECT production_pointer_before, production_pointer_after FROM cp_shadow_runs').all() as Array<{ production_pointer_before: string; production_pointer_after: string }>;
-	const shadowFailures = shadowRuns.filter((s) => s.production_pointer_before !== s.production_pointer_after).length;
+	const shadowRuns = db
+		.prepare('SELECT production_pointer_before, production_pointer_after FROM cp_shadow_runs')
+		.all() as Array<{ production_pointer_before: string; production_pointer_after: string }>;
+	const shadowFailures = shadowRuns.filter(
+		(s) => s.production_pointer_before !== s.production_pointer_after,
+	).length;
 
-	const canaryRuns = db.prepare('SELECT status FROM cp_canary_runs').all() as Array<{ status: string }>;
-	const canaryFailures = canaryRuns.filter((c) => c.status === 'STOPPED' || c.status === 'FAILED').length;
+	const canaryRuns = db.prepare('SELECT status FROM cp_canary_runs').all() as Array<{
+		status: string;
+	}>;
+	const canaryFailures = canaryRuns.filter(
+		(c) => c.status === 'STOPPED' || c.status === 'FAILED',
+	).length;
 
-	const transitions = db.prepare("SELECT reason_code FROM cp_profile_transitions WHERE reason_code = 'ROLLBACK'").all() as Array<{ reason_code: string }>;
+	const transitions = db
+		.prepare("SELECT reason_code FROM cp_profile_transitions WHERE reason_code = 'ROLLBACK'")
+		.all() as Array<{ reason_code: string }>;
 	const rollbackCount = transitions.length;
 
 	// Verified success before/after: compare last two promotion decisions if available
 	let verifiedSuccessBeforeAfter: { before: number | null; after: number | null } | null = null;
 	try {
-		const evals = db.prepare('SELECT verified_success FROM cp_harness_evaluations ORDER BY created_at DESC LIMIT 2').all() as Array<{ verified_success: number }>;
+		const evals = db
+			.prepare(
+				'SELECT verified_success FROM cp_harness_evaluations ORDER BY created_at DESC LIMIT 2',
+			)
+			.all() as Array<{ verified_success: number }>;
 		if (evals.length === 2) {
-			verifiedSuccessBeforeAfter = { before: evals[1]!.verified_success, after: evals[0]!.verified_success };
+			verifiedSuccessBeforeAfter = {
+				before: evals[1]!.verified_success,
+				after: evals[0]!.verified_success,
+			};
 		}
 	} catch {
 		// ignore if table not exists or empty
@@ -612,8 +638,10 @@ export function computeEvolutionKpis(db: Database.Database): EvolutionKpiReport 
 		candidate_count: candidateCount,
 		candidate_rejection_rate: candidateCount > 0 ? round2(rejected / candidateCount) : null,
 		candidate_promotion_rate: candidateCount > 0 ? round2(promoted / candidateCount) : null,
-		insufficient_evidence_rate: evaluations.length > 0 ? round2(insufficient / evaluations.length) : null,
-		compute_advantage_not_harness_rate: evaluations.length > 0 ? round2(computeAdvantage / evaluations.length) : null,
+		insufficient_evidence_rate:
+			evaluations.length > 0 ? round2(insufficient / evaluations.length) : null,
+		compute_advantage_not_harness_rate:
+			evaluations.length > 0 ? round2(computeAdvantage / evaluations.length) : null,
 		shadow_failure_rate: shadowRuns.length > 0 ? round2(shadowFailures / shadowRuns.length) : null,
 		canary_failure_rate: canaryRuns.length > 0 ? round2(canaryFailures / canaryRuns.length) : null,
 		rollback_rate: candidateCount > 0 ? round2(rollbackCount / candidateCount) : null,

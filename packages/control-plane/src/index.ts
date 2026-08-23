@@ -403,7 +403,13 @@ export {
 	computePromotionFingerprint,
 	buildPromotionDecision,
 } from './promotion.js';
-export type { HardGate, GateResult, PromotionGateInput, PromotionGateOutput, BuildPromotionDecisionInput } from './promotion.js';
+export type {
+	HardGate,
+	GateResult,
+	PromotionGateInput,
+	PromotionGateOutput,
+	BuildPromotionDecisionInput,
+} from './promotion.js';
 export {
 	getProductionPointer,
 	initProductionPointer,
@@ -414,7 +420,13 @@ export {
 	PROMOTION_DUPLICATE_NOOP,
 	ROLLBACK_NOT_PROVEN,
 } from './production-pointer.js';
-export type { ProductionPointer, ProfileTransition, AtomicPromotionInput, AtomicPromotionResult, RollbackResult } from './production-pointer.js';
+export type {
+	ProductionPointer,
+	ProfileTransition,
+	AtomicPromotionInput,
+	AtomicPromotionResult,
+	RollbackResult,
+} from './production-pointer.js';
 export {
 	runShadow,
 	getShadowRuns,

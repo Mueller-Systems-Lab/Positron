@@ -148,9 +148,23 @@ describe('MULTI_ISSUE_VERTICAL_SLICE — echte parallele Runs, Limit, Release', 
 	it('A+B überlappen real; C wartet; Slot frei → C admitiert (§61/§63/§77)', async () => {
 		const cfg = { maxActiveRuns: 2, emitEvent: persistSchedulerEvent(db) };
 
-		const a = enqueueItem(db, { source_type: 'issue', source_ref: 'issue/A', repository_ref: 'repo/A', priority: 'HIGH' });
-		const b = enqueueItem(db, { source_type: 'issue', source_ref: 'issue/B', repository_ref: 'repo/B', priority: 'HIGH' });
-		const c = enqueueItem(db, { source_type: 'issue', source_ref: 'issue/C', repository_ref: 'repo/C' });
+		const a = enqueueItem(db, {
+			source_type: 'issue',
+			source_ref: 'issue/A',
+			repository_ref: 'repo/A',
+			priority: 'HIGH',
+		});
+		const b = enqueueItem(db, {
+			source_type: 'issue',
+			source_ref: 'issue/B',
+			repository_ref: 'repo/B',
+			priority: 'HIGH',
+		});
+		const c = enqueueItem(db, {
+			source_type: 'issue',
+			source_ref: 'issue/C',
+			repository_ref: 'repo/C',
+		});
 
 		// Admission: A + B (Kapazität 2)
 		const dA = admitNext(db, cfg)!;
@@ -162,8 +176,14 @@ describe('MULTI_ISSUE_VERTICAL_SLICE — echte parallele Runs, Limit, Release', 
 		// Echte parallele Ausführung: A (300ms) + B (200ms) starten gleichzeitig
 		const wsA = makeWorkspace();
 		const wsB = makeWorkspace();
-		const runA = runDurableRun(makeDeps(wsA, { repo: 'repo/A', ref: 'issue/A', delayMs: 300 }), makeInput('run-A-slice', 'repo/A', 'issue/A', wsA));
-		const runB = runDurableRun(makeDeps(wsB, { repo: 'repo/B', ref: 'issue/B', delayMs: 200 }), makeInput('run-B-slice', 'repo/B', 'issue/B', wsB));
+		const runA = runDurableRun(
+			makeDeps(wsA, { repo: 'repo/A', ref: 'issue/A', delayMs: 300 }),
+			makeInput('run-A-slice', 'repo/A', 'issue/A', wsA),
+		);
+		const runB = runDurableRun(
+			makeDeps(wsB, { repo: 'repo/B', ref: 'issue/B', delayMs: 200 }),
+			makeInput('run-B-slice', 'repo/B', 'issue/B', wsB),
+		);
 
 		markRunStarted(db, a.queue_item_id, 'run-A');
 		markRunStarted(db, b.queue_item_id, 'run-B');
@@ -179,8 +199,16 @@ describe('MULTI_ISSUE_VERTICAL_SLICE — echte parallele Runs, Limit, Release', 
 		expect(resA.attempts.length).toBeGreaterThan(0);
 
 		// Zeitliche Überlappung belegen (echte started/ended aus cp_attempts)
-		const attemptsA = db.prepare("SELECT started_at, ended_at FROM cp_attempts WHERE run_id = 'run-A-slice' AND worker_type = 'canary.build'").get() as { started_at: string; ended_at: string } | undefined;
-		const attemptsB = db.prepare("SELECT started_at, ended_at FROM cp_attempts WHERE run_id = 'run-B-slice' AND worker_type = 'canary.build'").get() as { started_at: string; ended_at: string } | undefined;
+		const attemptsA = db
+			.prepare(
+				"SELECT started_at, ended_at FROM cp_attempts WHERE run_id = 'run-A-slice' AND worker_type = 'canary.build'",
+			)
+			.get() as { started_at: string; ended_at: string } | undefined;
+		const attemptsB = db
+			.prepare(
+				"SELECT started_at, ended_at FROM cp_attempts WHERE run_id = 'run-B-slice' AND worker_type = 'canary.build'",
+			)
+			.get() as { started_at: string; ended_at: string } | undefined;
 		expect(attemptsA).toBeTruthy();
 		expect(attemptsB).toBeTruthy();
 		const aStart = new Date(attemptsA!.started_at).getTime();
@@ -205,8 +233,16 @@ describe('MULTI_ISSUE_VERTICAL_SLICE — echte parallele Runs, Limit, Release', 
 describe('FAILURE_ISOLATION — Run A scheitert, B/C laufen weiter', () => {
 	it('A failed → B und C unbeeinflusst; Kapazität korrekt freigegeben', async () => {
 		const cfg = { maxActiveRuns: 2, emitEvent: persistSchedulerEvent(db) };
-		const a = enqueueItem(db, { source_type: 'issue', source_ref: 'issue/A', repository_ref: 'repo/A' });
-		const b = enqueueItem(db, { source_type: 'issue', source_ref: 'issue/B', repository_ref: 'repo/B' });
+		const a = enqueueItem(db, {
+			source_type: 'issue',
+			source_ref: 'issue/A',
+			repository_ref: 'repo/A',
+		});
+		const b = enqueueItem(db, {
+			source_type: 'issue',
+			source_ref: 'issue/B',
+			repository_ref: 'repo/B',
+		});
 		enqueueItem(db, { source_type: 'issue', source_ref: 'issue/C', repository_ref: 'repo/C' });
 
 		admitNext(db, cfg);
@@ -269,7 +305,11 @@ describe('DOUBLE_ADMISSION_PREVENTED — atomare Admission', () => {
 describe('SCHEDULER_EVENTS + CANCELLATION + QUEUE_RECOVERY', () => {
 	it('Events werden persistiert (QUEUED→ADMITTED→RUN_STARTED→RUN_FINISHED)', () => {
 		const cfg = { maxActiveRuns: 1, emitEvent: persistSchedulerEvent(db) };
-		const a = enqueueItem(db, { source_type: 'issue', source_ref: 'issue/A', repository_ref: 'repo/A' });
+		const a = enqueueItem(db, {
+			source_type: 'issue',
+			source_ref: 'issue/A',
+			repository_ref: 'repo/A',
+		});
 		admitNext(db, cfg);
 		markRunStarted(db, a.queue_item_id, 'run-A', cfg);
 		markRunFinished(db, a.queue_item_id, 'COMPLETED', 'run-A', 'READY', cfg);
@@ -284,7 +324,11 @@ describe('SCHEDULER_EVENTS + CANCELLATION + QUEUE_RECOVERY', () => {
 
 	it('CANCELLATION: queued Item → CANCELLED, wird nie admitiert', () => {
 		const cfg = { maxActiveRuns: 1 };
-		const a = enqueueItem(db, { source_type: 'issue', source_ref: 'issue/A', repository_ref: 'repo/A' });
+		const a = enqueueItem(db, {
+			source_type: 'issue',
+			source_ref: 'issue/A',
+			repository_ref: 'repo/A',
+		});
 		cancelQueueItem(db, a.queue_item_id);
 		expect(getQueueItem(db, a.queue_item_id)?.queue_state).toBe('CANCELLED');
 		expect(admitNext(db, cfg)).toBeNull();
@@ -292,8 +336,17 @@ describe('SCHEDULER_EVENTS + CANCELLATION + QUEUE_RECOVERY', () => {
 
 	it('QUEUE_RECOVERY (§69): A RUNNING, B WAITING_RESOURCE, C WAITING_DEPENDENCY — nach Recovery derselbe fachliche Zustand', () => {
 		enqueueItem(db, { source_type: 'issue', source_ref: 'issue/A', repository_ref: 'repo/A' });
-		const b = enqueueItem(db, { source_type: 'issue', source_ref: 'issue/B', repository_ref: 'repo/B' });
-		const c = enqueueItem(db, { source_type: 'issue', source_ref: 'issue/C', repository_ref: 'repo/C', dependency_refs: ['issue/A'] });
+		const b = enqueueItem(db, {
+			source_type: 'issue',
+			source_ref: 'issue/B',
+			repository_ref: 'repo/B',
+		});
+		const c = enqueueItem(db, {
+			source_type: 'issue',
+			source_ref: 'issue/C',
+			repository_ref: 'repo/C',
+			dependency_refs: ['issue/A'],
+		});
 
 		const cfg = { maxActiveRuns: 1 };
 		const d1 = admitNext(db, cfg)!;

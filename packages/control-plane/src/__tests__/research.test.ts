@@ -15,10 +15,7 @@ import { describe, expect, it } from 'vitest';
 import { validateContract } from '../contracts.js';
 import type { ResearchBatchContract } from '../contracts.js';
 import { fingerprint } from '../fingerprint.js';
-import {
-	evaluateResearchBarrier,
-	runParallelResearch,
-} from '../research.js';
+import { evaluateResearchBarrier, runParallelResearch } from '../research.js';
 import type { ResearchKind, ResearchWorker, ParallelResearchResult } from '../research.js';
 import { listJobAttempts, listJobs } from '../store.js';
 import { cleanupWorkspace, createTestDb, createTestWorkspace } from './vertical-slice-helpers.js';
@@ -72,11 +69,11 @@ describe('RESEARCH_BATCH_CREATED', () => {
 		try {
 			const dbJob = listJobs(db, 'run_1');
 			void dbJob;
-			const outcome = await runParallelResearch(
-				db,
-				workspaceCtx(ws, 'run_1', 'job_research'),
-				[makeResearchWorker(ws, 'code'), makeResearchWorker(ws, 'docs'), makeResearchWorker(ws, 'tests')],
-			);
+			const outcome = await runParallelResearch(db, workspaceCtx(ws, 'run_1', 'job_research'), [
+				makeResearchWorker(ws, 'code'),
+				makeResearchWorker(ws, 'docs'),
+				makeResearchWorker(ws, 'tests'),
+			]);
 
 			expect(outcome.researchBatch.contract).toBe('positron.research.v1');
 			expect(outcome.batchFingerprint).toMatch(/^[0-9a-f]{64}$/);
@@ -96,11 +93,11 @@ describe('RESEARCH_CODE_REAL / DOCS_REAL / TESTS_REAL', () => {
 		const db = createTestDb();
 		const ws = createTestWorkspace();
 		try {
-			const outcome = await runParallelResearch(
-				db,
-				workspaceCtx(ws, 'run_real', 'job_research'),
-				[makeResearchWorker(ws, 'code'), makeResearchWorker(ws, 'docs'), makeResearchWorker(ws, 'tests')],
-			);
+			const outcome = await runParallelResearch(db, workspaceCtx(ws, 'run_real', 'job_research'), [
+				makeResearchWorker(ws, 'code'),
+				makeResearchWorker(ws, 'docs'),
+				makeResearchWorker(ws, 'tests'),
+			]);
 
 			expect(outcome.results).toHaveLength(3);
 			for (const kind of ['code', 'docs', 'tests'] as const) {
@@ -126,11 +123,11 @@ describe('RESEARCH_PARALLELISM_PROVEN', () => {
 		const db = createTestDb();
 		const ws = createTestWorkspace();
 		try {
-			const outcome = await runParallelResearch(
-				db,
-				workspaceCtx(ws, 'run_par', 'job_research'),
-				[makeResearchWorker(ws, 'code', 60), makeResearchWorker(ws, 'docs', 60), makeResearchWorker(ws, 'tests', 60)],
-			);
+			const outcome = await runParallelResearch(db, workspaceCtx(ws, 'run_par', 'job_research'), [
+				makeResearchWorker(ws, 'code', 60),
+				makeResearchWorker(ws, 'docs', 60),
+				makeResearchWorker(ws, 'tests', 60),
+			]);
 			expect(outcome.verdict).toBe('PARALLELISM_PROVEN');
 
 			// Der Verdict steht auch im Contract
@@ -167,7 +164,11 @@ describe('RESEARCH_PARALLELISM_NOT_PROVEN', () => {
 			const outcome = await runParallelResearch(
 				db,
 				workspaceCtx(ws, 'run_seq', 'job_research'),
-				[makeResearchWorker(ws, 'code', 40), makeResearchWorker(ws, 'docs', 40), makeResearchWorker(ws, 'tests', 40)],
+				[
+					makeResearchWorker(ws, 'code', 40),
+					makeResearchWorker(ws, 'docs', 40),
+					makeResearchWorker(ws, 'tests', 40),
+				],
 				{ sequential: true },
 			);
 			expect(outcome.verdict).toBe('PARALLELISM_NOT_PROVEN');
@@ -196,11 +197,9 @@ describe('RESEARCH_PARALLELISM_NOT_PROVEN', () => {
 		const db = createTestDb();
 		const ws = createTestWorkspace();
 		try {
-			const outcome = await runParallelResearch(
-				db,
-				workspaceCtx(ws, 'run_one', 'job_research'),
-				[makeResearchWorker(ws, 'code')],
-			);
+			const outcome = await runParallelResearch(db, workspaceCtx(ws, 'run_one', 'job_research'), [
+				makeResearchWorker(ws, 'code'),
+			]);
 			expect(outcome.verdict).toBe('PARALLELISM_NOT_PROVEN');
 		} finally {
 			cleanupWorkspace(ws);
@@ -216,11 +215,11 @@ describe('RESEARCH_CHILD_ATTEMPTS_PERSISTED', () => {
 			// Job über store anlegen (wie durable-run es tut)
 			const { createJob } = await import('../store.js');
 			const job = createJob(db, 'run_persist', 'research');
-			const outcome = await runParallelResearch(
-				db,
-				workspaceCtx(ws, 'run_persist', job.job_id),
-				[makeResearchWorker(ws, 'code'), makeResearchWorker(ws, 'docs'), makeResearchWorker(ws, 'tests')],
-			);
+			const outcome = await runParallelResearch(db, workspaceCtx(ws, 'run_persist', job.job_id), [
+				makeResearchWorker(ws, 'code'),
+				makeResearchWorker(ws, 'docs'),
+				makeResearchWorker(ws, 'tests'),
+			]);
 
 			const attempts = listJobAttempts(db, job.job_id);
 			expect(attempts).toHaveLength(3);
@@ -349,7 +348,11 @@ describe('RESEARCH_CONTRACT_VALID', () => {
 			const outcome = await runParallelResearch(
 				db,
 				workspaceCtx(ws, 'run_contract', 'job_research'),
-				[makeResearchWorker(ws, 'code'), makeResearchWorker(ws, 'docs'), makeResearchWorker(ws, 'tests')],
+				[
+					makeResearchWorker(ws, 'code'),
+					makeResearchWorker(ws, 'docs'),
+					makeResearchWorker(ws, 'tests'),
+				],
 			);
 			const tampered: ResearchBatchContract = {
 				...outcome.researchBatch,
@@ -421,11 +424,11 @@ describe('RESEARCH_FAILURE_CLASSIFICATION', () => {
 					throw new Error('ENOENT: no such file or directory, open /missing/workspace');
 				},
 			};
-			const outcome = await runParallelResearch(
-				db,
-				workspaceCtx(ws, 'run_infra', 'job_research'),
-				[makeResearchWorker(ws, 'code'), makeResearchWorker(ws, 'docs'), infraDown],
-			);
+			const outcome = await runParallelResearch(db, workspaceCtx(ws, 'run_infra', 'job_research'), [
+				makeResearchWorker(ws, 'code'),
+				makeResearchWorker(ws, 'docs'),
+				infraDown,
+			]);
 			const tests = outcome.results.find((r) => r.kind === 'tests');
 			expect(tests?.failure_class).toBe('INFRA_FAILURE');
 			// tests ist OPTIONAL → Barrier bleibt JOIN

@@ -14,11 +14,7 @@
 // können dasselbe Item nicht doppelt admitieren (ONE_ADMISSION, §55).
 
 import type Database from 'better-sqlite3';
-import {
-	QUEUE_PRIORITY_ORDER,
-	normalizePriority,
-	queueDedupKey,
-} from './queue-schema.js';
+import { QUEUE_PRIORITY_ORDER, normalizePriority, queueDedupKey } from './queue-schema.js';
 import type { QueuePriority, QueueState, SchedulerReasonCode } from './queue-schema.js';
 import {
 	DEFAULT_WORKSPACE_LOCK_TTL_MS,
@@ -204,9 +200,9 @@ export function getQueueItem(db: Database.Database, queueItemId: string): QueueI
 
 export function listQueueItems(db: Database.Database, state?: QueueState): QueueItemRecord[] {
 	const rows = state
-		? (db.prepare('SELECT * FROM cp_queue WHERE queue_state = ? ORDER BY enqueued_at ASC').all(state) as Array<
-				Record<string, unknown>
-			>)
+		? (db
+				.prepare('SELECT * FROM cp_queue WHERE queue_state = ? ORDER BY enqueued_at ASC')
+				.all(state) as Array<Record<string, unknown>>)
 		: (db.prepare('SELECT * FROM cp_queue ORDER BY enqueued_at ASC').all() as Array<
 				Record<string, unknown>
 			>);
@@ -216,7 +212,12 @@ export function listQueueItems(db: Database.Database, state?: QueueState): Queue
 export function updateQueueItem(
 	db: Database.Database,
 	queueItemId: string,
-	update: Partial<Pick<QueueItemRecord, 'queue_state' | 'run_id' | 'admitted_at' | 'started_at' | 'finished_at' | 'reason_code'>>,
+	update: Partial<
+		Pick<
+			QueueItemRecord,
+			'queue_state' | 'run_id' | 'admitted_at' | 'started_at' | 'finished_at' | 'reason_code'
+		>
+	>,
 ): QueueItemRecord | null {
 	const existing = getQueueItem(db, queueItemId);
 	if (!existing) return null;
@@ -453,7 +454,13 @@ export function admitNext(
 			// Lock blockiert (WORKSPACE_LOCKED); ein stale Lock wird per
 			// Reclaim mit frischer Generation übernommen (FENCE_ADVANCED).
 			const lockTtlMs = config.workspaceLockTtlMs ?? DEFAULT_WORKSPACE_LOCK_TTL_MS;
-			const lock = acquireWorkspaceLock(db, item.repository_ref, item.queue_item_id, lockTtlMs, now);
+			const lock = acquireWorkspaceLock(
+				db,
+				item.repository_ref,
+				item.queue_item_id,
+				lockTtlMs,
+				now,
+			);
 			if (!lock.acquired) {
 				updateQueueItem(db, item.queue_item_id, {
 					queue_state: 'WAITING_RESOURCE',
@@ -670,13 +677,13 @@ export function isRunLeaseAlive(
 	if (!row) return false;
 	if (row.finished_at) return false;
 	const running = db
-		.prepare(
-			"SELECT lease_expires_at FROM cp_attempts WHERE run_id = ? AND status = 'running'",
-		)
+		.prepare("SELECT lease_expires_at FROM cp_attempts WHERE run_id = ? AND status = 'running'")
 		.all(runId) as Array<{ lease_expires_at: string | null }>;
 	if (running.length === 0) return true;
 	return running.some(
-		(a) => a.lease_expires_at === null || new Date(a.lease_expires_at).getTime() > new Date(now).getTime(),
+		(a) =>
+			a.lease_expires_at === null ||
+			new Date(a.lease_expires_at).getTime() > new Date(now).getTime(),
 	);
 }
 
@@ -728,10 +735,7 @@ export function recoverSchedulerState(
 	return { requeued, staleAdmitted, deadRuns };
 }
 
-function emit(
-	config: Pick<SchedulerConfig, 'emitEvent'>,
-	event: SchedulerEvent,
-): void {
+function emit(config: Pick<SchedulerConfig, 'emitEvent'>, event: SchedulerEvent): void {
 	try {
 		config.emitEvent?.(event);
 	} catch {
@@ -754,17 +758,14 @@ export function persistSchedulerEvent(db: Database.Database) {
 }
 
 /** Liest persistierte Scheduler-Events (introspection, §56) */
-export function listSchedulerEvents(
-	db: Database.Database,
-	queueItemId?: string,
-): SchedulerEvent[] {
+export function listSchedulerEvents(db: Database.Database, queueItemId?: string): SchedulerEvent[] {
 	const rows = queueItemId
 		? (db
 				.prepare('SELECT * FROM cp_scheduler_events WHERE queue_item_id = ? ORDER BY event_id ASC')
 				.all(queueItemId) as Array<Record<string, unknown>>)
-		: (db
-				.prepare('SELECT * FROM cp_scheduler_events ORDER BY event_id ASC')
-				.all() as Array<Record<string, unknown>>);
+		: (db.prepare('SELECT * FROM cp_scheduler_events ORDER BY event_id ASC').all() as Array<
+				Record<string, unknown>
+			>);
 	return rows.map((r) => ({
 		queue_item_id: String(r.queue_item_id),
 		run_id: r.run_id ? String(r.run_id) : null,
@@ -785,7 +786,8 @@ export function schedulerCapacity(db: Database.Database, config: SchedulerConfig
 		queueDepth: listQueueItems(db).filter((q) =>
 			['QUEUED', 'WAITING_DEPENDENCY', 'WAITING_RESOURCE'].includes(q.queue_state),
 		).length,
-		waitingDependency: listQueueItems(db).filter((q) => q.queue_state === 'WAITING_DEPENDENCY').length,
+		waitingDependency: listQueueItems(db).filter((q) => q.queue_state === 'WAITING_DEPENDENCY')
+			.length,
 		waitingResource: listQueueItems(db).filter((q) => q.queue_state === 'WAITING_RESOURCE').length,
 	};
 }

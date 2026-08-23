@@ -38,7 +38,11 @@ async function enqueue(
 	return body.item.queue_item_id;
 }
 
-async function waitTerminal(baseUrl: string, queueItemIds: string[], timeoutMs = 20_000): Promise<void> {
+async function waitTerminal(
+	baseUrl: string,
+	queueItemIds: string[],
+	timeoutMs = 20_000,
+): Promise<void> {
 	const deadline = Date.now() + timeoutMs;
 	while (Date.now() < deadline) {
 		const q = (await (await fetch(`${baseUrl}/api/scheduler/queue`)).json()) as {
@@ -147,9 +151,7 @@ describe('P4 SLICE C — CAPACITY_2_OVERLAP (zwei Runs, isolierte Workspaces)', 
 			// FIFO/PRIORITY: gleiche Priorität → A vor B admitiert
 			const aAdmitted = eventsA.find((e) => e.event === 'ADMITTED')?.timestamp ?? '';
 			const bAdmitted = eventsB.find((e) => e.event === 'ADMITTED')?.timestamp ?? '';
-			expect(new Date(aAdmitted).getTime()).toBeLessThanOrEqual(
-				new Date(bAdmitted).getTime(),
-			);
+			expect(new Date(aAdmitted).getTime()).toBeLessThanOrEqual(new Date(bAdmitted).getTime());
 
 			// REALER OVERLAP
 			const overlap = overlapMs(eventsA, eventsB);
@@ -205,8 +207,14 @@ describe('P4 SLICE C — CAPACITY_1_SERIAL', () => {
 			const eventsB = await getEvents(baseUrl, idB);
 			const overlap = overlapMs(eventsA, eventsB);
 			if (overlap !== 0) {
-				console.log('[P4-C serial dbg] A:', JSON.stringify(eventsA.map((e) => `${e.event}@${e.timestamp}`)));
-				console.log('[P4-C serial dbg] B:', JSON.stringify(eventsB.map((e) => `${e.event}@${e.timestamp}`)));
+				console.log(
+					'[P4-C serial dbg] A:',
+					JSON.stringify(eventsA.map((e) => `${e.event}@${e.timestamp}`)),
+				);
+				console.log(
+					'[P4-C serial dbg] B:',
+					JSON.stringify(eventsB.map((e) => `${e.event}@${e.timestamp}`)),
+				);
 			}
 			expect(overlap).toBe(0);
 

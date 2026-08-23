@@ -51,7 +51,7 @@ describe('runCommand — aktive Cancellation (Phase B)', () => {
 	it('Timeout mit killProcessGroup beendet auch Kind-Prozesse (Prozessbaum)', async () => {
 		const cwd = os.tmpdir();
 		// Parent spawnt ein Kind (sleep 60), beide in derselben Gruppe.
-		const script = "sleep 60 & wait $!";
+		const script = 'sleep 60 & wait $!';
 		await expect(
 			runCommand('bash', ['-c', script], {
 				cwd,

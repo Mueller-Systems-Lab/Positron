@@ -10,13 +10,15 @@
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { applyControlPlaneMigrations } from '../schema.js';
+import { admitNext, enqueueItem, getQueueItem, markRunStarted } from '../scheduler.js';
 import {
-	admitNext,
-	enqueueItem,
-	getQueueItem,
-	markRunStarted,
-} from '../scheduler.js';
-import { claimAttemptWithGeneration, completeAttempt, createAttempt, createJob, getAttempt, recoverStaleLeases } from '../store.js';
+	claimAttemptWithGeneration,
+	completeAttempt,
+	createAttempt,
+	createJob,
+	getAttempt,
+	recoverStaleLeases,
+} from '../store.js';
 
 let db: Database.Database;
 
@@ -33,8 +35,18 @@ describe('R1-CRITICAL: Diamond-Dependency ≠ Cycle', () => {
 	it('A→[B,C], B→D, C→D: D über zwei Pfade erreichbar, KEIN Zyklus → A wird admitiert (nicht BLOCKED)', () => {
 		// D zuerst (unabhängig), dann B/C mit dep auf D, dann A mit dep auf B+C
 		enqueueItem(db, { source_type: 'issue', source_ref: 'issue/D', repository_ref: 'repo/D' });
-		enqueueItem(db, { source_type: 'issue', source_ref: 'issue/B', repository_ref: 'repo/B', dependency_refs: ['issue/D'] });
-		enqueueItem(db, { source_type: 'issue', source_ref: 'issue/C', repository_ref: 'repo/C', dependency_refs: ['issue/D'] });
+		enqueueItem(db, {
+			source_type: 'issue',
+			source_ref: 'issue/B',
+			repository_ref: 'repo/B',
+			dependency_refs: ['issue/D'],
+		});
+		enqueueItem(db, {
+			source_type: 'issue',
+			source_ref: 'issue/C',
+			repository_ref: 'repo/C',
+			dependency_refs: ['issue/D'],
+		});
 		const a = enqueueItem(db, {
 			source_type: 'issue',
 			source_ref: 'issue/A',
@@ -73,9 +85,24 @@ describe('R1-MAJOR: Provider-Capacity wird erzwungen', () => {
 			activeByProvider: () => ({ ...providerState }),
 		};
 		// Job 1+2 nutzen deepseek; Job 3 nutzt ollama
-		enqueueItem(db, { source_type: 'issue', source_ref: 'issue/1', repository_ref: 'repo/1', provider: 'deepseek' });
-		const j2 = enqueueItem(db, { source_type: 'issue', source_ref: 'issue/2', repository_ref: 'repo/2', provider: 'deepseek' });
-		enqueueItem(db, { source_type: 'issue', source_ref: 'issue/3', repository_ref: 'repo/3', provider: 'ollama' });
+		enqueueItem(db, {
+			source_type: 'issue',
+			source_ref: 'issue/1',
+			repository_ref: 'repo/1',
+			provider: 'deepseek',
+		});
+		const j2 = enqueueItem(db, {
+			source_type: 'issue',
+			source_ref: 'issue/2',
+			repository_ref: 'repo/2',
+			provider: 'deepseek',
+		});
+		enqueueItem(db, {
+			source_type: 'issue',
+			source_ref: 'issue/3',
+			repository_ref: 'repo/3',
+			provider: 'ollama',
+		});
 
 		// deepseek hat noch 0 aktiv → Job 1 wird admitiert und belegt deepseek
 		const d1 = admitNext(db, cfg);
@@ -101,9 +128,22 @@ describe('R1-MINOR: Aging deterministisch (LOW→NORMAL Promotion)', () => {
 		const old = new Date(Date.now() - 60_000).toISOString(); // 60s alt
 		const now = new Date().toISOString();
 		// LOW-Item mit altem enqueued_at (per SQL direkt gesetzt)
-		const low = enqueueItem(db, { source_type: 'issue', source_ref: 'issue/LOW', repository_ref: 'repo/L', priority: 'LOW' });
-		db.prepare('UPDATE cp_queue SET enqueued_at = ? WHERE queue_item_id = ?').run(old, low.queue_item_id);
-		const normal = enqueueItem(db, { source_type: 'issue', source_ref: 'issue/N', repository_ref: 'repo/N', priority: 'NORMAL' });
+		const low = enqueueItem(db, {
+			source_type: 'issue',
+			source_ref: 'issue/LOW',
+			repository_ref: 'repo/L',
+			priority: 'LOW',
+		});
+		db.prepare('UPDATE cp_queue SET enqueued_at = ? WHERE queue_item_id = ?').run(
+			old,
+			low.queue_item_id,
+		);
+		const normal = enqueueItem(db, {
+			source_type: 'issue',
+			source_ref: 'issue/N',
+			repository_ref: 'repo/N',
+			priority: 'NORMAL',
+		});
 
 		// Ohne Aging: NORMAL gewinnt. Mit Aging (agingSeconds=10): LOW ist
 		// auf NORMAL gealtert und FIFO-älter → LOW zuerst.
@@ -118,7 +158,10 @@ describe('R1-MAJOR: Instanz-scoped Fencing', () => {
 	it('Zweiter Controller-Prozess (andere Instanz-ID) kann stale Attempts des ersten nicht mehr abschließen', () => {
 		const runId = 'run-fence-instance';
 		const job = createJob(db, runId, 'build');
-		const attempt = createAttempt(db, runId, job.job_id, { status: 'pending', worker_type: 'opencode' });
+		const attempt = createAttempt(db, runId, job.job_id, {
+			status: 'pending',
+			worker_type: 'opencode',
+		});
 
 		// Controller A (Instanz ctl:run:AAA) claimt
 		const a = claimAttemptWithGeneration(db, attempt.attempt_id, {
@@ -146,7 +189,10 @@ describe('R1-MAJOR: Instanz-scoped Fencing', () => {
 		expect(lateA).toBeNull();
 
 		// Neuer Controller B (Instanz ctl:run:BBB) startet frischen Attempt
-		const attemptB = createAttempt(db, runId, job.job_id, { status: 'pending', worker_type: 'opencode' });
+		const attemptB = createAttempt(db, runId, job.job_id, {
+			status: 'pending',
+			worker_type: 'opencode',
+		});
 		const b = claimAttemptWithGeneration(db, attemptB.attempt_id, {
 			ownerId: 'ctl:run-fence-instance:BBB',
 			leaseTtlMs: 60_000,
@@ -162,7 +208,7 @@ describe('R1-MAJOR: Instanz-scoped Fencing', () => {
 
 		// DUPLICATE_EFFECT_ZERO: nur B hat geschrieben
 		const written = db
-			.prepare("SELECT output_json FROM cp_attempts WHERE output_json IS NOT NULL")
+			.prepare('SELECT output_json FROM cp_attempts WHERE output_json IS NOT NULL')
 			.all() as Array<{ output_json: string }>;
 		expect(written.length).toBe(1);
 		expect(JSON.parse(written[0]!.output_json).from).toBe('B');

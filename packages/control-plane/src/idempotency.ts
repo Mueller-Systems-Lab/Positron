@@ -72,7 +72,7 @@ export class IdempotencyRegistry {
 		if (!this.claim(key)) {
 			return { duplicate: true, result: null };
 		}
-			// Der Key bleibt claimed — ein erneuter Versuch mit gleichem Key ist
+		// Der Key bleibt claimed — ein erneuter Versuch mit gleichem Key ist
 		// damit ebenfalls ein Duplikat und wird nicht erneut ausgeführt.
 		// Fehler der Operation propagieren (der Key bleibt claimed).
 		const result = operation();

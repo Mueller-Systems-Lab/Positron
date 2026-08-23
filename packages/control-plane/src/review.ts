@@ -19,7 +19,12 @@ import { assertAttemptActive, assertExecutionContext } from './execution-context
 import { fingerprint } from './fingerprint.js';
 import { assertRealParallelism } from './parallelism.js';
 import type { ParallelExecutionSlice, ParallelismVerdict } from './parallelism.js';
-import { claimAttemptWithGeneration, completeAttempt, createAttempt, mapAttemptRow } from './store.js';
+import {
+	claimAttemptWithGeneration,
+	completeAttempt,
+	createAttempt,
+	mapAttemptRow,
+} from './store.js';
 import type { AttemptRecord } from './store.js';
 
 export type ReviewKind = 'correctness' | 'security' | 'quality';

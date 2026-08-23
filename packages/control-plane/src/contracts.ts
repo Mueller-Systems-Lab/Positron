@@ -766,7 +766,15 @@ const CONTRACT_REGISTRY: Record<ContractId, ContractSchema> = {
 		additional: (doc) => {
 			const errors: string[] = [];
 			const status = doc.status as string;
-			const allowed = ['PROPOSED', 'VALIDATING', 'REJECTED', 'SHADOW', 'CANARY', 'PROMOTED', 'ROLLED_BACK'];
+			const allowed = [
+				'PROPOSED',
+				'VALIDATING',
+				'REJECTED',
+				'SHADOW',
+				'CANARY',
+				'PROMOTED',
+				'ROLLED_BACK',
+			];
 			if (!allowed.includes(status)) {
 				errors.push(`status must be one of ${allowed.join(', ')}`);
 			}

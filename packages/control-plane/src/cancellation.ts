@@ -154,10 +154,7 @@ export function terminateChildProcess(
  * Wartet auf den Exit eines Child-Prozesses und löst den Termination-
  * Promise dann auf. Nutzung zusammen mit terminateChildProcess.
  */
-export function waitForProcessExit(
-	child: ChildProcess,
-	timeoutMs = 5000,
-): Promise<void> {
+export function waitForProcessExit(child: ChildProcess, timeoutMs = 5000): Promise<void> {
 	return new Promise((resolve) => {
 		if (child.exitCode !== null || child.signalCode !== null) {
 			resolve();

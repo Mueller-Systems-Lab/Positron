@@ -83,19 +83,22 @@ describe('P4 SLICE D — WORKSPACE LOCK (Store-Semantik)', () => {
 	it('TTL-Konfiguration: zentral, validiert, fail-closed', () => {
 		expect(resolveWorkspaceLockTtlMs({})).toBe(600_000);
 		expect(resolveWorkspaceLockTtlMs({ POSITRON_WORKSPACE_LOCK_TTL_MS: '5000' })).toBe(5000);
-		expect(() =>
-			resolveWorkspaceLockTtlMs({ POSITRON_WORKSPACE_LOCK_TTL_MS: 'abc' }),
-		).toThrow(/POSITRON_WORKSPACE_LOCK_TTL_MS invalid/);
-		expect(() =>
-			resolveWorkspaceLockTtlMs({ POSITRON_WORKSPACE_LOCK_TTL_MS: '-5' }),
-		).toThrow(/POSITRON_WORKSPACE_LOCK_TTL_MS invalid/);
+		expect(() => resolveWorkspaceLockTtlMs({ POSITRON_WORKSPACE_LOCK_TTL_MS: 'abc' })).toThrow(
+			/POSITRON_WORKSPACE_LOCK_TTL_MS invalid/,
+		);
+		expect(() => resolveWorkspaceLockTtlMs({ POSITRON_WORKSPACE_LOCK_TTL_MS: '-5' })).toThrow(
+			/POSITRON_WORKSPACE_LOCK_TTL_MS invalid/,
+		);
 	});
 });
 
 describe('P4 SLICE D — WORKSPACE LOCK (Scheduler-Admission)', () => {
 	it('Admission claimt den Workspace-Lock; SAME_WORKSPACE → WORKSPACE_LOCKED/REPOSITORY_LOCKED, kein Overlap', () => {
 		const db = makeDb();
-		const config: import('../scheduler.js').SchedulerConfig = { maxActiveRuns: 2, workspaceLockTtlMs: TTL };
+		const config: import('../scheduler.js').SchedulerConfig = {
+			maxActiveRuns: 2,
+			workspaceLockTtlMs: TTL,
+		};
 		const itemA = enqueueItem(db, {
 			source_type: 'issue',
 			source_ref: 'issue/1',
@@ -126,7 +129,10 @@ describe('P4 SLICE D — WORKSPACE LOCK (Scheduler-Admission)', () => {
 
 	it('LOCK_RELEASE_ALL_TERMINAL_STATES: markRunFinished gibt den Lock frei', () => {
 		const db = makeDb();
-		const config: import('../scheduler.js').SchedulerConfig = { maxActiveRuns: 2, workspaceLockTtlMs: TTL };
+		const config: import('../scheduler.js').SchedulerConfig = {
+			maxActiveRuns: 2,
+			workspaceLockTtlMs: TTL,
+		};
 		const item = enqueueItem(db, {
 			source_type: 'issue',
 			source_ref: 'issue/3',
@@ -136,7 +142,9 @@ describe('P4 SLICE D — WORKSPACE LOCK (Scheduler-Admission)', () => {
 		expect(d?.admitted).toBe(true);
 		expect(getWorkspaceLock(db, 'org/repo-b')?.owner_id).toBe(item.queue_item_id);
 
-		markRunFinished(db, item.queue_item_id, 'COMPLETED', null, 'READY', { emitEvent: config.emitEvent });
+		markRunFinished(db, item.queue_item_id, 'COMPLETED', null, 'READY', {
+			emitEvent: config.emitEvent,
+		});
 		expect(getWorkspaceLock(db, 'org/repo-b')?.released_at).toBeTruthy();
 
 		// Nach Release kann ein neuer Owner claimen

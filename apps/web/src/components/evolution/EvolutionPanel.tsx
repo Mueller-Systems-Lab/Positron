@@ -88,7 +88,9 @@ export default function EvolutionPanel(): React.ReactElement {
 					{candidates.map((c) => (
 						<div key={c.candidate_id} className="border p-2 rounded text-sm">
 							<div className="font-mono">{c.candidate_id}</div>
-							<div>Status: <span className="font-semibold">{c.status}</span></div>
+							<div>
+								Status: <span className="font-semibold">{c.status}</span>
+							</div>
 							<div>Fingerprint: {c.candidate_fingerprint.slice(0, 16)}...</div>
 							<div>Version: {c.candidate_version}</div>
 						</div>
@@ -98,7 +100,8 @@ export default function EvolutionPanel(): React.ReactElement {
 			</div>
 
 			<div className="mt-6 text-xs text-gray-500">
-				Backend truth only. No raw prompts/secrets. Statuses: PROPOSED, VALIDATING, REJECTED, SHADOW, CANARY, PROMOTED, ROLLED_BACK
+				Backend truth only. No raw prompts/secrets. Statuses: PROPOSED, VALIDATING, REJECTED,
+				SHADOW, CANARY, PROMOTED, ROLLED_BACK
 			</div>
 		</div>
 	);

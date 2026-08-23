@@ -1,8 +1,6 @@
 {
 	"private": true,
-	"files": [
-		"dist"
-	],
+	"files": ["dist"],
 	"main": "./dist/index.js",
 	"name": "@positron/server",
 	"version": "0.1.0",

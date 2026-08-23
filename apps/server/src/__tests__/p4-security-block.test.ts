@@ -98,7 +98,7 @@ describe('P4 SLICE G — SECURITY_HARD_BLOCK_PRODUCTIVE_PATH', () => {
 			const db = new Database(dbFile);
 			const decision = db
 				.prepare(
-					"SELECT decision, reason_code FROM cp_decisions WHERE run_id IN (SELECT run_id FROM cp_queue WHERE queue_item_id = ?)",
+					'SELECT decision, reason_code FROM cp_decisions WHERE run_id IN (SELECT run_id FROM cp_queue WHERE queue_item_id = ?)',
 				)
 				.get(item.item.queue_item_id) as { decision: string; reason_code: string } | undefined;
 			expect(decision).toBeDefined();
@@ -113,9 +113,7 @@ describe('P4 SLICE G — SECURITY_HARD_BLOCK_PRODUCTIVE_PATH', () => {
 			expect(lock?.released_at).toBeTruthy();
 			//   - Provider-Reservierung released
 			const reservation = db
-				.prepare(
-					"SELECT status FROM cp_provider_reservations WHERE owner_id = ?",
-				)
+				.prepare('SELECT status FROM cp_provider_reservations WHERE owner_id = ?')
 				.get(item.item.queue_item_id) as { status: string } | undefined;
 			expect(reservation?.status).toBe('released');
 			//   - Attempts final (keine running Attempts mehr)

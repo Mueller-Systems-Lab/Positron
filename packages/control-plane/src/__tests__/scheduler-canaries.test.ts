@@ -38,7 +38,11 @@ afterEach(() => {
 
 const cfg = { maxActiveRuns: 2 };
 
-function enqueue(repo: string, ref: string, opts: { priority?: string; deps?: string[]; sourceType?: string } = {}) {
+function enqueue(
+	repo: string,
+	ref: string,
+	opts: { priority?: string; deps?: string[]; sourceType?: string } = {},
+) {
 	return enqueueItem(db, {
 		source_type: opts.sourceType ?? 'issue',
 		source_ref: ref,
