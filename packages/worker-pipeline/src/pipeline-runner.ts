@@ -78,6 +78,7 @@ import type {
 	EventLevel,
 	GateEvaluationContext,
 	OpenCodeAdapter,
+	OpenCodeCommandResult,
 	Phase,
 	RepositoryConfig,
 	SpecKitAdapter,
@@ -751,6 +752,56 @@ function assertWorkerContext(
 	assertAttemptActive(getDb(deps), tracking.attempt.attempt_id, tracking.ownerId);
 }
 
+/**
+ * Convert an OpenCode failure into durable P5.3 evidence. In particular, the
+ * local-server UnknownError emitted by the failed SpecKit run is a context /
+ * harness failure, never a model-capability failure. Only the sanitized error
+ * reference is persisted; prompt, token, and credential material is excluded.
+ */
+export function openCodeFailureUpdate(
+	phase: 'specify' | 'plan' | 'tasks',
+	result: OpenCodeCommandResult,
+): Partial<AttemptRecord> {
+	const message = result.error?.message ?? result.blockedReason ?? '';
+	const isSessionBoundaryFailure =
+		result.error?.name === 'UnknownError' && /unexpected server error/i.test(message);
+	const classified = isSessionBoundaryFailure
+		? { signature: 'CONTEXT_FAILURE' }
+		: classifyFailure({ stderr: message, exitCode: result.exitCode });
+	const diagnosis = diagnoseFailureDomain({ failure_class: classified.signature });
+	const routing = decideRouting({
+		failure_class: classified.signature,
+		failure_domain: diagnosis.failure_domain,
+		evidence_refs: result.error?.ref ? [`opencode:${result.error.ref}`] : [],
+		sample_size: 1,
+		threshold: 3,
+	});
+	const evidenceRef = result.error?.ref ?? `exit-${String(result.exitCode ?? 'none')}`;
+
+	return {
+		failure_class: classified.signature,
+		failure_signature: `${phase}:${classified.signature}:${evidenceRef}`,
+		failure_domain: diagnosis.failure_domain,
+		diagnosis_reason_code: diagnosis.reason_code,
+		diagnosis_fingerprint: fingerprint({
+			phase,
+			failure_class: classified.signature,
+			failure_domain: diagnosis.failure_domain,
+			reason: diagnosis.reason_code,
+		}),
+		routing_action: routing.routing_action,
+		routing_reason_code: routing.reason_code,
+		routing_fingerprint: fingerprint({
+			phase,
+			failure_class: classified.signature,
+			failure_domain: diagnosis.failure_domain,
+			action: routing.routing_action,
+			reason: routing.reason_code,
+		}),
+		result_ref: `opencode:${phase}:${evidenceRef}`,
+	};
+}
+
 /** Finalisiert einen getrackten Worker-Attempt und den zugehörigen Job. */
 function finalizeTrackedAttempt(
 	tracking: JobAttemptTracking,
@@ -1288,9 +1339,13 @@ async function executePhase(
 							issueTitle: `Issue #${current.issueNumber}`,
 							issueNumber: current.issueNumber,
 							mode: 'safe-cli',
+							phaseName: 'specify',
+							model: process.env.POSITRON_OPENCODE_MODEL,
+							agent: process.env.POSITRON_OPENCODE_AGENT ?? 'build',
 							signal: ctx.signal,
 						});
 						if (specResult.status === 'success') {
+							saveArtifact(current.id, 'spec', specResult.summary, deps);
 							// P3: Artefakt-Output-Boundary (§24)
 							const artifactDoc = {
 								contract: 'positron.artifact.v1',
@@ -1310,8 +1365,7 @@ async function executePhase(
 							}
 						} else {
 							finalizeTrackedAttempt(tracking, deps, 'failed', {
-								failure_class: 'UNKNOWN',
-								failure_signature: `specify:${specResult.status}`,
+								...openCodeFailureUpdate('specify', specResult),
 							});
 						}
 						result = transition(
@@ -1435,9 +1489,13 @@ async function executePhase(
 						issueTitle: `Issue #${current.issueNumber}`,
 						issueNumber: current.issueNumber,
 						mode: 'safe-cli',
+						phaseName: 'plan',
+						model: process.env.POSITRON_OPENCODE_MODEL,
+						agent: process.env.POSITRON_OPENCODE_AGENT ?? 'build',
 						signal: ctx.signal,
 					});
 					if (planResult.status === 'success') {
+						saveArtifact(current.id, 'plan', planResult.summary, deps);
 						// P3: Artefakt-Output-Boundary (§24)
 						const artifactDoc = {
 							contract: 'positron.artifact.v1',
@@ -1457,8 +1515,7 @@ async function executePhase(
 						}
 					} else {
 						finalizeTrackedAttempt(tracking, deps, 'failed', {
-							failure_class: 'UNKNOWN',
-							failure_signature: `plan:${planResult.status}`,
+							...openCodeFailureUpdate('plan', planResult),
 						});
 					}
 					result = transition(
@@ -1666,9 +1723,13 @@ async function executePhase(
 						issueTitle: `Issue #${current.issueNumber}`,
 						issueNumber: current.issueNumber,
 						mode: 'safe-cli',
+						phaseName: 'tasks',
+						model: process.env.POSITRON_OPENCODE_MODEL,
+						agent: process.env.POSITRON_OPENCODE_AGENT ?? 'build',
 						signal: ctx.signal,
 					});
 					if (tasksResult.status === 'success') {
+						saveArtifact(current.id, 'tasks', tasksResult.summary, deps);
 						// P3: Artefakt-Output-Boundary (§24)
 						const artifactDoc = {
 							contract: 'positron.artifact.v1',
@@ -1688,8 +1749,7 @@ async function executePhase(
 						}
 					} else {
 						finalizeTrackedAttempt(tracking, deps, 'failed', {
-							failure_class: 'UNKNOWN',
-							failure_signature: `tasks:${tasksResult.status}`,
+							...openCodeFailureUpdate('tasks', tasksResult),
 						});
 					}
 					result = transition(
@@ -1930,6 +1990,9 @@ async function executePhase(
 				issueTitle: `Issue #${current.issueNumber}`,
 				issueNumber: current.issueNumber,
 				mode: 'safe-cli' as const,
+				model: process.env.POSITRON_OPENCODE_MODEL,
+				agent: process.env.POSITRON_OPENCODE_AGENT ?? 'build',
+				auto: process.env.POSITRON_OPENCODE_AUTO === 'true',
 				autonomyLevel: current.autonomyLevel,
 				signal: ctx.signal,
 			};

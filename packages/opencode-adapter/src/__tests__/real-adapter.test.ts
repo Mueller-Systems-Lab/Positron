@@ -24,7 +24,7 @@ vi.mock('@positron/sandbox', () => {
 				return {
 					exitCode: 0,
 					stdout:
-						'{"type":"error","error":{"data":{"message":"Command not found: spec-driven-development"}}}\n',
+						'{"type":"error","error":{"name":"UnknownError","data":{"message":"Unexpected server error. Check server logs for details.","ref":"err_test_boundary"}}}\n',
 					stderr: '',
 					durationMs: 50,
 					command: `opencode ${args.join(' ')}`,
@@ -64,6 +64,8 @@ describe('RealOpenCodeAdapter', () => {
 			issueTitle: 'Test Issue',
 			issueNumber: 42,
 			phaseName: 'specify',
+			model: 'openai/gpt-5.6-luna',
+			agent: 'build',
 		});
 
 		expect(['blocked', 'failed']).toContain(result.status);
@@ -73,6 +75,48 @@ describe('RealOpenCodeAdapter', () => {
 		// Verify args contain spec-driven-development (the mock always returns failed)
 		expect(result.status).toBe('failed');
 		expect(result.command).toContain('spec-driven-development');
+		expect(result.command).toContain(`--dir ${tmpWorkspace}`);
+		expect(result.command).toContain('--model openai/gpt-5.6-luna');
+		expect(result.command).toContain('--agent build');
+		expect(result.command).not.toContain('--auto');
+		expect(result.error).toEqual({
+			name: 'UnknownError',
+			message: 'Unexpected server error. Check server logs for details.',
+			ref: 'err_test_boundary',
+		});
+	});
+
+	test('passes supported auto mode only when the authorized caller enables it', async () => {
+		const adapter = new RealOpenCodeAdapter(tmpEvidence);
+		const result = await adapter.runSlashCommand('speckit.specify', {
+			runId: 'test-run',
+			workspacePath: tmpWorkspace,
+			issueTitle: 'Test Issue',
+			model: 'openai/gpt-5.6-luna',
+			agent: 'build',
+			auto: true,
+		});
+		expect(result.command).toContain('--auto');
+	});
+
+	test('blocks instead of silently using a global model fallback', async () => {
+		const adapter = new RealOpenCodeAdapter(tmpEvidence);
+		const previousModel = process.env.POSITRON_OPENCODE_MODEL;
+		Reflect.deleteProperty(process.env, 'POSITRON_OPENCODE_MODEL');
+		try {
+			const result = await adapter.runSlashCommand('speckit.specify', {
+				runId: 'test-run',
+				workspacePath: tmpWorkspace,
+				issueTitle: 'Test Issue',
+			});
+			expect(result.status).toBe('blocked');
+			expect(result.blockedReason).toBe('MODEL_RESOLUTION_REQUIRED');
+			expect(vi.mocked(runCommand)).toHaveBeenCalledTimes(1);
+		} finally {
+			if (previousModel === undefined)
+				Reflect.deleteProperty(process.env, 'POSITRON_OPENCODE_MODEL');
+			else process.env.POSITRON_OPENCODE_MODEL = previousModel;
+		}
 	});
 
 	test('runImplement uses native speckit.implement command', async () => {
@@ -308,15 +352,20 @@ describe('RealOpenCodeAdapter saveEvidence edge cases', () => {
 describe('RealOpenCodeAdapter runSlashCommand success path', () => {
 	let tmpWorkspace: string;
 	let tmpEvidence: string;
+	let previousModel: string | undefined;
 
 	beforeEach(() => {
 		tmpWorkspace = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-test-'));
 		tmpEvidence = path.join(tmpWorkspace, '.positron', 'evidence', 'opencode');
 		fs.mkdirSync(tmpEvidence, { recursive: true });
+		previousModel = process.env.POSITRON_OPENCODE_MODEL;
+		process.env.POSITRON_OPENCODE_MODEL = 'openai/gpt-5.6-luna';
 		vi.clearAllMocks();
 	});
 
 	afterEach(() => {
+		if (previousModel === undefined) Reflect.deleteProperty(process.env, 'POSITRON_OPENCODE_MODEL');
+		else process.env.POSITRON_OPENCODE_MODEL = previousModel;
 		fs.rmSync(tmpWorkspace, { recursive: true, force: true });
 	});
 
