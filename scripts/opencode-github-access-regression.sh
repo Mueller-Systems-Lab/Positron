@@ -124,7 +124,7 @@ NODE
 if [[ "${POSITRON_RUN_FRESH_SESSION:-0}" == "1" ]]; then
 	fresh_model="${POSITRON_FRESH_SESSION_MODEL:-openai/gpt-5.6-luna}"
 	case "$fresh_model" in *deepseek*|*DeepSeek*|openai/gpt-5.5|openai/gpt-5.5-*) echo 'forbidden model in fresh-session check' >&2; exit 1;; esac
-	timeout 60s opencode run --agent issue-orchestrator --model "$fresh_model" --format json --dir "$repo_root" 'Read-only acceptance check. Use only authorized issue read/list/search/comment-read paths. Do not edit files, write GitHub objects, push, merge, release, deploy, or access secrets. Exit successfully after the read-only checks.' >/dev/null
+	timeout 90s opencode run --agent issue-orchestrator --model "$fresh_model" --format json --dir "$repo_root" 'Bounded read-only acceptance sequence; terminate after the final sentinel. Establish repository identity for xxammaxx/Positron. Read issue 429. Read issue 429 comments with a structured supported gh command requesting only number,title,state,comments; do not use gh api. Invoke exactly one allowed MCP issue-read path github_get_issue for xxammaxx/Positron issue 429. Do not invoke mutation, secret, workflow, PR, merge, push, branch-delete, release, deploy, or any extra GitHub capability. Return exactly PR430_FRESH_SESSION_PASS and terminate immediately.' >/dev/null
 	echo 'FRESH_ISSUE_ORCHESTRATOR_PROCESS=PASS'
 else
 	echo 'FRESH_ISSUE_ORCHESTRATOR_PROCESS=NOT_PROVEN'
