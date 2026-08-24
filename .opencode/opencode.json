@@ -28,6 +28,21 @@
 			},
 			"permission": {
 				"github_*": "deny",
+				"bash": {
+					"gh api *": "deny",
+					"gh pr merge *": "deny",
+					"gh pr review *": "deny",
+					"gh repo create *": "deny",
+					"gh repo delete *": "deny",
+					"gh repo edit *": "deny",
+					"gh workflow *": "deny",
+					"gh secret *": "deny",
+					"gh variable *": "deny",
+					"gh release *": "deny",
+					"git push *": "deny",
+					"git branch -d *": "deny",
+					"git branch -D *": "deny"
+				},
 				"github_get_issue": "allow",
 				"github_list_issues": "allow",
 				"github_search_issues": "allow",

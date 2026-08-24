@@ -18,6 +18,7 @@ const fs = require('node:fs');
 const [configPath] = process.argv.slice(2);
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 const required = ['github_get_issue','github_list_issues','github_search_issues','github_add_issue_comment','github_update_issue'];
+const dangerousBash = ['gh api *','gh pr merge *','gh pr review *','gh repo create *','gh repo delete *','gh repo edit *','gh workflow *','gh secret *','gh variable *','gh release *','git push *','git branch -d *','git branch -D *'];
 const githubKeys = (value) => Object.keys(value ?? {}).filter((key) => key.startsWith('github_'));
 const enabled = (value) => githubKeys(value).filter((key) => value[key] === true).sort();
 const equal = (label, actual, expected) => { if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`${label}: got ${JSON.stringify(actual)}`); };
@@ -33,8 +34,10 @@ assert(agent.permission?.['github_*'] === 'deny', 'agent GitHub default permissi
 equal('agent enabled GitHub tools', enabled(agent.tools), expected);
 equal('agent explicit GitHub keys', githubKeys(agent.permission).filter((key) => key !== 'github_*').sort(), expected);
 equal('agent required GitHub permissions', required.map((key) => agent.permission[key]), required.map(() => 'allow'));
+for (const pattern of dangerousBash) if (agent.permission.bash?.[pattern] !== 'deny') throw new Error(`agent dangerous bash permission is not denied: ${pattern}`);
 console.log('STATIC_EXACT_ALLOWLIST=PASS');
 console.log('STATIC_DEFAULT_DENY=PASS');
+console.log('STATIC_DANGEROUS_BASH_NEGATIVE_MATRIX=PASS');
 NODE
 
 resolved="$(mktemp)"
@@ -49,6 +52,7 @@ const [resolvedPath, agentPath] = process.argv.slice(2);
 const resolved = JSON.parse(fs.readFileSync(resolvedPath, 'utf8'));
 const agent = JSON.parse(fs.readFileSync(agentPath, 'utf8'));
 const required = new Set(['github_get_issue','github_list_issues','github_search_issues','github_add_issue_comment','github_update_issue']);
+const dangerousBash = new Set(['gh api *','gh pr merge *','gh pr review *','gh repo create *','gh repo delete *','gh repo edit *','gh workflow *','gh secret *','gh variable *','gh release *','git push *','git branch -d *','git branch -D *']);
 const enabled = (value) => Object.keys(value ?? {}).filter((key) => key.startsWith('github_') && value[key] === true);
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
 const entries = Array.isArray(agent.permission) ? agent.permission : [];
@@ -58,9 +62,11 @@ assert(JSON.stringify(enabled(resolved.tools).sort()) === JSON.stringify([...req
 assert(resolved.permission?.['github_*'] === 'deny', 'resolved default GitHub permission is not deny');
 assert(denied.some((entry) => entry.permission === 'github_*'), 'effective wildcard GitHub deny is absent');
 assert(JSON.stringify(allowed.map((entry) => entry.permission).sort()) === JSON.stringify([...required].sort()), 'effective allowed GitHub permissions differ');
+for (const pattern of dangerousBash) assert(entries.some((entry) => entry.permission === 'bash' && entry.pattern === pattern && entry.action === 'deny'), `effective dangerous bash denial is absent: ${pattern}`);
 console.log('EFFECTIVE_REQUIRED_TOOLS=PASS');
 console.log('EFFECTIVE_EXTRA_TOOLS=0');
 console.log('DANGEROUS_CAPABILITY_NEGATIVE_MATRIX=PASS');
+console.log('EFFECTIVE_DANGEROUS_BASH_NEGATIVE_MATRIX=PASS');
 NODE
 
 # Discover and exercise the actual installed GitHub MCP contract. The server
@@ -113,13 +119,23 @@ const send = (method, params) => new Promise((resolve, reject) => {
 })().catch((error) => { console.error(error.message); process.exitCode = 1; }).finally(() => child.kill());
 NODE
 
-# Fresh process/session acceptance path. Comment reads intentionally use gh:
-# the current 26-tool MCP contract has no get_issue_comments operation.
+# A real model session is opt-in because the installed global orchestrator
+# prompt may run an unbounded workflow. Never claim a session pass by narration.
+if [[ "${POSITRON_RUN_FRESH_SESSION:-0}" == "1" ]]; then
+	fresh_model="${POSITRON_FRESH_SESSION_MODEL:-openai/gpt-5.6-luna}"
+	case "$fresh_model" in *deepseek*|*DeepSeek*|openai/gpt-5.5|openai/gpt-5.5-*) echo 'forbidden model in fresh-session check' >&2; exit 1;; esac
+	timeout 60s opencode run --agent issue-orchestrator --model "$fresh_model" --format json --dir "$repo_root" 'Read-only acceptance check. Use only authorized issue read/list/search/comment-read paths. Do not edit files, write GitHub objects, push, merge, release, deploy, or access secrets. Exit successfully after the read-only checks.' >/dev/null
+	echo 'FRESH_ISSUE_ORCHESTRATOR_PROCESS=PASS'
+else
+	echo 'FRESH_ISSUE_ORCHESTRATOR_PROCESS=NOT_PROVEN'
+fi
+# Comment reads intentionally use gh: the current 26-tool MCP contract has no
+# get_issue_comments operation.
 gh --version >/dev/null; echo 'GH_VERSION=PASS'
 gh auth status >/dev/null 2>&1; echo 'GH_AUTH=PASS'
 gh repo view --json nameWithOwner >/dev/null; echo 'REPO_RESOLUTION=PASS'
 gh issue list --limit 1 --json number >/dev/null; echo 'ISSUE_LIST=PASS'
 gh issue view 429 --json number >/dev/null; echo 'ISSUE_READ_429=PASS'
 gh issue view 429 --comments --json number,comments >/dev/null; echo 'ISSUE_COMMENT_READ_429=PASS'
-echo 'FRESH_SESSION=PASS'
+if [[ "${POSITRON_RUN_FRESH_SESSION:-0}" == "1" ]]; then echo 'FRESH_SESSION=PASS'; else echo 'FRESH_SESSION=NOT_PROVEN'; fi
 echo 'opencode GitHub access contract: PASS'

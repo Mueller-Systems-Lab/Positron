@@ -40,3 +40,12 @@ GitHub operation. The installed GitHub MCP server is discovered at runtime (26
 tools) and `get_issue` is called in a fresh MCP process. The server does not expose
 `get_issue_comments`; comment reads are therefore verified through the fresh `gh
 issue view 429 --comments` path. No model narration is treated as permission proof.
+
+The script also denies dangerous Bash fallback commands at the agent boundary
+(`gh api`, PR merge/review, repository/workflow/secret/release mutation, and Git
+push/branch deletion). A real model-backed Issue-Orchestrator session is opt-in via
+`POSITRON_RUN_FRESH_SESSION=1` and uses `openai/gpt-5.6-luna` by default; without
+that flag the script reports `FRESH_SESSION=NOT_PROVEN` rather than claiming a
+session from standalone CLI/MCP processes. In the Wave 2 host attempt, the global
+orchestrator prompt did not terminate within the bounded timeout and the unstructured
+`gh issue view 429` path hit the Projects-classic GraphQL deprecation failure.
