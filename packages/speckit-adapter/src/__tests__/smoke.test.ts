@@ -1,5 +1,6 @@
 // Positron — SpecKit Adapter: Smoke-Tests
 
+import fs from 'node:fs';
 import { describe, expect, test } from 'vitest';
 import { computeSha256, isPathSafe, scanWorkspace } from '../artifact-scanner.js';
 import {
@@ -72,5 +73,53 @@ describe('artifact-scanner', () => {
 
 	test('isPathSafe erkennt unsichere Pfade', () => {
 		expect(isPathSafe('/base', '../etc/passwd')).toBe(false);
+	});
+
+	// Regression test for Defect A: Artifact-Scanner muss .positron/artifacts/ Pfade erkennen.
+	// RealOpenCodeAdapter speichert generierte Spec/Plan/Tasks-Artefakte in diesen Pfad.
+	// Ohne diesen Test wäre der Real-Mode-Pfad broken (REVIEW findet keine Artifacts).
+	test('scanWorkspace erkennt .positron/artifacts/specify.md als spec', () => {
+		const tmp = fs.mkdtempSync('/tmp/positron-scanner-test-');
+		try {
+			const artifactsDir = `${tmp}/.positron/artifacts`;
+			fs.mkdirSync(artifactsDir, { recursive: true });
+			fs.writeFileSync(`${artifactsDir}/specify.md`, '# Spec: countVowels', 'utf-8');
+			fs.writeFileSync(`${artifactsDir}/plan.md`, '# Plan', 'utf-8');
+			fs.writeFileSync(`${artifactsDir}/tasks.md`, '# Tasks', 'utf-8');
+
+			const results = scanWorkspace(tmp);
+
+			// spec
+			const specResult = results.find(
+				(r) => r.kind === 'spec' && r.path === '.positron/artifacts/specify.md',
+			);
+			expect(specResult).toBeDefined();
+			expect(specResult!.exists).toBe(true);
+
+			// plan
+			const planResult = results.find(
+				(r) => r.kind === 'plan' && r.path === '.positron/artifacts/plan.md',
+			);
+			expect(planResult).toBeDefined();
+			expect(planResult!.exists).toBe(true);
+
+			// tasks
+			const tasksResult = results.find(
+				(r) => r.kind === 'tasks' && r.path === '.positron/artifacts/tasks.md',
+			);
+			expect(tasksResult).toBeDefined();
+			expect(tasksResult!.exists).toBe(true);
+
+			// Verify speckit.* variants (worker path compatibility)
+			fs.writeFileSync(`${artifactsDir}/speckit.specify.md`, '# Worker spec', 'utf-8');
+			const results2 = scanWorkspace(tmp);
+			const workerSpecResult = results2.find(
+				(r) => r.kind === 'spec' && r.path === '.positron/artifacts/speckit.specify.md',
+			);
+			expect(workerSpecResult).toBeDefined();
+			expect(workerSpecResult!.exists).toBe(true);
+		} finally {
+			fs.rmSync(tmp, { recursive: true, force: true });
+		}
 	});
 });

@@ -1,0 +1,17 @@
+{
+	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		"outDir": "./dist",
+		"rootDir": "./src",
+		"composite": true
+	},
+	"include": ["src/**/*"],
+	"references": [
+		{ "path": "../control-plane" },
+		{ "path": "../github-adapter" },
+		{ "path": "../run-state" },
+		{ "path": "../sandbox" },
+		{ "path": "../shared" },
+		{ "path": "../tool-gateway" }
+	]
+}

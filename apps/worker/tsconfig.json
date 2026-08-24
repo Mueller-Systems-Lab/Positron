@@ -7,12 +7,29 @@
 	},
 	"include": ["src/**/*"],
 	"references": [
-		{ "path": "../../packages/shared" },
-		{ "path": "../../packages/run-state" },
-		{ "path": "../../packages/github-adapter" },
-		{ "path": "../../packages/sandbox" },
-		{ "path": "../../packages/speckit-adapter" },
-		{ "path": "../../packages/opencode-adapter" },
-		{ "path": "../../packages/tool-gateway" }
+		{
+			"path": "../../packages/shared"
+		},
+		{
+			"path": "../../packages/run-state"
+		},
+		{
+			"path": "../../packages/github-adapter"
+		},
+		{
+			"path": "../../packages/sandbox"
+		},
+		{
+			"path": "../../packages/speckit-adapter"
+		},
+		{
+			"path": "../../packages/opencode-adapter"
+		},
+		{
+			"path": "../../packages/tool-gateway"
+		},
+		{
+			"path": "../../packages/worker-pipeline"
+		}
 	]
 }

@@ -77,6 +77,10 @@ export interface OpenCodeRunInput {
 	issueBody?: string;
 	/** Issue-Nummer */
 	issueNumber?: number;
+	/** Target repository owner (e.g. "xxammaxx") */
+	repoOwner?: string;
+	/** Target repository name (e.g. "positron-sandbox") */
+	repoName?: string;
 	/** Adapter-Modus */
 	mode?: 'detect-only' | 'safe-cli';
 	/** OpenCode Modell (provider/model) */
@@ -85,6 +89,33 @@ export interface OpenCodeRunInput {
 	autonomyLevel?: number;
 	/** Phase-Name für spec-driven-development (z.B. "specify", "plan", "tasks") */
 	phaseName?: string;
+	/**
+	 * P4 (Slice B): AbortSignal für aktive Cancellation.
+	 * Bei abort terminiert der Adapter den Child-Prozess real
+	 * (graceful SIGTERM → forced SIGKILL) statt nur den Promise zu beenden.
+	 */
+	signal?: AbortSignal;
+	/**
+	 * P5.2: Effective harness config (compiled, persisted, enforced at adapter).
+	 * The adapter MUST enforce effective_permissions, effective_tools, etc.
+	 * and MUST NOT widen capabilities beyond the compiled harness.
+	 */
+	effectiveHarness?: {
+		fingerprint: string;
+		effective_permissions: {
+			mutation: boolean;
+			push: boolean;
+			merge: boolean;
+			deploy: boolean;
+			secret_access: boolean;
+		};
+		effective_tools: string[];
+		effective_reasoning_mode: string;
+		effective_timeout_ms: number;
+		effective_max_steps: number;
+		model_profile_ref: { id: string; version: string; fingerprint: string };
+		task_profile_ref: { id: string; version: string; fingerprint: string };
+	};
 }
 
 /** OpenCode Adapter Interface */

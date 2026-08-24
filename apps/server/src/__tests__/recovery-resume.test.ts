@@ -22,12 +22,12 @@ import {
 import type { GateRuntimeMode, RunState } from '@positron/run-state';
 import { FakeGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
-import type { OpenCodeAdapter, SpecKitAdapter } from '@positron/shared';
+import type { GitHubPullRequest, OpenCodeAdapter, SpecKitAdapter } from '@positron/shared';
 import { FakeSpecKitAdapter } from '@positron/speckit-adapter';
+import { runPipeline } from '@positron/worker-pipeline';
+import type { PipelineDeps } from '@positron/worker-pipeline';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { runPipeline } from '../../../worker/src/pipeline-runner.js';
-import type { PipelineDeps } from '../../../worker/src/pipeline-runner.js';
 
 // ---------------------------------------------------------------------------
 // Instrumented Adapter: records PR creation and can simulate existing PR
@@ -69,19 +69,35 @@ class RecoveryTestGitHubAdapter extends FakeGitHubAdapter {
 			// For the RED test, we simulate the duplicate:
 			// The adapter creates ANOTHER PR (different number) — this is the bug
 			return {
+				id: existing.number + 100,
 				number: existing.number + 100, // Simulated duplicate PR number
+				title: 'Positron duplicate',
+				body: null,
+				state: 'open' as const,
+				head: { ref: input.head ?? '', sha: '0'.repeat(40) },
+				base: { ref: 'main', sha: '0'.repeat(40) },
 				htmlUrl: `https://github.com/${input.owner}/${input.repo}/pull/${existing.number + 100}`,
-				state: 'open',
-				nodeId: `PR_dup_${existing.number + 100}`,
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+				draft: false,
+				mergeable: null,
 			};
 		}
 
 		const prNumber = 100 + this.createPRCalls.length;
 		return {
+			id: prNumber,
 			number: prNumber,
+			title: 'Positron PR',
+			body: null,
+			state: 'open' as const,
+			head: { ref: input.head ?? '', sha: '0'.repeat(40) },
+			base: { ref: 'main', sha: '0'.repeat(40) },
 			htmlUrl: `https://github.com/${input.owner}/${input.repo}/pull/${prNumber}`,
-			state: 'open',
-			nodeId: `PR_node_${prNumber}`,
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+			draft: false,
+			mergeable: null,
 		};
 	}
 
@@ -90,27 +106,24 @@ class RecoveryTestGitHubAdapter extends FakeGitHubAdapter {
 		repo: string;
 		head?: string;
 		state?: string;
-	}): Promise<
-		Array<{
-			number: number;
-			htmlUrl: string;
-			state: string;
-			nodeId: string;
-			head: { ref: string };
-			base: { ref: string };
-		}>
-	> {
+	}): Promise<GitHubPullRequest[]> {
 		if (input.head) {
 			const headRef = input.head.includes(':') ? input.head.split(':')[1] : input.head;
 			return this.existingPRs
 				.filter((p) => p.head === headRef)
 				.map((p) => ({
+					id: p.number,
 					number: p.number,
+					title: 'Positron PR',
+					body: null,
+					state: 'open' as const,
+					head: { ref: p.head, sha: '0'.repeat(40) },
+					base: { ref: 'main', sha: '0'.repeat(40) },
 					htmlUrl: `https://github.com/${input.owner}/${input.repo}/pull/${p.number}`,
-					state: p.state,
-					nodeId: `PR_node_${p.number}`,
-					head: { ref: p.head },
-					base: { ref: 'main' },
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+					draft: false,
+					mergeable: null,
 				}));
 		}
 		return [];
@@ -120,10 +133,10 @@ class RecoveryTestGitHubAdapter extends FakeGitHubAdapter {
 		owner: string;
 		repo: string;
 		prNumber: number;
-		strategy: string;
-		commitTitle: string;
-		commitMessage: string;
-	}): Promise<{ merged: boolean; sha?: string }> {
+		strategy?: string;
+		commitTitle?: string;
+		commitMessage?: string;
+	}): Promise<{ merged: boolean; sha?: string; message?: string }> {
 		this.mergeCalls++;
 		return { merged: false }; // Never actually merge in tests
 	}

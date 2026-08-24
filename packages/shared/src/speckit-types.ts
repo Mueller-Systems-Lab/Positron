@@ -99,6 +99,11 @@ export interface SpecKitRunInput {
 	mode?: 'detect-only' | 'artifact-only' | 'safe-cli';
 	/** Ziel-AI-Agent für init (default: generic) */
 	aiAgent?: 'opencode' | 'generic' | 'none';
+	/**
+	 * P4 (Slice B): AbortSignal für aktive Cancellation — bei abort wird ein
+	 * laufender CLI-Child-Prozess real terminiert (graceful → forced).
+	 */
+	signal?: AbortSignal;
 }
 
 /** Spec Kit Adapter Interface */

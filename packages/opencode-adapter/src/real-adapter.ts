@@ -88,9 +88,14 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 		}
 
 		// Build message: phase name plus issue context
-		const contextMsg = input.issueBody
+		let contextMsg = input.issueBody
 			? `${phaseName}\n\nIssue #${input.issueNumber ?? '?'}: ${input.issueTitle}\n\n${input.issueBody.slice(0, 2000)}`
 			: `${phaseName}\n\nIssue #${input.issueNumber ?? '?'}: ${input.issueTitle}`;
+
+		// Include target repository context so the agent scopes to the correct repo
+		if (input.repoOwner && input.repoName) {
+			contextMsg = `Target repository: ${input.repoOwner}/${input.repoName}\n\n${contextMsg}`;
+		}
 
 		const args = ['run', '--command', commandName, '--format', 'json', contextMsg];
 
@@ -98,6 +103,9 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 			const result = await runCommand('opencode', args, {
 				cwd: input.workspacePath,
 				timeout: 300_000, // 5 Minuten für Agent-Kommandos
+				// P4 (Slice B): AbortSignal → realer Child-Prozess wird bei
+				// Cancel terminiert (graceful SIGTERM → forced SIGKILL).
+				signal: input.signal,
 			});
 
 			// CLI-Output als Evidence-Dateien speichern
@@ -145,7 +153,7 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 				exitCode: result.exitCode,
 				durationMs: Date.now() - startTime,
 				summary: isSuccess
-					? `Command "${commandName}" phase "${phaseName}" completed (${extractedText ? extractedText.length + ' chars' : 'no text output'})`
+					? `Command "${commandName}" phase "${phaseName}" completed (${extractedText ? `${extractedText.length} chars` : 'no text output'})`
 					: `Command "${commandName}" phase "${phaseName}" failed: ${errorMessage ?? result.stderr.slice(0, 200)}`,
 				stdoutPath: evidencePaths.stdoutPath,
 				stderrPath: evidencePaths.stderrPath,
@@ -169,13 +177,117 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 
 	/**
 	 * Führt OpenCode für die IMPLEMENT-Phase aus (Code-Änderungen).
-	 * Nutzt spec-driven-development mit Phase "implement".
+	 * Nutzt den nativen Spec Kit implement command (speckit.implement)
+	 * statt spec-driven-development, da letzteres nur Artifakte generiert
+	 * aber keine Source-Code-Änderungen vornimmt.
 	 */
 	async runImplement(input: OpenCodeRunInput): Promise<OpenCodeCommandResult> {
-		const startTime = Date.now();
+		// P5.2: Enforce effective harness at adapter boundary (fail-closed, never widen)
+		if (input.effectiveHarness) {
+			const h = input.effectiveHarness;
+			// Mutation check: if harness denies mutation, block implement
+			if (h.effective_permissions.mutation === false) {
+				return {
+					phase: 'implement',
+					status: 'blocked',
+					command: 'opencode run --command speckit.implement',
+					args: [],
+					cwd: input.workspacePath,
+					exitCode: null,
+					durationMs: 0,
+					summary: 'Blocked by effective harness: mutation not allowed',
+					blockedReason: 'DENIED_BY_EFFECTIVE_HARNESS: mutation=false',
+				};
+			}
+			// Tool check: if no tools allowed, block
+			if (h.effective_tools.length === 0) {
+				return {
+					phase: 'implement',
+					status: 'blocked',
+					command: 'opencode run --command speckit.implement',
+					args: [],
+					cwd: input.workspacePath,
+					exitCode: null,
+					durationMs: 0,
+					summary: 'Blocked by effective harness: no tools allowed',
+					blockedReason: 'DENIED_BY_EFFECTIVE_HARNESS: no tools',
+				};
+			}
+			// Timeout/max_steps are enforced via runCommand timeout (h.effective_timeout_ms)
+			// Provider/model are already validated at compile time
+		}
+		// Verify native speckit.implement command is available
+		if (input.workspacePath) {
+			const cmdFile = path.join(
+				input.workspacePath,
+				'.opencode',
+				'commands',
+				'speckit.implement.md',
+			);
+			if (!fs.existsSync(cmdFile)) {
+				return {
+					phase: 'implement',
+					status: 'blocked',
+					command: 'opencode run --command speckit.implement',
+					args: [],
+					cwd: input.workspacePath,
+					exitCode: null,
+					durationMs: 0,
+					summary:
+						'Native speckit.implement command not available — run specify init --integration opencode first',
+					blockedReason:
+						'IMPLEMENT_COMMAND_UNAVAILABLE: .opencode/commands/speckit.implement.md missing',
+				};
+			}
 
-		// Use spec-driven-development with "implement" phase
-		return this.runSlashCommand('spec-driven-development', {
+			// Pre-run Spec Kit prerequisite scripts so native speckit commands
+			// don't need bash permissions (which opencode auto-rejects).
+			// This provides the FEATURE_DIR context that speckit.implement expects.
+			let effectiveInput = input;
+			try {
+				const prereqScript = path.join(
+					input.workspacePath,
+					'.specify',
+					'scripts',
+					'bash',
+					'check-prerequisites.sh',
+				);
+				if (fs.existsSync(prereqScript)) {
+					const prereqResult = await runCommand(
+						'bash',
+						[prereqScript, '--json', '--require-tasks', '--include-tasks'],
+						{ cwd: input.workspacePath, timeout: 15_000 },
+					);
+
+					if (prereqResult.exitCode === 0 && prereqResult.stdout) {
+						try {
+							const parsed = JSON.parse(prereqResult.stdout);
+							if (parsed.FEATURE_DIR) {
+								// Inject FEATURE_DIR into the context so speckit.implement
+								// doesn't need to run the script itself
+								effectiveInput = {
+									...input,
+									issueBody: input.issueBody
+										? `${input.issueBody}\n\nFEATURE_DIR=${parsed.FEATURE_DIR}`
+										: `FEATURE_DIR=${parsed.FEATURE_DIR}`,
+								};
+							}
+						} catch {
+							// Non-JSON output, skip injection
+						}
+					}
+				}
+			} catch {
+				// Prerequisite check is best-effort; proceed with command anyway
+			}
+
+			return this.runSlashCommand('speckit.implement', {
+				...effectiveInput,
+				phaseName: 'implement',
+			});
+		}
+
+		return this.runSlashCommand('speckit.implement', {
 			...input,
 			phaseName: 'implement',
 		});

@@ -12,6 +12,9 @@ import LogViewer from './LogViewer.jsx';
 import PhaseBadge from './PhaseBadge.jsx';
 import PhasePipeline from './PhasePipeline.jsx';
 import PhaseTimeline from './PhaseTimeline.jsx';
+import KpiPanel from './mission/KpiPanel.jsx';
+import MissionControlPanel from './mission/MissionControlPanel.jsx';
+import SchedulerQueuePanel from './mission/SchedulerQueuePanel.jsx';
 
 function formatDuration(ms: number): string {
 	if (ms < 1000) return `${ms}ms`;
@@ -281,6 +284,15 @@ export default function RunDetail(): React.ReactElement {
 					</div>
 				</div>
 			</div>
+
+			{/* Mission Control (P2 — Backend Truth Projection) */}
+			<MissionControlPanel runId={run.id} runStatus={effectiveStatus} />
+
+			{/* Scheduler Queue (P4 — Backend Truth Projection) */}
+			<SchedulerQueuePanel />
+
+			{/* Runtime KPIs (P2 — Betriebsansicht) */}
+			<KpiPanel />
 
 			{/* Main Content: Two columns */}
 			<div className="grid grid-cols-[2fr_1fr] gap-6">

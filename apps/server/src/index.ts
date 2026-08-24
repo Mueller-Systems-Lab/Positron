@@ -30,6 +30,31 @@ import { fileURLToPath } from 'node:url';
 
 import http from 'node:http';
 import {
+	activeProviderReservations,
+	admitNext,
+	applyControlPlaneMigrations,
+	assertKpiInvariants,
+	cancelQueueItem,
+	computeEvolutionKpis,
+	computeKpis,
+	computeProfileKpis,
+	enqueueItem,
+	getQueueItem,
+	isRunLeaseAlive,
+	listQueueItems,
+	listSchedulerEvents,
+	markRunFinished,
+	markRunStarted,
+	persistSchedulerEvent,
+	recoverSchedulerState,
+	recoverStaleLeases,
+	renewWorkspaceLock,
+	resolveAttemptLeaseTtlMs,
+	resolveProviderCapacity,
+	resolveWorkspaceLockTtlMs,
+	schedulerCapacity,
+} from '@positron/control-plane';
+import {
 	FakeGitHubAdapter,
 	GitHubStatusSyncService,
 	createRealGitHubAdapter,
@@ -40,37 +65,22 @@ import type {
 	GitHubStatusSyncInput,
 	GitHubStatusSyncResult,
 } from '@positron/github-adapter';
-import { renderAccepted } from '@positron/github-adapter';
 import { FakeOpenCodeAdapter, RealOpenCodeAdapter } from '@positron/opencode-adapter';
 import {
 	assembleGateEvaluators,
 	createRun,
-	getRequiredGates,
-	markFailed,
 	openDatabase,
-	phaseRequiresGates,
-	registerFakeGateEvaluators,
 	registerWorkspaceCleanup,
 	resolveDatabasePath,
 	resolveGateRuntimeMode,
-	resolveImplementationOutcome,
-	resolveTestOutcome,
 	resumeFromEvents,
-	retry,
-	runCleanup,
-	transition,
-	tryTransitionWithGates,
 } from '@positron/run-state';
-import type { RunEventData, RunState, TransitionResult } from '@positron/run-state';
+import type { RunEventData, RunState } from '@positron/run-state';
 import { FakeGitWorkspaceAdapter, RealGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
-import { TestCommandDetector, TestRunner } from '@positron/sandbox';
-import type { TestReport } from '@positron/sandbox';
 import {
 	MAX_FIX_LOOPS,
-	buildRemoteUrl,
 	createRunId,
-	generateBranchName,
 	loadRepositoryConfig,
 	normalizeRepositoryConfig,
 	parsePhase,
@@ -78,13 +88,7 @@ import {
 	safeJsonParse,
 } from '@positron/shared';
 import { SecretManager } from '@positron/shared';
-import type {
-	EventLevel,
-	GateEvaluationContext,
-	GateType,
-	Phase,
-	RunStatus,
-} from '@positron/shared';
+import type { EventLevel, Phase, RunStatus } from '@positron/shared';
 import type {
 	OpenCodeAdapter,
 	OpenCodeRunInput,
@@ -93,12 +97,15 @@ import type {
 } from '@positron/shared';
 import { FakeSpecKitAdapter, RealSpecKitAdapter } from '@positron/speckit-adapter';
 import { GatewayService, ToolRegistry, createAuditSink } from '@positron/tool-gateway';
+import type { PipelineDeps } from '@positron/worker-pipeline';
+import { runPipeline } from '@positron/worker-pipeline';
 import type Database from 'better-sqlite3';
 import express from 'express';
 import { getManagedTargetProjects } from './data/managed-target-projects.js';
 import { createDemoLiveRunHandler } from './demo/live-run-handler.js';
 import { startWatcher } from './github-watcher.js';
 import { createCancelHandler } from './handlers/cancel-run.js';
+import { handleEvolutionRoutes } from './handlers/evolution.js';
 import { createLogger } from './logger.js';
 import {
 	activeRuns,
@@ -260,7 +267,8 @@ let gateRuntimeMode: import('@positron/run-state').GateRuntimeMode = 'fixture';
 
 // Watcher Stop-Funktion (wird von createApp gesetzt, von Shutdown verwendet)
 let stopWatcher: (() => void) | null = null;
-
+// P4 (Slice C): Scheduler-Loop Stop-Funktion (Server-Close stoppt den Loop)
+let stopSchedulerInterval: (() => void) | null = null;
 // Server-Startzeit für Uptime-Berechnung
 const serverStartTime = Date.now();
 
@@ -633,1179 +641,13 @@ async function safeSync(
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Orchestrator
-// ---------------------------------------------------------------------------
+// P4 (Slice B): Registrierte AbortController in-flight Runs — der
+// Cancel-Endpoint aborted den laufenden Run sofort (falls im selben Prozess).
+const runAbortControllers = new Map<string, AbortController>();
 
-async function executePhase(
-	run: RunState,
-	repository: RepositoryConfig,
-	workspace: GitWorkspaceAdapter,
-	speckit: SpecKitAdapter,
-	opencode: OpenCodeAdapter,
-	github: GitHubAdapter,
-	syncService?: GitHubStatusSyncService,
-): Promise<RunState> {
-	const current = run;
-	let result: TransitionResult;
-
-	switch (current.phase) {
-		case 'QUEUED':
-			result = transition(current, 'CLAIMED', 'Issue claimed', 'INFO');
-			break;
-		case 'CLAIMED':
-			// Sync: Run Accepted → GitHub comment + labels
-			if (syncService) {
-				const syncInput: GitHubStatusSyncInput = {
-					runId: current.id,
-					owner: repository.owner,
-					repo: repository.repo,
-					issueNumber: current.issueNumber,
-					phase: 'CLAIMED',
-					status: 'active',
-					branchName: current.branch ?? undefined,
-				};
-				await safeSync(
-					syncService,
-					() => syncService.syncRunAccepted(syncInput),
-					current.id,
-					'CLAIMED',
-				);
-			}
-			result = transition(current, 'REPO_SYNC', 'Repo synced', 'INFO');
-			break;
-		case 'REPO_SYNC':
-			try {
-				const workspaceRepository = {
-					owner: repository.owner,
-					repo: repository.repo,
-					remoteUrl: repository.remoteUrl ?? buildRemoteUrl(repository.owner, repository.repo),
-				};
-				const ws = await workspace.prepareWorkspace({
-					repository: workspaceRepository,
-					issueNumber: current.issueNumber,
-					issueTitle: `Issue #${current.issueNumber}`,
-					runId: current.id,
-					baseBranch: repository.defaultBranch,
-				});
-				current.branch = ws.branchName;
-				current.workspacePath = ws.workspacePath;
-				result = transition(current, 'ISSUE_CONTEXT', `Workspace: ${ws.workspacePath}`);
-			} catch (err) {
-				result = markFailed(current, 'FAILED_TRANSIENT', `Repo sync failed: ${String(err)}`);
-			}
-			break;
-		case 'ISSUE_CONTEXT':
-			result = transition(current, 'WEB_RESEARCH', 'Research phase', 'INFO');
-			break;
-		case 'WEB_RESEARCH': {
-			const researchDoc = await generateResearchDocument(github, repository, current.issueNumber);
-			saveArtifact(current.id, 'research', researchDoc);
-			storeEvent({
-				id: createRunId(),
-				runId: current.id,
-				phase: 'WEB_RESEARCH',
-				level: 'INFO',
-				message: `Research document generated (${researchDoc.length} chars)`,
-				payload: { artifactKind: 'research', size: researchDoc.length },
-				createdAt: new Date().toISOString(),
-			});
-			result = transition(
-				current,
-				'SPECIFY',
-				`Research: ${researchDoc.length} chars research.md generated`,
-			);
-			break;
-		}
-		case 'SPECIFY': {
-			const wsPath = current.workspacePath ?? current.branch ?? '/tmp';
-			const realSpeckit = process.env.POSITRON_ENABLE_REAL_SPECKIT === 'true';
-
-			if (realSpeckit) {
-				try {
-					// Step 1: specify init (safe-cli mode, only once)
-					const initResult = await speckit.initialize({
-						runId: current.id,
-						workspacePath: wsPath,
-						issueTitle: `Issue #${current.issueNumber}`,
-						issueNumber: current.issueNumber,
-						mode: 'safe-cli',
-						aiAgent: 'opencode',
-					});
-					if (initResult.status === 'success') {
-						storeEvent({
-							id: createRunId(),
-							runId: current.id,
-							phase: 'SPECIFY',
-							level: 'INFO',
-							message: `Spec Kit initialized: ${initResult.summary}`,
-							payload: null,
-							createdAt: new Date().toISOString(),
-						});
-
-						// Step 2: opencode run --command spec-driven-development "specify"
-						const specResult = await opencode.runSlashCommand('spec-driven-development', {
-							runId: current.id,
-							workspacePath: wsPath,
-							issueTitle: `Issue #${current.issueNumber}`,
-							issueNumber: current.issueNumber,
-							phaseName: 'specify',
-						});
-						result = transition(
-							current,
-							'PLAN',
-							`OpenCode: ${specResult.summary}`,
-							specResult.status === 'success' ? 'INFO' : 'WARN',
-						);
-						break;
-					}
-				} catch (err) {
-					storeEvent({
-						id: createRunId(),
-						runId: current.id,
-						phase: 'SPECIFY',
-						level: 'WARN',
-						message: `OpenCode error: ${String(err).slice(0, 200)}`,
-						payload: null,
-						createdAt: new Date().toISOString(),
-					});
-				}
-			}
-
-			// Fallback: artifact-only detection
-			const input = {
-				runId: current.id,
-				workspacePath: wsPath,
-				issueTitle: `Issue #${current.issueNumber}`,
-				issueNumber: current.issueNumber,
-				mode: 'artifact-only' as const,
-			};
-			try {
-				const sr = await speckit.runSpecify(input);
-				if (sr.status === 'success' || sr.status === 'skipped') {
-					saveArtifact(current.id, 'spec', sr.summary);
-				}
-				result = transition(current, 'PLAN', sr.summary, sr.status === 'success' ? 'INFO' : 'WARN');
-			} catch (err) {
-				const errMsg = `Specify error: ${String(err).slice(0, 200)}`;
-				result = markFailed(current, 'FAILED_TRANSIENT', errMsg);
-			}
-			break;
-		}
-		case 'PLAN': {
-			const wsPath = current.workspacePath ?? current.branch ?? '/tmp';
-			const realSpeckit = process.env.POSITRON_ENABLE_REAL_SPECKIT === 'true';
-
-			if (realSpeckit) {
-				try {
-					const planResult = await opencode.runSlashCommand('spec-driven-development', {
-						runId: current.id,
-						workspacePath: wsPath,
-						issueTitle: `Issue #${current.issueNumber}`,
-						issueNumber: current.issueNumber,
-						phaseName: 'plan',
-					});
-					result = transition(
-						current,
-						'TASKS',
-						`OpenCode: ${planResult.summary}`,
-						planResult.status === 'success' ? 'INFO' : 'WARN',
-					);
-					break;
-				} catch (err) {
-					storeEvent({
-						id: createRunId(),
-						runId: current.id,
-						phase: 'PLAN',
-						level: 'WARN',
-						message: `OpenCode error: ${String(err).slice(0, 200)}`,
-						payload: null,
-						createdAt: new Date().toISOString(),
-					});
-				}
-			}
-
-			const input = {
-				runId: current.id,
-				workspacePath: wsPath,
-				issueTitle: `Issue #${current.issueNumber}`,
-				issueNumber: current.issueNumber,
-				mode: 'artifact-only' as const,
-			};
-			try {
-				const pr = await speckit.runPlan(input);
-				if (pr.status === 'success' || pr.status === 'skipped') {
-					saveArtifact(current.id, 'plan', pr.summary);
-				}
-				result = transition(
-					current,
-					'TASKS',
-					pr.summary,
-					pr.status === 'success' || pr.status === 'skipped' ? 'INFO' : 'WARN',
-				);
-			} catch (err) {
-				const planErrMsg = `Plan error: ${String(err).slice(0, 200)}`;
-				result = markFailed(current, 'FAILED_TRANSIENT', planErrMsg);
-			}
-			break;
-		}
-		case 'TASKS': {
-			const wsPath = current.workspacePath ?? current.branch ?? '/tmp';
-			const realSpeckit = process.env.POSITRON_ENABLE_REAL_SPECKIT === 'true';
-
-			if (realSpeckit) {
-				try {
-					const tasksResult = await opencode.runSlashCommand('spec-driven-development', {
-						runId: current.id,
-						workspacePath: wsPath,
-						issueTitle: `Issue #${current.issueNumber}`,
-						issueNumber: current.issueNumber,
-						phaseName: 'tasks',
-					});
-					result = transition(
-						current,
-						'ANALYZE',
-						`OpenCode: ${tasksResult.summary}`,
-						tasksResult.status === 'success' ? 'INFO' : 'WARN',
-					);
-					break;
-				} catch (err) {
-					storeEvent({
-						id: createRunId(),
-						runId: current.id,
-						phase: 'TASKS',
-						level: 'WARN',
-						message: `OpenCode error: ${String(err).slice(0, 200)}`,
-						payload: null,
-						createdAt: new Date().toISOString(),
-					});
-				}
-			}
-
-			const input = {
-				runId: current.id,
-				workspacePath: wsPath,
-				issueTitle: `Issue #${current.issueNumber}`,
-				issueNumber: current.issueNumber,
-				mode: 'artifact-only' as const,
-			};
-			try {
-				const tr = await speckit.runTasks(input);
-				if (tr.status === 'success' || tr.status === 'skipped') {
-					saveArtifact(current.id, 'tasks', tr.summary);
-				}
-				result = transition(
-					current,
-					'ANALYZE',
-					tr.summary,
-					tr.status === 'success' || tr.status === 'skipped' ? 'INFO' : 'WARN',
-				);
-			} catch (err) {
-				const tasksErrMsg = `Tasks error: ${String(err).slice(0, 200)}`;
-				result = markFailed(current, 'FAILED_TRANSIENT', tasksErrMsg);
-			}
-			break;
-		}
-		case 'ANALYZE': {
-			const wsPath = current.workspacePath ?? current.branch ?? '/tmp';
-			const input = {
-				runId: current.id,
-				workspacePath: wsPath,
-				issueTitle: `Issue #${current.issueNumber}`,
-				issueNumber: current.issueNumber,
-				mode: 'artifact-only' as const,
-			};
-			try {
-				const ar = await speckit.runAnalyze(input);
-				result = transition(current, 'REVIEW', ar.summary, 'INFO');
-			} catch (err) {
-				storeEvent({
-					id: createRunId(),
-					runId: current.id,
-					phase: 'ANALYZE',
-					level: 'WARN',
-					message: `Analyze error: ${String(err).slice(0, 200)}`,
-					payload: null,
-					createdAt: new Date().toISOString(),
-				});
-				result = transition(current, 'REVIEW', 'Analysis complete', 'INFO');
-			}
-			break;
-		}
-		case 'REVIEW': {
-			// Minimale Artefakt-Validierung: Prüfe ob spec, plan und tasks existieren
-			const requiredArtifacts = ['spec', 'plan', 'tasks'];
-			const existingKinds = new Set(
-				(
-					getDb()
-						.prepare('SELECT DISTINCT kind FROM artifacts WHERE run_id = ?')
-						.all(current.id) as Array<{ kind: string }>
-				).map((r) => r.kind),
-			);
-			const missing = requiredArtifacts.filter((k) => !existingKinds.has(k));
-			if (missing.length > 0) {
-				const msg = `Review failed: missing artifacts: ${missing.join(', ')}`;
-				result = markFailed(current, 'FAILED_BLOCKED', msg);
-			} else {
-				result = transition(
-					current,
-					'IMPLEMENT',
-					`Review passed: ${requiredArtifacts.length}/${requiredArtifacts.length} artifacts present`,
-				);
-			}
-			break;
-		}
-		case 'IMPLEMENT': {
-			const wsPath = current.workspacePath ?? current.branch ?? '/tmp';
-			const input = {
-				runId: current.id,
-				workspacePath: wsPath,
-				issueTitle: `Issue #${current.issueNumber}`,
-				issueNumber: current.issueNumber,
-				mode: 'safe-cli' as const,
-				autonomyLevel: current.autonomyLevel,
-			};
-
-			try {
-				const ir = await opencode.runImplement(input);
-
-				// Issue #385: Explicit outcome resolution — blocked/failed must NOT reach TEST
-				const outcome = resolveImplementationOutcome(ir.status);
-
-				if (outcome === 'FAILED_BLOCKED') {
-					storeEvent({
-						id: createRunId(),
-						runId: current.id,
-						phase: 'IMPLEMENT',
-						level: 'ERROR',
-						message: `Implement blocked: ${ir.blockedReason ?? 'policy'}`,
-						payload: { result: ir, gateRuntimeMode },
-						createdAt: new Date().toISOString(),
-					});
-					result = markFailed(
-						current,
-						'FAILED_BLOCKED',
-						`Implement blocked: ${ir.blockedReason ?? 'policy'}`,
-					);
-				} else if (outcome === 'RETRY') {
-					result = markFailed(current, 'FAILED_TRANSIENT', `Implement failed: ${ir.summary}`);
-				} else {
-					result = transition(
-						current,
-						'TEST',
-						ir.summary,
-						ir.status === 'success' ? 'INFO' : 'WARN',
-					);
-				}
-			} catch (err) {
-				const implErrMsg = `Implement error: ${String(err).slice(0, 200)}`;
-				result = markFailed(current, 'FAILED_TRANSIENT', implErrMsg);
-			}
-			break;
-		}
-		case 'TEST':
-			try {
-				const wsPath = current.workspacePath ?? current.branch ?? '/tmp';
-				const detector = new TestCommandDetector();
-				const detection = await detector.detect(wsPath);
-
-				// Issue #385: No detected test commands — resolve based on gate runtime mode
-				if (detection.commands.length === 0) {
-					const emptyReport: TestReport = {
-						status: 'blocked',
-						summary: 'No test commands detected',
-						passed: 0,
-						failed: 0,
-						total: 0,
-						durationMs: 0,
-					};
-					const outcome = resolveTestOutcome(emptyReport, gateRuntimeMode, false);
-					if (outcome === 'FAILED_BLOCKED') {
-						result = markFailed(
-							current,
-							'FAILED_BLOCKED',
-							`No test commands configured in ${gateRuntimeMode} mode. Set up tests or switch to fixture/demo mode.`,
-						);
-					} else {
-						result = transition(
-							current,
-							'VERIFY',
-							'No test commands configured — tests skipped (fixture/demo mode)',
-							'WARN',
-						);
-					}
-				} else {
-					const runner = new TestRunner();
-					const report = await runner.runDetectedCommands({
-						runId: current.id,
-						workspacePath: wsPath,
-						commands: detection.commands,
-						mode: 'standard',
-					});
-					// Sync: Test Report → GitHub comment + labels
-					if (syncService && report) {
-						const syncInput: GitHubStatusSyncInput = {
-							runId: current.id,
-							owner: repository.owner,
-							repo: repository.repo,
-							issueNumber: current.issueNumber,
-							phase: 'TEST',
-							status: report.status,
-							branchName: current.branch ?? undefined,
-							workspacePath: wsPath,
-							testReport: report,
-						};
-						if (report.status === 'blocked') {
-							await safeSync(
-								syncService,
-								() =>
-									syncService.syncBlocked({
-										...syncInput,
-										error: { type: 'blocked', message: report.summary },
-									}),
-								current.id,
-								'TEST',
-							);
-						} else if (report.status === 'failed') {
-							await safeSync(
-								syncService,
-								() => syncService.syncTestReport(syncInput),
-								current.id,
-								'TEST',
-							);
-						} else {
-							await safeSync(
-								syncService,
-								() => syncService.syncTestReport(syncInput),
-								current.id,
-								'TEST',
-							);
-						}
-					}
-
-					// Issue #385: Explicit outcome resolution — failed/blocked must NOT reach VERIFY
-					const outcome = resolveTestOutcome(report, gateRuntimeMode, true);
-
-					if (outcome === 'FAILED_BLOCKED') {
-						result = markFailed(
-							current,
-							'FAILED_BLOCKED',
-							`Tests ${report.status}: ${report.summary}`,
-						);
-					} else if (outcome === 'RETRY') {
-						result = markFailed(current, 'FAILED_TRANSIENT', `Tests failed: ${report.summary}`);
-					} else {
-						result = transition(current, 'VERIFY', 'Tests passed', 'INFO');
-					}
-				}
-			} catch (err) {
-				const errMsg = err instanceof Error ? err.message : String(err);
-				// Issue #385: Test execution crash must NOT proceed to VERIFY
-				result = markFailed(
-					current,
-					'FAILED_BLOCKED',
-					`Test execution crashed: ${errMsg.slice(0, 200)}`,
-				);
-			}
-			break;
-		case 'VERIFY':
-			current.branch =
-				current.branch ?? generateBranchName(current.issueNumber, `run-${current.id.slice(0, 8)}`);
-			if (phaseRequiresGates('COMMIT')) {
-				const gateContext: GateEvaluationContext = {
-					runId: current.id,
-					phase: current.phase,
-					targetPhase: 'COMMIT',
-					gateTypes: getRequiredGates('COMMIT'),
-				};
-				result = tryTransitionWithGates(
-					current,
-					'COMMIT',
-					'Verified, commit ready',
-					gateContext,
-					'INFO',
-					null,
-				);
-			} else {
-				result = transition(current, 'COMMIT', 'Verified, commit ready');
-			}
-			break;
-		case 'COMMIT': {
-			const branch =
-				current.branch ?? generateBranchName(current.issueNumber, `run-${current.id.slice(0, 8)}`);
-			const pushAllowed = process.env.POSITRON_ENABLE_PUSH === 'true';
-
-			// Commit Message generieren
-			const commitMsg = `feat(issue-${current.issueNumber}): Positron automated changes [Run: ${current.id.slice(0, 8)}]`;
-
-			// Workspace path from run state (Issue #36)
-			const commitWsPath = current.workspacePath ?? `/tmp/positron-ws-${current.id.slice(0, 8)}`;
-
-			try {
-				// Änderungen erfassen — nutzt git status (erkennt neue + geänderte Dateien)
-				let changeSummary = '';
-				let hasChanges = false;
-				try {
-					const status = await workspace.getStatus(commitWsPath);
-					hasChanges = !status.isClean;
-					const staged = status.staged.length;
-					const unstaged = status.unstaged.length;
-					const untracked = status.untracked.length;
-					changeSummary = `${staged} staged, ${unstaged} unstaged, ${untracked} untracked`;
-				} catch {
-					/* status optional */
-				}
-
-				if (!hasChanges) {
-					// Keine Änderungen — sauber blocken (Issue #38)
-					result = markFailed(
-						current,
-						'FAILED_BLOCKED',
-						`No changes were made during implementation — no files changed in workspace ${commitWsPath} (${changeSummary})`,
-					);
-					break;
-				}
-
-				// Commit nur bei vorhandenem Diff
-				const commitResult = await workspace.commit(commitWsPath, commitMsg);
-
-				// Push nur mit Allow-Flag
-				let pushResult = '';
-				if (pushAllowed) {
-					await workspace.push({ workspacePath: commitWsPath, branch });
-					pushResult = ', pushed';
-				} else {
-					pushResult = ', push skipped (POSITRON_ENABLE_PUSH not set)';
-				}
-
-				const summary = `Committed: ${commitResult.sha.slice(0, 7)}${pushResult} (${changeSummary})`;
-				if (phaseRequiresGates('PR_CREATE')) {
-					const gateContext: GateEvaluationContext = {
-						runId: current.id,
-						phase: current.phase,
-						targetPhase: 'PR_CREATE',
-						gateTypes: getRequiredGates('PR_CREATE'),
-					};
-					result = tryTransitionWithGates(current, 'PR_CREATE', summary, gateContext, 'INFO', null);
-				} else {
-					result = transition(current, 'PR_CREATE', summary, 'INFO');
-				}
-			} catch (err) {
-				// Issue #385: COMMIT exception → FAILED_BLOCKED (never PR_CREATE)
-				// A failed commit means no safe state to push or PR from.
-				storeEvent({
-					id: createRunId(),
-					runId: current.id,
-					phase: 'COMMIT',
-					level: 'ERROR',
-					message: `Commit/Push failed: ${String(err).slice(0, 200)}`,
-					payload: null,
-					createdAt: new Date().toISOString(),
-				});
-				result = markFailed(
-					current,
-					'FAILED_BLOCKED',
-					`Commit/Push failed: ${String(err).slice(0, 200)}`,
-				);
-			}
-			break;
-		}
-		case 'PR_CREATE': {
-			const branch =
-				current.branch ?? generateBranchName(current.issueNumber, `run-${current.id.slice(0, 8)}`);
-			const evidence = buildEvidence(current);
-			const body = renderPRBody(current, repository, evidence, branch);
-
-			try {
-				// --- R5: Check for existing PR before creating a new one (Idempotency) ---
-				let pr: Awaited<ReturnType<typeof github.createPullRequest>>;
-				let prWasAdopted = false;
-
-				try {
-					const existingPRs = await github.listPullRequests({
-						owner: repository.owner,
-						repo: repository.repo,
-						head: `${repository.owner}:${branch}`,
-						state: 'open',
-					});
-					if (existingPRs.length > 0 && existingPRs[0]) {
-						const existing = existingPRs[0];
-						pr = {
-							number: existing.number,
-							htmlUrl: existing.htmlUrl,
-							state: existing.state,
-						} as typeof pr;
-						prWasAdopted = true;
-						storeEvent({
-							id: createRunId(),
-							runId: current.id,
-							phase: 'PR_CREATE',
-							level: 'INFO',
-							message: `Adopted existing PR #${pr.number} (recovery after restart)`,
-							payload: { prNumber: pr.number, adopted: true, prUrl: pr.htmlUrl },
-							createdAt: new Date().toISOString(),
-						});
-					} else {
-						pr = await github.createPullRequest({
-							owner: repository.owner,
-							repo: repository.repo,
-							title: `Positron: ${current.issueNumber ? `Issue #${current.issueNumber} — ` : ''}Automated changes`,
-							head: branch,
-							base: repository.defaultBranch ?? 'main',
-							body,
-						});
-					}
-				} catch (listErr) {
-					pr = await github.createPullRequest({
-						owner: repository.owner,
-						repo: repository.repo,
-						title: `Positron: ${current.issueNumber ? `Issue #${current.issueNumber} — ` : ''}Automated changes`,
-						head: branch,
-						base: repository.defaultBranch ?? 'main',
-						body,
-					});
-				}
-
-				// --- R5: Fault Injection Hook ---
-				const faultPoint = process.env.POSITRON_FAULT_INJECTION_POINT;
-				if (
-					!prWasAdopted &&
-					faultPoint === 'AFTER_REMOTE_DRAFT_PR_CREATE_BEFORE_LOCAL_SUCCESS_CHECKPOINT'
-				) {
-					storeEvent({
-						id: createRunId(),
-						runId: current.id,
-						phase: 'PR_CREATE',
-						level: 'WARN',
-						message: `FAULT INJECTED: Terminating after PR #${pr.number} creation, before local checkpoint`,
-						payload: { prNumber: pr.number, faultPoint, prWasAdopted: false },
-						createdAt: new Date().toISOString(),
-					});
-					saveRunToDb({ ...current, phase: 'PR_CREATE', status: 'active' });
-					process.exit(1);
-				}
-
-				if (syncService) {
-					const syncInput: GitHubStatusSyncInput = {
-						runId: current.id,
-						owner: repository.owner,
-						repo: repository.repo,
-						issueNumber: current.issueNumber,
-						phase: 'PR_CREATE',
-						status: 'success',
-						branchName: branch,
-						prNumber: pr.number,
-						prUrl: pr.htmlUrl,
-						evidence,
-					};
-					await safeSync(
-						syncService,
-						() => syncService.syncPrCreated(syncInput),
-						current.id,
-						'PR_CREATE',
-					);
-				}
-
-				// --- Reviewer-Automation (Issue #32) ---
-				const prReviewers = process.env.POSITRON_PR_REVIEWERS?.split(',')
-					.map((s) => s.trim())
-					.filter(Boolean);
-				const prTeamReviewers = process.env.POSITRON_PR_TEAM_REVIEWERS?.split(',')
-					.map((s) => s.trim())
-					.filter(Boolean);
-				if (prReviewers?.length || prTeamReviewers?.length) {
-					try {
-						const reviewResult = await github.requestReviewers({
-							owner: repository.owner,
-							repo: repository.repo,
-							prNumber: pr.number,
-							reviewers: prReviewers,
-							teamReviewers: prTeamReviewers,
-						});
-						if (reviewResult.requested) {
-							const reviewerList = [
-								...(reviewResult.reviewers ?? []),
-								...(reviewResult.teamReviewers ?? []),
-							].join(', ');
-							storeEvent({
-								id: createRunId(),
-								runId: current.id,
-								phase: 'PR_CREATE',
-								level: 'INFO',
-								message: `Review requested from: ${reviewerList}`,
-								payload: {
-									reviewers: reviewResult.reviewers,
-									teamReviewers: reviewResult.teamReviewers,
-								},
-								createdAt: new Date().toISOString(),
-							});
-						}
-					} catch {
-						storeEvent({
-							id: createRunId(),
-							runId: current.id,
-							phase: 'PR_CREATE',
-							level: 'WARN',
-							message: 'Review request failed (non-blocking)',
-							payload: null,
-							createdAt: new Date().toISOString(),
-						});
-					}
-				}
-
-				if (phaseRequiresGates('MERGE')) {
-					const gateContext: GateEvaluationContext = {
-						runId: current.id,
-						phase: current.phase,
-						targetPhase: 'MERGE',
-						gateTypes: getRequiredGates('MERGE'),
-					};
-					result = tryTransitionWithGates(
-						current,
-						'MERGE',
-						`PR #${pr.number} created: ${pr.htmlUrl}`,
-						gateContext,
-						'INFO',
-						null,
-					);
-				} else {
-					result = transition(current, 'MERGE', `PR #${pr.number} created: ${pr.htmlUrl}`, 'INFO');
-				}
-			} catch (err) {
-				storeEvent({
-					id: createRunId(),
-					runId: current.id,
-					phase: 'PR_CREATE',
-					level: 'ERROR',
-					message: `PR creation failed: ${String(err).slice(0, 200)}`,
-					payload: null,
-					createdAt: new Date().toISOString(),
-				});
-				result = markFailed(
-					current,
-					'FAILED_BLOCKED',
-					`PR creation failed: ${String(err).slice(0, 100)}`,
-				);
-			}
-			break;
-		}
-		case 'MERGE': {
-			// --- Issue #321: Gate DONE transitions on evidence_required ---
-			const doneGateCtx: GateEvaluationContext = {
-				runId: current.id,
-				phase: current.phase,
-				targetPhase: 'DONE',
-				gateTypes: getRequiredGates('DONE'),
-			};
-
-			// --- Safety Gates (Issue #21 + #41) ---
-			const mergeAllowed = process.env.POSITRON_ENABLE_MERGE === 'true';
-			const mergeDryRun = process.env.POSITRON_MERGE_DRY_RUN === 'true';
-			const mergeKillSwitch = process.env.POSITRON_MERGE_KILL_SWITCH !== 'false';
-
-			// Branch
-			const branch = current.branch;
-			if (!branch) {
-				result = tryTransitionWithGates(
-					current,
-					'DONE',
-					'Merge skipped (no branch)',
-					doneGateCtx,
-					'INFO',
-					null,
-				);
-				break;
-			}
-
-			// Fetch PR
-			let pr: Awaited<ReturnType<typeof github.listPullRequests>>[0] | null = null;
-			try {
-				const prs = await github.listPullRequests({
-					owner: repository.owner,
-					repo: repository.repo,
-					head: `${repository.owner}:${branch}`,
-					state: 'open',
-				});
-				pr = prs[0] ?? null;
-			} catch {
-				/* PR lookup optional */
-			}
-
-			if (!pr) {
-				result = tryTransitionWithGates(
-					current,
-					'DONE',
-					'Merge skipped (no open PR found)',
-					doneGateCtx,
-					'INFO',
-					null,
-				);
-				break;
-			}
-
-			if (pr.state !== 'open') {
-				storeEvent({
-					id: createRunId(),
-					runId: current.id,
-					phase: 'MERGE',
-					level: 'WARN',
-					message: `PR #${pr.number} ist nicht offen (state: ${pr.state}), überspringe Merge`,
-					payload: { prNumber: pr.number, prState: pr.state },
-					createdAt: new Date().toISOString(),
-				});
-				result = tryTransitionWithGates(
-					current,
-					'DONE',
-					`PR #${pr.number} ist ${pr.state} — Merge übersprungen`,
-					doneGateCtx,
-					'WARN',
-					null,
-				);
-				break;
-			}
-
-			// --- Dry-Run: Evaluate all gates, never merge (Issue #41) ---
-			if (mergeDryRun) {
-				// Fetch PR details with polling for conclusive mergeability (Issue #42)
-				let mergeableState = 'checking';
-				const maxMergeableRetries = 3;
-				const mergeableRetryDelay = 5000; // 5s between polls
-
-				for (let retry = 0; retry <= maxMergeableRetries; retry++) {
-					try {
-						const prDetail = await github.getPullRequest(
-							repository.owner,
-							repository.repo,
-							pr.number,
-						);
-						const raw = prDetail.mergeable;
-						if (raw === true) {
-							mergeableState = 'clean';
-							break;
-						}
-						if (raw === false) {
-							mergeableState = 'conflict';
-							break;
-						}
-						// null/undefined: still computing — retry after delay
-						if (retry < maxMergeableRetries) {
-							await new Promise((r) => setTimeout(r, mergeableRetryDelay));
-						}
-					} catch {
-						/* PR details optional */ break;
-					}
-				}
-
-				const testEvent = getEvents(current.id).find(
-					(e) => e.phase === 'TEST' && e.level === 'INFO',
-				);
-
-				// Evaluate ALL gates (no short-circuit in dry-run)
-				const allGates: Array<{
-					gate: string;
-					passed: boolean;
-					detail: string;
-				}> = [
-					{
-						gate: 'Auto-Merge Enabled',
-						passed: mergeAllowed,
-						detail: mergeAllowed ? 'POSITRON_ENABLE_MERGE=true' : 'POSITRON_ENABLE_MERGE not set',
-					},
-					{
-						gate: 'Kill-Switch',
-						passed: !mergeKillSwitch,
-						detail: mergeKillSwitch
-							? 'POSITRON_MERGE_KILL_SWITCH=true — blocked'
-							: 'Kill-Switch not active',
-					},
-					{
-						gate: 'Run Status Active',
-						passed: current.status === 'active',
-						detail: `Run status is "${current.status}"`,
-					},
-					{
-						gate: 'Test Evidence',
-						passed: !!testEvent,
-						detail: testEvent ? 'Test phase completed with INFO' : 'No passing test evidence',
-					},
-					{
-						gate: 'Branch',
-						passed: !!current.branch,
-						detail: `Branch: ${current.branch}`,
-					},
-					{
-						gate: 'PR Open',
-						passed: pr.state === 'open',
-						detail: `PR state: ${pr.state}`,
-					},
-					{
-						gate: 'Mergeable',
-						passed: mergeableState === 'clean',
-						detail: `GitHub mergeable: ${mergeableState}`,
-					},
-				];
-
-				const allPassed = allGates.every((g) => g.passed);
-				const decision = allPassed ? 'WOULD_MERGE' : 'WOULD_BLOCK';
-				const blockedGates = allGates.filter((g) => !g.passed);
-
-				// Structured event for Dashboard
-				storeEvent({
-					id: createRunId(),
-					runId: current.id,
-					phase: 'MERGE',
-					level: 'GATE',
-					message: `[DRY-RUN] ${decision}: ${allGates.filter((g) => g.passed).length}/${allGates.length} gates pass`,
-					payload: {
-						decision,
-						allPassed,
-						mergeable: mergeableState,
-						gates: allGates,
-						prNumber: pr.number,
-						prUrl: pr.htmlUrl,
-					},
-					createdAt: new Date().toISOString(),
-				});
-
-				// GitHub comment with gate-by-gate results
-				try {
-					const gateList = allGates
-						.map((g) => `- ${g.passed ? '✅' : '❌'} **${g.gate}:** ${g.detail}`)
-						.join('\n');
-					await github.createIssueComment(
-						{
-							owner: repository.owner,
-							repo: repository.repo,
-							issueNumber: current.issueNumber,
-						},
-						`## 🔍 Auto-Merge Dry-Run Result\n\n**Decision:** ${decision}\n**PR:** #${pr.number}\n**Mergeable:** ${mergeableState}\n\n### Gates (${allGates.filter((g) => g.passed).length}/${allGates.length})\n\n${gateList}\n\n> 🛡️ **No merge executed** — Dry-Run only.`,
-					);
-				} catch {
-					/* comment is best-effort */
-				}
-
-				result = tryTransitionWithGates(
-					current,
-					'DONE',
-					`[DRY-RUN] ${decision}: ${allPassed ? 'All gates pass' : `${blockedGates.length} gates fail — ${blockedGates.map((g) => g.gate).join(', ')}`}`,
-					doneGateCtx,
-					allPassed ? 'INFO' : 'WARN',
-					null,
-				);
-				break;
-			}
-
-			// --- Real Merge (nicht Dry-Run) ---
-
-			// Kill-Switch
-			if (mergeKillSwitch) {
-				result = tryTransitionWithGates(
-					current,
-					'DONE',
-					'Merge BLOCKED: Kill-Switch (POSITRON_MERGE_KILL_SWITCH=true)',
-					doneGateCtx,
-					'WARN',
-					null,
-				);
-				break;
-			}
-			if (!mergeAllowed) {
-				result = tryTransitionWithGates(
-					current,
-					'DONE',
-					'Merge skipped (POSITRON_ENABLE_MERGE not set)',
-					doneGateCtx,
-					'INFO',
-					null,
-				);
-				break;
-			}
-			if (current.status !== 'active') {
-				result = tryTransitionWithGates(
-					current,
-					'DONE',
-					`Merge blocked: Run status is ${current.status}`,
-					doneGateCtx,
-					'WARN',
-					null,
-				);
-				break;
-			}
-
-			try {
-				const mergeResult = await github.mergePullRequest({
-					owner: repository.owner,
-					repo: repository.repo,
-					prNumber: pr.number,
-					strategy: 'squash',
-					commitTitle: `Positron: Issue #${current.issueNumber} — Automated changes`,
-					commitMessage: `Run: ${current.id.slice(0, 8)}`,
-				});
-
-				if (mergeResult.merged) {
-					if (syncService) {
-						const syncInput: GitHubStatusSyncInput = {
-							runId: current.id,
-							owner: repository.owner,
-							repo: repository.repo,
-							issueNumber: current.issueNumber,
-							phase: 'MERGE',
-							status: 'success',
-							branchName: mergeResult.sha,
-							prNumber: pr.number,
-							prUrl: pr.htmlUrl,
-						};
-						await safeSync(
-							syncService,
-							() => syncService.syncMerged(syncInput),
-							current.id,
-							'MERGE',
-						);
-					}
-					// Issue nach erfolgreichem Merge schließen (Task 2)
-					try {
-						await github.closeIssue(repository.owner, repository.repo, current.issueNumber);
-						storeEvent({
-							id: createRunId(),
-							runId: current.id,
-							phase: 'MERGE',
-							level: 'INFO',
-							message: `Issue #${current.issueNumber} closed after merge`,
-							payload: null,
-							createdAt: new Date().toISOString(),
-						});
-					} catch (err) {
-						storeEvent({
-							id: createRunId(),
-							runId: current.id,
-							phase: 'MERGE',
-							level: 'WARN',
-							message: `Issue close skipped: ${String(err).slice(0, 200)}`,
-							payload: null,
-							createdAt: new Date().toISOString(),
-						});
-					}
-					result = tryTransitionWithGates(
-						current,
-						'DONE',
-						`PR #${pr.number} merged: ${mergeResult.sha?.slice(0, 7)}`,
-						doneGateCtx,
-						'INFO',
-						null,
-					);
-				} else {
-					result = tryTransitionWithGates(
-						current,
-						'DONE',
-						`PR #${pr.number} not mergeable: ${mergeResult.message ?? 'unknown'}`,
-						doneGateCtx,
-						'WARN',
-						null,
-					);
-				}
-			} catch (err) {
-				storeEvent({
-					id: createRunId(),
-					runId: current.id,
-					phase: 'MERGE',
-					level: 'WARN',
-					message: `Merge failed: ${String(err).slice(0, 200)}`,
-					payload: null,
-					createdAt: new Date().toISOString(),
-				});
-				result = tryTransitionWithGates(
-					current,
-					'DONE',
-					`Merge failed: ${String(err).slice(0, 100)}`,
-					doneGateCtx,
-					'WARN',
-					null,
-				);
-			}
-			break;
-		}
-		case 'GATE_APPROVE': {
-			// ── Issue #332: Wire gateApproveAction() into server runtime ──
-			// Uses extracted handleGateApprove adapter for testability.
-			// Evaluates the Stop/Ask policy and routes the 6 decision outcomes.
-			//
-			// Safety invariants:
-			// - Non-ALLOW never proceeds to COMMIT/MERGE
-			// - Exception / missing input → fail closed
-			// - Existing Gate 9 / onAudit behavior is not weakened
-
-			try {
-				const { handleGateApprove } = await import('./gate-approve-handler.js');
-				const { outcome, events } = handleGateApprove(current);
-
-				// Store all events produced by gate evaluation
-				for (const ev of events) {
-					storeEvent({
-						id: createRunId(),
-						runId: current.id,
-						phase: ev.phase,
-						level: ev.level,
-						message: ev.message,
-						payload: ev.payload,
-						createdAt: new Date().toISOString(),
-					});
-				}
-
-				switch (outcome.kind) {
-					case 'TRANSITION':
-						result = transition(current, outcome.to, outcome.message, 'GATE', outcome.payload);
-						break;
-
-					case 'FAILED_BLOCKED':
-						result = markFailed(current, 'FAILED_BLOCKED', outcome.message);
-						break;
-
-					case 'STAY':
-						storeEvent({
-							id: createRunId(),
-							runId: current.id,
-							phase: 'GATE_APPROVE',
-							level: 'HUMAN',
-							message: outcome.message,
-							payload: { requiredEvidence: outcome.message },
-							createdAt: new Date().toISOString(),
-						});
-						return current;
-				}
-			} catch (err) {
-				// Exception in gate evaluation → fail closed
-				const errMsg = err instanceof Error ? err.message : String(err);
-				storeEvent({
-					id: createRunId(),
-					runId: current.id,
-					phase: 'GATE_APPROVE',
-					level: 'ERROR',
-					message: `GATE_APPROVE evaluation failed: ${errMsg}`,
-					payload: null,
-					createdAt: new Date().toISOString(),
-				});
-				result = markFailed(
-					current,
-					'FAILED_BLOCKED',
-					`GATE_APPROVE exception: ${errMsg.slice(0, 200)}`,
-				);
-			}
-			break;
-		}
-		default:
-			return current; // terminal
-	}
-
-	if (result.ok) {
-		storeEvent(result.event);
-		return result.run;
-	}
-	storeEvent(result.event);
-	return current;
+function abortRun(runId: string): void {
+	runAbortControllers.get(runId)?.abort();
 }
-
-/** Gespeicherte Ziel-Phase für Resume (imported from signals.ts) */
-// resumePhaseTarget is defined in ./signals.ts and imported above
 
 async function runFullPipeline(
 	run: RunState,
@@ -1817,354 +659,55 @@ async function runFullPipeline(
 	syncService?: GitHubStatusSyncService,
 	options?: { startFromPhase?: Phase },
 ): Promise<RunState> {
-	let current = run;
-	const maxSteps = 20;
-	let attempt = 0;
-
-	// Resume-by-State: Phase überspringen bis zur Ziel-Phase (Aufgabe 5)
-	if (options?.startFromPhase && options.startFromPhase !== run.phase) {
-		const skipEvent = {
-			id: createRunId(),
-			runId: run.id,
-			phase: run.phase,
-			level: 'GATE' as EventLevel,
-			message: `Resume: skipping to phase ${options.startFromPhase}`,
-			payload: { resumeFrom: run.phase, resumeTo: options.startFromPhase },
-			createdAt: new Date().toISOString(),
-		};
-		storeEvent(skipEvent);
-		current = {
-			...run,
-			phase: options.startFromPhase,
-			status: 'active',
-			lastError: null,
-		};
-		saveRunToDb(current);
-	}
-	// Configurable max retries: env var overrides constant (Issue #31)
-	const envMaxRetries = process.env.POSITRON_MAX_FIX_LOOPS
-		? Number.parseInt(process.env.POSITRON_MAX_FIX_LOOPS, 10)
-		: undefined;
-	const maxAttempts = envMaxRetries && !Number.isNaN(envMaxRetries) ? envMaxRetries : MAX_FIX_LOOPS;
-	const fixLoopEnabled = process.env.POSITRON_ENABLE_FIX_LOOP === 'true';
-	let lastRetryTime = 0;
-
-	for (let i = 0; i < maxSteps; i++) {
-		// Check control signals before each phase (Issue #30)
-		const signalCheck = checkRunSignal(current.id, current.phase);
-		if (signalCheck?.toLowerCase() === 'abort') {
-			// Unify abort → cancelled (Issue #66) — both cancel endpoint and control/abort now
-			// result in 'cancelled' status. Previously this was FAILED_BLOCKED.
-			const cancelledRun = {
-				...current,
-				status: 'cancelled' as RunStatus,
-				finishedAt: new Date().toISOString(),
-			};
-			storeEvent({
-				id: createRunId(),
-				runId: current.id,
-				phase: current.phase,
-				level: 'HUMAN' as EventLevel,
-				message: 'Run aborted by user',
-				payload: { action: 'abort', previousPhase: current.phase },
-				createdAt: new Date().toISOString(),
-			});
-			saveRunToDb(cancelledRun as RunState);
-			broadcastSSE(current.id, 'run-cancelled', {
-				runId: current.id,
-				phase: current.phase,
-				status: 'cancelled',
-				message: 'Run aborted by user',
-			});
-			return cancelledRun as RunState;
-		}
-		if (signalCheck?.toLowerCase() === 'paused') {
-			// Wait for resume or abort
-			storeEvent({
-				id: createRunId(),
-				runId: current.id,
-				phase: current.phase,
-				level: 'GATE' as EventLevel,
-				message: 'Run paused by user — waiting for resume or abort',
-				payload: null,
-				createdAt: new Date().toISOString(),
-			});
-			broadcastSSE(current.id, 'run-control', { action: 'paused' });
-			while (true) {
-				await new Promise((r) => setTimeout(r, 500));
-				const s = checkRunSignal(current.id, current.phase);
-				if (s?.toLowerCase() === 'abort') {
-					// Unify abort → cancelled (Issue #66)
-					const cancelledRun = {
-						...current,
-						status: 'cancelled' as RunStatus,
-						finishedAt: new Date().toISOString(),
-					};
-					storeEvent({
-						id: createRunId(),
-						runId: current.id,
-						phase: current.phase,
-						level: 'HUMAN' as EventLevel,
-						message: 'Run aborted while paused',
-						payload: { action: 'abort', previousPhase: current.phase },
-						createdAt: new Date().toISOString(),
-					});
-					saveRunToDb(cancelledRun as RunState);
-					// ── Metrics: run cancelled ──
-					cancellationsTotal.inc({ cancel_source: 'user' });
-					activeRuns.dec();
-					broadcastSSE(current.id, 'run-cancelled', {
-						runId: current.id,
-						phase: current.phase,
-						status: 'cancelled',
-						message: 'Run aborted while paused',
-					});
-					return cancelledRun as RunState;
-				}
-				if (s?.toLowerCase() === 'proceed') {
-					storeEvent({
-						id: createRunId(),
-						runId: current.id,
-						phase: current.phase,
-						level: 'GATE' as EventLevel,
-						message: 'Run resumed by user',
-						payload: null,
-						createdAt: new Date().toISOString(),
-					});
-					broadcastSSE(current.id, 'run-control', { action: 'resumed' });
-					break;
-				}
-			}
-		}
-		if (signalCheck?.toLowerCase() === 'resume') {
-			// Resume-by-State (Aufgabe 5): Phase überspringen zur Ziel-Phase
-			const targetPhase = getResumePhaseTarget(current.id);
-			if (targetPhase) {
-				clearRunSignal(current.id, 'RESUME');
-				current = {
-					...current,
-					phase: targetPhase as import('@positron/shared').Phase,
-					status: 'active',
-					lastError: null,
-				};
-				saveRunToDb(current);
-				storeEvent({
-					id: createRunId(),
-					runId: current.id,
-					phase: current.phase,
-					level: 'GATE',
-					message: `Resumed to phase: ${targetPhase}`,
-					payload: { targetPhase },
-					createdAt: new Date().toISOString(),
-				});
-				broadcastSSE(current.id, 'run-update', {
-					phase: current.phase,
-					status: current.status,
-					branch: current.branch,
-				});
-				continue;
-			}
-		}
-		if (signalCheck?.toLowerCase() === 'retry') {
-			// Manual retry from FAILED_TRANSIENT
-			const retryResult = retry(current);
-			if (retryResult.ok) {
-				storeEvent(retryResult.event);
-				saveRunToDb(retryResult.run);
-				current = retryResult.run;
-				attempt = current.attempt;
-				broadcastSSE(current.id, 'run-update', {
-					phase: current.phase,
-					status: current.status,
-					branch: current.branch,
-				});
-				continue;
-			}
-		}
-
-		const next = await executePhase(
-			current,
+	// P3: Der Inline-Fallback delegiert an die kanonische Worker-Pipeline
+	// (dieselbe Execution Boundary — keine zweite Runtime, kein Bypass).
+	// Alle produktiven Worker-Aufrufe laufen damit über persistierte
+	// Job/Attempt-Tracking mit Execution-Context-Assertion.
+	const startRun: RunState =
+		options?.startFromPhase && options.startFromPhase !== run.phase
+			? { ...run, phase: options.startFromPhase as Phase, status: 'active', lastError: null }
+			: run;
+	// P4 (Slice B): Run-scoped AbortController — Cancel-Endpoint kann den
+	// laufenden Run sofort abortern (AbortSignal → Worker → Child-Prozess).
+	const abortController = new AbortController();
+	runAbortControllers.set(run.id, abortController);
+	try {
+		const pipelineDeps: PipelineDeps = {
+			db: getDb(),
 			repository,
 			workspace,
 			speckit,
 			opencode,
 			github,
 			syncService,
-		);
-		if (next.phase === current.phase || next.phase === 'DONE' || next.phase.startsWith('FAILED')) {
-			// --- Fix-Loop (Issue #31 — enhanced) ---
-			if (fixLoopEnabled && next.phase === 'FAILED_TRANSIENT' && attempt < maxAttempts) {
-				attempt++;
-
-				// Find the original failed phase from event payload (stored by markFailed)
-				const allTransient = getEvents(next.id).filter(
-					(e: RunEventData) => e.phase === 'FAILED_TRANSIENT',
-				);
-				const transientEvent = allTransient[allTransient.length - 1];
-				const failedPhase = (transientEvent?.payload as Record<string, unknown> | null)
-					?.failedPhase as string | undefined;
-				const retryFromPhase =
-					failedPhase && failedPhase !== 'FAILED_TRANSIENT' ? failedPhase : 'TEST';
-
-				// Exponential backoff: 1s, 2s, 4s, 8s... max 30s
-				const backoffMs = Math.min(1000 * 2 ** (attempt - 1), 30000);
-				const now = Date.now();
-				const timeSinceLastRetry = now - lastRetryTime;
-				if (timeSinceLastRetry < backoffMs) {
-					await new Promise((r) => setTimeout(r, backoffMs - timeSinceLastRetry));
+			gateRuntimeMode,
+			// P4: zentrale, validierte Attempt-Lease-TTL (POSITRON_ATTEMPT_LEASE_TTL_MS)
+			attemptLeaseTtlMs: resolveAttemptLeaseTtlMs(process.env),
+			signal: abortController.signal,
+			// SSE-Kompatibilität: jedes gespeicherte run_event wird gebroadcastet
+			onEvent: (ev) => {
+				try {
+					broadcastSSE(ev.runId, 'run-event', ev);
+				} catch {
+					/* SSE-Fehler sind nicht kritisch */
 				}
-				lastRetryTime = Date.now();
-
-				storeEvent({
-					id: createRunId(),
-					runId: next.id,
-					phase: retryFromPhase as Phase,
-					level: 'WARN',
-					message: `Fix-Loop retry ${attempt}/${maxAttempts} — phase: ${retryFromPhase}, backoff: ${backoffMs}ms`,
-					payload: { attempt, maxAttempts, retryFromPhase, backoffMs },
-					createdAt: new Date().toISOString(),
-				});
-
-				// ── Metrics: retry attempt ──
-				retriesTotal.inc({ attempt: String(attempt) });
-
-				// Manually set run state (transition validation rejects FAILED_TRANSIENT → *)
-				current = {
-					...next,
-					phase: retryFromPhase as Phase,
-					status: 'active',
-					attempt,
-					lastError: null,
-				};
-				broadcastSSE(current.id, 'run-update', {
-					phase: current.phase,
-					status: current.status,
-					branch: current.branch,
-				});
-				continue;
-			}
-
-			// Sync terminal state
-			if (syncService) {
-				const syncInput: GitHubStatusSyncInput = {
-					runId: next.id,
-					owner: repository.owner,
-					repo: repository.repo,
-					issueNumber: next.issueNumber,
-					phase: next.phase,
-					status: next.phase === 'DONE' ? 'done' : 'failed',
-					branchName: next.branch ?? undefined,
-					evidence: buildEvidence(next),
-				};
-				if (next.phase === 'DONE') {
-					await safeSync(syncService, () => syncService.syncDone(syncInput), next.id, 'DONE');
-					// ── Metrics: run completed successfully ──
-					const startedMs = next.startedAt ? new Date(next.startedAt).getTime() : Date.now();
-					const durationSec = (Date.now() - startedMs) / 1000;
-					runsTotal.inc({ status: 'done' });
-					runDurationSeconds.observe({ status: 'done' }, durationSec);
-					activeRuns.dec();
-				} else if (next.phase === 'FAILED_BLOCKED') {
-					await safeSync(
-						syncService,
-						() =>
-							syncService.syncBlocked({
-								...syncInput,
-								error: {
-									type: 'blocked',
-									message: 'Run blocked: max steps or policy violation',
-								},
-							}),
-						next.id,
-						'FAILED_BLOCKED',
-					);
-					// ── Metrics: run failed (blocked) ──
-					runFailuresTotal.inc({ failure_type: 'FAILED_BLOCKED' });
-					activeRuns.dec();
-				} else if (next.phase.startsWith('FAILED')) {
-					await safeSync(
-						syncService,
-						() =>
-							syncService.syncFailed({
-								...syncInput,
-								error: {
-									type: 'failed',
-									message: `Run failed in phase ${next.phase}`,
-								},
-							}),
-						next.id,
-						next.phase,
-					);
-					// ── Metrics: run failed ──
-					runFailuresTotal.inc({ failure_type: next.phase });
-					activeRuns.dec();
-				}
-			}
-			saveRunToDb(next);
-			broadcastSSE(next.id, 'run-update', {
-				phase: next.phase,
-				status: next.status,
-				branch: next.branch,
-			});
-			// Issue #244: Run workspace cleanup on terminal phase
-			runCleanup(next)
-				.then((cleanupResult) => {
-					if (!cleanupResult.cleaned) {
-						log.warn(`Workspace cleanup: ${cleanupResult.reason ?? 'unknown'}`, { runId: next.id });
-					}
-				})
-				.catch((err) => {
-					log.error(
-						`Workspace cleanup error: ${err instanceof Error ? err.message : String(err)}`,
-						{ runId: next.id },
-					);
-				});
-			return next;
-		}
-		current = next;
-	}
-	// Timeout
-	const result = markFailed(current, 'FAILED_BLOCKED', 'Max steps exceeded');
-	storeEvent(result.event);
-	// Sync timeout
-	if (syncService) {
-		const syncInput: GitHubStatusSyncInput = {
-			runId: result.run.id,
-			owner: repository.owner,
-			repo: repository.repo,
-			issueNumber: result.run.issueNumber,
-			phase: 'FAILED_BLOCKED',
-			status: 'blocked',
-			branchName: result.run.branch ?? undefined,
-			error: { type: 'blocked', message: 'Max steps exceeded (timeout)' },
+			},
 		};
-		await safeSync(
-			syncService,
-			() => syncService.syncBlocked(syncInput),
-			result.run.id,
-			'FAILED_BLOCKED',
-		);
-	}
-	saveRunToDb(result.run);
-	broadcastSSE(result.run.id, 'run-complete', {
-		phase: result.run.phase,
-		status: result.run.status,
-	});
-	// Issue #244: Run workspace cleanup on timeout/terminal
-	runCleanup(result.run)
-		.then((cleanupResult) => {
-			if (!cleanupResult.cleaned) {
-				log.warn(`Workspace cleanup: ${cleanupResult.reason ?? 'unknown'}`, {
-					runId: result.run.id,
-				});
-			}
-		})
-		.catch((err) => {
-			log.error(`Workspace cleanup error: ${err instanceof Error ? err.message : String(err)}`, {
-				runId: result.run.id,
+		const result = await runPipeline(startRun, pipelineDeps);
+		// Terminal-Broadcast für SSE-Kompatibilität
+		try {
+			broadcastSSE(result.id, 'run-update', {
+				phase: result.phase,
+				status: result.status,
+				branch: result.branch,
 			});
-		});
-	return result.run;
+		} catch {
+			/* SSE-Fehler sind nicht kritisch */
+		}
+		return result;
+	} finally {
+		runAbortControllers.delete(run.id);
+	}
 }
 
 /**
@@ -2545,6 +1088,28 @@ export function createApp(options: ServerOptions = {}) {
 	// SQLite-Datenbank initialisieren
 	db = openDatabase(options.dbPath);
 	initSignalsDb(getDb());
+	// Issue #421: Control-Plane-Tabellen (idempotent, bestehende DB)
+	applyControlPlaneMigrations(getDb());
+	// P4 (Slice F): Produktion-Crash-Recovery beim Start — abgelaufene
+	// Attempt-Leases (gecrashte Controller/Worker, kein Heartbeat) werden
+	// finalisiert (STALE_LEASE), stale Queue-/Workspace-/Provider-Zustände
+	// requeued/freigegeben. Die QUEUE überlebt den Restart (durable
+	// cp_queue); abgeschlossene Arbeit wird beim Resume nicht erneut
+	// ausgeführt (Attempt-Wiederverwendung in runPipeline).
+	//
+	// WICHTIG (Review-Fix): recoverSchedulerState läuft VOR recoverStaleLeases.
+	// Die Lease-Aliveness prüft laufende Attempts — erst nach der Requeue-
+	// Entscheidung werden abgelaufene Attempts finalisiert, sonst würde ein
+	// gecrashter Run (Attempts inzwischen final) als "lebendig" gelten und
+	// sein RUNNING-Item bliebe für immer hängen.
+	try {
+		recoverSchedulerState(getDb(), (runId) => isRunLeaseAlive(getDb(), runId));
+		recoverStaleLeases(getDb());
+	} catch (err) {
+		log.warn(
+			`P4 crash recovery on startup failed: ${err instanceof Error ? err.message : String(err)}`,
+		);
+	}
 	const repository = resolveRepositoryConfig(options.repository);
 	const { adapter: github, mode: githubMode } = resolveAdapter(options.adapter);
 	const activeWorkspaceAdapter = options.workspaceAdapter ?? workspaceAdapter;
@@ -2575,6 +1140,26 @@ export function createApp(options: ServerOptions = {}) {
 		runId: 'server-runtime',
 		source: 'server',
 	});
+
+	// ── P4: Scheduler config (early, for canonical intake) ──
+	// Defined early so POST /api/runs can reference it without TDZ
+	// Initialized lazily after DB is ready to avoid getDb() before init
+	let schedulerCfg: {
+		maxActiveRuns: number;
+		workspaceLockTtlMs: number;
+		maxConcurrentByProvider?: Record<string, number>;
+		activeByProvider?: () => Record<string, number>;
+		defaultModel?: string | null;
+		emitEvent?: (event: import('@positron/control-plane').SchedulerEvent) => void;
+	} = {
+		maxActiveRuns: Number(process.env.POSITRON_MAX_ACTIVE_RUNS ?? 2),
+		workspaceLockTtlMs: 600_000,
+		maxConcurrentByProvider: undefined,
+		activeByProvider: () => ({}),
+		defaultModel: null,
+		emitEvent: undefined,
+	};
+	let schedulerLoopTick: () => Promise<void> = async () => {};
 
 	// ── QA-011: Metrics-decorated OpenCode adapter ──
 	// Wraps the adapter to record telemetry without modifying adapter code.
@@ -2854,6 +1439,7 @@ export function createApp(options: ServerOptions = {}) {
 	});
 
 	// POST /api/runs — Start a run from a GitHub issue URL (write endpoint — requires admin auth)
+	// CANONICAL PRODUCTIVE INTAKE: all productive runs enter via scheduler enqueue → admission → runPipeline
 	app.post('/api/runs', requireAdmin, async (req, res) => {
 		try {
 			const { issueUrl } = (req.body as { issueUrl?: string }) ?? {};
@@ -2888,180 +1474,12 @@ export function createApp(options: ServerOptions = {}) {
 					.run(repoId, owner, repo, `https://github.com/${owner}/${repo}`, 'main');
 			}
 
-			// Create run and attempt to enqueue to BullMQ (inline fallback if Redis unavailable)
-			const { autonomyLevel } = req.body as { autonomyLevel?: number };
-			const run = createRun(repo!, issueNumber, autonomyLevel ?? 2);
-			saveRunToDb(run);
-
-			let queued = false;
-			let pipelineQueue: import('bullmq').Queue | null = null;
-			try {
-				const { Queue } = await import('bullmq');
-				const { PIPELINE_QUEUE, resolveRedisUrl } = await import('@positron/shared');
-
-				const redisUrl = resolveRedisUrl();
-				pipelineQueue = new Queue(PIPELINE_QUEUE, {
-					connection: {
-						url: redisUrl,
-						connectTimeout: 500,
-						retryStrategy: () => null,
-					},
-				});
-
-				// Check if at least one worker is listening before enqueuing.
-				// If no workers are available, the run would never execute — fall back to inline.
-				const workers = await pipelineQueue.getWorkers();
-				if (workers.length === 0) {
-					throw new Error('NO_WORKERS');
-				}
-
-				// Use run.id as deterministic jobId to prevent double-execution on retry
-				const job = await pipelineQueue.add(
-					'pipeline',
-					{
-						runId: run.id,
-						repoId: repository.repo,
-						issueNumber: issueNumber ?? run.issueNumber,
-						autonomyLevel: autonomyLevel ?? run.autonomyLevel ?? 2,
-					},
-					{ jobId: run.id },
-				);
-				queued = true;
-
-				res.json({ run, runId: run.id, jobId: job.id, message: 'Run queued' });
-			} catch (_queueErr: unknown) {
-				if (!queued) {
-					// Queue completely unavailable — fall back to inline execution
-					res.json({
-						run,
-						runId: run.id,
-						message: 'Run started (inline)',
-						repoId,
-					});
-					runFullPipeline(
-						run,
-						repository,
-						activeWorkspaceAdapter,
-						activeSpecKitAdapter,
-						instrumentedOpenCodeAdapter,
-						github,
-						syncService,
-					)
-						.then((finalRun) => {
-							saveRunToDb(finalRun);
-							broadcastSSE(finalRun.id, 'run-update', {
-								phase: finalRun.phase,
-								status: finalRun.status,
-								branch: finalRun.branch,
-							});
-						})
-						.catch((err) => {
-							storeEvent({
-								id: createRunId(),
-								runId: run.id,
-								phase: 'FAILED_BLOCKED',
-								level: 'ERROR',
-								message: `Run failed: ${String(err).slice(0, 200)}`,
-								payload: null,
-								createdAt: new Date().toISOString(),
-							});
-						});
-				}
-				// If close() threw but job was queued, the job is still in Redis — no fallback needed
-			} finally {
-				await pipelineQueue?.close().catch(() => {});
-			}
-		} catch (err) {
-			res.status(400).json({
-				error: 'VALIDATION_ERROR',
-				message: err instanceof Error ? err.message : 'Invalid request',
-			});
-		}
-	});
-
-	// Run starten (write endpoint — requires admin auth)
-	app.post('/api/repos/:repoId/runs', requireAdmin, async (req, res) => {
-		try {
-			const { issueNumber, autonomyLevel } = validateRunRequest(req.body);
-			const run = createRun(repository.repo, issueNumber, autonomyLevel ?? 2);
-			saveRunToDb(run); // Sofort persistieren — sichtbar noch während Pipeline läuft
-			runsTotal.inc({ status: 'active' });
-			activeRuns.inc();
-
-			// QA-029: POSITRON_DISABLE_QUEUE=true forces inline execution for tests
-			// even when Redis and workers are available.
-			const disableQueue = process.env.POSITRON_DISABLE_QUEUE === 'true';
-
-			let queued = false;
-			let pipelineQueue: import('bullmq').Queue | null = null;
-			if (!disableQueue) {
-				try {
-					const { Queue } = await import('bullmq');
-					const { PIPELINE_QUEUE, resolveRedisUrl } = await import('@positron/shared');
-
-					const redisUrl = resolveRedisUrl();
-					pipelineQueue = new Queue(PIPELINE_QUEUE, {
-						connection: {
-							url: redisUrl,
-							connectTimeout: 500,
-							retryStrategy: () => null,
-						},
-					});
-
-					// Check if at least one worker is listening before enqueuing.
-					// If no workers are available, the run would never execute — fall back to inline.
-					const workers = await pipelineQueue.getWorkers();
-					if (workers.length === 0) {
-						throw new Error('NO_WORKERS');
-					}
-
-					// Use run.id as deterministic jobId to prevent double-execution on retry
-					const job = await pipelineQueue.add(
-						'pipeline',
-						{
-							runId: run.id,
-							repoId: repository.repo,
-							issueNumber,
-							autonomyLevel: autonomyLevel ?? 2,
-						},
-						{ jobId: run.id },
-					);
-					queued = true;
-
-					res.json({
-						run,
-						runId: run.id,
-						jobId: job.id,
-						message: 'Run queued',
-					});
-				} catch (_queueErr: unknown) {
-					if (!queued) {
-						// Queue completely unavailable — fall back to inline execution
-						const completed = await runFullPipeline(
-							run,
-							repository,
-							activeWorkspaceAdapter,
-							activeSpecKitAdapter,
-							instrumentedOpenCodeAdapter,
-							github,
-							syncService,
-						);
-						const evts = getEvents(completed.id);
-						res.json({
-							run: completed,
-							runId: completed.id,
-							events: evts,
-							eventCount: evts.length,
-						});
-					}
-					// If close() threw but job was queued, the job is still in Redis — no fallback needed
-				} finally {
-					await pipelineQueue?.close().catch(() => {});
-				}
-			}
-
-			// If queue is disabled, run inline directly
-			if (disableQueue) {
+			// CANONICAL: enqueue via P4 scheduler (no direct runPipeline, no direct BullMQ)
+			// For e2e tests with POSITRON_DISABLE_QUEUE=true, use inline execution for backward compat
+			if (process.env.POSITRON_DISABLE_QUEUE === 'true') {
+				const { autonomyLevel } = req.body as { autonomyLevel?: number };
+				const run = createRun(repo!, issueNumber, autonomyLevel ?? 2);
+				saveRunToDb(run);
 				const completed = await runFullPipeline(
 					run,
 					repository,
@@ -3078,7 +1496,107 @@ export function createApp(options: ServerOptions = {}) {
 					events: evts,
 					eventCount: evts.length,
 				});
+				return;
 			}
+
+			const item = enqueueItem(getDb(), {
+				source_type: 'github_issue',
+				source_ref: `issue#${issueNumber}`,
+				repository_ref: repoId,
+				priority: 'NORMAL',
+			});
+
+			// Trigger scheduler tick for immediate admission (non-blocking)
+			try {
+				admitNext(getDb(), schedulerCfg);
+			} catch {
+				/* admission is best-effort; scheduler loop will retry */
+			}
+
+			try {
+				void schedulerLoopTick();
+			} catch {
+				/* ignore */
+			}
+
+			res.json({
+				queueItem: item,
+				queue_item_id: item.queue_item_id,
+				repository_ref: repoId,
+				issueNumber,
+				message: 'Enqueued via scheduler',
+			});
+		} catch (err) {
+			res.status(400).json({
+				error: 'VALIDATION_ERROR',
+				message: err instanceof Error ? err.message : 'Invalid request',
+			});
+		}
+	});
+
+	// Run starten (write endpoint — requires admin auth)
+	// CANONICAL PRODUCTIVE INTAKE: all productive runs enter via scheduler enqueue → admission → runPipeline
+	app.post('/api/repos/:repoId/runs', requireAdmin, async (req, res) => {
+		try {
+			const { issueNumber, autonomyLevel } = validateRunRequest(req.body);
+			const repoId = req.params.repoId as string;
+
+			// For e2e tests with POSITRON_DISABLE_QUEUE=true, use inline execution for backward compat
+			if (process.env.POSITRON_DISABLE_QUEUE === 'true') {
+				const run = createRun(repository.repo, issueNumber, autonomyLevel ?? 2);
+				saveRunToDb(run);
+				runsTotal.inc({ status: 'active' });
+				activeRuns.inc();
+				const completed = await runFullPipeline(
+					run,
+					repository,
+					activeWorkspaceAdapter,
+					activeSpecKitAdapter,
+					instrumentedOpenCodeAdapter,
+					github,
+					syncService,
+				);
+				const evts = getEvents(completed.id);
+				res.json({
+					run: completed,
+					runId: completed.id,
+					events: evts,
+					eventCount: evts.length,
+				});
+				return;
+			}
+
+			// CANONICAL: enqueue via P4 scheduler (no direct runPipeline, no direct BullMQ)
+			const item = enqueueItem(getDb(), {
+				source_type: 'github_issue',
+				source_ref: `issue#${issueNumber}`,
+				repository_ref: repoId,
+				priority: 'NORMAL',
+			});
+
+			runsTotal.inc({ status: 'active' });
+			activeRuns.inc();
+
+			// Trigger scheduler tick for immediate admission
+			try {
+				admitNext(getDb(), schedulerCfg);
+			} catch {
+				/* admission is best-effort; scheduler loop will retry */
+			}
+
+			try {
+				void schedulerLoopTick();
+			} catch {
+				/* ignore */
+			}
+
+			res.json({
+				queueItem: item,
+				queue_item_id: item.queue_item_id,
+				repository_ref: repoId,
+				issueNumber,
+				message: 'Enqueued via scheduler',
+			});
 		} catch (err) {
 			res.status(400).json({
 				error: 'VALIDATION_ERROR',
@@ -3780,6 +2298,580 @@ export function createApp(options: ServerOptions = {}) {
 		}
 	});
 
+	// Issue #421 (P1): Control-Plane-Zustand eines Runs (read-only).
+	// Exponiert die persistente run → job → attempt Hierarchie, Decisions
+	// und Transitions — Backend-Truth für die spätere Active-Run-View.
+	//
+	// Extrahiert strukturierte Verify-Gate-Checks aus einem cp_attempts-Row.
+	// Nur für Attempts mit output_contract positron.verification.v1; das
+	// raw output_json wird NIE exponiert (Privacy by Default).
+	/**
+	 * P5.2 — Effective Permission Summary aus dem persistierten
+	 * positron.effective-harness.v1 Contract. Es werden NUR die
+	 * effektiven Permission-Booleans exponiert (Kernel ∩ Profil) — der
+	 * vollständige Contract (inkl. Tools/Context) wird bewusst NICHT
+	 * roh ausgegeben (Privacy by Default, keine Secret-/Prompt-Inhalte).
+	 */
+	function parseEffectivePermissions(row: Record<string, unknown>): {
+		mutation: boolean;
+		push: boolean;
+		merge: boolean;
+		deploy: boolean;
+		secret_access: boolean;
+	} | null {
+		const raw = row.effective_harness_config;
+		if (typeof raw !== 'string') return null;
+		try {
+			const parsed = JSON.parse(raw) as {
+				effective_permissions?: {
+					mutation?: unknown;
+					push?: unknown;
+					merge?: unknown;
+					deploy?: unknown;
+					secret_access?: unknown;
+				};
+			};
+			const p = parsed.effective_permissions;
+			if (!p) return null;
+			return {
+				mutation: p.mutation === true,
+				push: p.push === true,
+				merge: p.merge === true,
+				deploy: p.deploy === true,
+				secret_access: p.secret_access === true,
+			};
+		} catch {
+			return null;
+		}
+	}
+
+	function parseVerifyChecks(row: Record<string, unknown>): Array<{
+		name: string;
+		passed: boolean;
+		kind: string;
+	}> | null {
+		if (row.output_contract !== 'positron.verification.v1') return null;
+		const raw = row.output_json;
+		if (typeof raw !== 'string') return null;
+		try {
+			const parsed = JSON.parse(raw) as {
+				checks?: Array<{ name?: unknown; passed?: unknown; kind?: unknown }>;
+			};
+			if (!Array.isArray(parsed.checks)) return null;
+			const checks = parsed.checks
+				.filter((c) => c && typeof c === 'object' && typeof c.name === 'string')
+				.map((c) => ({
+					name: c.name as string,
+					passed: c.passed === true,
+					kind: typeof c.kind === 'string' ? c.kind : 'other',
+				}));
+			return checks.length > 0 ? checks : null;
+		} catch {
+			return null;
+		}
+	}
+
+	app.get('/api/runs/:id/control-plane', (req, res) => {
+		const { id } = req.params;
+		try {
+			const database = getDb();
+			const jobs = (
+				database
+					.prepare('SELECT * FROM cp_jobs WHERE run_id = ? ORDER BY created_at ASC')
+					.all(id) as Array<Record<string, unknown>>
+			).map((row) => ({
+				job_id: row.job_id,
+				job_type: row.job_type,
+				state: row.state,
+				parent_job_id: row.parent_job_id ?? null,
+				created_at: row.created_at,
+				updated_at: row.updated_at,
+			}));
+
+			const attempts = (
+				database
+					.prepare('SELECT * FROM cp_attempts WHERE run_id = ? ORDER BY started_at ASC')
+					.all(id) as Array<Record<string, unknown>>
+			).map((row) => ({
+				attempt_id: row.attempt_id,
+				job_id: row.job_id,
+				status: row.status,
+				input_contract: row.input_contract ?? null,
+				input_fingerprint: row.input_fingerprint ?? null,
+				output_contract: row.output_contract ?? null,
+				output_fingerprint: row.output_fingerprint ?? null,
+				worker_type: row.worker_type ?? null,
+				provider: row.provider ?? null,
+				model: row.model ?? null,
+				started_at: row.started_at,
+				ended_at: row.ended_at ?? null,
+				failure_class: row.failure_class ?? null,
+				failure_signature: row.failure_signature ?? null,
+				new_evidence: row.new_evidence ?? null,
+				strategy_delta: row.strategy_delta ?? null,
+				result_ref: row.result_ref ?? null,
+				// P5.1 — Harness Profile Identity & Provenance (sichere Metadaten;
+				// der vollständige Contract inkl. semantics wird bewusst NICHT
+				// exponiert — Privacy by Default, keine Secrets/Prompts/Responses).
+				// Historische Attempts (vor P5.1) bleiben lesbar:
+				//   model_provenance_status → LEGACY_PROFILE_UNSPECIFIED
+				//   profile/version/fingerprint → null (kein Erfinden)
+				harness_profile_id: row.harness_profile_id ?? null,
+				harness_profile_version: row.harness_profile_version ?? null,
+				harness_fingerprint: row.harness_fingerprint ?? null,
+				task_profile_id: row.task_profile_id ?? null,
+				task_profile_version: row.task_profile_version ?? null,
+				task_type: row.task_type ?? null,
+				provider_adapter_id: row.provider_adapter_id ?? null,
+				provider_adapter_version: row.provider_adapter_version ?? null,
+				model_provenance_status: row.model_provenance_status ?? 'LEGACY_PROFILE_UNSPECIFIED',
+				// P5.2 — Effective Permission Summary (Kernel ∩ Profil; nur
+				// Booleans, kein Raw-Contract) + Effective-Fingerprint:
+				effective_harness_fingerprint: row.effective_harness_fingerprint ?? null,
+				effective_permissions: parseEffectivePermissions(row),
+				// Strukturierte Verify-Gate-Checks (nur für verifizierte
+				// positron.verification.v1-Attempts). output_json wird
+				// bewusst NICHT exponiert (Privacy by Default) — die UI
+				// erhält nur strukturierte Gate-Ergebnisse.
+				checks: parseVerifyChecks(row),
+			}));
+
+			const decisions = (
+				database
+					.prepare('SELECT * FROM cp_decisions WHERE run_id = ? ORDER BY created_at ASC')
+					.all(id) as Array<Record<string, unknown>>
+			).map((row) => ({
+				decision: row.decision,
+				reason_code: row.reason_code,
+				contract: row.contract_json,
+				created_at: row.created_at,
+			}));
+
+			const transitions = (
+				database
+					.prepare('SELECT * FROM cp_transitions WHERE run_id = ? ORDER BY created_at ASC')
+					.all(id) as Array<Record<string, unknown>>
+			).map((row) => ({
+				previous_state: row.previous_state,
+				new_state: row.new_state,
+				reason_code: row.reason_code,
+				created_at: row.created_at,
+			}));
+
+			res.json({
+				run_id: id,
+				jobs,
+				attempts,
+				decisions,
+				transitions,
+			});
+		} catch (err) {
+			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
+		}
+	});
+
+	// Issue #421 (P1): Deterministische KPIs aus Control-Plane-Daten (read-only)
+	app.get('/api/kpis', (_req, res) => {
+		try {
+			const database = getDb();
+			const report = computeKpis(database);
+			const violations = assertKpiInvariants(report);
+			// P5.1 — Profile KPIs (Backend Truth, keine Client-Berechnung).
+			// Gruppierung nach Provider/Modell/Profil/Task-Typ/Fingerprint;
+			// Kosten sind ohne Preis-Provenienz NOT_AVAILABLE (kein Schätzen).
+			const profile = computeProfileKpis(database);
+			res.json({ kpis: report, profile, invariants: { violations } });
+		} catch (err) {
+			res.status(500).json({ error: 'Datenbankfehler', details: String(err) });
+		}
+	});
+
+	// ── P4: Scheduler-API (Backend Truth, read-only ausser cancel) ──────────
+	// Queue-Introspection (§58): list queue, active runs, capacity, events.
+
+	// Re-assign early schedulerCfg with fresh values (in case env changed after early init)
+	schedulerCfg = {
+		maxActiveRuns: Number(process.env.POSITRON_MAX_ACTIVE_RUNS ?? 2),
+		workspaceLockTtlMs: resolveWorkspaceLockTtlMs(process.env),
+		maxConcurrentByProvider: resolveProviderCapacity(process.env),
+		activeByProvider: () => activeProviderReservations(getDb()),
+		defaultModel: process.env.POSITRON_OPENCODE_MODEL ?? null,
+		emitEvent: persistSchedulerEvent(getDb()),
+	};
+
+	// ── P4: Scheduler-Dispatch-Loop (Architektur-Review C1) ─────────────────
+	// Schließt den ADMITTED → RUNNING → terminal → Release-Zyklus:
+	//   1. recoverSchedulerState (stale ADMITTED/dead RUNNING requeuen)
+	//   2. Admission bis zur globalen Kapazität (mehrere Items pro Tick)
+	//   3. admitierte Items → echte Runs via runFullPipeline + markRunStarted
+	//   4. fertig → markRunFinished (COMPLETED/FAILED/BLOCKED/CANCELLED)
+	// Der Loop ist idempotent: markRunStarted ist state-guarded (nur
+	// ADMITTED → RUNNING), doppelte Loop-Instanzen admitieren nicht doppelt
+	// (BEGIN IMMEDIATE) und starten nicht doppelt.
+	//
+	// P4 (Slice C): BOUNDED CONCURRENT DISPATCH — pro Tick werden bis zu
+	// maxActiveRuns Runs admitiert und PARALLEL dispatched (kein
+	// `for { await runPipeline }`); die Begrenzung kommt ausschließlich aus
+	// der Admission (globale Kapazität, Repo-Lock, Provider-Capacity).
+	// Kein unbounded Promise.all: der Admission-Loop endet bei voller
+	// Kapazität, und in-flight Dispatches werden einzeln verfolgt.
+	let schedulerLoopRunning = false;
+	const inFlightDispatches = new Set<Promise<void>>();
+
+	const dispatchRun = async (
+		item: import('@positron/control-plane').QueueItemRecord,
+		run: RunState,
+	): Promise<void> => {
+		try {
+			const completed = await runFullPipeline(
+				run,
+				repository,
+				activeWorkspaceAdapter,
+				activeSpecKitAdapter,
+				instrumentedOpenCodeAdapter,
+				github,
+				syncService,
+			);
+			// P4 (Review-Fix): Cancel wird korrekt als CANCELLED finalisiert
+			// (nicht FAILED) — Ressourcen werden in allen Fällen freigegeben.
+			const terminal: 'COMPLETED' | 'FAILED' | 'BLOCKED' | 'CANCELLED' =
+				completed.status === 'done'
+					? 'COMPLETED'
+					: completed.status === 'blocked'
+						? 'BLOCKED'
+						: completed.status === 'cancelled'
+							? 'CANCELLED'
+							: 'FAILED';
+			// P4 (Review-WARNING): den finalen Run-Zustand persistieren —
+			// sonst bleibt runs.status 'active' und R5-Startup-Resume würde
+			// den bereits abgeschlossenen Run nach einem Restart erneut
+			// ausführen (Queue-Item ist terminal → kein QueueRef-Skip).
+			try {
+				saveRunToDb(completed);
+			} catch {
+				/* best-effort */
+			}
+			markRunFinished(
+				getDb(),
+				item.queue_item_id,
+				terminal,
+				run.id,
+				terminal === 'CANCELLED' ? 'CANCELLED_BY_USER' : 'READY',
+				schedulerCfg,
+			);
+		} catch (err) {
+			// Pipeline-Fehler → Item als FAILED finalisieren
+			// (Ressource freigeben, kein hängendes RUNNING).
+			markRunFinished(getDb(), item.queue_item_id, 'FAILED', run.id, 'READY', schedulerCfg);
+			console.error(
+				`[Scheduler] run ${run.id} failed: ${err instanceof Error ? err.message : String(err)}`,
+			);
+		}
+	};
+
+	schedulerLoopTick = async (): Promise<void> => {
+		if (schedulerLoopRunning) return;
+		schedulerLoopRunning = true;
+		try {
+			// 1. Recovery (stale Zustände nach Crash/Neustart) — lease-aware:
+			//    ein Run lebt nur, solange seine Attempt-Leases durch
+			//    Heartbeats erneuert werden (P4 Slice F — kein hängendes
+			//    RUNNING nach Controller-Crash).
+			recoverSchedulerState(getDb(), (runId) => isRunLeaseAlive(getDb(), runId));
+			// P4 (Slice D, Review-Fix): Workspace-Lock-Heartbeat — der Lock
+			// aktiver Items wird je Tick erneuert (TTL/Intervalle >> Tick),
+			// damit er während langer Runs nicht abläuft. Gecrashte Runs
+			// verlieren die Erneuerung → Lock verfällt → Stale-Recovery.
+			const lockTtl = schedulerCfg.workspaceLockTtlMs ?? 600_000;
+			for (const item of listQueueItems(getDb())) {
+				if (item.queue_state === 'RUNNING' || item.queue_state === 'ADMITTED') {
+					try {
+						renewWorkspaceLock(getDb(), item.repository_ref, item.queue_item_id, lockTtl);
+					} catch {
+						/* best-effort */
+					}
+				}
+			}
+			// 2. Admission bis Capacity (atomar; Kapazität zählt RUNNING+ADMITTED)
+			const admitted: Array<{
+				item: import('@positron/control-plane').QueueItemRecord;
+				run: RunState;
+			}> = [];
+			while (admitted.length < schedulerCfg.maxActiveRuns) {
+				const decision = admitNext(getDb(), schedulerCfg);
+				if (!decision?.admitted) break;
+				const item = getQueueItem(getDb(), decision.queue_item_id);
+				if (!item) continue;
+				const run = createRun(
+					item.repository_ref,
+					Number.parseInt(item.source_ref.replace(/^issue[#/]?/, ''), 10) || 1,
+					2,
+				);
+				// P4 (Review-Fix): markRunStarted ZUERST — erst wenn der
+				// state-guarded Übergang gelungen ist, wird die Run-Zeile
+				// persistiert (kein Orphan-Row bei Konkurrenz/Cancel).
+				const started = markRunStarted(getDb(), item.queue_item_id, run.id, schedulerCfg);
+				if (started) {
+					saveRunToDb(run);
+					admitted.push({ item, run });
+				}
+			}
+			// 3. Konkurrierender Dispatch (bounded durch Admission/Capacity):
+			//    die Dispatches laufen parallel; der Tick wartet nicht seriell
+			//    auf die Pipeline (kein `for { await runPipeline }`).
+			for (const { item, run } of admitted) {
+				const promise = dispatchRun(item, run);
+				inFlightDispatches.add(promise);
+				promise
+					.finally(() => inFlightDispatches.delete(promise))
+					.catch(() => {
+						/* Fehler sind in dispatchRun behandelt */
+					});
+			}
+		} finally {
+			schedulerLoopRunning = false;
+		}
+	};
+
+	// Periodischer Tick (default 5s; Tests deaktivieren via env)
+	let schedulerInterval: ReturnType<typeof setInterval> | null = null;
+	if (process.env.POSITRON_SCHEDULER_DISABLED !== 'true') {
+		schedulerInterval = setInterval(
+			() => {
+				void schedulerLoopTick();
+			},
+			Number(process.env.POSITRON_SCHEDULER_INTERVAL_MS ?? 5000),
+		).unref();
+	}
+	// P4 (Slice C): Server-Close stoppt den Dispatch-Loop — kein Tick läuft
+	// nach dem Schließen weiter (kein Cross-Dispatch in geteilten Prozessen).
+	stopSchedulerInterval = () => {
+		if (schedulerInterval) {
+			clearInterval(schedulerInterval);
+			schedulerInterval = null;
+		}
+	};
+
+	app.get('/api/scheduler/queue', (_req, res) => {
+		try {
+			const items = listQueueItems(getDb()).map((q) => ({
+				queue_item_id: q.queue_item_id,
+				source_type: q.source_type,
+				source_ref: q.source_ref,
+				repository_ref: q.repository_ref,
+				run_id: q.run_id,
+				priority: q.priority,
+				queue_state: q.queue_state,
+				dependency_refs: q.dependency_refs,
+				enqueued_at: q.enqueued_at,
+				admitted_at: q.admitted_at,
+				started_at: q.started_at,
+				finished_at: q.finished_at,
+				reason_code: q.reason_code,
+			}));
+			res.json({ queue: items, capacity: schedulerCapacity(getDb(), schedulerCfg) });
+		} catch (err) {
+			res.status(500).json({ error: 'Datenbankfehler', details: 'internal error' });
+		}
+	});
+
+	app.get('/api/scheduler/active', (_req, res) => {
+		try {
+			const items = listQueueItems(getDb()).filter(
+				(q) => q.queue_state === 'RUNNING' || q.queue_state === 'ADMITTED',
+			);
+			res.json({ activeRuns: items });
+		} catch (err) {
+			res.status(500).json({ error: 'Datenbankfehler', details: 'internal error' });
+		}
+	});
+
+	app.get('/api/scheduler/waiting', (req, res) => {
+		try {
+			const { source_ref } = req.query as { source_ref?: string };
+			const items = listQueueItems(getDb()).filter(
+				(q) => q.queue_state === 'WAITING_DEPENDENCY' || q.queue_state === 'WAITING_RESOURCE',
+			);
+			const target = source_ref ? items.find((q) => q.source_ref === source_ref) : items[0];
+			if (source_ref && !target) {
+				res.status(404).json({ error: 'queue item not found' });
+				return;
+			}
+			res.json({
+				waiting: items,
+				why: target
+					? {
+							queue_item_id: target.queue_item_id,
+							source_ref: target.source_ref,
+							queue_state: target.queue_state,
+							reason_code: target.reason_code,
+						}
+					: null,
+			});
+		} catch (err) {
+			res.status(500).json({ error: 'Datenbankfehler', details: 'internal error' });
+		}
+	});
+
+	app.get('/api/scheduler/capacity', (_req, res) => {
+		try {
+			res.json(schedulerCapacity(getDb(), schedulerCfg));
+		} catch (err) {
+			res.status(500).json({ error: 'Datenbankfehler', details: 'internal error' });
+		}
+	});
+
+	app.get('/api/scheduler/events', (req, res) => {
+		try {
+			const { queue_item_id } = req.query as { queue_item_id?: string };
+			res.json({ events: listSchedulerEvents(getDb(), queue_item_id) });
+		} catch (err) {
+			res.status(500).json({ error: 'Datenbankfehler', details: 'internal error' });
+		}
+	});
+
+	// Cancel queued/running item (write endpoint — requires admin auth)
+	app.post('/api/scheduler/items/:id/cancel', requireAdmin, express.json(), (req, res) => {
+		try {
+			const before = getQueueItem(getDb(), req.params.id as string);
+			const cancelled = cancelQueueItem(getDb(), req.params.id as string);
+			if (!cancelled) {
+				res.status(404).json({ error: 'queue item not found' });
+				return;
+			}
+			// P4 (Slice B): Cancel eines RUNNING-Items bricht den laufenden
+			// Run real ab (AbortSignal → Worker → Child-Prozess-Terminierung),
+			// damit die RUNNING-Cancellation nicht nur im Queue-State hängt.
+			if (before?.queue_state === 'RUNNING' && before.run_id) {
+				setRunSignal(before.run_id, 'ABORT');
+				abortRun(before.run_id);
+			}
+			res.json({ cancelled });
+		} catch (err) {
+			res.status(500).json({ error: 'Datenbankfehler', details: 'internal error' });
+		}
+	});
+
+	// P4: Enqueue (write endpoint — requires admin auth)
+	app.post('/api/scheduler/enqueue', requireAdmin, express.json(), (req, res) => {
+		try {
+			const { source_type, source_ref, repository_ref, priority, dependency_refs, provider } =
+				req.body as {
+					source_type?: string;
+					source_ref?: string;
+					repository_ref?: string;
+					priority?: string;
+					dependency_refs?: string[];
+					provider?: string;
+				};
+			if (!source_type || !source_ref || !repository_ref) {
+				res.status(400).json({ error: 'source_type, source_ref and repository_ref are required' });
+				return;
+			}
+			const item = enqueueItem(getDb(), {
+				source_type,
+				source_ref,
+				repository_ref,
+				priority,
+				dependency_refs,
+				provider,
+			});
+			res.json({ item });
+		} catch (err) {
+			res.status(500).json({ error: 'Datenbankfehler', details: 'internal error' });
+		}
+	});
+
+	// P4: Scheduler-Tick (write endpoint — requires admin auth; deterministisch)
+	// Admitiert EIN Item (Admission-Teil des Loops); der periodische
+	// Scheduler-Loop (Produktion) übernimmt Dispatch + Run-Start + Release.
+	app.post('/api/scheduler/tick', requireAdmin, express.json(), (_req, res) => {
+		try {
+			const decision = admitNext(getDb(), schedulerCfg);
+			res.json({ decision, capacity: schedulerCapacity(getDb(), schedulerCfg) });
+		} catch (err) {
+			res.status(500).json({ error: 'Datenbankfehler', details: 'internal error' });
+		}
+	});
+
+	// P5.4: Evolution API — backend truth only, no raw prompts/secrets
+	// Registered via handleEvolutionRoutes (canonical handler) + express wrappers for testability
+	app.use((req, _res, next) => {
+		// Try canonical handler first (covers all /api/evolution/* routes)
+		try {
+			const url = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`);
+			// handleEvolutionRoutes expects IncomingMessage/ServerResponse; we use express req/res
+			// So we create express-native routes below and keep this as delegation check
+			if (url.pathname.startsWith('/api/evolution/')) {
+				// Let express routes handle it; this middleware just ensures handler is wired
+				// Actual handling is in the express routes below which mirror handleEvolutionRoutes
+			}
+		} catch {
+			/* ignore URL parse errors */
+		}
+		next();
+	});
+
+	app.get('/api/evolution/current', (_req, res) => {
+		try {
+			const pointer = getDb()
+				.prepare('SELECT * FROM cp_production_profile_pointer LIMIT 1')
+				.get() as Record<string, unknown> | undefined;
+			res.json({ pointer: pointer ?? null });
+		} catch {
+			res.status(500).json({ error: 'internal error' });
+		}
+	});
+
+	app.get('/api/evolution/candidates', (_req, res) => {
+		try {
+			const candidates = getDb()
+				.prepare(
+					'SELECT candidate_id, parent_profile_id, candidate_version, candidate_fingerprint, status, created_at FROM cp_harness_candidates ORDER BY created_at DESC',
+				)
+				.all();
+			res.json({ candidates });
+		} catch {
+			res.status(500).json({ error: 'internal error' });
+		}
+	});
+
+	app.get('/api/evolution/evaluations', (_req, res) => {
+		try {
+			const evaluations = getDb()
+				.prepare(
+					'SELECT evaluation_id, candidate_id, sample_size, verified_success, reason_code, created_at FROM cp_harness_evaluations ORDER BY created_at DESC',
+				)
+				.all();
+			res.json({ evaluations });
+		} catch {
+			res.status(500).json({ error: 'internal error' });
+		}
+	});
+
+	app.get('/api/evolution/kpis', (_req, res) => {
+		try {
+			const kpis = computeEvolutionKpis(getDb());
+			res.json(kpis);
+		} catch {
+			res.status(500).json({ error: 'internal error' });
+		}
+	});
+
+	app.get('/api/evolution/transitions', (_req, res) => {
+		try {
+			const transitions = getDb()
+				.prepare('SELECT * FROM cp_profile_transitions ORDER BY created_at ASC')
+				.all();
+			res.json({ transitions });
+		} catch {
+			res.status(500).json({ error: 'internal error' });
+		}
+	});
+
+	// Ensure handleEvolutionRoutes is referenced so it is not tree-shaken and is wired
+	void handleEvolutionRoutes;
+
 	// System-Metriken
 	app.get('/api/metrics', (_req, res) => {
 		try {
@@ -4417,6 +3509,7 @@ export function createApp(options: ServerOptions = {}) {
 			storeEvent,
 			broadcastSSE,
 			createRunId,
+			abortRun,
 		}),
 	);
 
@@ -4575,6 +3668,25 @@ export function createApp(options: ServerOptions = {}) {
 				continue;
 			}
 
+			// P4 (Slice F, Review-Fix): Runs, die von einem Queue-Item
+			// referenziert werden, sind Eigentum des Schedulers — die
+			// Startup-Recovery hat ihr RUNNING-Item bereits requeued und
+			// der Tick admitiert es neu (frische run_id, ordentliches
+			// markRunFinished beim Terminal). Ein paralleles R5-Resume
+			// desselben Runs würde zwei Pipeline-Instanzen auf demselben
+			// Run starten (Doppel-Dispatch-Gefahr).
+			const queueRef = database
+				.prepare(
+					"SELECT queue_item_id FROM cp_queue WHERE run_id = ? AND queue_state IN ('QUEUED', 'WAITING_DEPENDENCY', 'WAITING_RESOURCE', 'ADMITTED', 'RUNNING') LIMIT 1",
+				)
+				.get(run.id) as { queue_item_id: string } | undefined;
+			if (queueRef) {
+				log.info(
+					`R5 Recovery: Run ${run.id} is scheduler-owned (queue item ${String(queueRef.queue_item_id)}) — recovery via scheduler admission, skipping direct resume`,
+				);
+				continue;
+			}
+
 			log.info(
 				`R5 Recovery: Resuming run ${run.id} (repo=${run.repoId}, issue=${run.issueNumber}, phase=${run.phase})`,
 			);
@@ -4632,12 +3744,16 @@ export function createServer(options: ServerOptions = {}) {
 	const app = createApp(options);
 	const server = http.createServer(app);
 
-	// Watcher beim Server-Close automatisch stoppen
+	// Watcher + Scheduler-Loop beim Server-Close automatisch stoppen
 	const originalClose = server.close.bind(server);
 	server.close = (callback?: (err?: Error) => void) => {
 		if (stopWatcher) {
 			stopWatcher();
 			stopWatcher = null;
+		}
+		if (stopSchedulerInterval) {
+			stopSchedulerInterval();
+			stopSchedulerInterval = null;
 		}
 		return originalClose(callback);
 	};

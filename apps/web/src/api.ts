@@ -16,6 +16,179 @@ import type { Phase, RunStatus } from './types.js';
 
 const BASE = '/api';
 
+// ── Control Plane Types (P2 — Backend Truth, read-only) ──────────
+// Diese Typen spiegeln 1:1 die Antwortformen der Backend-Truth-Endpunkte
+// GET /api/runs/:id/control-plane und GET /api/kpis. Die UI erfindet,
+// rekonstruiert oder simuliert hier keinen Zustand.
+
+export interface ControlPlaneJob {
+	job_id: string;
+	run_id: string;
+	job_type: string;
+	state: string;
+	parent_job_id: string | null;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface ControlPlaneAttempt {
+	attempt_id: string;
+	run_id: string;
+	job_id: string;
+	status: string;
+	input_contract: string | null;
+	input_fingerprint: string | null;
+	output_contract: string | null;
+	output_fingerprint: string | null;
+	worker_type: string | null;
+	provider: string | null;
+	model: string | null;
+	started_at: string;
+	ended_at: string | null;
+	failure_class: string | null;
+	failure_signature: string | null;
+	new_evidence: string | null;
+	strategy_delta: string | null;
+	result_ref: string | null;
+	/** Strukturierte Verify-Gate-Checks (Backend-Truth, nur verification-Attempts) */
+	checks?: Array<{ name: string; passed: boolean; kind: string }> | null;
+	// P5.1 — Harness Profile Identity & Provenance (sichere Metadaten,
+	// Backend-Truth; historische Attempts: null + LEGACY_PROFILE_UNSPECIFIED)
+	harness_profile_id?: string | null;
+	harness_profile_version?: string | null;
+	harness_fingerprint?: string | null;
+	task_profile_id?: string | null;
+	task_profile_version?: string | null;
+	task_type?: string | null;
+	provider_adapter_id?: string | null;
+	provider_adapter_version?: string | null;
+	model_provenance_status?: string | null;
+	// P5.2 — Effective Runtime Configuration (Backend Truth, nur sichere
+	// Permission-Summary; kein Raw-Contract in der UI)
+	effective_harness_fingerprint?: string | null;
+	effective_permissions?: {
+		mutation: boolean;
+		push: boolean;
+		merge: boolean;
+		deploy: boolean;
+		secret_access: boolean;
+	} | null;
+}
+
+export interface ControlPlaneDecision {
+	decision_id: string;
+	run_id: string;
+	decision: string;
+	reason_code: string;
+	contract: string | null;
+	created_at: string;
+}
+
+export interface ControlPlaneTransition {
+	transition_id: string;
+	run_id: string;
+	previous_state: string;
+	new_state: string;
+	reason_code: string;
+	created_at: string;
+}
+
+export interface ControlPlaneResponse {
+	run_id: string;
+	jobs: ControlPlaneJob[];
+	attempts: ControlPlaneAttempt[];
+	decisions: ControlPlaneDecision[];
+	transitions: ControlPlaneTransition[];
+}
+
+export interface KpiReport {
+	runs_total: number;
+	done_runs: number;
+	first_pass_success_rate: number | null;
+	mean_attempts_to_done: number | null;
+	blind_retry_rate: number;
+	retry_denials: number;
+	duplicate_mutation_rate: number;
+	contract_validation_failure_rate: number | null;
+	plan_gate_rejection_rate: number | null;
+	security_block_enforcement_rate: number | null;
+	useful_retry_rate: number | null;
+	trace_completeness: number | null;
+	p50_stage_duration_ms: number | null;
+	p95_stage_duration_ms: number | null;
+}
+
+export interface ProfileKpiGroup {
+	effective_harness_fingerprint: string;
+	harness_profile_id: string | null;
+	harness_profile_version: string | null;
+	task_profile_id: string | null;
+	task_profile_version: string | null;
+	task_type: string | null;
+	provider: string | null;
+	model: string | null;
+	provider_adapter_id: string | null;
+	provider_adapter_version: string | null;
+	model_provenance_status: string | null;
+	sample_size: number;
+	verified_success_count: number;
+	verified_success_rate: number | null;
+	first_pass_success_count: number;
+	first_pass_success_rate: number | null;
+	attempts: number;
+	attempts_per_verified_success: number | null;
+	time_to_verified_success_ms: number | null;
+	retry_rate: number | null;
+	escalation_rate: number | null;
+	tokens_total: number | null;
+	cost_per_verified_success: string;
+}
+
+export interface KpisResponse {
+	kpis: KpiReport;
+	profile?: { groups: ProfileKpiGroup[]; generated_at: string; cost_per_verified_success: string };
+	invariants: { violations: string[] };
+}
+
+// ── P4 Scheduler Types (Backend Truth) ────────────────────────────
+
+export interface SchedulerQueueItem {
+	queue_item_id: string;
+	source_type: string;
+	source_ref: string;
+	repository_ref: string;
+	run_id: string | null;
+	priority: string;
+	queue_state: string;
+	dependency_refs: string[];
+	enqueued_at: string;
+	admitted_at: string | null;
+	started_at: string | null;
+	finished_at: string | null;
+	reason_code: string | null;
+}
+
+export interface SchedulerCapacity {
+	maxActiveRuns: number;
+	activeRuns: number;
+	queueDepth: number;
+	waitingDependency: number;
+	waitingResource: number;
+}
+
+export interface SchedulerEvent {
+	queue_item_id: string;
+	run_id: string | null;
+	event: string;
+	timestamp: string;
+	reason_code: string;
+}
+
+export interface SchedulerQueueResponse {
+	queue: SchedulerQueueItem[];
+	capacity: SchedulerCapacity;
+}
+
 // ── Admin API Types & Token Management (Issue #11) ────────────
 
 export interface AdminStats {
@@ -385,6 +558,41 @@ export const api = {
 		return request(
 			`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/blueprint`,
 		);
+	},
+
+	// ── Control Plane (P2 — read-only Backend Truth) ───────────────
+
+	/** Durable control-plane state (jobs/attempts/decisions/transitions) */
+	getControlPlane(runId: string): Promise<ControlPlaneResponse> {
+		return request<ControlPlaneResponse>(`/runs/${encodeURIComponent(runId)}/control-plane`);
+	},
+
+	/** Runtime KPIs + Invarianten-Violations */
+	getKpis(): Promise<KpisResponse> {
+		return request<KpisResponse>('/kpis');
+	},
+
+	// ── P4 Scheduler (read-only Backend Truth) ─────────────────────
+
+	/** Intake-Queue + Kapazität */
+	getSchedulerQueue(): Promise<SchedulerQueueResponse> {
+		return request<SchedulerQueueResponse>('/scheduler/queue');
+	},
+
+	/** Aktive Runs (Scheduler-Sicht) */
+	getSchedulerActive(): Promise<{ activeRuns: SchedulerQueueItem[] }> {
+		return request<{ activeRuns: SchedulerQueueItem[] }>('/scheduler/active');
+	},
+
+	/** Globale Kapazität */
+	getSchedulerCapacity(): Promise<SchedulerCapacity> {
+		return request<SchedulerCapacity>('/scheduler/capacity');
+	},
+
+	/** Scheduler-Events (optional gefiltert je Item) */
+	getSchedulerEvents(queueItemId?: string): Promise<{ events: SchedulerEvent[] }> {
+		const qs = queueItemId ? `?queue_item_id=${encodeURIComponent(queueItemId)}` : '';
+		return request<{ events: SchedulerEvent[] }>(`/scheduler/events${qs}`);
 	},
 
 	// ── Admin API (Issue #11) ──────────────────────────────────────

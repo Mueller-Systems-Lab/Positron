@@ -22,9 +22,37 @@ export function scanWorkspace(workspacePath: string): SpecKitArtifactRef[] {
 			kind: 'constitution',
 			paths: ['.specify/memory/constitution.md', 'CONSTITUTION.md', 'constitution.md'],
 		},
-		{ kind: 'spec', paths: ['spec.md', 'specs/SPEC.md', 'specification.md', '.specify/spec.md'] },
-		{ kind: 'plan', paths: ['plan.md', 'PLAN.md', '.specify/plan.md'] },
-		{ kind: 'tasks', paths: ['tasks.md', 'TASKS.md', '.specify/tasks.md'] },
+		{
+			kind: 'spec',
+			paths: [
+				'spec.md',
+				'specs/SPEC.md',
+				'specification.md',
+				'.specify/spec.md',
+				'.positron/artifacts/specify.md',
+				'.positron/artifacts/speckit.specify.md',
+			],
+		},
+		{
+			kind: 'plan',
+			paths: [
+				'plan.md',
+				'PLAN.md',
+				'.specify/plan.md',
+				'.positron/artifacts/plan.md',
+				'.positron/artifacts/speckit.plan.md',
+			],
+		},
+		{
+			kind: 'tasks',
+			paths: [
+				'tasks.md',
+				'TASKS.md',
+				'.specify/tasks.md',
+				'.positron/artifacts/tasks.md',
+				'.positron/artifacts/speckit.tasks.md',
+			],
+		},
 		{ kind: 'research', paths: ['research.md', 'RESEARCH.md', '.specify/research.md'] },
 		{ kind: 'checklist', paths: ['checklist.md', '.specify/checklist.md'] },
 	];

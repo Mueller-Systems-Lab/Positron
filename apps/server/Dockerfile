@@ -1,35 +1,47 @@
-# Positron Server — Node.js/TypeScript via tsx
-FROM node:22-slim AS base
+# Positron Server — self-contained Node.js build and runtime image
+FROM node:22-slim AS builder
+
+WORKDIR /app
+
+# Systemabhängigkeiten für npm ci, better-sqlite3 und den TypeScript-Build
+RUN apt-get update && apt-get install -y --no-install-recommends git python3 make g++ && rm -rf /var/lib/apt/lists/*
+
+# Build from source so a clean checkout does not need host-generated dist files.
+COPY . .
+RUN npm ci --ignore-scripts
+RUN npm rebuild better-sqlite3
+RUN npm run build
+
+FROM node:22-slim
 
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Systemabhängigkeiten
-RUN apt-get update && apt-get install -y --no-install-recommends git wget python3 make g++ && rm -rf /var/lib/apt/lists/*
+# Runtime system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends git wget python3 && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
-COPY package*.json ./
-COPY packages/shared/package.json ./packages/shared/
-COPY packages/run-state/package.json ./packages/run-state/
-COPY packages/github-adapter/package.json ./packages/github-adapter/
-COPY packages/speckit-adapter/package.json ./packages/speckit-adapter/
-COPY packages/opencode-adapter/package.json ./packages/opencode-adapter/
-COPY packages/sandbox/package.json ./packages/sandbox/
-COPY apps/server/package.json ./apps/server/
+# Runtime dependencies and compiled workspace artifacts
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/packages/shared/package.json ./packages/shared/package.json
+COPY --from=builder /app/packages/run-state/package.json ./packages/run-state/package.json
+COPY --from=builder /app/packages/github-adapter/package.json ./packages/github-adapter/package.json
+COPY --from=builder /app/packages/speckit-adapter/package.json ./packages/speckit-adapter/package.json
+COPY --from=builder /app/packages/opencode-adapter/package.json ./packages/opencode-adapter/package.json
+COPY --from=builder /app/packages/sandbox/package.json ./packages/sandbox/package.json
+COPY --from=builder /app/packages/tool-gateway/package.json ./packages/tool-gateway/package.json
+COPY --from=builder /app/apps/server/package.json ./apps/server/package.json
 
-RUN npm install --omit=dev && npm install -g tsx
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/run-state/dist ./packages/run-state/dist
+COPY --from=builder /app/packages/github-adapter/dist ./packages/github-adapter/dist
+COPY --from=builder /app/packages/speckit-adapter/dist ./packages/speckit-adapter/dist
+COPY --from=builder /app/packages/opencode-adapter/dist ./packages/opencode-adapter/dist
+COPY --from=builder /app/packages/sandbox/dist ./packages/sandbox/dist
+COPY --from=builder /app/packages/tool-gateway/dist ./packages/tool-gateway/dist
+COPY --from=builder /app/apps/server/dist ./apps/server/dist
 
-# Copy built packages and server source
-COPY packages/shared/dist ./packages/shared/dist
-COPY packages/run-state/dist ./packages/run-state/dist
-COPY packages/github-adapter/dist ./packages/github-adapter/dist
-COPY packages/speckit-adapter/dist ./packages/speckit-adapter/dist
-COPY packages/opencode-adapter/dist ./packages/opencode-adapter/dist
-COPY packages/sandbox/dist ./packages/sandbox/dist
-COPY apps/server/src ./apps/server/src
-
-WORKDIR /app/apps/server
-RUN mkdir -p /app/workspace
+RUN mkdir -p /app/.positron/runs /app/.opencode/audit /app/workspace && chown -R node:node /app/.positron /app/.opencode /app/workspace
 
 # Wrapper: use system python3 with mounted site-packages (uv Python needs host libs)
 RUN printf '#!/bin/sh\n\
@@ -43,4 +55,6 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD wget -qO- http://localhost:3000/api/health | grep -q '"status"' || exit 1
 
-CMD ["npx", "tsx", "src/index.ts"]
+USER node
+
+CMD ["node", "apps/server/dist/index.js"]

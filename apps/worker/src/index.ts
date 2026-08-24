@@ -4,6 +4,13 @@
 // and processes pipeline jobs from the queue.
 
 import {
+	admitNext,
+	enqueueItem,
+	getQueueItem,
+	markRunStarted,
+	resolveAttemptLeaseTtlMs,
+} from '@positron/control-plane';
+import {
 	FakeGitHubAdapter,
 	GitHubStatusSyncService,
 	createRealGitHubAdapter,
@@ -21,20 +28,25 @@ import type { RunState } from '@positron/run-state';
 import { FakeGitWorkspaceAdapter, RealGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
 import {
-	PIPELINE_QUEUE,
 	type PipelineJobData,
 	type PipelineJobResult,
 	buildRemoteUrl,
 	loadRepositoryConfig,
 	normalizeRepositoryConfig,
+	resolvePipelineQueueName,
 	resolveRedisUrl,
 } from '@positron/shared';
 import type { RepositoryConfig } from '@positron/shared';
 import type { OpenCodeAdapter, SpecKitAdapter } from '@positron/shared';
 import { FakeSpecKitAdapter, RealSpecKitAdapter } from '@positron/speckit-adapter';
 import { GatewayService, ToolRegistry, createAuditSink } from '@positron/tool-gateway';
-import { type Job, Queue, Worker } from 'bullmq';
-import { type PipelineDeps, runPipeline } from './pipeline-runner.js';
+import {
+	type PipelineDeps,
+	isRunInWorkerScope,
+	isTerminalRunRecord,
+	runPipeline,
+} from '@positron/worker-pipeline';
+import { type Job, Worker } from 'bullmq';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -137,13 +149,76 @@ workerGateway.onAudit = createAuditSink({
 // BullMQ Worker
 // ---------------------------------------------------------------------------
 
+const workerRunScope = process.env.POSITRON_RECOVERY_RUN_ID;
+const workerQueueName = resolvePipelineQueueName(workerRunScope);
+console.log(
+	`[Worker] Queue scope: ${workerRunScope ? `run=${workerRunScope}` : 'shared'}; queue=${workerQueueName}`,
+);
+
 const worker = new Worker<PipelineJobData, PipelineJobResult>(
-	PIPELINE_QUEUE,
+	workerQueueName,
 	async (job: Job<PipelineJobData, PipelineJobResult>) => {
 		const { runId, repoId, issueNumber, autonomyLevel } = job.data;
 		console.log(
 			`[Worker] Processing job ${job.id}: runId=${runId}, issueNumber=${issueNumber}, autonomyLevel=${autonomyLevel}`,
 		);
+		if (!isRunInWorkerScope(workerRunScope, runId)) {
+			throw new Error(
+				`Worker scope violation: worker=${workerRunScope} cannot process run=${runId}`,
+			);
+		}
+
+		// CANONICAL: BullMQ must go through scheduler admission (no direct runPipeline bypass)
+		// Enqueue via scheduler if not already queued, then admit before execution
+		const repoRef = repoId ?? repository.repo;
+		const sourceRef = `issue#${issueNumber}`;
+		let queueItem = null as ReturnType<typeof getQueueItem>;
+		try {
+			// Try to find existing queue item for this run
+			const existing = db
+				.prepare(
+					'SELECT * FROM cp_queue WHERE source_ref = ? AND repository_ref = ? ORDER BY enqueued_at DESC LIMIT 1',
+				)
+				.get(sourceRef, repoRef) as Record<string, unknown> | undefined;
+			if (existing) {
+				queueItem = getQueueItem(db, String(existing.queue_item_id));
+			}
+			if (!queueItem) {
+				queueItem = enqueueItem(db, {
+					source_type: 'bullmq_job',
+					source_ref: sourceRef,
+					repository_ref: repoRef,
+					priority: 'NORMAL',
+				});
+			}
+			// Admission must succeed before worker execution
+			const schedulerCfg = {
+				maxActiveRuns: Number(process.env.POSITRON_MAX_ACTIVE_RUNS ?? 2),
+				workspaceLockTtlMs: 600_000,
+			};
+			const decision = admitNext(db, schedulerCfg as Parameters<typeof admitNext>[1]);
+			if (decision && decision.queue_item_id !== queueItem.queue_item_id) {
+				// Another item was admitted; ensure our item is admitted or waiting
+				const ourItem = getQueueItem(db, queueItem.queue_item_id);
+				if (ourItem?.queue_state !== 'ADMITTED' && ourItem?.queue_state !== 'RUNNING') {
+					// Try to admit our specific item by ticking again
+					admitNext(db, schedulerCfg as Parameters<typeof admitNext>[1]);
+				}
+			}
+			// Mark run started (state-guarded: only ADMITTED → RUNNING)
+			const started = markRunStarted(db, queueItem.queue_item_id, runId);
+			if (!started) {
+				const current = getQueueItem(db, queueItem.queue_item_id);
+				if (current?.queue_state !== 'RUNNING' && current?.queue_state !== 'ADMITTED') {
+					throw new Error(
+						`Scheduler admission failed for ${queueItem.queue_item_id}: state=${current?.queue_state}`,
+					);
+				}
+			}
+		} catch (schedErr) {
+			console.error(`[Worker] Scheduler admission failed for job ${job.id}:`, schedErr);
+			throw schedErr;
+		}
 
 		// Load run from DB
 		const row = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as
@@ -167,6 +242,15 @@ const worker = new Worker<PipelineJobData, PipelineJobResult>(
 			workspacePath: row.workspace_path ? String(row.workspace_path) : null,
 		};
 
+		if (isTerminalRunRecord(run)) {
+			console.log(`[Worker] Ignoring stale terminal job ${job.id} for runId=${runId}`);
+			return {
+				status: run.status,
+				phase: run.phase,
+				lastError: run.lastError ?? null,
+			};
+		}
+
 		// Build pipeline dependencies
 		const deps: PipelineDeps = {
 			db,
@@ -178,9 +262,11 @@ const worker = new Worker<PipelineJobData, PipelineJobResult>(
 			syncService,
 			gateway: workerGateway,
 			gateRuntimeMode,
+			// P4: zentrale, validierte Attempt-Lease-TTL (POSITRON_ATTEMPT_LEASE_TTL_MS)
+			attemptLeaseTtlMs: resolveAttemptLeaseTtlMs(process.env),
 		};
 
-		// Run the pipeline
+		// Run the pipeline (now scheduler-owned: admission already done)
 		try {
 			const completed = await runPipeline(run, deps);
 
@@ -241,4 +327,4 @@ async function shutdown(): Promise<void> {
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
-console.log(`[Worker] Listening on queue "${PIPELINE_QUEUE}" (Redis: ${redisUrl})`);
+console.log(`[Worker] Listening on queue "${workerQueueName}" (Redis: ${redisUrl})`);
