@@ -33,9 +33,10 @@ Run the deterministic contract check:
 ./scripts/opencode-github-access-regression.sh
 ```
 
-The live fresh-session check must be read-only and verify `gh --version`, auth,
-repository resolution, issue list, issue read, and issue comments. On the repair run,
-all six checks passed after an OpenCode process restart. The MCP probe proved
-`github_get_issue` is available; `github_get_issue_comments` is not part of the
-installed 26-tool contract, so comment reads are verified through `gh issue view
-<number> --comments`.
+The regression script parses static JSON and the current resolver output. OpenCode
+1.15.13 exposes an effective permission array, so the check verifies the semantic
+boundary: exactly five enabled/allowed `github_*` operations and no extra allowed
+GitHub operation. The installed GitHub MCP server is discovered at runtime (26
+tools) and `get_issue` is called in a fresh MCP process. The server does not expose
+`get_issue_comments`; comment reads are therefore verified through the fresh `gh
+issue view 429 --comments` path. No model narration is treated as permission proof.
