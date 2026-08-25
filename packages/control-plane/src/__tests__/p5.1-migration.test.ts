@@ -12,10 +12,10 @@
 
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
-import { PROVENANCE_KNOWN, buildHarnessProfileRef } from '../harness-profile.js';
+import { buildHarnessProfileRef, PROVENANCE_KNOWN } from '../harness-profile.js';
 import { PROVIDER_RESERVATION_SCHEMA_V6 } from '../provider-capacity.js';
 import { SCHEDULER_EVENTS_SCHEMA, SCHEDULER_QUEUE_SCHEMA_V4 } from '../queue-schema.js';
-import { CONTROL_PLANE_SCHEMA_V1, applyControlPlaneMigrations } from '../schema.js';
+import { applyControlPlaneMigrations, CONTROL_PLANE_SCHEMA_V1 } from '../schema.js';
 import { createAttempt, createJob, getAttempt } from '../store.js';
 import { WORKSPACE_LOCK_SCHEMA_V5 } from '../workspace-lock.js';
 

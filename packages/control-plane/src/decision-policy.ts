@@ -7,8 +7,8 @@
 // Security ist KEIN Mehrheitsvotum: Ein blockierendes Security-Finding
 // (HIGH/CRITICAL) blockiert hart, auch wenn Correctness/Quality grün sind.
 
-import { validateContract } from './contracts.js';
 import type { DecisionContract, FindingContract, VerificationContract } from './contracts.js';
+import { validateContract } from './contracts.js';
 import type { RetryDecision } from './retry-policy.js';
 
 export interface DecisionInput {

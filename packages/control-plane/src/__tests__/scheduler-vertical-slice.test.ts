@@ -12,8 +12,8 @@ import os from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { runDurableRun } from '../durable-run.js';
 import type { DurableRunDeps, DurableRunInput } from '../durable-run.js';
+import { runDurableRun } from '../durable-run.js';
 import {
 	admitNext,
 	cancelQueueItem,

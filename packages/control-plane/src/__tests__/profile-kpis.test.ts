@@ -11,11 +11,11 @@
 
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
-import { PROVENANCE_KNOWN, buildHarnessProfileRef } from '../harness-profile.js';
+import { buildHarnessProfileRef, PROVENANCE_KNOWN } from '../harness-profile.js';
 import {
 	COST_PER_VERIFIED_SUCCESS_NOT_AVAILABLE,
-	LEGACY_PROFILE_GROUP,
 	computeProfileKpis,
+	LEGACY_PROFILE_GROUP,
 } from '../kpis.js';
 import { applyControlPlaneMigrations } from '../schema.js';
 import { createAttempt, createJob, storeDecision } from '../store.js';

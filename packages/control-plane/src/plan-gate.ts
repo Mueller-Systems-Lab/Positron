@@ -7,8 +7,8 @@
 //
 // Nur APPROVED gibt den Build frei.
 
-import { validateContract } from './contracts.js';
 import type { PlanContract } from './contracts.js';
+import { validateContract } from './contracts.js';
 import { fingerprint } from './fingerprint.js';
 
 export type PlanGateVerdict = 'APPROVED' | 'REJECTED' | 'BLOCKED';

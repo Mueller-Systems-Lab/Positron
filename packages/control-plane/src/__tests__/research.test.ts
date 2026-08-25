@@ -12,14 +12,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { validateContract } from '../contracts.js';
 import type { ResearchBatchContract } from '../contracts.js';
+import { validateContract } from '../contracts.js';
 import { fingerprint } from '../fingerprint.js';
-import { evaluateResearchBarrier, runParallelResearch } from '../research.js';
 import type { ParallelResearchResult, ResearchKind, ResearchWorker } from '../research.js';
+import { evaluateResearchBarrier, runParallelResearch } from '../research.js';
 import { listJobAttempts, listJobs } from '../store.js';
-import { cleanupWorkspace, createTestDb, createTestWorkspace } from './vertical-slice-helpers.js';
 import type { TestWorkspace } from './vertical-slice-helpers.js';
+import { cleanupWorkspace, createTestDb, createTestWorkspace } from './vertical-slice-helpers.js';
 
 // ---------------------------------------------------------------------------
 // Kontrollierte Research-Worker mit real messbarer Laufzeit

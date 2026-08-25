@@ -9,18 +9,18 @@
 import { TestCommandDetector, TestRunner } from '@positron/sandbox';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { PlanContract } from '../contracts.js';
-import { isJobCompleted, recoveryBoundary, runDurableRun } from '../durable-run.js';
 import type { VerificationTool } from '../durable-run.js';
+import { isJobCompleted, recoveryBoundary, runDurableRun } from '../durable-run.js';
 import type { ReviewWorker } from '../review.js';
+import type { TestWorkspace } from './vertical-slice-helpers.js';
 import {
-	ScriptedBuildWorker,
 	cleanupWorkspace,
 	createTestDb,
 	createTestWorkspace,
 	makeNodeTestVerifyTool,
 	readFile,
+	ScriptedBuildWorker,
 } from './vertical-slice-helpers.js';
-import type { TestWorkspace } from './vertical-slice-helpers.js';
 
 let ws: TestWorkspace | null = null;
 

@@ -30,13 +30,13 @@
 //
 // P5.2 führt KEIN Routing (P5.3) und KEINE Evolution/Promotion (P5.4) ein.
 
-import { KERNEL_DEFAULT_PERMISSIONS, validateContract } from './contracts.js';
 import type {
 	EffectiveHarnessContract,
 	KernelPermissions,
 	ModelProfileContract,
 	TaskProfileContract,
 } from './contracts.js';
+import { KERNEL_DEFAULT_PERMISSIONS, validateContract } from './contracts.js';
 import { fingerprint } from './fingerprint.js';
 import { assertNoSecretInHarnessMetadata } from './harness-profile.js';
 

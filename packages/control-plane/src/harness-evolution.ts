@@ -3,8 +3,8 @@
 // MODELS MAY PROPOSE. MODELS MAY NOT PROMOTE. EVALUATION PROVES. POSITRON PROMOTES.
 // Candidate ist versioniert, fingerprinted, immutable. Hypothesis ist METADATA, nie executable.
 
-import { validateContract } from './contracts.js';
 import type { CandidateStatus, HarnessCandidateContract } from './contracts.js';
+import { validateContract } from './contracts.js';
 import { fingerprint } from './fingerprint.js';
 
 // ---------------------------------------------------------------------------

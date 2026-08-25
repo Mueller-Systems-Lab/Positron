@@ -24,15 +24,15 @@ import { assertKpiInvariants, computeKpis } from '../kpis.js';
 import type { ResearchWorker } from '../research.js';
 import type { AttemptRecord } from '../store.js';
 import { listJobAttempts, listJobs, listTransitions } from '../store.js';
+import type { TestWorkspace } from './vertical-slice-helpers.js';
 import {
-	ScriptedBuildWorker,
 	cleanupWorkspace,
 	createTestDb,
 	createTestWorkspace,
 	makeNodeTestVerifyTool,
 	readFile,
+	ScriptedBuildWorker,
 } from './vertical-slice-helpers.js';
-import type { TestWorkspace } from './vertical-slice-helpers.js';
 
 const SOAK_TIMEOUT = 120_000;
 const SOAK_SAMPLE_SIZE = 6;
