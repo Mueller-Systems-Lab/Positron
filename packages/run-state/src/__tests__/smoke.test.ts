@@ -2,8 +2,8 @@
 
 import type { Phase } from '@positron/shared';
 import { describe, expect, test } from 'vitest';
-import { canTransition, createRun, isTerminalPhase, resumeFromEvents } from '../state-machine.js';
 import type { RunEventData } from '../state-machine.js';
+import { canTransition, createRun, isTerminalPhase, resumeFromEvents } from '../state-machine.js';
 
 describe('createRun', () => {
 	test('erstellt einen validen RunState', () => {

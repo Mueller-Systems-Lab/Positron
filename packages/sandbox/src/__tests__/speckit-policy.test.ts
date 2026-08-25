@@ -7,9 +7,9 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
 	ALLOWED_SPECKIT_COMMANDS,
 	BLOCKED_SPECKIT_COMMANDS,
-	SpecKitCommandPolicyError,
 	isAllowedSpecKitCommand,
 	isBlockedSpecKitCommand,
+	SpecKitCommandPolicyError,
 	validateSpecKitCommand,
 } from '../speckit-policy.js';
 

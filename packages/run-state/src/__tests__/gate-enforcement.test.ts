@@ -23,18 +23,18 @@
 import type { GateEvaluationContext, GateResult, GateType, Phase } from '@positron/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-	PHASE_GATE_REQUIREMENTS,
 	clearGateEvaluators,
 	evaluateGates,
 	gateEvaluatorCount,
 	getRequiredGates,
 	hasGateEvaluator,
+	PHASE_GATE_REQUIREMENTS,
 	phaseRequiresGates,
 	registerGateEvaluator,
 	tryTransitionWithGates,
 } from '../gate-evaluator.js';
-import { createRun, transition } from '../state-machine.js';
 import type { RunState } from '../state-machine.js';
+import { createRun, transition } from '../state-machine.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

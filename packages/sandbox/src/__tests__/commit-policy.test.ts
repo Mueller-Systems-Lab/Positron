@@ -4,11 +4,11 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
 	ALLOWED_BRANCH_PATTERN,
-	PROTECTED_BRANCHES,
 	evaluatePushPolicy,
 	generateCommitMessage,
 	guardBranch,
 	isValidPositronBranch,
+	PROTECTED_BRANCHES,
 } from '../commit-policy.js';
 
 // ---------------------------------------------------------------------------

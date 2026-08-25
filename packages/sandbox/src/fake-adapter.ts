@@ -4,8 +4,8 @@ import type {
 	GitDiffSummary,
 	GitStatusSummary,
 	GitWorkspaceAdapter,
-	PrepareWorkspaceInput,
 	PreparedWorkspace,
+	PrepareWorkspaceInput,
 	PushOptions,
 } from '@positron/shared';
 
