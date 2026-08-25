@@ -12,7 +12,6 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import {
-	type MarkerBlock,
 	deduplicateRows,
 	extractTableRows,
 	findMarkerBlocks,
@@ -20,6 +19,7 @@ import {
 	insertIntoBlock,
 	isPathWithinWorkspace,
 	joinLines,
+	type MarkerBlock,
 	makeEndMarker,
 	makeStartMarker,
 	readLines,

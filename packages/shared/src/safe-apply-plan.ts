@@ -5,7 +5,7 @@
 // Pure functions only. No GitHub API calls, no shell execution,
 // no mutations, no network, no file system writes.
 
-import type { ApprovalPackReport, ApprovalPackage } from './human-approval-pack.js';
+import type { ApprovalPackage, ApprovalPackReport } from './human-approval-pack.js';
 
 // ---------------------------------------------------------------------------
 // Types

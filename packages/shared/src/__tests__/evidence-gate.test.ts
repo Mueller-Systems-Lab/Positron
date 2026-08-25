@@ -5,9 +5,9 @@
 import { describe, expect, test } from 'vitest';
 import type { DecisionManifestRow } from '../decision-manifest.js';
 import {
-	type EvidenceGateReport,
 	createEvidenceGateReportFromGitHubContext,
 	createEvidenceGateReportFromRows,
+	type EvidenceGateReport,
 } from '../evidence-gate.js';
 import type {
 	GitHubContextSnapshot,
