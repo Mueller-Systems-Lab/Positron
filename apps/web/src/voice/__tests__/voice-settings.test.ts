@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import {
 	DEFAULT_VOICE_SETTINGS,
-	type VoiceSettings,
 	loadVoiceSettings,
 	saveVoiceSettings,
 	toggleVoiceEnabled,
+	type VoiceSettings,
 } from '../voice-settings.js';
 
 // Mock localStorage
