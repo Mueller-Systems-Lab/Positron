@@ -47,7 +47,7 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 
 			return {
 				available: false,
-				reason: `opencode --version exited with code ${String(result.exitCode)}`,
+				reason: `opencode --version exited with code ${String(result.exitCode)}${result.stderr.trim() ? `: ${this.redact(result.stderr.trim())}` : ''}`,
 			};
 		} catch {
 			return { available: false, reason: 'OpenCode CLI not found or not executable' };
@@ -97,7 +97,36 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 			contextMsg = `Target repository: ${input.repoOwner}/${input.repoName}\n\n${contextMsg}`;
 		}
 
-		const args = ['run', '--command', commandName, '--format', 'json', contextMsg];
+		const resolvedModel = input.model ?? process.env.POSITRON_OPENCODE_MODEL;
+		if (!resolvedModel) {
+			return {
+				phase: this.mapPhase(phaseName),
+				status: 'blocked',
+				command: 'opencode run',
+				args: [],
+				cwd: input.workspacePath,
+				exitCode: null,
+				durationMs: Date.now() - startTime,
+				summary: 'OpenCode model resolution is required; no global fallback is permitted',
+				blockedReason: 'MODEL_RESOLUTION_REQUIRED',
+			};
+		}
+
+		const args = [
+			'run',
+			'--dir',
+			input.workspacePath,
+			'--model',
+			resolvedModel,
+			'--agent',
+			input.agent ?? process.env.POSITRON_OPENCODE_AGENT ?? 'build',
+			...(input.auto ? ['--auto'] : []),
+			'--command',
+			commandName,
+			'--format',
+			'json',
+			contextMsg,
+		];
 
 		try {
 			const result = await runCommand('opencode', args, {
@@ -129,20 +158,34 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 			// Prüfe auf JSON-Fehler im Output (opencode exit 0 auch bei Fehlern)
 			let hasJsonError = false;
 			let errorMessage: string | undefined;
-			try {
-				for (const line of result.stdout.split('\n')) {
-					const parsed = JSON.parse(line);
-					if (parsed.type === 'error' && parsed.error?.data?.message) {
-						hasJsonError = true;
-						errorMessage = parsed.error.data.message;
-						break;
-					}
+			let errorEvidence: OpenCodeCommandResult['error'];
+			for (const line of result.stdout.split('\n')) {
+				try {
+					const parsed = JSON.parse(line) as {
+						type?: string;
+						error?: {
+							name?: unknown;
+							data?: { message?: unknown; ref?: unknown; retryable?: unknown };
+						};
+					};
+					if (parsed.type !== 'error' || !parsed.error) continue;
+					hasJsonError = true;
+					const data = parsed.error.data ?? {};
+					errorMessage = typeof data.message === 'string' ? data.message : undefined;
+					errorEvidence = {
+						name: typeof parsed.error.name === 'string' ? parsed.error.name : undefined,
+						message: this.redact(errorMessage),
+						ref: typeof data.ref === 'string' ? data.ref : undefined,
+						retryable: typeof data.retryable === 'boolean' ? data.retryable : undefined,
+					};
+					break;
+				} catch {
+					/* Ignore non-JSON output lines. */
 				}
-			} catch {
-				/* ignore parse errors */
 			}
 
 			const isSuccess = result.exitCode === 0 && !hasJsonError;
+			const safeFailure = this.redact(errorMessage ?? result.stderr.slice(0, 200));
 
 			return {
 				phase: this.mapPhase(phaseName),
@@ -154,13 +197,15 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 				durationMs: Date.now() - startTime,
 				summary: isSuccess
 					? `Command "${commandName}" phase "${phaseName}" completed (${extractedText ? `${extractedText.length} chars` : 'no text output'})`
-					: `Command "${commandName}" phase "${phaseName}" failed: ${errorMessage ?? result.stderr.slice(0, 200)}`,
+					: `Command "${commandName}" phase "${phaseName}" failed: ${safeFailure ?? 'unknown error'}`,
 				stdoutPath: evidencePaths.stdoutPath,
 				stderrPath: evidencePaths.stderrPath,
-				blockedReason: !isSuccess ? (errorMessage ?? result.stderr.slice(0, 200)) : undefined,
+				blockedReason: !isSuccess ? safeFailure : undefined,
+				error: errorEvidence,
 			};
 		} catch (err) {
 			const errMsg = String(err);
+			const safeErrMsg = this.redact(errMsg)?.slice(0, 200) ?? 'unknown error';
 			return {
 				phase: this.mapPhase(phaseName),
 				status: 'failed',
@@ -169,10 +214,17 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 				cwd: input.workspacePath,
 				exitCode: null,
 				durationMs: Date.now() - startTime,
-				summary: `Command "${commandName}" phase "${phaseName}" failed: ${errMsg.slice(0, 200)}`,
-				blockedReason: errMsg,
+				summary: `Command "${commandName}" phase "${phaseName}" failed: ${safeErrMsg}`,
+				blockedReason: safeErrMsg,
 			};
 		}
+	}
+
+	private redact(value: string | undefined): string | undefined {
+		return value?.replace(
+			/(bearer\s+|api[_-]?key\s*[=:]\s*|token\s*[=:]\s*)[^\s,;}]+/gi,
+			'$1[REDACTED]',
+		);
 	}
 
 	/**

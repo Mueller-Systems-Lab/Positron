@@ -63,6 +63,13 @@ export interface OpenCodeCommandResult {
 	sessionId?: string;
 	/** How changes were produced. Undefined = legacy adapter without mode awareness. */
 	executionMode?: ExecutionMode;
+	/** Structured error evidence emitted by OpenCode, with sensitive values removed. */
+	error?: {
+		name?: string;
+		message?: string;
+		ref?: string;
+		retryable?: boolean;
+	};
 }
 
 /** Input für OpenCode Adapter-Methoden */
@@ -85,6 +92,10 @@ export interface OpenCodeRunInput {
 	mode?: 'detect-only' | 'safe-cli';
 	/** OpenCode Modell (provider/model) */
 	model?: string;
+	/** Resolved OpenCode agent/profile. */
+	agent?: string;
+	/** Explicitly enable supported unattended approvals at this boundary. */
+	auto?: boolean;
 	/** Autonomie-Level (0-4) */
 	autonomyLevel?: number;
 	/** Phase-Name für spec-driven-development (z.B. "specify", "plan", "tasks") */
