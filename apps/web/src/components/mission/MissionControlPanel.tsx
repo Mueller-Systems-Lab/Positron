@@ -12,7 +12,6 @@
 
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { api } from '../../api.js';
 import type {
 	ControlPlaneAttempt,
 	ControlPlaneDecision,
@@ -20,6 +19,7 @@ import type {
 	ControlPlaneResponse,
 	ControlPlaneTransition,
 } from '../../api.js';
+import { api } from '../../api.js';
 import {
 	formatDurationMs,
 	formatTimestamp,

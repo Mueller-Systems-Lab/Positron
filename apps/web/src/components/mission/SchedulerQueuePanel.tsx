@@ -12,8 +12,8 @@
 
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { api } from '../../api.js';
 import type { SchedulerQueueItem } from '../../api.js';
+import { api } from '../../api.js';
 
 const POLL_INTERVAL_MS = 5000;
 

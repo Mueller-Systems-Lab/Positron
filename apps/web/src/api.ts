@@ -8,11 +8,12 @@ import type {
 	Issue,
 	ManagedTargetProject,
 	Metrics,
+	Phase,
 	Repository,
 	Run,
 	RunEvent,
+	RunStatus,
 } from './types.js';
-import type { Phase, RunStatus } from './types.js';
 
 const BASE = '/api';
 

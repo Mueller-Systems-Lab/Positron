@@ -1,9 +1,9 @@
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api.js';
-import VoiceControls from '../VoiceControls.jsx';
 import ErrorBanner from '../shared/ErrorBanner.js';
 import LoadingSkeleton from '../shared/LoadingSkeleton.js';
+import VoiceControls from '../VoiceControls.jsx';
 
 interface McpServer {
 	name: string;
