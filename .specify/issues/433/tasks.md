@@ -42,5 +42,5 @@
 - [x] T26 Complete tooling/migration review: semantics are faithful.
 - [x] T27 Stage explicit intended files, inspect diff, and commit with issue-433 convention.
 - [x] T28 Push branch and create standalone PR; report exact head.
-- [ ] T29 Observe all required CI jobs/reviews; report 11-CI status and do not merge.
+- [x] T29 Observe all required CI jobs/reviews; report 11-CI status and do not merge.
 - [ ] T30 Publish final acceptance mapping and exact Owner Gate request.
