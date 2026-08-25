@@ -11,20 +11,20 @@
 import { describe, expect, it } from 'vitest';
 import { validateContract } from '../contracts.js';
 import {
+	buildHarnessProfileRef,
+	computeEffectiveHarnessFingerprint,
 	HARNESS_PROFILE_REF_CONTRACT,
 	HarnessMetadataSecretError,
 	HarnessProfileValidationError,
 	INVALID_FINGERPRINT,
 	INVALID_PROFILE_REF,
+	isLegacyHarnessAttempt,
 	LEGACY_PROFILE_UNSPECIFIED,
 	PROVENANCE_KNOWN,
 	PROVENANCE_UNAVAILABLE,
+	resolveHarnessProfileFromEnv,
 	UNKNOWN_CONTRACT,
 	UNKNOWN_VERSION,
-	buildHarnessProfileRef,
-	computeEffectiveHarnessFingerprint,
-	isLegacyHarnessAttempt,
-	resolveHarnessProfileFromEnv,
 	validateHarnessProfileRef,
 } from '../harness-profile.js';
 

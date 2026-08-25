@@ -1,460 +1,437 @@
 // Positron Control Plane — Zentrale Exporte
 
-// ─── Versionierte Data Contracts + Validator ───
-export {
-	CONTRACT_IDS,
-	isKnownContractId,
-	getContractSchema,
-	validateContract,
-	FAILURE_CLASSES,
-	isFailureClass,
-	PLAN_DECISIONS,
-} from './contracts.js';
 export type {
-	ContractId,
-	ContractSchema,
-	FieldConstraint,
-	ContractValidationResult,
-	FailureClass,
-	PlanDecision,
-	FindingSeverity,
-	FindingConfidence,
-	FindingCategory,
-	VerificationCheckKind,
-	VerificationCheck,
-	VerificationContract,
-	FindingContract,
-	ReviewBatchContract,
-	ResearchBatchContract,
-	ResearchResultEntry,
-	ResearchResultStatus,
-	DecisionContract,
-	PlanContract,
-	SplitContract,
-	BuildInputContract,
-	BuildResultContract,
-	RunEventContract,
-	HarnessProfileRefContract,
-	ModelProvenanceStatus,
-} from './contracts.js';
-
-// ─── Fingerprints ───
-export { fingerprint, canonicalJson, semanticallyEqual } from './fingerprint.js';
-
-// ─── P5.1 Harness Profile Identity & Provenance ───
-export {
-	HARNESS_PROFILE_REF_CONTRACT,
-	PROVENANCE_UNAVAILABLE,
-	LEGACY_PROFILE_UNSPECIFIED,
-	PROVENANCE_KNOWN,
-	MODEL_PROVENANCE_STATUSES,
-	UNKNOWN_CONTRACT,
-	UNKNOWN_VERSION,
-	INVALID_PROFILE_REF,
-	INVALID_FINGERPRINT,
-	HARNESS_RUNTIME_EXCLUDE_KEYS,
-	HARNESS_SECRET_PATTERNS,
-	computeEffectiveHarnessFingerprint,
-	validateHarnessProfileRef,
-	buildHarnessProfileRef,
-	resolveHarnessProfileFromEnv,
-	isLegacyHarnessAttempt,
-	HarnessProfileValidationError,
-	HarnessMetadataSecretError,
-} from './harness-profile.js';
-export type { HarnessProfileRefInput, HarnessProfileValidationResult } from './harness-profile.js';
-
-// ─── P5.2 Static Model Profiles, Task Profiles & Profile Compiler ───
-export {
-	PROFILE_COMPILER_VERSION,
-	KERNEL_POLICY_REF,
-	UNKNOWN_PROFILE_DENIED,
-	UNKNOWN_PROFILE_VERSION,
-	PROFILE_INVALID,
-	TOOL_NOT_ALLOWED,
-	PROFILE_INCOMPATIBLE,
-	DENIED_BY_KERNEL_POLICY,
-	ADAPTER_CAPABILITY_MISMATCH,
-	computeProfileFingerprint,
-	validateModelProfile,
-	validateTaskProfile,
-	modelProfileSemantics,
-	taskProfileSemantics,
-	intersectPermissions,
-	compileEffectiveHarness,
-	resolveEffectiveHarnessFromEnv,
-	buildTaskProfile,
-	PLAN_TASK_PROFILE,
-	BUILD_TASK_PROFILE,
-	RESEARCH_TASK_PROFILE,
-	REVIEW_TASK_PROFILE,
-	DEFAULT_TASK_PROFILES,
-	resolveProfileFromRegistry,
-	ProfileCompilationError,
-} from './profile-compiler.js';
-export type { ProfileCompileInput } from './profile-compiler.js';
-export { KERNEL_DEFAULT_PERMISSIONS } from './contracts.js';
-export type { KernelPermissions, ProfileTaskType } from './contracts.js';
-
-// ─── DB-Schema (Migrationen auf bestehender SQLite-DB) ───
-export { CONTROL_PLANE_SCHEMA_V1, applyControlPlaneMigrations } from './schema.js';
-
-// ─── Job/Attempt/Decision/Transition Store ───
-export {
-	createId,
-	nowIso,
-	createJob,
-	getJob,
-	listJobs,
-	updateJobState,
-	createAttempt,
-	getAttempt,
-	listAttempts,
-	listJobAttempts,
-	completeAttempt,
-	claimAttempt,
-	claimAttemptWithGeneration,
-	renewAttemptLease,
-	isAttemptLeaseValid,
-	recoverStaleLeases,
-	canTransitionAttempt,
-	mapAttemptRow,
-	bindHarnessProfileToAttempt,
-	storeDecision,
-	listDecisions,
-	storeTransition,
-	listTransitions,
-} from './store.js';
-export type {
-	JobType,
-	JobState,
-	JobRecord,
-	AttemptStatus,
-	AttemptRecord,
-	DecisionRecord,
-	TransitionRecord,
-} from './store.js';
-export {
-	DEFAULT_ATTEMPT_LEASE_TTL_MS,
-	resolveAttemptLeaseTtlMs,
-} from './store.js';
-
-// ─── Execution Context Enforcement (P3) ───
-export {
-	EXECUTION_CONTEXT_REQUIRED,
-	ExecutionContextRequiredError,
-	assertExecutionContext,
-	assertAttemptActive,
-	hasExecutionContext,
-} from './execution-context.js';
-export type { ControlPlaneExecutionContext } from './execution-context.js';
-
-// ─── Idempotency ───
-export { IdempotencyRegistry, idempotencyKey } from './idempotency.js';
-export type { IdempotencyState, IdempotencyEntry } from './idempotency.js';
-
-// ─── Plan Gate ───
-export { evaluatePlanGate, planGateBlocked, isPlanApproved } from './plan-gate.js';
-export type { PlanGateVerdict, PlanGateResult } from './plan-gate.js';
-
-// ─── Verification ───
-export {
-	buildVerificationContract,
-	validateVerificationContract,
-	repositoryCheck,
-} from './verification.js';
-export type { VerificationInput } from './verification.js';
-
-// ─── Failure Classification ───
-export { classifyFailure, failureSignatureFromChecks } from './failure.js';
-export type { FailureSignal } from './failure.js';
-
-// ─── Retry Policy ───
-export { evaluateRetry, isIdenticalAttempt } from './retry-policy.js';
-export type { RetryVerdict, RetryDecision, RetryContextInput } from './retry-policy.js';
-
-// ─── Decision Policy ───
-export { buildDecision, validateDecision, isDone } from './decision-policy.js';
-export type { DecisionInput } from './decision-policy.js';
-
-// ─── Split Policy ───
-export { evaluateSplit, DEFAULT_SPLIT_LIMITS } from './split.js';
-export type { SplitLimits, SplitVerdict, SplitDecision } from './split.js';
-
-// ─── Real Fan-out/Join Reviews ───
-export { runParallelReviews, listReviewAttempts } from './review.js';
-export type {
-	ReviewKind,
-	ReviewWorker,
-	ParallelReviewResult,
-	ParallelReviewOutcome,
-} from './review.js';
-
-// ─── Gemeinsame Parallelitäts-Primitive ───
-export { assertRealParallelism, observedOverlapMs } from './parallelism.js';
-export type { ParallelExecutionSlice, ParallelismVerdict } from './parallelism.js';
-
-// ─── Real Fan-out/Join Research ───
-export { runParallelResearch, evaluateResearchBarrier, listResearchAttempts } from './research.js';
-export type {
-	ResearchKind,
-	ResearchWorker,
-	ResearchWorkerOutput,
-	ParallelResearchResult,
-	ResearchBarrierStatus,
-	ResearchBarrierDecision,
-	ParallelResearchOutcome,
-	ResearchRunOptions,
-} from './research.js';
-
-// ─── KPIs ───
-export { computeKpis, assertKpiInvariants, computeEvolutionKpis } from './kpis.js';
-export {
-	computeProfileKpis,
-	LEGACY_PROFILE_GROUP,
-	COST_PER_VERIFIED_SUCCESS_NOT_AVAILABLE,
-} from './kpis.js';
-export type { ProfileKpiGroup, ProfileKpiReport, EvolutionKpiReport } from './kpis.js';
-export type { KpiReport } from './kpis.js';
-
-// ─── Durable Run Orchestration ───
-export {
-	runDurableRun,
-	isJobCompleted,
-	recoveryBoundary,
-	workspaceFingerprint,
-} from './durable-run.js';
-export type {
-	BuildWorker,
-	VerificationTool,
-	PlanWorker,
-	DurableRunDeps,
-	DurableRunResult,
-	DurableRunInput,
-	IssueContract,
-} from './durable-run.js';
-
+	CancellableTimeoutResult,
+	CancellationSource,
+} from './cancellation.js';
 // ─── Cancellation & Lease-Heartbeat (P3.5/P4) ───
 export {
+	CancellationError,
 	createCancellationSource,
+	startLeaseHeartbeat,
 	terminateChildProcess,
 	waitForProcessExit,
 	withCancellableTimeout,
-	CancellationError,
-	startLeaseHeartbeat,
 } from './cancellation.js';
 export type {
-	CancellationSource,
-	CancellableTimeoutResult,
-} from './cancellation.js';
-
-// ─── P4: Deterministic Scheduler (Multi-Issue Scheduling) ───
+	BuildInputContract,
+	BuildResultContract,
+	CandidateStatus,
+	ContractId,
+	ContractSchema,
+	ContractValidationResult,
+	DecisionContract,
+	FailureClass,
+	FieldConstraint,
+	FindingCategory,
+	FindingConfidence,
+	FindingContract,
+	FindingSeverity,
+	HarnessCandidateContract,
+	HarnessEvaluationContract,
+	HarnessProfileRefContract,
+	HarnessPromotionDecisionContract,
+	KernelPermissions,
+	ModelProvenanceStatus,
+	PlanContract,
+	PlanDecision,
+	ProfileTaskType,
+	PromotionDecision,
+	ResearchBatchContract,
+	ResearchResultEntry,
+	ResearchResultStatus,
+	ReviewBatchContract,
+	RunEventContract,
+	SplitContract,
+	VerificationCheck,
+	VerificationCheckKind,
+	VerificationContract,
+} from './contracts.js';
+// ─── Versionierte Data Contracts + Validator ───
 export {
-	enqueueItem,
-	getQueueItem,
-	listQueueItems,
-	updateQueueItem,
-	admitNext,
-	dependencyStatus,
-	markRunStarted,
-	markRunFinished,
-	cancelQueueItem,
-	recoverSchedulerState,
-	isRunLeaseAlive,
-	schedulerCapacity,
-	persistSchedulerEvent,
-	listSchedulerEvents,
-} from './scheduler.js';
+	CANDIDATE_STATUSES,
+	CONTRACT_IDS,
+	FAILURE_CLASSES,
+	getContractSchema,
+	isCandidateStatus,
+	isFailureClass,
+	isKnownContractId,
+	KERNEL_DEFAULT_PERMISSIONS,
+	PLAN_DECISIONS,
+	PROMOTION_DECISIONS,
+	validateContract,
+} from './contracts.js';
+export type { DecisionInput } from './decision-policy.js';
+// ─── Decision Policy ───
+export { buildDecision, isDone, validateDecision } from './decision-policy.js';
 export type {
-	QueueItemRecord,
-	SchedulerConfig,
-	SchedulerEvent,
-	EnqueueInput,
-	AdmissionDecision,
-} from './scheduler.js';
-export {
-	normalizePriority,
-	queueDedupKey,
-	QUEUE_PRIORITY_ORDER,
-} from './queue-schema.js';
-export type {
-	QueueState,
-	QueuePriority,
-	SchedulerReasonCode,
-} from './queue-schema.js';
-
-// ─── P4 (Slice D): Persistenter Workspace Lock ───
-export {
-	acquireWorkspaceLock,
-	renewWorkspaceLock,
-	isWorkspaceLockValid,
-	releaseWorkspaceLock,
-	recoverStaleWorkspaceLocks,
-	getWorkspaceLock,
-	assertWorkspaceMutationAuthority,
-	canMutateWorkspace,
-	resolveWorkspaceLockTtlMs,
-} from './workspace-lock.js';
-export type { WorkspaceLock } from './workspace-lock.js';
-
-// ─── P4 (Slice E): Provider Capacity & Reservations ───
-export {
-	resolveProviderCapacity,
-	activeProviderReservations,
-	reserveProviderSlot,
-	releaseProviderSlot,
-	recoverStaleProviderSlots,
-} from './provider-capacity.js';
-export type { ProviderReservation } from './provider-capacity.js';
-
+	CapabilityEvidenceInput,
+	CapabilityGateResult,
+	DiagnosisInput,
+	DiagnosisResult,
+	FailureDiagnosisContract,
+	FailureDomain,
+	RoutingAction,
+	RoutingDecisionContract,
+	RoutingInput,
+	RoutingResult,
+} from './diagnosis.js';
 // ─── P5.3 Two-Axis Failure Diagnosis & Evidence-Based Routing ───
 export {
-	DIAGNOSIS_POLICY_VERSION,
-	ROUTING_POLICY_VERSION,
-	DEFAULT_CAPABILITY_SAMPLE_THRESHOLD,
-	DIAGNOSIS_REASON_EXECUTION_PROVIDER,
-	DIAGNOSIS_REASON_EXECUTION_INFRA,
-	DIAGNOSIS_REASON_EXECUTION_TIMEOUT,
-	DIAGNOSIS_REASON_HARNESS_CONTEXT,
-	DIAGNOSIS_REASON_HARNESS_TOOL,
-	DIAGNOSIS_REASON_STRATEGY,
-	DIAGNOSIS_REASON_CAPABILITY,
-	DIAGNOSIS_REASON_UNKNOWN,
-	DIAGNOSIS_REASON_SECURITY_BLOCK,
-	ROUTING_REASON_EXECUTION,
-	ROUTING_REASON_HARNESS,
-	ROUTING_REASON_STRATEGY,
-	ROUTING_REASON_CAPABILITY,
-	ROUTING_REASON_UNKNOWN,
-	ROUTING_REASON_INSUFFICIENT_EVIDENCE,
-	ROUTING_REASON_SECURITY_BLOCK,
-	diagnoseFailureDomain,
-	evaluateCapabilityEvidence,
-	decideRouting,
 	buildFailureDiagnosis,
 	buildRoutingDecision,
 	collectAttemptChain,
+	DEFAULT_CAPABILITY_SAMPLE_THRESHOLD,
+	DIAGNOSIS_POLICY_VERSION,
+	DIAGNOSIS_REASON_CAPABILITY,
+	DIAGNOSIS_REASON_EXECUTION_INFRA,
+	DIAGNOSIS_REASON_EXECUTION_PROVIDER,
+	DIAGNOSIS_REASON_EXECUTION_TIMEOUT,
+	DIAGNOSIS_REASON_HARNESS_CONTEXT,
+	DIAGNOSIS_REASON_HARNESS_TOOL,
+	DIAGNOSIS_REASON_SECURITY_BLOCK,
+	DIAGNOSIS_REASON_STRATEGY,
+	DIAGNOSIS_REASON_UNKNOWN,
+	decideRouting,
+	diagnoseFailureDomain,
+	evaluateCapabilityEvidence,
+	FAILURE_DOMAINS,
 	hasRealDelta,
 	isFailureDomain,
 	isRoutingAction,
-	FAILURE_DOMAINS,
 	ROUTING_ACTIONS,
+	ROUTING_POLICY_VERSION,
+	ROUTING_REASON_CAPABILITY,
+	ROUTING_REASON_EXECUTION,
+	ROUTING_REASON_HARNESS,
+	ROUTING_REASON_INSUFFICIENT_EVIDENCE,
+	ROUTING_REASON_SECURITY_BLOCK,
+	ROUTING_REASON_STRATEGY,
+	ROUTING_REASON_UNKNOWN,
 } from './diagnosis.js';
 export type {
-	FailureDomain,
-	RoutingAction,
-	DiagnosisInput,
-	DiagnosisResult,
-	CapabilityEvidenceInput,
-	CapabilityGateResult,
-	RoutingInput,
-	RoutingResult,
-	FailureDiagnosisContract,
-	RoutingDecisionContract,
-} from './diagnosis.js';
-
-// ─── P5.4 Harness Evolution Sandbox ───
+	BuildWorker,
+	DurableRunDeps,
+	DurableRunInput,
+	DurableRunResult,
+	IssueContract,
+	PlanWorker,
+	VerificationTool,
+} from './durable-run.js';
+// ─── Durable Run Orchestration ───
 export {
-	TUNABLE_FIELDS,
-	NON_TUNABLE_FIELDS,
-	isTunableField,
-	isNonTunableField,
-	computeCandidateFingerprint,
-	validateCandidate,
-	buildCandidate,
-	isValidTransition,
-	CANDIDATE_TRANSITIONS,
-	CANDIDATE_CANNOT_SELF_PROMOTE,
-	MODEL_CANNOT_SELF_PROMOTE,
-	CANDIDATE_INVALID,
-	CANDIDATE_NON_TUNABLE_VIOLATION,
-} from './harness-evolution.js';
-export type { CandidateValidationResult, BuildCandidateInput } from './harness-evolution.js';
+	isJobCompleted,
+	recoveryBoundary,
+	runDurableRun,
+	workspaceFingerprint,
+} from './durable-run.js';
+export type {
+	BuildEvaluationInput,
+	ComputeBudget,
+	DatasetPartition,
+	EvaluationInput,
+	EvaluationResult,
+	LeakageCheck,
+	LeakageType,
+	PartitionType,
+} from './evaluation.js';
 export {
-	COMPUTE_MATCH_POLICY_VERSION,
-	computeMatchedBudget,
-	isComputeMatched,
+	buildEvaluation,
 	buildPartitionFingerprint,
-	isHoldoutIsolated,
+	COMPUTE_MATCH_POLICY_VERSION,
 	checkLeakage,
-	hasLeakage,
-	MIN_SAMPLE_SIZE,
+	computeEvaluationFingerprint,
+	computeMatchedBudget,
 	DEFAULT_SAMPLE_THRESHOLD,
 	evaluateResult,
-	computeEvaluationFingerprint,
-	buildEvaluation,
+	hasLeakage,
+	isComputeMatched,
+	isHoldoutIsolated,
+	MIN_SAMPLE_SIZE,
 } from './evaluation.js';
-export type {
-	ComputeBudget,
-	PartitionType,
-	DatasetPartition,
-	LeakageType,
-	LeakageCheck,
-	EvaluationResult,
-	EvaluationInput,
-	BuildEvaluationInput,
-} from './evaluation.js';
+export type { ControlPlaneExecutionContext } from './execution-context.js';
+// ─── Execution Context Enforcement (P3) ───
 export {
-	KERNEL_AUTHORITY,
-	isKernelAuthority,
-	EVALUATOR_CANNOT_PROMOTE,
-	HARD_GATES,
-	PROMOTION_POLICY_VERSION,
-	evaluatePromotionGate,
-	computePromotionFingerprint,
-	buildPromotionDecision,
-} from './promotion.js';
-export type {
-	HardGate,
-	GateResult,
-	PromotionGateInput,
-	PromotionGateOutput,
-	BuildPromotionDecisionInput,
-} from './promotion.js';
+	assertAttemptActive,
+	assertExecutionContext,
+	EXECUTION_CONTEXT_REQUIRED,
+	ExecutionContextRequiredError,
+	hasExecutionContext,
+} from './execution-context.js';
+export type { FailureSignal } from './failure.js';
+// ─── Failure Classification ───
+export { classifyFailure, failureSignatureFromChecks } from './failure.js';
+// ─── Fingerprints ───
+export { canonicalJson, fingerprint, semanticallyEqual } from './fingerprint.js';
+export type { BuildCandidateInput, CandidateValidationResult } from './harness-evolution.js';
+// ─── P5.4 Harness Evolution Sandbox ───
 export {
-	getProductionPointer,
-	initProductionPointer,
-	atomicPromotion,
-	rollbackToPrevious,
-	getProfileTransitions,
-	PROMOTION_CONFLICT,
-	PROMOTION_DUPLICATE_NOOP,
-	ROLLBACK_NOT_PROVEN,
-	KERNEL_CAPABILITY,
-	isKernelCapability,
-} from './production-pointer.js';
+	buildCandidate,
+	CANDIDATE_CANNOT_SELF_PROMOTE,
+	CANDIDATE_INVALID,
+	CANDIDATE_NON_TUNABLE_VIOLATION,
+	CANDIDATE_TRANSITIONS,
+	computeCandidateFingerprint,
+	isNonTunableField,
+	isTunableField,
+	isValidTransition,
+	MODEL_CANNOT_SELF_PROMOTE,
+	NON_TUNABLE_FIELDS,
+	TUNABLE_FIELDS,
+	validateCandidate,
+} from './harness-evolution.js';
+export type { HarnessProfileRefInput, HarnessProfileValidationResult } from './harness-profile.js';
+// ─── P5.1 Harness Profile Identity & Provenance ───
+export {
+	buildHarnessProfileRef,
+	computeEffectiveHarnessFingerprint,
+	HARNESS_PROFILE_REF_CONTRACT,
+	HARNESS_RUNTIME_EXCLUDE_KEYS,
+	HARNESS_SECRET_PATTERNS,
+	HarnessMetadataSecretError,
+	HarnessProfileValidationError,
+	INVALID_FINGERPRINT,
+	INVALID_PROFILE_REF,
+	isLegacyHarnessAttempt,
+	LEGACY_PROFILE_UNSPECIFIED,
+	MODEL_PROVENANCE_STATUSES,
+	PROVENANCE_KNOWN,
+	PROVENANCE_UNAVAILABLE,
+	resolveHarnessProfileFromEnv,
+	UNKNOWN_CONTRACT,
+	UNKNOWN_VERSION,
+	validateHarnessProfileRef,
+} from './harness-profile.js';
+export type { IdempotencyEntry, IdempotencyState } from './idempotency.js';
+// ─── Idempotency ───
+export { IdempotencyRegistry, idempotencyKey } from './idempotency.js';
+export type { EvolutionKpiReport, KpiReport, ProfileKpiGroup, ProfileKpiReport } from './kpis.js';
+// ─── KPIs ───
+export {
+	assertKpiInvariants,
+	COST_PER_VERIFIED_SUCCESS_NOT_AVAILABLE,
+	computeEvolutionKpis,
+	computeKpis,
+	computeProfileKpis,
+	LEGACY_PROFILE_GROUP,
+} from './kpis.js';
+export type { ParallelExecutionSlice, ParallelismVerdict } from './parallelism.js';
+// ─── Gemeinsame Parallelitäts-Primitive ───
+export { assertRealParallelism, observedOverlapMs } from './parallelism.js';
+export type { PlanGateResult, PlanGateVerdict } from './plan-gate.js';
+// ─── Plan Gate ───
+export { evaluatePlanGate, isPlanApproved, planGateBlocked } from './plan-gate.js';
 export type {
-	ProductionPointer,
-	ProfileTransition,
 	AtomicPromotionInput,
 	AtomicPromotionResult,
+	ProductionPointer,
+	ProfileTransition,
 	RollbackResult,
 } from './production-pointer.js';
 export {
-	runShadow,
-	getShadowRuns,
-	startCanary,
-	checkCanaryKillSwitch,
-	stopCanary,
-	completeCanary,
-	getCanaryRuns,
-	isCanaryBounded,
+	atomicPromotion,
+	getProductionPointer,
+	getProfileTransitions,
+	initProductionPointer,
+	isKernelCapability,
+	KERNEL_CAPABILITY,
+	PROMOTION_CONFLICT,
+	PROMOTION_DUPLICATE_NOOP,
+	ROLLBACK_NOT_PROVEN,
+	rollbackToPrevious,
+} from './production-pointer.js';
+export type { ProfileCompileInput } from './profile-compiler.js';
+// ─── P5.2 Static Model Profiles, Task Profiles & Profile Compiler ───
+export {
+	ADAPTER_CAPABILITY_MISMATCH,
+	BUILD_TASK_PROFILE,
+	buildTaskProfile,
+	compileEffectiveHarness,
+	computeProfileFingerprint,
+	DEFAULT_TASK_PROFILES,
+	DENIED_BY_KERNEL_POLICY,
+	intersectPermissions,
+	KERNEL_POLICY_REF,
+	modelProfileSemantics,
+	PLAN_TASK_PROFILE,
+	PROFILE_COMPILER_VERSION,
+	PROFILE_INCOMPATIBLE,
+	PROFILE_INVALID,
+	ProfileCompilationError,
+	RESEARCH_TASK_PROFILE,
+	REVIEW_TASK_PROFILE,
+	resolveEffectiveHarnessFromEnv,
+	resolveProfileFromRegistry,
+	TOOL_NOT_ALLOWED,
+	taskProfileSemantics,
+	UNKNOWN_PROFILE_DENIED,
+	UNKNOWN_PROFILE_VERSION,
+	validateModelProfile,
+	validateTaskProfile,
+} from './profile-compiler.js';
+export type {
+	BuildPromotionDecisionInput,
+	GateResult,
+	HardGate,
+	PromotionGateInput,
+	PromotionGateOutput,
+} from './promotion.js';
+export {
+	buildPromotionDecision,
+	computePromotionFingerprint,
+	EVALUATOR_CANNOT_PROMOTE,
+	evaluatePromotionGate,
+	HARD_GATES,
+	isKernelAuthority,
+	KERNEL_AUTHORITY,
+	PROMOTION_POLICY_VERSION,
+} from './promotion.js';
+export type { ProviderReservation } from './provider-capacity.js';
+// ─── P4 (Slice E): Provider Capacity & Reservations ───
+export {
+	activeProviderReservations,
+	recoverStaleProviderSlots,
+	releaseProviderSlot,
+	reserveProviderSlot,
+	resolveProviderCapacity,
+} from './provider-capacity.js';
+export type {
+	QueuePriority,
+	QueueState,
+	SchedulerReasonCode,
+} from './queue-schema.js';
+export {
+	normalizePriority,
+	QUEUE_PRIORITY_ORDER,
+	queueDedupKey,
+} from './queue-schema.js';
+export type {
+	ParallelResearchOutcome,
+	ParallelResearchResult,
+	ResearchBarrierDecision,
+	ResearchBarrierStatus,
+	ResearchKind,
+	ResearchRunOptions,
+	ResearchWorker,
+	ResearchWorkerOutput,
+} from './research.js';
+// ─── Real Fan-out/Join Research ───
+export { evaluateResearchBarrier, listResearchAttempts, runParallelResearch } from './research.js';
+export type { RetryContextInput, RetryDecision, RetryVerdict } from './retry-policy.js';
+// ─── Retry Policy ───
+export { evaluateRetry, isIdenticalAttempt } from './retry-policy.js';
+export type {
+	ParallelReviewOutcome,
+	ParallelReviewResult,
+	ReviewKind,
+	ReviewWorker,
+} from './review.js';
+// ─── Real Fan-out/Join Reviews ───
+export { listReviewAttempts, runParallelReviews } from './review.js';
+export type {
+	AdmissionDecision,
+	EnqueueInput,
+	QueueItemRecord,
+	SchedulerConfig,
+	SchedulerEvent,
+} from './scheduler.js';
+// ─── P4: Deterministic Scheduler (Multi-Issue Scheduling) ───
+export {
+	admitNext,
+	cancelQueueItem,
+	dependencyStatus,
+	enqueueItem,
+	getQueueItem,
+	isRunLeaseAlive,
+	listQueueItems,
+	listSchedulerEvents,
+	markRunFinished,
+	markRunStarted,
+	persistSchedulerEvent,
+	recoverSchedulerState,
+	schedulerCapacity,
+	updateQueueItem,
+} from './scheduler.js';
+// ─── DB-Schema (Migrationen auf bestehender SQLite-DB) ───
+export {
+	applyControlPlaneMigrations,
+	CONTROL_PLANE_SCHEMA_V1,
+	CONTROL_PLANE_SCHEMA_V10,
+	getMigrationVersion,
+	setMigrationVersion,
+	validateMigrationShape,
+} from './schema.js';
+export type { CanaryBounds, CanaryRun, ShadowResult, ShadowRun } from './shadow.js';
+export {
 	CANARY_BOUNDED,
 	CANARY_KILL_SWITCH,
 	CANARY_STOPPED,
+	checkCanaryKillSwitch,
+	completeCanary,
+	getCanaryRuns,
+	getShadowRuns,
+	isCanaryBounded,
+	runShadow,
+	startCanary,
+	stopCanary,
 } from './shadow.js';
-export type { ShadowRun, ShadowResult, CanaryBounds, CanaryRun } from './shadow.js';
-export { CONTROL_PLANE_SCHEMA_V10 } from './schema.js';
-export {
-	validateMigrationShape,
-	getMigrationVersion,
-	setMigrationVersion,
-} from './schema.js';
+export type { SplitDecision, SplitLimits, SplitVerdict } from './split.js';
+// ─── Split Policy ───
+export { DEFAULT_SPLIT_LIMITS, evaluateSplit } from './split.js';
 export type {
-	CandidateStatus,
-	HarnessCandidateContract,
-	HarnessEvaluationContract,
-	HarnessPromotionDecisionContract,
-	PromotionDecision,
-} from './contracts.js';
-export { CANDIDATE_STATUSES, isCandidateStatus, PROMOTION_DECISIONS } from './contracts.js';
+	AttemptRecord,
+	AttemptStatus,
+	DecisionRecord,
+	JobRecord,
+	JobState,
+	JobType,
+	TransitionRecord,
+} from './store.js';
+// ─── Job/Attempt/Decision/Transition Store ───
+export {
+	bindHarnessProfileToAttempt,
+	canTransitionAttempt,
+	claimAttempt,
+	claimAttemptWithGeneration,
+	completeAttempt,
+	createAttempt,
+	createId,
+	createJob,
+	DEFAULT_ATTEMPT_LEASE_TTL_MS,
+	getAttempt,
+	getJob,
+	isAttemptLeaseValid,
+	listAttempts,
+	listDecisions,
+	listJobAttempts,
+	listJobs,
+	listTransitions,
+	mapAttemptRow,
+	nowIso,
+	recoverStaleLeases,
+	renewAttemptLease,
+	resolveAttemptLeaseTtlMs,
+	storeDecision,
+	storeTransition,
+	updateJobState,
+} from './store.js';
+export type { VerificationInput } from './verification.js';
+// ─── Verification ───
+export {
+	buildVerificationContract,
+	repositoryCheck,
+	validateVerificationContract,
+} from './verification.js';
+export type { WorkspaceLock } from './workspace-lock.js';
+// ─── P4 (Slice D): Persistenter Workspace Lock ───
+export {
+	acquireWorkspaceLock,
+	assertWorkspaceMutationAuthority,
+	canMutateWorkspace,
+	getWorkspaceLock,
+	isWorkspaceLockValid,
+	recoverStaleWorkspaceLocks,
+	releaseWorkspaceLock,
+	renewWorkspaceLock,
+	resolveWorkspaceLockTtlMs,
+} from './workspace-lock.js';

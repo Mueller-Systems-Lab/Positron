@@ -18,10 +18,13 @@ import path from 'node:path';
 import type Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import type { FindingContract, PlanContract, ResearchBatchContract } from '../contracts.js';
-import { runDurableRun } from '../durable-run.js';
 import type { PlanWorker } from '../durable-run.js';
-import { assertAttemptActive, assertExecutionContext } from '../execution-context.js';
-import { EXECUTION_CONTEXT_REQUIRED } from '../execution-context.js';
+import { runDurableRun } from '../durable-run.js';
+import {
+	assertAttemptActive,
+	assertExecutionContext,
+	EXECUTION_CONTEXT_REQUIRED,
+} from '../execution-context.js';
 import type { ResearchWorker, ReviewWorker } from '../index.js';
 import {
 	completeAttempt,
@@ -32,11 +35,11 @@ import {
 	listJobs,
 } from '../store.js';
 import {
-	ScriptedBuildWorker,
 	cleanupWorkspace,
 	createTestDb,
 	createTestWorkspace,
 	makeNodeTestVerifyTool,
+	ScriptedBuildWorker,
 } from './vertical-slice-helpers.js';
 
 function listAttemptsAll(db: Database.Database, runId: string) {

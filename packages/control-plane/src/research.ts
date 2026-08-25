@@ -19,20 +19,20 @@
 import crypto from 'node:crypto';
 import type Database from 'better-sqlite3';
 import { createCancellationSource, withCancellableTimeout } from './cancellation.js';
-import { validateContract } from './contracts.js';
 import type { FailureClass, ResearchBatchContract } from './contracts.js';
+import { validateContract } from './contracts.js';
 import { assertAttemptActive, assertExecutionContext } from './execution-context.js';
 import { classifyFailure } from './failure.js';
 import { fingerprint } from './fingerprint.js';
-import { assertRealParallelism, observedOverlapMs } from './parallelism.js';
 import type { ParallelExecutionSlice, ParallelismVerdict } from './parallelism.js';
+import { assertRealParallelism, observedOverlapMs } from './parallelism.js';
+import type { AttemptRecord } from './store.js';
 import {
 	claimAttemptWithGeneration,
 	completeAttempt,
 	createAttempt,
 	mapAttemptRow,
 } from './store.js';
-import type { AttemptRecord } from './store.js';
 
 export type ResearchKind = 'code' | 'docs' | 'tests';
 

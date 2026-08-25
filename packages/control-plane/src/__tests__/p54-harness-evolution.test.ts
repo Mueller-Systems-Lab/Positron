@@ -3,7 +3,6 @@ import Database from 'better-sqlite3';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { validateContract } from '../contracts.js';
 import {
-	MIN_SAMPLE_SIZE,
 	buildEvaluation,
 	checkLeakage,
 	computeMatchedBudget,
@@ -11,6 +10,7 @@ import {
 	hasLeakage,
 	isComputeMatched,
 	isHoldoutIsolated,
+	MIN_SAMPLE_SIZE,
 } from '../evaluation.js';
 import {
 	buildCandidate,
@@ -29,9 +29,9 @@ import {
 	rollbackToPrevious,
 } from '../production-pointer.js';
 import {
-	HARD_GATES,
 	buildPromotionDecision,
 	evaluatePromotionGate,
+	HARD_GATES,
 	isKernelAuthority,
 } from '../promotion.js';
 import { applyControlPlaneMigrations } from '../schema.js';

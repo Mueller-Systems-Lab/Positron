@@ -3,8 +3,8 @@
 // Wenn eine Aufgabe nicht sinnvoll weiterbearbeitet werden kann: SPLIT statt
 // blind weiterzuprobieren. Grenzen verhindern rekursive Task-Explosion.
 
-import { validateContract } from './contracts.js';
 import type { SplitContract } from './contracts.js';
+import { validateContract } from './contracts.js';
 
 export interface SplitLimits {
 	max_split_depth: number;

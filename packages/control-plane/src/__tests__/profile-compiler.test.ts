@@ -16,34 +16,34 @@
 //   DENIED_BY_KERNEL_POLICY (Canary)
 
 import { describe, expect, it } from 'vitest';
-import { KERNEL_DEFAULT_PERMISSIONS } from '../contracts.js';
 import type { ModelProfileContract } from '../contracts.js';
+import { KERNEL_DEFAULT_PERMISSIONS } from '../contracts.js';
 import { HarnessMetadataSecretError } from '../harness-profile.js';
 import {
 	ADAPTER_CAPABILITY_MISMATCH,
 	BUILD_TASK_PROFILE,
+	compileEffectiveHarness,
+	computeProfileFingerprint,
 	DEFAULT_TASK_PROFILES,
 	DENIED_BY_KERNEL_POLICY,
+	intersectPermissions,
 	KERNEL_POLICY_REF,
+	modelProfileSemantics,
 	PLAN_TASK_PROFILE,
 	PROFILE_INCOMPATIBLE,
 	PROFILE_INVALID,
 	ProfileCompilationError,
 	RESEARCH_TASK_PROFILE,
 	REVIEW_TASK_PROFILE,
-	TOOL_NOT_ALLOWED,
-	UNKNOWN_PROFILE_DENIED,
-	UNKNOWN_PROFILE_VERSION,
-	compileEffectiveHarness,
-	computeProfileFingerprint,
-	modelProfileSemantics,
 	resolveEffectiveHarnessFromEnv,
 	resolveProfileFromRegistry,
+	TOOL_NOT_ALLOWED,
 	taskProfileSemantics,
+	UNKNOWN_PROFILE_DENIED,
+	UNKNOWN_PROFILE_VERSION,
 	validateModelProfile,
 	validateTaskProfile,
 } from '../profile-compiler.js';
-import { intersectPermissions } from '../profile-compiler.js';
 
 const MODEL_PROFILE_A: ModelProfileContract = {
 	contract: 'positron.model-profile.v1',

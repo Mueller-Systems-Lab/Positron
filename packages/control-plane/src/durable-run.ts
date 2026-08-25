@@ -24,7 +24,6 @@ import {
 	startLeaseHeartbeat,
 	withCancellableTimeout,
 } from './cancellation.js';
-import { validateContract } from './contracts.js';
 import type {
 	BuildInputContract,
 	BuildResultContract,
@@ -32,9 +31,10 @@ import type {
 	FindingContract,
 	PlanContract,
 	RunEventContract,
+	VerificationCheck,
 	VerificationContract,
 } from './contracts.js';
-import type { VerificationCheck } from './contracts.js';
+import { validateContract } from './contracts.js';
 import { buildDecision } from './decision-policy.js';
 import { assertAttemptActive, assertExecutionContext } from './execution-context.js';
 import { classifyFailure } from './failure.js';
@@ -44,7 +44,6 @@ import { IdempotencyRegistry, idempotencyKey } from './idempotency.js';
 import { assertRealParallelism } from './parallelism.js';
 import { evaluatePlanGate } from './plan-gate.js';
 import { resolveEffectiveHarnessFromEnv } from './profile-compiler.js';
-import { runParallelResearch } from './research.js';
 import type {
 	ParallelResearchOutcome,
 	ParallelResearchResult,
@@ -52,10 +51,12 @@ import type {
 	ResearchWorker,
 	ResearchWorkerOutput,
 } from './research.js';
+import { runParallelResearch } from './research.js';
 import { evaluateRetry } from './retry-policy.js';
+import type { ParallelismVerdict, ParallelReviewResult, ReviewWorker } from './review.js';
 import { runParallelReviews } from './review.js';
-import type { ParallelReviewResult, ParallelismVerdict, ReviewWorker } from './review.js';
 import { applyControlPlaneMigrations } from './schema.js';
+import type { AttemptRecord, JobRecord } from './store.js';
 import {
 	claimAttempt,
 	claimAttemptWithGeneration,
@@ -75,7 +76,6 @@ import {
 	storeTransition,
 	updateJobState,
 } from './store.js';
-import type { AttemptRecord, JobRecord } from './store.js';
 import { buildVerificationContract } from './verification.js';
 
 // ---------------------------------------------------------------------------

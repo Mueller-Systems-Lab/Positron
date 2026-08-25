@@ -25,8 +25,8 @@
 // - Fail-closed für neue produktive Attempts: UNKNOWN_CONTRACT,
 //   UNKNOWN_VERSION, INVALID_PROFILE_REF, INVALID_FINGERPRINT.
 
-import { validateContract } from './contracts.js';
 import type { HarnessProfileRefContract, ModelProvenanceStatus } from './contracts.js';
+import { validateContract } from './contracts.js';
 import { fingerprint } from './fingerprint.js';
 
 // ---------------------------------------------------------------------------

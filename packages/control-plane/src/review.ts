@@ -13,19 +13,19 @@
 
 import crypto from 'node:crypto';
 import type Database from 'better-sqlite3';
-import { validateContract } from './contracts.js';
 import type { FindingContract, ReviewBatchContract } from './contracts.js';
+import { validateContract } from './contracts.js';
 import { assertAttemptActive, assertExecutionContext } from './execution-context.js';
 import { fingerprint } from './fingerprint.js';
-import { assertRealParallelism } from './parallelism.js';
 import type { ParallelExecutionSlice, ParallelismVerdict } from './parallelism.js';
+import { assertRealParallelism } from './parallelism.js';
+import type { AttemptRecord } from './store.js';
 import {
 	claimAttemptWithGeneration,
 	completeAttempt,
 	createAttempt,
 	mapAttemptRow,
 } from './store.js';
-import type { AttemptRecord } from './store.js';
 
 export type ReviewKind = 'correctness' | 'security' | 'quality';
 
@@ -62,10 +62,10 @@ function nowIso(): string {
 	return new Date().toISOString();
 }
 
+export type { ParallelismVerdict } from './parallelism.js';
 // Re-Export der gemeinsamen Parallelitäts-Primitive (Kompatibilität:
 // bestehende Importe aus './review.js' bleiben gültig).
 export { assertRealParallelism } from './parallelism.js';
-export type { ParallelismVerdict } from './parallelism.js';
 
 /**
  * Führt Review-Worker real parallel aus (Fan-out) und sammelt die Findings

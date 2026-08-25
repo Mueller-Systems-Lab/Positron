@@ -5,8 +5,8 @@
 // Typecheck, Schema/Contract-Validierung) in einen positron.verification.v1
 // Contract.
 
-import { validateContract } from './contracts.js';
 import type { FailureClass, VerificationCheck, VerificationContract } from './contracts.js';
+import { validateContract } from './contracts.js';
 import { failureSignatureFromChecks } from './failure.js';
 
 export interface VerificationInput {

@@ -19,11 +19,11 @@ import {
 	releaseProviderSlot,
 	reserveProviderSlot,
 } from './provider-capacity.js';
-import { QUEUE_PRIORITY_ORDER, normalizePriority, queueDedupKey } from './queue-schema.js';
 import type { QueuePriority, QueueState, SchedulerReasonCode } from './queue-schema.js';
+import { normalizePriority, QUEUE_PRIORITY_ORDER, queueDedupKey } from './queue-schema.js';
 import {
-	DEFAULT_WORKSPACE_LOCK_TTL_MS,
 	acquireWorkspaceLock,
+	DEFAULT_WORKSPACE_LOCK_TTL_MS,
 	recoverStaleWorkspaceLocks,
 	releaseWorkspaceLock,
 } from './workspace-lock.js';

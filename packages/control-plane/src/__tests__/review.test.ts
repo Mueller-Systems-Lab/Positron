@@ -3,10 +3,10 @@
 
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
-import { validateContract } from '../contracts.js';
 import type { FindingContract } from '../contracts.js';
-import { assertRealParallelism, runParallelReviews } from '../review.js';
+import { validateContract } from '../contracts.js';
 import type { ReviewWorker } from '../review.js';
+import { assertRealParallelism, runParallelReviews } from '../review.js';
 import { applyControlPlaneMigrations } from '../schema.js';
 import { createJob } from '../store.js';
 

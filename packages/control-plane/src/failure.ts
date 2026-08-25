@@ -4,8 +4,8 @@
 // LLM beurteilt. Provider-/Infrastrukturfehler werden NIE als Modellunfähigkeit
 // gewertet (kein Test-Failure aus Provider-Timeouts).
 
-import { isFailureClass } from './contracts.js';
 import type { FailureClass } from './contracts.js';
+import { isFailureClass } from './contracts.js';
 
 export interface FailureSignal {
 	/** Kurze, stabile Beschreibung (z. B. "test:sum.test.ts failed") */

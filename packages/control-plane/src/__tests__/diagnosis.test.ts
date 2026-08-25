@@ -2,6 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import { validateContract } from '../contracts.js';
 import {
+	buildFailureDiagnosis,
+	buildRoutingDecision,
 	DEFAULT_CAPABILITY_SAMPLE_THRESHOLD,
 	DIAGNOSIS_REASON_CAPABILITY,
 	DIAGNOSIS_REASON_EXECUTION_INFRA,
@@ -11,6 +13,10 @@ import {
 	DIAGNOSIS_REASON_SECURITY_BLOCK,
 	DIAGNOSIS_REASON_STRATEGY,
 	DIAGNOSIS_REASON_UNKNOWN,
+	decideRouting,
+	diagnoseFailureDomain,
+	evaluateCapabilityEvidence,
+	hasRealDelta,
 	ROUTING_REASON_CAPABILITY,
 	ROUTING_REASON_EXECUTION,
 	ROUTING_REASON_HARNESS,
@@ -18,12 +24,6 @@ import {
 	ROUTING_REASON_SECURITY_BLOCK,
 	ROUTING_REASON_STRATEGY,
 	ROUTING_REASON_UNKNOWN,
-	buildFailureDiagnosis,
-	buildRoutingDecision,
-	decideRouting,
-	diagnoseFailureDomain,
-	evaluateCapabilityEvidence,
-	hasRealDelta,
 } from '../diagnosis.js';
 
 // ---------------------------------------------------------------------------
