@@ -9,12 +9,12 @@ import type { Phase } from '../types.js';
 import ArtifactPanel from './ArtifactPanel.jsx';
 import GateControls from './GateControls.jsx';
 import LogViewer from './LogViewer.jsx';
-import PhaseBadge from './PhaseBadge.jsx';
-import PhasePipeline from './PhasePipeline.jsx';
-import PhaseTimeline from './PhaseTimeline.jsx';
 import KpiPanel from './mission/KpiPanel.jsx';
 import MissionControlPanel from './mission/MissionControlPanel.jsx';
 import SchedulerQueuePanel from './mission/SchedulerQueuePanel.jsx';
+import PhaseBadge from './PhaseBadge.jsx';
+import PhasePipeline from './PhasePipeline.jsx';
+import PhaseTimeline from './PhaseTimeline.jsx';
 
 function formatDuration(ms: number): string {
 	if (ms < 1000) return `${ms}ms`;

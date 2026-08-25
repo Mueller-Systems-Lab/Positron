@@ -6,8 +6,8 @@
 
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { api } from '../../api.js';
 import type { KpiReport, KpisResponse } from '../../api.js';
+import { api } from '../../api.js';
 import { formatDurationMs } from './mission-format.js';
 
 const POLL_INTERVAL_MS = 10000;

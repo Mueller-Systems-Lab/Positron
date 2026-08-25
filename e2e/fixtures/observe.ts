@@ -2,7 +2,7 @@
  * Observe fixture for E2E tests with visible browser support.
  * Provides page.pause() for manual inspection and waitForTimeout fallback.
  */
-import { type Page, test as base, expect } from '@playwright/test';
+import { test as base, expect, type Page } from '@playwright/test';
 
 const OBSERVE = process.env.PW_OBSERVE === '1';
 const OBSERVE_TIMEOUT = Number.parseInt(process.env.PW_OBSERVE_TIMEOUT ?? '30000', 10);

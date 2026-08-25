@@ -16,7 +16,7 @@ import path from 'node:path';
  *
  * Artifacts saved to: test-results/positron-ui-workflow/
  */
-import { type BrowserContext, type Page, expect, test } from '@playwright/test';
+import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 import { installAdminToken } from './fixtures/admin-auth';
 
 const ARTIFACT_DIR = 'test-results/positron-ui-workflow';

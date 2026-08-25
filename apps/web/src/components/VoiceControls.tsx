@@ -7,10 +7,10 @@ import {
 	speakTest,
 } from '../voice/voice-output.js';
 import {
-	type VoiceEventType,
 	loadVoiceSettings,
 	saveVoiceSettings,
 	toggleVoiceEnabled,
+	type VoiceEventType,
 } from '../voice/voice-settings.js';
 
 const EVENT_LABELS: Record<VoiceEventType, string> = {
