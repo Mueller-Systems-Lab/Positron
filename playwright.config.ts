@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { getRouteSmokeTarget } from './e2e/support/route-smoke';
 
 /**
  * Positron Playwright E2E Configuration (QA-028, L4)
@@ -42,6 +43,8 @@ const FAKE_MODE_ENV = {
 	POSITRON_ADMIN_TOKEN: 'positron-test-token-dev',
 };
 
+const routeSmokeTarget = getRouteSmokeTarget(process.env.POSITRON_ROUTE_SMOKE_BASE_URL);
+
 // QA-069: Propagate admin token to test worker processes.
 // Test workers inherit parent process.env, so setting it here ensures
 // server (via webServer.env → FAKE_MODE_ENV) and test workers use the
@@ -51,13 +54,14 @@ process.env.POSITRON_ADMIN_TOKEN =
 
 export default defineConfig({
 	testDir: './e2e',
+	testIgnore: ['**/support/route-smoke.test.ts'],
 	fullyParallel: false,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,
 	workers: 1,
 	reporter: 'html',
 	use: {
-		baseURL: 'http://localhost:5173',
+		baseURL: routeSmokeTarget.baseURL,
 		// L4: Trace on every test for full failure replay
 		trace: 'retain-on-failure',
 		// L4: Record video on failure in CI (saves storage in local dev)
@@ -66,24 +70,27 @@ export default defineConfig({
 		screenshot: 'only-on-failure',
 	},
 	projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-	webServer: [
-		{
-			command: 'npx tsx src/index.ts',
-			cwd: './apps/server',
-			url: 'http://localhost:3000/api/health',
-			reuseExistingServer: true,
-			timeout: 30000,
-			env: {
-				...process.env,
-				...FAKE_MODE_ENV,
-			},
-		},
-		{
-			command: 'npx vite --port 5173',
-			cwd: './apps/web',
-			url: 'http://localhost:5173',
-			reuseExistingServer: true,
-			timeout: 30000,
-		},
-	],
+	webServer:
+		routeSmokeTarget.mode === 'local'
+			? [
+					{
+						command: 'npx tsx src/index.ts',
+						cwd: './apps/server',
+						url: 'http://localhost:3000/api/health',
+						reuseExistingServer: true,
+						timeout: 30000,
+						env: {
+							...process.env,
+							...FAKE_MODE_ENV,
+						},
+					},
+					{
+						command: 'npx vite --port 5173',
+						cwd: './apps/web',
+						url: 'http://localhost:5173',
+						reuseExistingServer: true,
+						timeout: 30000,
+					},
+				]
+			: undefined,
 });
