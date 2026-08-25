@@ -20,23 +20,23 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { FakeGitHubAdapter } from '@positron/github-adapter';
 import type { GitHubAdapter, GitHubIssueRef, GitHubIssueSummary } from '@positron/github-adapter';
-import { FakeOpenCodeAdapter } from '@positron/opencode-adapter';
+import { FakeGitHubAdapter } from '@positron/github-adapter';
 import type {
 	OpenCodeAdapter,
 	OpenCodeCommandResult,
 	OpenCodeRunInput,
 } from '@positron/opencode-adapter';
+import { FakeOpenCodeAdapter } from '@positron/opencode-adapter';
+import type { GateRuntimeMode, RunState } from '@positron/run-state';
 import {
 	applyMigrations,
 	assembleGateEvaluators,
 	clearGateEvaluators,
 	createRun,
 } from '@positron/run-state';
-import type { GateRuntimeMode, RunState } from '@positron/run-state';
-import { FakeGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
+import { FakeGitWorkspaceAdapter } from '@positron/sandbox';
 import type {
 	OpenCodeAdapter as SharedOpenCodeAdapter,
 	SpecKitAdapter,
@@ -44,9 +44,8 @@ import type {
 	SpecKitRunInput,
 } from '@positron/shared';
 import { FakeSpecKitAdapter } from '@positron/speckit-adapter';
-import { runPipeline } from '@positron/worker-pipeline';
-import { isTerminalRunRecord } from '@positron/worker-pipeline';
 import type { PipelineDeps } from '@positron/worker-pipeline';
+import { isTerminalRunRecord, runPipeline } from '@positron/worker-pipeline';
 import type Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 

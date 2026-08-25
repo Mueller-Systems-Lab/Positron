@@ -15,6 +15,7 @@ import { createRunId } from '@positron/shared';
 import { createLogger } from './logger.js';
 
 const log = createLogger('Watcher');
+
 import type { GitHubAdapter } from '@positron/github-adapter';
 import type { RepositoryConfig } from '@positron/shared';
 import type { Database } from 'better-sqlite3';

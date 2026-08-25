@@ -12,8 +12,8 @@
 // - Existing Gate 9 / onAudit behavior is not weakened
 
 import type { RunState } from '@positron/run-state';
-import { gateApproveAction } from '@positron/sandbox';
 import type { GateApproveInput, GateApproveResult } from '@positron/sandbox';
+import { gateApproveAction } from '@positron/sandbox';
 import type { Phase } from '@positron/shared';
 
 /**

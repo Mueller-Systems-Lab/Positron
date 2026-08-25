@@ -13,9 +13,14 @@ import fs from 'node:fs';
 import type http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { applyControlPlaneMigrations } from '@positron/control-plane';
-import { createAttempt, createJob, storeDecision } from '@positron/control-plane';
-import { PROVENANCE_KNOWN, buildHarnessProfileRef } from '@positron/control-plane';
+import {
+	applyControlPlaneMigrations,
+	buildHarnessProfileRef,
+	createAttempt,
+	createJob,
+	PROVENANCE_KNOWN,
+	storeDecision,
+} from '@positron/control-plane';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer } from '../index.js';

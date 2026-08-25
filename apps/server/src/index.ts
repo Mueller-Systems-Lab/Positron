@@ -54,18 +54,19 @@ import {
 	resolveWorkspaceLockTtlMs,
 	schedulerCapacity,
 } from '@positron/control-plane';
-import {
-	FakeGitHubAdapter,
-	GitHubStatusSyncService,
-	createRealGitHubAdapter,
-} from '@positron/github-adapter';
-import type { GitHubAdapter } from '@positron/github-adapter';
 import type {
 	EvidenceItem,
+	GitHubAdapter,
 	GitHubStatusSyncInput,
 	GitHubStatusSyncResult,
 } from '@positron/github-adapter';
+import {
+	createRealGitHubAdapter,
+	FakeGitHubAdapter,
+	GitHubStatusSyncService,
+} from '@positron/github-adapter';
 import { FakeOpenCodeAdapter, RealOpenCodeAdapter } from '@positron/opencode-adapter';
+import type { RunEventData, RunState } from '@positron/run-state';
 import {
 	assembleGateEvaluators,
 	createRun,
@@ -75,28 +76,29 @@ import {
 	resolveGateRuntimeMode,
 	resumeFromEvents,
 } from '@positron/run-state';
-import type { RunEventData, RunState } from '@positron/run-state';
-import { FakeGitWorkspaceAdapter, RealGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
+import { FakeGitWorkspaceAdapter, RealGitWorkspaceAdapter } from '@positron/sandbox';
+import type {
+	EventLevel,
+	OpenCodeAdapter,
+	OpenCodeRunInput,
+	Phase,
+	RepositoryConfig,
+	RunStatus,
+	SpecKitAdapter,
+} from '@positron/shared';
 import {
-	MAX_FIX_LOOPS,
 	createRunId,
 	loadRepositoryConfig,
+	MAX_FIX_LOOPS,
 	normalizeRepositoryConfig,
 	parsePhase,
 	parseRunStatus,
+	SecretManager,
 	safeJsonParse,
 } from '@positron/shared';
-import { SecretManager } from '@positron/shared';
-import type { EventLevel, Phase, RunStatus } from '@positron/shared';
-import type {
-	OpenCodeAdapter,
-	OpenCodeRunInput,
-	RepositoryConfig,
-	SpecKitAdapter,
-} from '@positron/shared';
 import { FakeSpecKitAdapter, RealSpecKitAdapter } from '@positron/speckit-adapter';
-import { GatewayService, ToolRegistry, createAuditSink } from '@positron/tool-gateway';
+import { createAuditSink, GatewayService, ToolRegistry } from '@positron/tool-gateway';
 import type { PipelineDeps } from '@positron/worker-pipeline';
 import { runPipeline } from '@positron/worker-pipeline';
 import type Database from 'better-sqlite3';

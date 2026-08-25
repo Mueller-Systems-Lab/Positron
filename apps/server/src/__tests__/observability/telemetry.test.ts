@@ -5,6 +5,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { GitHubApiMethod } from '../../observability/metrics.js';
 import {
 	classifyGitHubError,
 	githubApiDurationSeconds,
@@ -15,7 +16,6 @@ import {
 	recordGitHubApiSuccess,
 	registry,
 } from '../../observability/metrics.js';
-import type { GitHubApiMethod } from '../../observability/metrics.js';
 
 // Reset metrics before each test
 beforeEach(async () => {

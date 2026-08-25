@@ -12,22 +12,20 @@ import fs from 'node:fs';
 import type http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { applyControlPlaneMigrations } from '@positron/control-plane';
 import {
+	activeProviderReservations,
+	admitNext,
+	applyControlPlaneMigrations,
 	claimAttemptWithGeneration,
 	createAttempt,
 	createJob,
-	getAttempt,
-} from '@positron/control-plane';
-import {
-	admitNext,
 	enqueueItem,
+	getAttempt,
+	getWorkspaceLock,
 	isRunLeaseAlive,
 	markRunStarted,
 	recoverSchedulerState,
 } from '@positron/control-plane';
-import { getWorkspaceLock } from '@positron/control-plane';
-import { activeProviderReservations } from '@positron/control-plane';
 import { applyMigrations } from '@positron/run-state';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';

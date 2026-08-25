@@ -14,26 +14,25 @@ import os from 'node:os';
 import path from 'node:path';
 import { completeAttempt, getAttempt } from '@positron/control-plane';
 import { FakeGitHubAdapter } from '@positron/github-adapter';
-import { FakeOpenCodeAdapter } from '@positron/opencode-adapter';
 import type {
 	OpenCodeAdapter,
 	OpenCodeCommandResult,
 	OpenCodeRunInput,
 } from '@positron/opencode-adapter';
+import { FakeOpenCodeAdapter } from '@positron/opencode-adapter';
+import type { GateRuntimeMode, RunState } from '@positron/run-state';
 import {
 	applyMigrations,
 	assembleGateEvaluators,
 	clearGateEvaluators,
 	createRun,
 } from '@positron/run-state';
-import type { GateRuntimeMode, RunState } from '@positron/run-state';
-import { runCommand } from '@positron/sandbox';
-import { FakeGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
+import { FakeGitWorkspaceAdapter, runCommand } from '@positron/sandbox';
 import type { SpecKitAdapter } from '@positron/shared';
 import { FakeSpecKitAdapter } from '@positron/speckit-adapter';
-import { runPipeline } from '@positron/worker-pipeline';
 import type { PipelineDeps } from '@positron/worker-pipeline';
+import { runPipeline } from '@positron/worker-pipeline';
 import type Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 

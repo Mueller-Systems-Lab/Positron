@@ -10,22 +10,22 @@
 //   - existing PR not recognized
 //   - duplicate branch/commit created
 
-import { FakeGitHubAdapter } from '@positron/github-adapter';
 import type { GitHubAdapter } from '@positron/github-adapter';
+import { FakeGitHubAdapter } from '@positron/github-adapter';
 import { FakeOpenCodeAdapter } from '@positron/opencode-adapter';
+import type { GateRuntimeMode, RunState } from '@positron/run-state';
 import {
 	assembleGateEvaluators,
 	clearGateEvaluators,
 	createRun,
 	transition,
 } from '@positron/run-state';
-import type { GateRuntimeMode, RunState } from '@positron/run-state';
-import { FakeGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
+import { FakeGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitHubPullRequest, OpenCodeAdapter, SpecKitAdapter } from '@positron/shared';
 import { FakeSpecKitAdapter } from '@positron/speckit-adapter';
-import { runPipeline } from '@positron/worker-pipeline';
 import type { PipelineDeps } from '@positron/worker-pipeline';
+import { runPipeline } from '@positron/worker-pipeline';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
