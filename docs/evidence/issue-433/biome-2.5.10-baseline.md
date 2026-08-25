@@ -98,3 +98,44 @@ The independent review passes were executed with `DEEPSEEK_AGENT_USAGE=0`:
 - Tooling/migration: schema and renamed rules reviewed; `noConsole` semantics corrected manually.
 - `CRITICAL`: 0
 - `MAJOR`: 0
+
+## Formatter-gate remediation — PR #434
+
+The original blocking format gate was reproduced from PR head `f42290b8e271b93a2d0c95c578ac50487e2090b1` with exact Biome `2.5.10`: 548 files checked, 9 formatter errors, no writes. The failure set matched exactly:
+
+1. `apps/server/src/__tests__/p4-crash-recovery.test.ts`
+2. `apps/server/src/__tests__/p4-multi-issue-concurrency.test.ts`
+3. `apps/server/src/__tests__/p4-security-block.test.ts`
+4. `apps/server/src/__tests__/p4-vertical-slice.test.ts`
+5. `apps/web/src/components/PhasePipeline.tsx`
+6. `apps/web/src/components/mission/MissionControlPanel.tsx`
+7. `apps/web/src/components/settings/SettingsPage.tsx`
+8. `apps/web/src/index.css`
+9. `packages/github-adapter/src/stage3-base-resolver.ts`
+
+These are `BIOME_V2_FORMAT_BASELINE_MIGRATION_REQUIRED` changes: TypeScript/TSX call-expression and type-literal layout normalization, plus CSS layout and numeric-token normalization. They were written only with `npx biome format --write` and exactly the nine paths above. No config, workflow, package script, lint, assist, or organize-import write was used.
+
+### Equivalence and invariants
+
+- All 8 TS/TSX files parse successfully before and after; normalized TypeScript AST shapes, identifiers, literals, and control-flow structure are identical.
+- `apps/web/src/index.css` changes are gradient line wrapping plus canonical equivalent durations: `0.00s → 0s`, `0.10s → 0.1s`, `0.20s → 0.2s`, `0.30s → 0.3s`, `0.40s → 0.4s`. CSS behavior is unchanged.
+- Imports are unchanged: `IMPORT_REORDER_WRITES=0`, `IMPORT_ADDITIONS=0`, `IMPORT_REMOVALS=0`.
+- Lint remains the documented v2 baseline: 4 errors, 1,728 warnings, 9 infos; no #340 cleanup was performed.
+- `BlueprintPanel.tsx` targeted Biome 2.5.10 check remains 0 diagnostics; the old `role="status"` false-positive is absent.
+- File-selection parity remains 548/548 with empty set differences.
+
+### Gate results after remediation
+
+- Format gate: `npx biome format .` PASS; 548 files checked, 0 errors.
+- Config/version: exact Biome `2.5.10`; `biome.json` formats/checks successfully.
+- Differential Biome unit suite: 90/90 PASS; production differential path is rerun after commit.
+- Focused P4: 4 files / 8 tests PASS.
+- Focused Web: `PhasePipeline.test.tsx`, 11 tests PASS.
+- Focused Stage3: 6 files / 287 tests PASS.
+- Build and typecheck: PASS.
+- Root tests: 2,632/2,632 PASS; Web tests: 421/421 PASS.
+- Playwright: 26/26 PASS.
+- Mutation fast: PASS, 83.06% (threshold 60); mutation safety: PASS, 84.33% (threshold 0).
+- `git diff --check`: PASS. Dependency diff remains limited to the Biome migration lock/dependency scope. `gitleaks` and `trufflehog` are unavailable locally; changed paths were manually scanned.
+
+The nine source files are classified as `BIOME_V2_FORMAT_COMPATIBILITY`; they contain no runtime or UI semantic changes. `FORMAT_GATE_POLICY_CHANGED=NO`, `ISSUE_340_CLEANUP_PERFORMED=NO`, `CSS_BEHAVIOR_CHANGE=0`, `TS_TSX_SEMANTIC_CHANGE=0`, and `DEEPSEEK_AGENT_USAGE=0`.

@@ -195,128 +195,124 @@ describe('P4 SLICE F — QUEUE SURVIVES RESTART (echter Server, Datei-DB)', () =
 		process.env.POSITRON_ADMIN_TOKEN = '';
 	});
 
-	it(
-		'QUEUE_SURVIVES_RESTART: enqueue → "Crash" → neuer Server → Queue unverändert da; Admission funktioniert',
-		{ timeout: 30_000 },
-		async () => {
-			// Enqueue auf Server 1
-			const enq = await fetch(`${baseUrl}/api/scheduler/enqueue`, {
-				method: 'POST',
-				headers: authHeaders,
-				body: JSON.stringify({
-					source_type: 'issue',
-					source_ref: 'issue/9401',
-					repository_ref: 'test-owner/repo-a',
-				}),
-			});
-			expect(enq.status).toBe(200);
-			const item = (await enq.json()) as { item: { queue_item_id: string } };
-
-			// "Crash": Server schließen, DB-Datei bleibt
-			server.close();
-
-			// "Restart": neuer Server auf derselben DB-Datei
-			process.env.POSITRON_ADMIN_TOKEN = 'test-admin-token-p4f';
-			server = createServer({
-				repository: { owner: 'test-owner', repo: 'test-repo' },
-				dbPath: dbFile,
-			});
-			await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
-			baseUrl = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
-
-			// QUEUE_SURVIVES_RESTART: das Item ist nach dem Restart noch da (QUEUED)
-			const q = (await (await fetch(`${baseUrl}/api/scheduler/queue`)).json()) as {
-				queue: Array<{ queue_item_id: string; queue_state: string }>;
-			};
-			const restored = q.queue.find((x) => x.queue_item_id === item.item.queue_item_id);
-			expect(restored).toBeDefined();
-			expect(restored?.queue_state).toBe('QUEUED');
-		},
-	);
-
-	it(
-		'RUNNING_RECOVERY_REAL (Produktions-Reihenfolge): gecrashter RUNNING-Run wird beim SERVER-START requeued — nicht nachträglich finalisiert',
-		{ timeout: 30_000 },
-		async () => {
-			// Frische DB-Datei (dieser Test ist unabhängig von den vorherigen)
-			const crashDbFile = path.join(path.dirname(dbFile), 'crash-seed.db');
-			try {
-				fs.rmSync(crashDbFile, { force: true });
-			} catch {
-				/* neu */
-			}
-			// DB mit gecrashtem Zustand seeden: RUNNING-Item + Run-Zeile (aktiv)
-			// + Attempt mit ABGELAUFENER Lease (Owner ohne Heartbeat)
-			const seedDb = new Database(crashDbFile);
-			applyMigrations(seedDb);
-			applyControlPlaneMigrations(seedDb);
-			seedDb
-				.prepare(
-					"INSERT OR IGNORE INTO repositories (id, owner, name, url, local_path, enabled, created_at) VALUES ('test-owner/repo-crash', 'test-owner', 'repo-crash', '', '', 1, datetime('now'))",
-				)
-				.run();
-			const item = enqueueItem(seedDb, {
+	it('QUEUE_SURVIVES_RESTART: enqueue → "Crash" → neuer Server → Queue unverändert da; Admission funktioniert', {
+		timeout: 30_000,
+	}, async () => {
+		// Enqueue auf Server 1
+		const enq = await fetch(`${baseUrl}/api/scheduler/enqueue`, {
+			method: 'POST',
+			headers: authHeaders,
+			body: JSON.stringify({
 				source_type: 'issue',
-				source_ref: 'issue/9402',
-				repository_ref: 'test-owner/repo-crash',
-			});
-			const d = admitNext(seedDb, { maxActiveRuns: 4 });
-			expect(d?.queue_item_id).toBe(item.queue_item_id);
-			const runId = 'run-crashed-9402';
-			markRunStarted(seedDb, item.queue_item_id, runId, {});
-			seedDb
-				.prepare(
-					`INSERT INTO runs (id, repo_id, issue_number, branch, phase, status, autonomy_level, attempt, started_at, finished_at)
+				source_ref: 'issue/9401',
+				repository_ref: 'test-owner/repo-a',
+			}),
+		});
+		expect(enq.status).toBe(200);
+		const item = (await enq.json()) as { item: { queue_item_id: string } };
+
+		// "Crash": Server schließen, DB-Datei bleibt
+		server.close();
+
+		// "Restart": neuer Server auf derselben DB-Datei
+		process.env.POSITRON_ADMIN_TOKEN = 'test-admin-token-p4f';
+		server = createServer({
+			repository: { owner: 'test-owner', repo: 'test-repo' },
+			dbPath: dbFile,
+		});
+		await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+		baseUrl = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+
+		// QUEUE_SURVIVES_RESTART: das Item ist nach dem Restart noch da (QUEUED)
+		const q = (await (await fetch(`${baseUrl}/api/scheduler/queue`)).json()) as {
+			queue: Array<{ queue_item_id: string; queue_state: string }>;
+		};
+		const restored = q.queue.find((x) => x.queue_item_id === item.item.queue_item_id);
+		expect(restored).toBeDefined();
+		expect(restored?.queue_state).toBe('QUEUED');
+	});
+
+	it('RUNNING_RECOVERY_REAL (Produktions-Reihenfolge): gecrashter RUNNING-Run wird beim SERVER-START requeued — nicht nachträglich finalisiert', {
+		timeout: 30_000,
+	}, async () => {
+		// Frische DB-Datei (dieser Test ist unabhängig von den vorherigen)
+		const crashDbFile = path.join(path.dirname(dbFile), 'crash-seed.db');
+		try {
+			fs.rmSync(crashDbFile, { force: true });
+		} catch {
+			/* neu */
+		}
+		// DB mit gecrashtem Zustand seeden: RUNNING-Item + Run-Zeile (aktiv)
+		// + Attempt mit ABGELAUFENER Lease (Owner ohne Heartbeat)
+		const seedDb = new Database(crashDbFile);
+		applyMigrations(seedDb);
+		applyControlPlaneMigrations(seedDb);
+		seedDb
+			.prepare(
+				"INSERT OR IGNORE INTO repositories (id, owner, name, url, local_path, enabled, created_at) VALUES ('test-owner/repo-crash', 'test-owner', 'repo-crash', '', '', 1, datetime('now'))",
+			)
+			.run();
+		const item = enqueueItem(seedDb, {
+			source_type: 'issue',
+			source_ref: 'issue/9402',
+			repository_ref: 'test-owner/repo-crash',
+		});
+		const d = admitNext(seedDb, { maxActiveRuns: 4 });
+		expect(d?.queue_item_id).toBe(item.queue_item_id);
+		const runId = 'run-crashed-9402';
+		markRunStarted(seedDb, item.queue_item_id, runId, {});
+		seedDb
+			.prepare(
+				`INSERT INTO runs (id, repo_id, issue_number, branch, phase, status, autonomy_level, attempt, started_at, finished_at)
 					 VALUES (?, 'test-owner/repo-crash', 9402, NULL, 'IMPLEMENT', 'active', 2, 0, datetime('now'), NULL)`,
-				)
-				.run(runId);
-			const job = createJob(seedDb, runId, 'build');
-			const attempt = createAttempt(seedDb, runId, job.job_id, {
-				status: 'pending',
-				worker_type: 'opencode',
-			});
-			claimAttemptWithGeneration(seedDb, attempt.attempt_id, {
-				ownerId: `ctl:${runId}:crashed`,
-				leaseTtlMs: 30,
-			});
-			seedDb.close();
-			// Lease real ablaufen lassen (kein Heartbeat = Crash)
-			await new Promise((r) => setTimeout(r, 60));
+			)
+			.run(runId);
+		const job = createJob(seedDb, runId, 'build');
+		const attempt = createAttempt(seedDb, runId, job.job_id, {
+			status: 'pending',
+			worker_type: 'opencode',
+		});
+		claimAttemptWithGeneration(seedDb, attempt.attempt_id, {
+			ownerId: `ctl:${runId}:crashed`,
+			leaseTtlMs: 30,
+		});
+		seedDb.close();
+		// Lease real ablaufen lassen (kein Heartbeat = Crash)
+		await new Promise((r) => setTimeout(r, 60));
 
-			// "Restart": Server-Start führt die Produktions-Recovery aus
-			// (recoverSchedulerState VOR recoverStaleLeases — der gecrashte
-			// Run hat zu diesem Zeitpunkt noch laufende, aber abgelaufene
-			// Attempts → korrekt als tot erkannt → requeued).
-			process.env.POSITRON_ADMIN_TOKEN = 'test-admin-token-p4f';
-			server.close();
-			server = createServer({
-				repository: { owner: 'test-owner', repo: 'test-repo' },
-				dbPath: crashDbFile,
-			});
-			await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
-			baseUrl = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+		// "Restart": Server-Start führt die Produktions-Recovery aus
+		// (recoverSchedulerState VOR recoverStaleLeases — der gecrashte
+		// Run hat zu diesem Zeitpunkt noch laufende, aber abgelaufene
+		// Attempts → korrekt als tot erkannt → requeued).
+		process.env.POSITRON_ADMIN_TOKEN = 'test-admin-token-p4f';
+		server.close();
+		server = createServer({
+			repository: { owner: 'test-owner', repo: 'test-repo' },
+			dbPath: crashDbFile,
+		});
+		await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+		baseUrl = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
 
-			const q = (await (await fetch(`${baseUrl}/api/scheduler/queue`)).json()) as {
-				queue: Array<{ queue_item_id: string; queue_state: string }>;
-			};
-			const restored = q.queue.find((x) => x.queue_item_id === item.queue_item_id);
-			expect(restored).toBeDefined();
-			// Der gecrashte RUNNING-Run wurde beim Start requeued
-			expect(restored?.queue_state).toBe('QUEUED');
+		const q = (await (await fetch(`${baseUrl}/api/scheduler/queue`)).json()) as {
+			queue: Array<{ queue_item_id: string; queue_state: string }>;
+		};
+		const restored = q.queue.find((x) => x.queue_item_id === item.queue_item_id);
+		expect(restored).toBeDefined();
+		// Der gecrashte RUNNING-Run wurde beim Start requeued
+		expect(restored?.queue_state).toBe('QUEUED');
 
-			// Stale-Lease wurde finalisiert (STALE_LEASE) — kein Zombie-Owner
-			const checkDb = new Database(crashDbFile);
-			const stale = checkDb
-				.prepare('SELECT status, failure_class FROM cp_attempts WHERE attempt_id = ?')
-				.get(attempt.attempt_id) as { status: string; failure_class: string } | undefined;
-			expect(stale?.status).toBe('failed');
-			expect(stale?.failure_class).toBe('STALE_LEASE');
-			checkDb.close();
-			try {
-				fs.rmSync(crashDbFile, { force: true });
-			} catch {
-				/* cleanup */
-			}
-		},
-	);
+		// Stale-Lease wurde finalisiert (STALE_LEASE) — kein Zombie-Owner
+		const checkDb = new Database(crashDbFile);
+		const stale = checkDb
+			.prepare('SELECT status, failure_class FROM cp_attempts WHERE attempt_id = ?')
+			.get(attempt.attempt_id) as { status: string; failure_class: string } | undefined;
+		expect(stale?.status).toBe('failed');
+		expect(stale?.failure_class).toBe('STALE_LEASE');
+		checkDb.close();
+		try {
+			fs.rmSync(crashDbFile, { force: true });
+		} catch {
+			/* cleanup */
+		}
+	});
 });

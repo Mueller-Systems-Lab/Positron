@@ -36,14 +36,16 @@
 
 	body {
 		@apply bg-slate-50 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-100;
-		background-image: radial-gradient(circle at top left, rgba(56, 189, 248, 0.14), transparent 34%),
+		background-image:
+			radial-gradient(circle at top left, rgba(56, 189, 248, 0.14), transparent 34%),
 			radial-gradient(circle at 90% 0%, rgba(124, 58, 237, 0.12), transparent 28%),
 			linear-gradient(180deg, rgba(241, 245, 249, 0.9) 0%, rgba(248, 250, 252, 0.98) 100%);
 		font-family: var(--font-sans);
 	}
 
 	.dark body {
-		background-image: radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 32%),
+		background-image:
+			radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 32%),
 			radial-gradient(circle at 88% 6%, rgba(124, 58, 237, 0.16), transparent 26%),
 			linear-gradient(
 				180deg,
@@ -168,31 +170,31 @@
 		animation: panel-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 	}
 	.panel-stagger:nth-child(1) {
-		animation-delay: 0.00s;
+		animation-delay: 0s;
 	}
 	.panel-stagger:nth-child(2) {
 		animation-delay: 0.05s;
 	}
 	.panel-stagger:nth-child(3) {
-		animation-delay: 0.10s;
+		animation-delay: 0.1s;
 	}
 	.panel-stagger:nth-child(4) {
 		animation-delay: 0.15s;
 	}
 	.panel-stagger:nth-child(5) {
-		animation-delay: 0.20s;
+		animation-delay: 0.2s;
 	}
 	.panel-stagger:nth-child(6) {
 		animation-delay: 0.25s;
 	}
 	.panel-stagger:nth-child(7) {
-		animation-delay: 0.30s;
+		animation-delay: 0.3s;
 	}
 	.panel-stagger:nth-child(8) {
 		animation-delay: 0.35s;
 	}
 	.panel-stagger:nth-child(9) {
-		animation-delay: 0.40s;
+		animation-delay: 0.4s;
 	}
 	.panel-stagger:nth-child(10) {
 		animation-delay: 0.45s;

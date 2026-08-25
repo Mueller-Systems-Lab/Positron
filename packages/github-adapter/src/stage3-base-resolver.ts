@@ -24,11 +24,7 @@ export interface Stage3ResolvedBase {
  * Implementations read from the sandbox repository read-only.
  */
 export interface Stage3BaseResolver {
-	resolveBase(input: {
-		owner: string;
-		repo: string;
-		branch: string;
-	}): Promise<Stage3ResolvedBase>;
+	resolveBase(input: { owner: string; repo: string; branch: string }): Promise<Stage3ResolvedBase>;
 }
 
 // ---------------------------------------------------------------------------

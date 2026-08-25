@@ -121,51 +121,49 @@ describe('P4 SLICE C — CAPACITY_2_OVERLAP (zwei Runs, isolierte Workspaces)', 
 		process.env.POSITRON_ADMIN_TOKEN = '';
 	});
 
-	it(
-		'MULTI_ISSUE_PARALLELISM_REAL: A.start < B.end UND B.start < A.end → overlap_ms > 0',
-		{ timeout: 30_000 },
-		async () => {
-			const authHeaders = {
-				'Content-Type': 'application/json',
-				Authorization: 'Bearer test-admin-token-p4c',
-			};
-			// Zwei unabhängige Runs in isolierten Workspaces (verschiedene Repo-Refs)
-			const idA = await enqueue(baseUrl, authHeaders, 'issue/9301', 'test-owner/repo-a');
-			const idB = await enqueue(baseUrl, authHeaders, 'issue/9302', 'test-owner/repo-b');
+	it('MULTI_ISSUE_PARALLELISM_REAL: A.start < B.end UND B.start < A.end → overlap_ms > 0', {
+		timeout: 30_000,
+	}, async () => {
+		const authHeaders = {
+			'Content-Type': 'application/json',
+			Authorization: 'Bearer test-admin-token-p4c',
+		};
+		// Zwei unabhängige Runs in isolierten Workspaces (verschiedene Repo-Refs)
+		const idA = await enqueue(baseUrl, authHeaders, 'issue/9301', 'test-owner/repo-a');
+		const idB = await enqueue(baseUrl, authHeaders, 'issue/9302', 'test-owner/repo-b');
 
-			await waitTerminal(baseUrl, [idA, idB]);
+		await waitTerminal(baseUrl, [idA, idB]);
 
-			const eventsA = await getEvents(baseUrl, idA);
-			const eventsB = await getEvents(baseUrl, idB);
+		const eventsA = await getEvents(baseUrl, idA);
+		const eventsB = await getEvents(baseUrl, idB);
 
-			// Beide durchliefen den vollen Zyklus
-			for (const [name, evts] of [
-				['A', eventsA],
-				['B', eventsB],
-			] as const) {
-				const kinds = evts.map((e) => e.event);
-				expect(kinds).toContain('ADMITTED');
-				expect(kinds).toContain('RUN_STARTED');
-				expect(kinds).toContain('RUN_FINISHED');
-				void name;
-			}
+		// Beide durchliefen den vollen Zyklus
+		for (const [name, evts] of [
+			['A', eventsA],
+			['B', eventsB],
+		] as const) {
+			const kinds = evts.map((e) => e.event);
+			expect(kinds).toContain('ADMITTED');
+			expect(kinds).toContain('RUN_STARTED');
+			expect(kinds).toContain('RUN_FINISHED');
+			void name;
+		}
 
-			// FIFO/PRIORITY: gleiche Priorität → A vor B admitiert
-			const aAdmitted = eventsA.find((e) => e.event === 'ADMITTED')?.timestamp ?? '';
-			const bAdmitted = eventsB.find((e) => e.event === 'ADMITTED')?.timestamp ?? '';
-			expect(new Date(aAdmitted).getTime()).toBeLessThanOrEqual(new Date(bAdmitted).getTime());
+		// FIFO/PRIORITY: gleiche Priorität → A vor B admitiert
+		const aAdmitted = eventsA.find((e) => e.event === 'ADMITTED')?.timestamp ?? '';
+		const bAdmitted = eventsB.find((e) => e.event === 'ADMITTED')?.timestamp ?? '';
+		expect(new Date(aAdmitted).getTime()).toBeLessThanOrEqual(new Date(bAdmitted).getTime());
 
-			// REALER OVERLAP
-			const overlap = overlapMs(eventsA, eventsB);
-			expect(overlap).toBeGreaterThan(0);
-			console.log('[P4-C canary] overlap_ms =', overlap);
+		// REALER OVERLAP
+		const overlap = overlapMs(eventsA, eventsB);
+		expect(overlap).toBeGreaterThan(0);
+		console.log('[P4-C canary] overlap_ms =', overlap);
 
-			// NO_OVERSUBSCRIPTION: nie mehr als maxActiveRuns (2) parallel
-			const all = [...eventsA, ...eventsB];
-			expect(maxConcurrentRuns(all)).toBeLessThanOrEqual(2);
-			expect(maxConcurrentRuns(all)).toBe(2); // beide liefen WIRKLICH parallel
-		},
-	);
+		// NO_OVERSUBSCRIPTION: nie mehr als maxActiveRuns (2) parallel
+		const all = [...eventsA, ...eventsB];
+		expect(maxConcurrentRuns(all)).toBeLessThanOrEqual(2);
+		expect(maxConcurrentRuns(all)).toBe(2); // beide liefen WIRKLICH parallel
+	});
 });
 
 describe('P4 SLICE C — CAPACITY_1_SERIAL', () => {
@@ -192,41 +190,39 @@ describe('P4 SLICE C — CAPACITY_1_SERIAL', () => {
 		process.env.POSITRON_ADMIN_TOKEN = '';
 	});
 
-	it(
-		'CAPACITY_1_SERIAL: zweiter Run wartet, bis der erste terminal ist (overlap_ms = 0)',
-		{ timeout: 30_000 },
-		async () => {
-			const authHeaders = {
-				'Content-Type': 'application/json',
-				Authorization: 'Bearer test-admin-token-p4c1',
-			};
-			const idA = await enqueue(baseUrl, authHeaders, 'issue/9311', 'test-owner/repo-a');
-			const idB = await enqueue(baseUrl, authHeaders, 'issue/9312', 'test-owner/repo-b');
+	it('CAPACITY_1_SERIAL: zweiter Run wartet, bis der erste terminal ist (overlap_ms = 0)', {
+		timeout: 30_000,
+	}, async () => {
+		const authHeaders = {
+			'Content-Type': 'application/json',
+			Authorization: 'Bearer test-admin-token-p4c1',
+		};
+		const idA = await enqueue(baseUrl, authHeaders, 'issue/9311', 'test-owner/repo-a');
+		const idB = await enqueue(baseUrl, authHeaders, 'issue/9312', 'test-owner/repo-b');
 
-			await waitTerminal(baseUrl, [idA, idB]);
+		await waitTerminal(baseUrl, [idA, idB]);
 
-			const eventsA = await getEvents(baseUrl, idA);
-			const eventsB = await getEvents(baseUrl, idB);
-			const overlap = overlapMs(eventsA, eventsB);
-			if (overlap !== 0) {
-				console.log(
-					'[P4-C serial dbg] A:',
-					JSON.stringify(eventsA.map((e) => `${e.event}@${e.timestamp}`)),
-				);
-				console.log(
-					'[P4-C serial dbg] B:',
-					JSON.stringify(eventsB.map((e) => `${e.event}@${e.timestamp}`)),
-				);
-			}
-			expect(overlap).toBe(0);
+		const eventsA = await getEvents(baseUrl, idA);
+		const eventsB = await getEvents(baseUrl, idB);
+		const overlap = overlapMs(eventsA, eventsB);
+		if (overlap !== 0) {
+			console.log(
+				'[P4-C serial dbg] A:',
+				JSON.stringify(eventsA.map((e) => `${e.event}@${e.timestamp}`)),
+			);
+			console.log(
+				'[P4-C serial dbg] B:',
+				JSON.stringify(eventsB.map((e) => `${e.event}@${e.timestamp}`)),
+			);
+		}
+		expect(overlap).toBe(0);
 
-			// B wurde erst nach A's Abschluss gestartet (kein Overlap, seriell)
-			const aEnd = eventsA.find((e) => e.event === 'RUN_FINISHED')?.timestamp ?? '';
-			const bStart = eventsB.find((e) => e.event === 'RUN_STARTED')?.timestamp ?? '';
-			expect(new Date(bStart).getTime()).toBeGreaterThanOrEqual(new Date(aEnd).getTime());
+		// B wurde erst nach A's Abschluss gestartet (kein Overlap, seriell)
+		const aEnd = eventsA.find((e) => e.event === 'RUN_FINISHED')?.timestamp ?? '';
+		const bStart = eventsB.find((e) => e.event === 'RUN_STARTED')?.timestamp ?? '';
+		expect(new Date(bStart).getTime()).toBeGreaterThanOrEqual(new Date(aEnd).getTime());
 
-			const all = [...eventsA, ...eventsB];
-			expect(maxConcurrentRuns(all)).toBeLessThanOrEqual(1);
-		},
-	);
+		const all = [...eventsA, ...eventsB];
+		expect(maxConcurrentRuns(all)).toBeLessThanOrEqual(1);
+	});
 });
