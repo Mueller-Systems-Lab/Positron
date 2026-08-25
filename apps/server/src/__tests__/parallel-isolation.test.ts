@@ -8,10 +8,10 @@
 
 import type { GitHubAdapter } from '@positron/github-adapter';
 import { FakeOpenCodeAdapter } from '@positron/opencode-adapter';
-import { createRun } from '@positron/run-state';
 import type { GateRuntimeMode, RunState } from '@positron/run-state';
-import { FakeGitWorkspaceAdapter } from '@positron/sandbox';
+import { createRun } from '@positron/run-state';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
+import { FakeGitWorkspaceAdapter } from '@positron/sandbox';
 import type { OpenCodeAdapter, SpecKitAdapter } from '@positron/shared';
 import { FakeSpecKitAdapter } from '@positron/speckit-adapter';
 import type { PipelineDeps } from '@positron/worker-pipeline';

@@ -11,8 +11,8 @@
 import type { RunState } from '@positron/run-state';
 import type { Phase } from '@positron/shared';
 import { describe, expect, it } from 'vitest';
-import { handleGateApprove } from '../gate-approve-handler.js';
 import type { GateApproveOutcome } from '../gate-approve-handler.js';
+import { handleGateApprove } from '../gate-approve-handler.js';
 
 /** Minimal RunState for handler testing */
 function makeRunState(overrides: Partial<RunState> = {}): RunState {
