@@ -10,13 +10,14 @@ import {
 	markRunStarted,
 	resolveAttemptLeaseTtlMs,
 } from '@positron/control-plane';
+import type { GitHubAdapter } from '@positron/github-adapter';
 import {
+	createRealGitHubAdapter,
 	FakeGitHubAdapter,
 	GitHubStatusSyncService,
-	createRealGitHubAdapter,
 } from '@positron/github-adapter';
-import type { GitHubAdapter } from '@positron/github-adapter';
 import { FakeOpenCodeAdapter, RealOpenCodeAdapter } from '@positron/opencode-adapter';
+import type { RunState } from '@positron/run-state';
 import {
 	assembleGateEvaluators,
 	openDatabase,
@@ -24,26 +25,24 @@ import {
 	registerWorkspaceCleanup,
 	resolveGateRuntimeMode,
 } from '@positron/run-state';
-import type { RunState } from '@positron/run-state';
-import { FakeGitWorkspaceAdapter, RealGitWorkspaceAdapter } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
+import { FakeGitWorkspaceAdapter, RealGitWorkspaceAdapter } from '@positron/sandbox';
+import type { OpenCodeAdapter, RepositoryConfig, SpecKitAdapter } from '@positron/shared';
 import {
-	type PipelineJobData,
-	type PipelineJobResult,
 	buildRemoteUrl,
 	loadRepositoryConfig,
 	normalizeRepositoryConfig,
+	type PipelineJobData,
+	type PipelineJobResult,
 	resolvePipelineQueueName,
 	resolveRedisUrl,
 } from '@positron/shared';
-import type { RepositoryConfig } from '@positron/shared';
-import type { OpenCodeAdapter, SpecKitAdapter } from '@positron/shared';
 import { FakeSpecKitAdapter, RealSpecKitAdapter } from '@positron/speckit-adapter';
-import { GatewayService, ToolRegistry, createAuditSink } from '@positron/tool-gateway';
+import { createAuditSink, GatewayService, ToolRegistry } from '@positron/tool-gateway';
 import {
-	type PipelineDeps,
 	isRunInWorkerScope,
 	isTerminalRunRecord,
+	type PipelineDeps,
 	runPipeline,
 } from '@positron/worker-pipeline';
 import { type Job, Worker } from 'bullmq';

@@ -6,12 +6,12 @@
 //
 // Issue: BENCH-004 (erweitert), Phase 4
 
-import { createIssueResult, validateRunSummary } from './evidence-contract.js';
 import type {
 	BenchmarkConclusion,
 	BenchmarkIssueResult,
 	RudolphBenchmarkRunSummary,
 } from './evidence-contract.js';
+import { createIssueResult, validateRunSummary } from './evidence-contract.js';
 
 // =============================================================================
 // Controlled Real-Mode Probe Types

@@ -13,8 +13,6 @@ import { after, before, describe, it } from 'node:test';
 
 // Import module under test
 import {
-	EMPTY_TREE_SHA,
-	EXIT,
 	buildDiagnosticCounts,
 	compareDiagnostics,
 	createFullSnapshots,
@@ -23,6 +21,8 @@ import {
 	detectConfigChanges,
 	determineShas,
 	diagnosticKey,
+	EMPTY_TREE_SHA,
+	EXIT,
 	findLintableFiles,
 	getChangedFiles,
 	git,

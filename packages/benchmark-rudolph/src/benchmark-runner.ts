@@ -6,14 +6,14 @@
 //
 // Issues: BENCH-003, BENCH-004, BENCH-005
 
-import { DeterministicFixtureAgent } from '@positron/opencode-adapter';
 import type {
+	ActionPlan,
+	DryRunAgentConfig,
 	Fixture,
 	FixtureAgentConfig,
 	EvidenceReport as FixtureEvidenceReport,
 } from '@positron/opencode-adapter';
-import { OpenCodeDryRunAgent } from '@positron/opencode-adapter';
-import type { ActionPlan, DryRunAgentConfig } from '@positron/opencode-adapter';
+import { DeterministicFixtureAgent, OpenCodeDryRunAgent } from '@positron/opencode-adapter';
 import type { ExecutionMode, OpenCodeRunInput } from '@positron/shared';
 
 import type {
@@ -30,20 +30,20 @@ import {
 	validateRunSummary,
 } from './evidence-contract.js';
 import {
+	buildTraceabilityMap,
 	type IssueTraceEntry,
 	type TraceabilityMap,
-	buildTraceabilityMap,
 	validateTraceabilityMap,
 } from './traceability.js';
 
 // Re-export for convenience
 export type {
-	RudolphBenchmarkRunSummary,
-	BenchmarkIssueResult,
 	BenchmarkCommandResult,
-	BlockedAction,
 	BenchmarkConclusion,
+	BenchmarkIssueResult,
+	BlockedAction,
 	CapabilityDelta,
+	RudolphBenchmarkRunSummary,
 } from './evidence-contract.js';
 
 // =============================================================================

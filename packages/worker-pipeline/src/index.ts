@@ -4,10 +4,10 @@
 // Server-Inline-Fallback dieselbe kanonische Runtime nutzen — keine zweite
 // Positron-Runtime (P3: One control plane. One canonical execution lifecycle.)
 
-export {
-	runPipeline,
-	isRunInWorkerScope,
-	isFaultTargetedToRun,
-	isTerminalRunRecord,
-} from './pipeline-runner.js';
 export type { PipelineDeps } from './pipeline-runner.js';
+export {
+	isFaultTargetedToRun,
+	isRunInWorkerScope,
+	isTerminalRunRecord,
+	runPipeline,
+} from './pipeline-runner.js';
