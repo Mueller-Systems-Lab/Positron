@@ -3,7 +3,7 @@
 ## Ownership and evidence
 
 - [x] T1 Record role/provider/model/purpose for every agent execution; prove `DEEPSEEK_AGENT_USAGE=0`.
-- [ ] T2 Post accepted, repository-context, web-research, specification, plan, tasks, implementation, test, fix-loop, and PR status comments to #433.
+- [x] T2 Post accepted, repository-context, web-research, specification, plan, tasks, implementation, test, fix-loop, and PR status comments to #433.
 - [x] T3 Preserve original dirty worktree fingerprint and record `START_MAIN`.
 
 ## Baseline and migration
@@ -40,7 +40,7 @@
 - [x] T24 Complete security review: no unsafe ignores/suppressions or secret exposure.
 - [x] T25 Complete integration review: dependency/config/CI agree on 2.5.10.
 - [x] T26 Complete tooling/migration review: semantics are faithful.
-- [ ] T27 Stage explicit intended files, inspect diff, and commit with issue-433 convention.
-- [ ] T28 Push branch and create standalone PR; report exact head.
+- [x] T27 Stage explicit intended files, inspect diff, and commit with issue-433 convention.
+- [x] T28 Push branch and create standalone PR; report exact head.
 - [ ] T29 Observe all required CI jobs/reviews; report 11-CI status and do not merge.
 - [ ] T30 Publish final acceptance mapping and exact Owner Gate request.
