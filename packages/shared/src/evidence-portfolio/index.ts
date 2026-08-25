@@ -7,31 +7,6 @@
  * Part of Issue #305: Automate post-run capability and limitation updates.
  */
 
-// Types
-export type {
-	EvidencePortfolioConfig,
-	EvidenceRunStatus,
-	PortfolioFileDetail,
-	PortfolioFileTarget,
-	PortfolioSection,
-	PortfolioUpdateInput,
-	PortfolioUpdateResult,
-} from './types.js';
-export {
-	DEFAULT_PORTFOLIO_CONFIG,
-	MARKER_PREFIX,
-	MARKER_SUFFIX,
-	resolvePortfolioConfig,
-	statusMeetsMinimum,
-} from './types.js';
-
-// Core functions
-export {
-	applyEvidencePortfolioUpdate,
-	extractPortfolioUpdateFromRunSummary,
-	planEvidencePortfolioUpdate,
-} from './portfolio-updater.js';
-
 // Markdown utilities (exported for testing)
 export type { MarkerBlock } from './markdown-utils.js';
 export {
@@ -49,3 +24,27 @@ export {
 	tableRow,
 	tableSeparator,
 } from './markdown-utils.js';
+
+// Core functions
+export {
+	applyEvidencePortfolioUpdate,
+	extractPortfolioUpdateFromRunSummary,
+	planEvidencePortfolioUpdate,
+} from './portfolio-updater.js';
+// Types
+export type {
+	EvidencePortfolioConfig,
+	EvidenceRunStatus,
+	PortfolioFileDetail,
+	PortfolioFileTarget,
+	PortfolioSection,
+	PortfolioUpdateInput,
+	PortfolioUpdateResult,
+} from './types.js';
+export {
+	DEFAULT_PORTFOLIO_CONFIG,
+	MARKER_PREFIX,
+	MARKER_SUFFIX,
+	resolvePortfolioConfig,
+	statusMeetsMinimum,
+} from './types.js';

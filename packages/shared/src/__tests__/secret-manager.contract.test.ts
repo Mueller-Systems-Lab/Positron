@@ -20,8 +20,8 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { EnvSecretProvider, FileSecretProvider, SecretManager } from '@positron/shared';
 import type { SecretProvider } from '@positron/shared';
+import { EnvSecretProvider, FileSecretProvider, SecretManager } from '@positron/shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 // ---------------------------------------------------------------------------

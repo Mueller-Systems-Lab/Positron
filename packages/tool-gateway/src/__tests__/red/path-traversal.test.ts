@@ -5,8 +5,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { GatewayService } from '../../gateway.js';
 import { ToolRegistry } from '../../registry.js';
-import { BLOCK_REASONS } from '../../types.js';
 import type { ToolCall, ToolDefinition, ToolHandler, ToolResult } from '../../types.js';
+import { BLOCK_REASONS } from '../../types.js';
 
 describe('Red Test: Path Traversal', () => {
 	let registry: ToolRegistry;

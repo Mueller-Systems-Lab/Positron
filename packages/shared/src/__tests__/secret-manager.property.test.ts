@@ -19,8 +19,8 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { DockerSecretProvider, FileSecretProvider, SecretManager } from '@positron/shared';
 import type { SecretProvider } from '@positron/shared';
+import { DockerSecretProvider, FileSecretProvider, SecretManager } from '@positron/shared';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 

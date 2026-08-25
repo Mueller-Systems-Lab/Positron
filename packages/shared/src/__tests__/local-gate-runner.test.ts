@@ -8,14 +8,14 @@ import { describe, expect, test } from 'vitest';
 // These imports will fail until the module is implemented (red-test phase).
 // After implementation they should resolve correctly.
 import {
+	createDryRunLocalGateReport,
+	createLocalGateReport,
+	getDefaultLocalGateDefinitions,
 	type LocalGateDefinition,
 	type LocalGateKind,
 	type LocalGateReport,
 	type LocalGateResult,
 	type LocalGateStatus,
-	createDryRunLocalGateReport,
-	createLocalGateReport,
-	getDefaultLocalGateDefinitions,
 	truncateSnippet,
 	validateLocalGateDefinition,
 } from '../local-gate-runner.js';

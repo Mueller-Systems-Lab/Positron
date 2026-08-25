@@ -2,7 +2,7 @@
 // Red tests — written before implementation. All must eventually pass.
 
 import { describe, expect, it } from 'vitest';
-import type { ApprovalPackReport, ApprovalPackage } from '../human-approval-pack.js';
+import type { ApprovalPackage, ApprovalPackReport } from '../human-approval-pack.js';
 import { createSafeApplyPlanReport } from '../safe-apply-plan.js';
 
 // ---------------------------------------------------------------------------
