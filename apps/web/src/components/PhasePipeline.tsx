@@ -71,7 +71,11 @@ function PhaseNode({
 	phase,
 	status,
 	onClick,
-}: { phase: Phase; status: PhaseStatus; onClick?: (p: Phase) => void }) {
+}: {
+	phase: Phase;
+	status: PhaseStatus;
+	onClick?: (p: Phase) => void;
+}) {
 	const colors = phaseStatusColors[status];
 	const short = PHASE_SHORT[phase] ?? phase.slice(0, 2);
 

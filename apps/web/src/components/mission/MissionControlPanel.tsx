@@ -134,7 +134,10 @@ function researchStatusOf(data: ControlPlaneResponse): {
 function FingerprintValue({
 	label,
 	value,
-}: { label: string; value: string | null }): React.ReactElement {
+}: {
+	label: string;
+	value: string | null;
+}): React.ReactElement {
 	if (!value) return <span />;
 	return (
 		<span className="inline-flex items-center gap-1" title={`${label}: ${value}`}>
@@ -198,7 +201,9 @@ function KeyValue({
 
 function RunTimeline({
 	transitions,
-}: { transitions: ControlPlaneTransition[] }): React.ReactElement {
+}: {
+	transitions: ControlPlaneTransition[];
+}): React.ReactElement {
 	if (transitions.length === 0) {
 		return <p className="text-xs text-slate-500">No persisted transitions yet.</p>;
 	}

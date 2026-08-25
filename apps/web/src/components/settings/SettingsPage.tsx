@@ -26,7 +26,11 @@ function ToggleSwitch({
 	enabled,
 	onChange,
 	label,
-}: { enabled: boolean; onChange: (v: boolean) => void; label: string }) {
+}: {
+	enabled: boolean;
+	onChange: (v: boolean) => void;
+	label: string;
+}) {
 	return (
 		<button
 			type="button"

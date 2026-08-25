@@ -59,7 +59,7 @@
 		"@stryker-mutator/typescript-checker": "^9.6.1",
 		"@stryker-mutator/vitest-runner": "^9.6.1",
 		"@types/node": "^22.0.0",
-		"@biomejs/biome": "^1.9.4",
+		"@biomejs/biome": "2.5.10",
 		"@vitest/coverage-v8": "^4.1.7",
 		"concurrently": "^8.2.0",
 		"cross-env": "^10.1.0",

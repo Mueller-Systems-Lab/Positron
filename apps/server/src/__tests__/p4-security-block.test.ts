@@ -57,76 +57,74 @@ describe('P4 SLICE G — SECURITY_HARD_BLOCK_PRODUCTIVE_PATH', () => {
 		process.env.POSITRON_REVIEW_FINDINGS = '';
 	});
 
-	it(
-		'SECURITY_BLOCK: blockierendes CRITICAL-Finding → BLOCKED, Ressourcen freigegeben, kein DONE',
-		{ timeout: 40_000 },
-		async () => {
-			const authHeaders = {
-				'Content-Type': 'application/json',
-				Authorization: 'Bearer test-admin-token-p4g',
+	it('SECURITY_BLOCK: blockierendes CRITICAL-Finding → BLOCKED, Ressourcen freigegeben, kein DONE', {
+		timeout: 40_000,
+	}, async () => {
+		const authHeaders = {
+			'Content-Type': 'application/json',
+			Authorization: 'Bearer test-admin-token-p4g',
+		};
+		const enq = await fetch(`${baseUrl}/api/scheduler/enqueue`, {
+			method: 'POST',
+			headers: authHeaders,
+			body: JSON.stringify({
+				source_type: 'issue',
+				source_ref: 'issue/9500',
+				repository_ref: 'test-owner/repo-sec',
+				provider: 'deepseek',
+			}),
+		});
+		expect(enq.status).toBe(200);
+		const item = (await enq.json()) as { item: { queue_item_id: string } };
+
+		// Auf terminalen Zustand warten
+		let terminal = '';
+		for (let i = 0; i < 100; i++) {
+			await new Promise((r) => setTimeout(r, 200));
+			const q = (await (await fetch(`${baseUrl}/api/scheduler/queue`)).json()) as {
+				queue: Array<{ queue_item_id: string; queue_state: string }>;
 			};
-			const enq = await fetch(`${baseUrl}/api/scheduler/enqueue`, {
-				method: 'POST',
-				headers: authHeaders,
-				body: JSON.stringify({
-					source_type: 'issue',
-					source_ref: 'issue/9500',
-					repository_ref: 'test-owner/repo-sec',
-					provider: 'deepseek',
-				}),
-			});
-			expect(enq.status).toBe(200);
-			const item = (await enq.json()) as { item: { queue_item_id: string } };
-
-			// Auf terminalen Zustand warten
-			let terminal = '';
-			for (let i = 0; i < 100; i++) {
-				await new Promise((r) => setTimeout(r, 200));
-				const q = (await (await fetch(`${baseUrl}/api/scheduler/queue`)).json()) as {
-					queue: Array<{ queue_item_id: string; queue_state: string }>;
-				};
-				const cur = q.queue.find((x) => x.queue_item_id === item.item.queue_item_id);
-				if (cur && ['COMPLETED', 'FAILED', 'BLOCKED', 'CANCELLED'].includes(cur.queue_state)) {
-					terminal = cur.queue_state;
-					break;
-				}
+			const cur = q.queue.find((x) => x.queue_item_id === item.item.queue_item_id);
+			if (cur && ['COMPLETED', 'FAILED', 'BLOCKED', 'CANCELLED'].includes(cur.queue_state)) {
+				terminal = cur.queue_state;
+				break;
 			}
-			expect(terminal).not.toBe('COMPLETED'); // NIE DONE bei SECURITY_BLOCK
-			expect(['FAILED', 'BLOCKED']).toContain(terminal);
+		}
+		expect(terminal).not.toBe('COMPLETED'); // NIE DONE bei SECURITY_BLOCK
+		expect(['FAILED', 'BLOCKED']).toContain(terminal);
 
-			// cp_decisions: SECURITY_BLOCK (produktiver Pfad, persistiert)
-			const db = new Database(dbFile);
-			const decision = db
-				.prepare(
-					'SELECT decision, reason_code FROM cp_decisions WHERE run_id IN (SELECT run_id FROM cp_queue WHERE queue_item_id = ?)',
-				)
-				.get(item.item.queue_item_id) as { decision: string; reason_code: string } | undefined;
-			expect(decision).toBeDefined();
-			expect(decision?.decision).toBe('BLOCKED');
-			expect(decision?.reason_code).toBe('SECURITY_BLOCK');
+		// cp_decisions: SECURITY_BLOCK (produktiver Pfad, persistiert)
+		const db = new Database(dbFile);
+		const decision = db
+			.prepare(
+				'SELECT decision, reason_code FROM cp_decisions WHERE run_id IN (SELECT run_id FROM cp_queue WHERE queue_item_id = ?)',
+			)
+			.get(item.item.queue_item_id) as { decision: string; reason_code: string } | undefined;
+		expect(decision).toBeDefined();
+		expect(decision?.decision).toBe('BLOCKED');
+		expect(decision?.reason_code).toBe('SECURITY_BLOCK');
 
-			// Ressourcen freigegeben:
-			//   - Workspace Lock released
-			const lock = db
-				.prepare('SELECT released_at FROM cp_workspace_locks WHERE workspace_key = ?')
-				.get('test-owner/repo-sec') as { released_at: string | null } | undefined;
-			expect(lock?.released_at).toBeTruthy();
-			//   - Provider-Reservierung released
-			const reservation = db
-				.prepare('SELECT status FROM cp_provider_reservations WHERE owner_id = ?')
-				.get(item.item.queue_item_id) as { status: string } | undefined;
-			expect(reservation?.status).toBe('released');
-			//   - Attempts final (keine running Attempts mehr)
-			const runningAttempts = db
-				.prepare(
-					`SELECT COUNT(*) AS c FROM cp_attempts a
+		// Ressourcen freigegeben:
+		//   - Workspace Lock released
+		const lock = db
+			.prepare('SELECT released_at FROM cp_workspace_locks WHERE workspace_key = ?')
+			.get('test-owner/repo-sec') as { released_at: string | null } | undefined;
+		expect(lock?.released_at).toBeTruthy();
+		//   - Provider-Reservierung released
+		const reservation = db
+			.prepare('SELECT status FROM cp_provider_reservations WHERE owner_id = ?')
+			.get(item.item.queue_item_id) as { status: string } | undefined;
+		expect(reservation?.status).toBe('released');
+		//   - Attempts final (keine running Attempts mehr)
+		const runningAttempts = db
+			.prepare(
+				`SELECT COUNT(*) AS c FROM cp_attempts a
 					 JOIN cp_jobs j ON j.job_id = a.job_id
 					 WHERE j.run_id IN (SELECT run_id FROM cp_queue WHERE queue_item_id = ?)
 					 AND a.status = 'running'`,
-				)
-				.get(item.item.queue_item_id) as { c: number };
-			expect(Number(runningAttempts.c)).toBe(0);
-			db.close();
-		},
-	);
+			)
+			.get(item.item.queue_item_id) as { c: number };
+		expect(Number(runningAttempts.c)).toBe(0);
+		db.close();
+	});
 });
