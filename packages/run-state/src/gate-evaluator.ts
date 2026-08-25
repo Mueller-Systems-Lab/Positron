@@ -15,6 +15,7 @@
 // - Evidence-required gate blocks completion without evidence
 
 import type {
+	EventLevel,
 	GateEvaluationContext,
 	GateLayerResult,
 	GateResult,
@@ -22,7 +23,6 @@ import type {
 	Phase,
 	TestReport,
 } from '@positron/shared';
-import type { EventLevel } from '@positron/shared';
 import type { RunState, TransitionResult } from './state-machine.js';
 import { transition } from './state-machine.js';
 

@@ -2,6 +2,7 @@
 // Covers: transition(), markFailed(), retry(), isFailurePhase()
 
 import { describe, expect, test } from 'vitest';
+import type { RunEventData } from '../state-machine.js';
 import {
 	canTransition,
 	createRun,
@@ -12,7 +13,6 @@ import {
 	retry,
 	transition,
 } from '../state-machine.js';
-import type { RunEventData } from '../state-machine.js';
 
 // ---------------------------------------------------------------------------
 // transition()

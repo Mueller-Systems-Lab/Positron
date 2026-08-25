@@ -6,8 +6,8 @@ import type {
 	GitDiffSummary,
 	GitStatusSummary,
 	GitWorkspaceAdapter,
-	PrepareWorkspaceInput,
 	PreparedWorkspace,
+	PrepareWorkspaceInput,
 	PushOptions,
 } from '@positron/shared';
 import { GitCommandError, GitCommandFailedError, runCommand } from './command-runner.js';

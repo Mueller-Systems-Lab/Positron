@@ -4,12 +4,12 @@
 // Protocol Spec: docs/security/stop-ask-protocol.md
 
 import { describe, expect, it } from 'vitest';
+import type { StopAskDecision, StopAskRequest } from '../stop-ask-policy.js';
 import {
 	evaluateStopAsk,
 	getAllDecisionOutcomes,
 	requiresHumanApproval,
 } from '../stop-ask-policy.js';
-import type { StopAskDecision, StopAskRequest } from '../stop-ask-policy.js';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 

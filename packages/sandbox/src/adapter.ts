@@ -5,17 +5,17 @@ import type {
 	GitStatusSummary,
 	GitWorkspaceAdapter,
 	GitWorkspaceRef,
-	PrepareWorkspaceInput,
 	PreparedWorkspace,
+	PrepareWorkspaceInput,
 	PushOptions,
 } from '@positron/shared';
 
 export type {
+	GitDiffSummary,
+	GitStatusSummary,
 	GitWorkspaceAdapter,
 	GitWorkspaceRef,
-	PrepareWorkspaceInput,
 	PreparedWorkspace,
-	GitStatusSummary,
-	GitDiffSummary,
+	PrepareWorkspaceInput,
 	PushOptions,
 };

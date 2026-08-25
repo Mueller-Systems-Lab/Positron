@@ -16,6 +16,7 @@
 // G-3: AssembleGateEvaluators clears in supervised/real mode
 
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { GateRuntimeMode } from '../gate-evaluator.js';
 import {
 	assembleGateEvaluators,
 	clearGateEvaluators,
@@ -24,7 +25,6 @@ import {
 	resolveImplementationOutcome,
 	resolveTestOutcome,
 } from '../gate-evaluator.js';
-import type { GateRuntimeMode } from '../gate-evaluator.js';
 import { canTransition, createRun, isTerminalPhase, markFailed } from '../state-machine.js';
 
 describe('Issue #385 — GateRuntimeMode Resolution', () => {

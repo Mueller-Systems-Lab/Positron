@@ -1,59 +1,58 @@
 // Positron — Run State Package: Zentrale Exporte
 
 export {
-	openDatabase,
-	resolveDatabasePath,
-	closeDatabase,
-	registerDatabase,
-	installShutdownHandlers,
 	checkDatabase,
+	closeDatabase,
+	installShutdownHandlers,
+	openDatabase,
+	registerDatabase,
+	resolveDatabasePath,
 } from './db/connection.js';
-export { POSITRON_DB_PATH, DB_TIMEOUT_MS } from './db/constants.js';
-export { SCHEMA_V1, applyMigrations } from './db/schema.js';
-export {
-	VALID_TRANSITIONS,
-	createRun,
-	canTransition,
-	transition,
-	markFailed,
-	retry,
-	resumeFromEvents,
-	isTerminalPhase,
-	isFailurePhase,
-	registerWorkspaceCleanup,
-	runCleanup,
-	getWorkspaceCleanupFn,
-} from './state-machine.js';
+export { DB_TIMEOUT_MS, POSITRON_DB_PATH } from './db/constants.js';
+export { applyMigrations, SCHEMA_V1 } from './db/schema.js';
 export type {
-	RunState,
+	AdapterModes,
+	GatedTransitionResult,
+	GateEvaluatorFn,
+	GateRuntimeMode,
+	ImplementationOutcome,
+	TestOutcome,
+} from './gate-evaluator.js';
+// ─── Issue #246: GateType Layers Runtime Enforcement ───
+export {
+	assembleGateEvaluators,
+	clearGateEvaluators,
+	evaluateGates,
+	gateEvaluatorCount,
+	getRequiredGates,
+	hasGateEvaluator,
+	PHASE_GATE_REQUIREMENTS,
+	phaseRequiresGates,
+	registerFakeGateEvaluators,
+	registerGateEvaluator,
+	resolveGateRuntimeMode,
+	resolveImplementationOutcome,
+	resolveTestOutcome,
+	tryTransitionWithGates,
+} from './gate-evaluator.js';
+export type {
 	RunEventData,
+	RunState,
 	RunStore,
 	TransitionResult,
 	WorkspaceCleanupFn,
 } from './state-machine.js';
-
-// ─── Issue #246: GateType Layers Runtime Enforcement ───
 export {
-	registerGateEvaluator,
-	clearGateEvaluators,
-	hasGateEvaluator,
-	gateEvaluatorCount,
-	evaluateGates,
-	tryTransitionWithGates,
-	getRequiredGates,
-	phaseRequiresGates,
-	PHASE_GATE_REQUIREMENTS,
-	registerFakeGateEvaluators,
-	resolveGateRuntimeMode,
-	assembleGateEvaluators,
-	resolveImplementationOutcome,
-	resolveTestOutcome,
-} from './gate-evaluator.js';
-export type {
-	GateEvaluatorFn,
-	GatedTransitionResult,
-	GateRuntimeMode,
-	AdapterModes,
-	ImplementationOutcome,
-	TestOutcome,
-} from './gate-evaluator.js';
+	canTransition,
+	createRun,
+	getWorkspaceCleanupFn,
+	isFailurePhase,
+	isTerminalPhase,
+	markFailed,
+	registerWorkspaceCleanup,
+	resumeFromEvents,
+	retry,
+	runCleanup,
+	transition,
+	VALID_TRANSITIONS,
+} from './state-machine.js';
