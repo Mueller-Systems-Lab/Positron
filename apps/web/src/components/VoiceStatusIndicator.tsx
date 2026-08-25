@@ -33,6 +33,7 @@ export default function VoiceStatusIndicator(): React.ReactElement {
 	if (!supported) {
 		return (
 			<span
+				role="status"
 				className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs text-slate-400 dark:text-slate-600 bg-slate-100 dark:bg-slate-800/50 cursor-not-allowed"
 				title="Voice output not supported in this browser"
 				aria-label="Voice output not supported"

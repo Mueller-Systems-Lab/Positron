@@ -1,5 +1,8 @@
+/* biome-ignore lint/suspicious/noUnknownAtRules: Tailwind v3 processes this directive during the CSS build. */
 @tailwind base;
+/* biome-ignore lint/suspicious/noUnknownAtRules: Tailwind v3 processes this directive during the CSS build. */
 @tailwind components;
+/* biome-ignore lint/suspicious/noUnknownAtRules: Tailwind v3 processes this directive during the CSS build. */
 @tailwind utilities;
 
 /* ===== Design Tokens (Operator Cockpit) ===== */
