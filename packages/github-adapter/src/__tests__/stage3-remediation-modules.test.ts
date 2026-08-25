@@ -3,6 +3,7 @@
 // ReaderVerifier, RealGitHubBridge, and harness integration.
 
 import { describe, expect, it, vi } from 'vitest';
+import type { Stage3ApprovalBinding } from '../stage3-approval-binding.js';
 import {
 	computeApprovalTextSha256,
 	createApprovalBinding,
@@ -12,38 +13,12 @@ import {
 	isApprovalExpired,
 	validateApprovalBinding,
 } from '../stage3-approval-binding.js';
-import type { Stage3ApprovalBinding } from '../stage3-approval-binding.js';
-
+import type { Stage3BaseResolver } from '../stage3-base-resolver.js';
 import {
-	Stage3BaseShaDriftError,
 	checkBaseDrift,
 	createFakeBaseResolver,
+	Stage3BaseShaDriftError,
 } from '../stage3-base-resolver.js';
-import type { Stage3BaseResolver } from '../stage3-base-resolver.js';
-
-import {
-	createFakeRuntimeSafetyProbe,
-	createSafeSnapshot,
-	validateSafetySnapshot,
-} from '../stage3-runtime-safety-probe.js';
-import type { Stage3RuntimeSafetyProbe } from '../stage3-runtime-safety-probe.js';
-
-import {
-	createFakeReadOnlyVerifier,
-	verifyPostWrite,
-	verifyPreWrite,
-} from '../stage3-reader-verifier.js';
-import type { Stage3ReadOnlyVerifier } from '../stage3-reader-verifier.js';
-
-import { sha256Utf8, utf8ByteLength } from '../stage3-canonical-manifest.js';
-
-import {
-	STAGE3_FORBIDDEN_CAPABILITIES,
-	createMockStage3Bridge,
-	verifyBridgeCapabilities,
-} from '../stage3-real-github-bridge.js';
-import type { Stage3RealGitHubBridge } from '../stage3-real-github-bridge.js';
-
 import {
 	CANONICAL_BASE_BRANCH,
 	CANONICAL_COMMIT_MESSAGE_SHA256,
@@ -53,7 +28,28 @@ import {
 	CANONICAL_PR_METADATA_SHA256,
 	CANONICAL_REPOSITORY,
 	CANONICAL_TARGET_BRANCH,
+	sha256Utf8,
+	utf8ByteLength,
 } from '../stage3-canonical-manifest.js';
+import type { Stage3ReadOnlyVerifier } from '../stage3-reader-verifier.js';
+import {
+	createFakeReadOnlyVerifier,
+	verifyPostWrite,
+	verifyPreWrite,
+} from '../stage3-reader-verifier.js';
+import type { Stage3RealGitHubBridge } from '../stage3-real-github-bridge.js';
+
+import {
+	createMockStage3Bridge,
+	STAGE3_FORBIDDEN_CAPABILITIES,
+	verifyBridgeCapabilities,
+} from '../stage3-real-github-bridge.js';
+import type { Stage3RuntimeSafetyProbe } from '../stage3-runtime-safety-probe.js';
+import {
+	createFakeRuntimeSafetyProbe,
+	createSafeSnapshot,
+	validateSafetySnapshot,
+} from '../stage3-runtime-safety-probe.js';
 
 // ---------------------------------------------------------------------------
 // Canonical test values (imported from stage3-canonical-manifest.ts)

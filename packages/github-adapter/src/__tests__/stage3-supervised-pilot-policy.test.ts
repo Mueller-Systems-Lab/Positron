@@ -13,12 +13,12 @@ import {
 	CANONICAL_PR_TITLE,
 	CANONICAL_REPOSITORY,
 } from '../stage3-canonical-manifest.js';
+import type { Stage3ProcessSafety } from '../stage3-supervised-pilot-policy.js';
 import {
+	createStage3PilotPolicy,
 	STAGE3_CANONICAL,
 	Stage3SupervisedPilotPolicy,
-	createStage3PilotPolicy,
 } from '../stage3-supervised-pilot-policy.js';
-import type { Stage3ProcessSafety } from '../stage3-supervised-pilot-policy.js';
 
 // Canonical file content imported from stage3-canonical-manifest.ts (single source of truth).
 // No local copy — see imports above.

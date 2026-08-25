@@ -18,21 +18,20 @@
 // Partial failures: no auto-retry, no false success, no continuing to next phase.
 
 import { redactValue } from '@positron/shared';
-import { computeApprovalTextSha256, validateApprovalBinding } from './stage3-approval-binding.js';
 import type { Stage3ApprovalBinding } from './stage3-approval-binding.js';
-import { checkBaseDrift } from './stage3-base-resolver.js';
+import { computeApprovalTextSha256, validateApprovalBinding } from './stage3-approval-binding.js';
 import type { Stage3BaseResolver } from './stage3-base-resolver.js';
-import { verifyPostWrite, verifyPreWrite } from './stage3-reader-verifier.js';
+import { checkBaseDrift } from './stage3-base-resolver.js';
 import type { Stage3ReadOnlyVerifier } from './stage3-reader-verifier.js';
+import { verifyPostWrite, verifyPreWrite } from './stage3-reader-verifier.js';
+import type { Stage3RealGitHubBridge } from './stage3-real-github-bridge.js';
 import {
 	isTrustedBridge,
 	verifyBridgeCapabilities,
 	verifyTrustedBridgeIntegrity,
 } from './stage3-real-github-bridge.js';
-import type { Stage3RealGitHubBridge } from './stage3-real-github-bridge.js';
-import { validateSafetySnapshot } from './stage3-runtime-safety-probe.js';
 import type { Stage3RuntimeSafetyProbe } from './stage3-runtime-safety-probe.js';
-import { STAGE3_CANONICAL, Stage3SupervisedPilotPolicy } from './stage3-supervised-pilot-policy.js';
+import { validateSafetySnapshot } from './stage3-runtime-safety-probe.js';
 import type {
 	Stage3PilotAuditEvent,
 	Stage3PilotConfig,
@@ -41,6 +40,7 @@ import type {
 	Stage3ProcessSafety,
 	Stage3WriteOperation,
 } from './stage3-supervised-pilot-policy.js';
+import { STAGE3_CANONICAL, Stage3SupervisedPilotPolicy } from './stage3-supervised-pilot-policy.js';
 
 // ---------------------------------------------------------------------------
 // Writer Interfaces (Dependency Injection)
