@@ -14,13 +14,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import { GitHubValidationError } from '../errors.js';
 import { CANONICAL_FILE_CONTENT } from '../stage3-canonical-manifest.js';
+import type {
+	Stage3GitHubTransport,
+	Stage3RealGitHubBridge,
+} from '../stage3-real-github-bridge.js';
 import {
 	createStage3RealGitHubBridge,
 	isTrustedBridge,
 	verifyTrustedBridgeIntegrity,
 } from '../stage3-real-github-bridge.js';
-import type { Stage3GitHubTransport } from '../stage3-real-github-bridge.js';
-import type { Stage3RealGitHubBridge } from '../stage3-real-github-bridge.js';
 import { STAGE3_CANONICAL } from '../stage3-supervised-pilot-policy.js';
 
 // ---------------------------------------------------------------------------

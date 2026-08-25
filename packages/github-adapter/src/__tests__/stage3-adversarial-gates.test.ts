@@ -16,25 +16,24 @@ import { createFakeBaseResolver } from '../stage3-base-resolver.js';
 import { CANONICAL_FILE_CONTENT } from '../stage3-canonical-manifest.js';
 // ── Internal imports (NOT from package root — tests internal modules directly) ──
 import {
-	STAGE3_FORBIDDEN_OCTOKIT_ENDPOINTS,
 	createStage3OctokitTransport,
+	STAGE3_FORBIDDEN_OCTOKIT_ENDPOINTS,
 	verifyNoForbiddenEndpointsCalled,
 } from '../stage3-octokit-transport.js';
 import { createFakeReadOnlyVerifier, verifyPostWrite } from '../stage3-reader-verifier.js';
+import type { Stage3GitHubTransport } from '../stage3-real-github-bridge.js';
 import {
 	createMockStage3Bridge,
 	createStage3RealGitHubBridge,
 	verifyBridgeCapabilities,
 } from '../stage3-real-github-bridge.js';
-import type { Stage3GitHubTransport } from '../stage3-real-github-bridge.js';
-import { Stage3RuntimeHarness, createStage3Harness } from '../stage3-runtime-harness.js';
 import type { Stage3AuditSink, Stage3LiveHarnessInput } from '../stage3-runtime-harness.js';
+import { createStage3Harness, Stage3RuntimeHarness } from '../stage3-runtime-harness.js';
 import {
 	createFakeRuntimeSafetyProbe,
 	createSafeSnapshot,
 } from '../stage3-runtime-safety-probe.js';
-import { STAGE3_CANONICAL } from '../stage3-supervised-pilot-policy.js';
-import { createStage3PilotPolicy } from '../stage3-supervised-pilot-policy.js';
+import { createStage3PilotPolicy, STAGE3_CANONICAL } from '../stage3-supervised-pilot-policy.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

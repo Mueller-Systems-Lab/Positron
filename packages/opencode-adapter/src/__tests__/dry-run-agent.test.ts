@@ -2,12 +2,11 @@
 // These tests MUST fail before implementation (modules don't exist yet).
 // Red Test Coverage: RT1, RT2, RT3, RT4, RT5, RT6, RT8
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
 import type { OpenCodeRunInput } from '@positron/shared';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ActionPlan, DryRunAgentConfig, EvidenceReport } from '../dry-run-agent.js';
 // RT1/RT2: This import WILL FAIL until dry-run-agent.ts exists.
 import { OpenCodeDryRunAgent } from '../dry-run-agent.js';
-import type { ActionPlan, DryRunAgentConfig, EvidenceReport } from '../dry-run-agent.js';
 
 // --------------- Test Constants ---------------
 

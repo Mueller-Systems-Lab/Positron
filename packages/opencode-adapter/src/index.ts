@@ -24,20 +24,20 @@ export async function executeTasks(
 	};
 }
 
-export { RealOpenCodeAdapter } from './real-adapter.js';
-export {
-	FakeOpenCodeAdapter,
-	FAKE_OPENCODE_HEALTH_AVAILABLE,
-	FAKE_OPENCODE_HEALTH_UNAVAILABLE,
-} from './fake-adapter.js';
+export type {
+	EvidenceReport,
+	Fixture,
+	FixtureAgentConfig,
+} from './deterministic-fixture-agent.js';
 export { DeterministicFixtureAgent } from './deterministic-fixture-agent.js';
 export type {
-	FixtureAgentConfig,
-	Fixture,
-	EvidenceReport,
-} from './deterministic-fixture-agent.js';
-export { OpenCodeDryRunAgent } from './dry-run-agent.js';
-export type {
-	DryRunAgentConfig,
 	ActionPlan,
+	DryRunAgentConfig,
 } from './dry-run-agent.js';
+export { OpenCodeDryRunAgent } from './dry-run-agent.js';
+export {
+	FAKE_OPENCODE_HEALTH_AVAILABLE,
+	FAKE_OPENCODE_HEALTH_UNAVAILABLE,
+	FakeOpenCodeAdapter,
+} from './fake-adapter.js';
+export { RealOpenCodeAdapter } from './real-adapter.js';

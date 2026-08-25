@@ -4,14 +4,18 @@
 // The harness is tested with a FakeAdapter to verify the policy-to-adapter bridge.
 // Adapter call count is asserted to be 0 for every blocked path.
 
-import { type Stage2RuntimeWriteHarness, createStage2WriteHarness } from '@positron/github-adapter';
 import type {
 	Stage2AuditSink,
 	Stage2IssueCommentWriter,
+	Stage2WriteAuditEvent,
 	Stage2WriteHarnessInput,
+	Stage2WriteOperation,
 } from '@positron/github-adapter';
-import type { Stage2WriteAuditEvent, Stage2WriteOperation } from '@positron/github-adapter';
-import { Stage2WriteSandboxPolicy } from '@positron/github-adapter';
+import {
+	createStage2WriteHarness,
+	type Stage2RuntimeWriteHarness,
+	Stage2WriteSandboxPolicy,
+} from '@positron/github-adapter';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
