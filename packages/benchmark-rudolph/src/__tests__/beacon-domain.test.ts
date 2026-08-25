@@ -9,12 +9,12 @@ import { describe, expect, it } from 'vitest';
 import {
 	BATTERY_GREEN_THRESHOLD,
 	BATTERY_YELLOW_LOWER,
-	RSSI_GREEN_THRESHOLD,
-	RSSI_YELLOW_LOWER,
-	STALE_MINUTES,
 	classifyBeacon,
 	createBeacon,
 	isStale,
+	RSSI_GREEN_THRESHOLD,
+	RSSI_YELLOW_LOWER,
+	STALE_MINUTES,
 } from '../beacon-domain.js';
 
 const NOW = '2026-12-24T10:00:00Z';
