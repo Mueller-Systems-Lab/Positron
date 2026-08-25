@@ -8,6 +8,7 @@
 		"indentWidth": 2,
 		"lineWidth": 100,
 		"lineEnding": "lf",
+		"expand": "auto",
 		"includes": [
 			"**",
 			"!**/node_modules",
@@ -99,6 +100,12 @@
 		"ignoreUnknown": true,
 		"includes": [
 			"**",
+			"!**/node_modules",
+			"!**/dist",
+			"!**/coverage",
+			"!**/.stryker-tmp",
+			"!**/test-results",
+			"!**/playwright-report",
 			"!apps/web/index.html",
 			"!**/.positron/**",
 			"!**/.hermes/enforcement/**",

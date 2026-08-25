@@ -21,7 +21,7 @@ The official `biome migrate --write` output was used as input and manually revie
 | --- | --- |
 | Schema | `https://biomejs.dev/schemas/2.5.10/schema.json` |
 | organize imports | `assist.actions.source.organizeImports = "on"`; dry-run only, no imports written |
-| formatter/linter/file ignores | migrated from `ignore` to v2 `includes` force-ignore patterns |
+| formatter/linter/file ignores | migrated from `ignore` to v2 `includes` force-ignore patterns; generated `dist`, coverage, test-result, and Playwright directories are explicitly excluded for parity |
 | `noConsoleLog` | manually corrected to v2 `noConsole` with every normal console method except `log` allowed; this preserves the old rule's behavior |
 | Tailwind | `css.parser.tailwindDirectives = true`; v3 `@tailwind` remains a visible v2 `noUnknownAtRules` finding rather than being suppressed |
 | HTML scope | explicit `!apps/web/index.html` keeps v1 selection intent; v2 otherwise discovers this newly supported HTML file |
@@ -47,36 +47,37 @@ All commands were read-only (`--max-diagnostics=none` where structured output wa
 | Command | Biome 1.9.4 | Biome 2.5.10 |
 | --- | ---: | ---: |
 | selected files | 548 | 548 |
-| `check` errors | 4 | 152 |
+| `check` errors | 4 | 139 |
 | `check` warnings | 1,588 | 1,728 |
 | `check` infos | 0 | 9 |
 | separate `lint` errors | 4 | 4 |
 | separate `lint` warnings | 1,588 | 1,728 |
 | separate `lint` infos | 0 | 9 |
-| format diagnostics | 0 | 22 |
+| format diagnostics | 0 | 9 |
 | organize-import diagnostics | 0 | 126 |
 
 The v2 `lint` error delta is four existing/new findings: one `useAriaPropsSupportedByRole` finding and three Tailwind v3 `noUnknownAtRules` findings. New warning/info categories include v2 rule evolution such as `noUnusedImports`, `noUnusedFunctionParameters`, `noUnusedPrivateClassMembers`, `useOptionalChain`, `useParseIntRadix`, `noUselessFragments`, `noImportantStyles`, `useBiomeIgnoreFolder`, and `noUselessEscapeInRegex`. They are recorded, not fixed.
 
-The v2 `check` total additionally includes 126 expected organize-import assist diagnostics and 22 formatter diagnostics. These are expected v2 behavior/config baseline changes and were not written to source.
+The v2 `check` total additionally includes 126 expected organize-import assist diagnostics and 9 formatter diagnostics. `formatter.expand = "auto"` preserves the prior compact package-manifest formatting where possible; the remaining formatter drift is a separate remediation track. No output was written to source.
 
 ## Targeted and stability checks
 
 - Biome 1.9.4 `BlueprintPanel.tsx`: one `lint/a11y/useSemanticElements` error recommending `<output>` for `role="status"`.
 - Biome 2.5.10 `BlueprintPanel.tsx`: zero diagnostics; the known false-positive is absent.
 - Biome 1.9.4 format check: `Checked 548 files ... No fixes applied`.
-- Biome 2.5.10 format check: 22 diagnostics, no writes; formatter drift is deferred as a separate remediation track.
+- Biome 2.5.10 format check: 9 diagnostics, no writes; formatter drift is deferred as a separate remediation track.
 - Biome 2.5.10 organize-import dry-run: 126 diagnostics, no writes; import-order changes are deferred as a separate remediation track.
 
 ## Fix-loop result
 
-- Failed fix loops: `0` (the three-loop stop threshold was not reached).
+- Failed fix loops: `1` (the three-loop stop threshold was not reached).
+- Fix loop 1: GitHub exposed two Biome-2 fixture incompatibilities in the differential-lint unit suite. The fixture configuration was migrated to v2 `noConsole`, and the clean-file fixture now exports its value so it remains clean under the v2 recommended preset. `formatter.expand = "auto"` was added after the CI format report to preserve compact package-manifest formatting. The local differential suite is now 90/90 PASS; the remaining nine formatter differences are existing v2 semantics and are intentionally deferred.
 - One manual configuration correction was required during review: the migration tool's generated `noConsole` allow-list would have allowed `log` rather than preserving the old `noConsoleLog` rule. The list was corrected to allow every normal console method except `log`, then the v2 lint baseline and targeted checks were rerun.
 - No source diagnostics were fixed and no broad formatter/import write was run.
 
 ## Scope audit
 
-Expected implementation files are `package.json`, `package-lock.json`, `biome.json`, this evidence report, and the #433 Spec/Plan/Tasks. No source-code files, workflows, UI files, or #340 cleanup files are changed.
+Expected implementation files are `package.json`, `package-lock.json`, `biome.json`, the targeted Biome integration fixture `scripts/ci/differential-biome-lint.test.mjs`, this evidence report, and the #433 Spec/Plan/Tasks. The test fixture change is required for Biome 2 compatibility (`noConsoleLog` → `noConsole` and a clean exported fixture); no runtime source, UI files, workflows, or #340 cleanup files are changed.
 
 The lockfile audit found only the root Biome dependency and its eight platform packages changing from 1.9.4 to 2.5.10. The resolved URLs use the configured npm mirror; this is mechanical lock metadata, not an unrelated dependency change.
 

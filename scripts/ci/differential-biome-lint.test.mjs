@@ -737,10 +737,10 @@ describe('Real Biome CLI integration', () => {
 		writeFileSync(
 			join(dir, 'biome.json'),
 			JSON.stringify({
-				$schema: 'https://biomejs.dev/schemas/1.9.4/schema.json',
+				$schema: 'https://biomejs.dev/schemas/2.5.10/schema.json',
 				linter: {
 					enabled: true,
-					rules: { recommended: true, suspicious: { noConsoleLog: 'error' } },
+					rules: { preset: 'recommended', suspicious: { noConsole: 'error' } },
 				},
 			}),
 		);
@@ -765,7 +765,7 @@ describe('Real Biome CLI integration', () => {
 		});
 
 		assert.ok(result.comparison);
-		// console.log should be an error (we set it to error), and count 1→2 = WORSENED
+		// console.log should be an error (we set noConsole to error), and count 1→2 = WORSENED
 		assert.ok(
 			result.comparison.worsened.length > 0 || result.comparison.new.length > 0,
 			'Expected worsened or new diagnostics when doubling console.log',
@@ -881,7 +881,7 @@ describe('Real Biome CLI integration', () => {
 		commitAll(dir, 'initial');
 		const base = getHead(dir);
 
-		writeFileSync(join(dir, 'src', 'extra.ts'), 'const y = 2;\n');
+		writeFileSync(join(dir, 'src', 'extra.ts'), 'export const y = 2;\n');
 		commitAll(dir, 'add clean file');
 		const head = getHead(dir);
 
