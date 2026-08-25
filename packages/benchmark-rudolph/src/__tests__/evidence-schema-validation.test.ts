@@ -16,9 +16,9 @@ import type {
 	RudolphBenchmarkRunSummary,
 } from '../evidence-contract.js';
 import {
-	VALID_EXECUTION_MODES,
 	containsSecrets,
 	determineConclusionStatus,
+	VALID_EXECUTION_MODES,
 	validateRunSummary,
 } from '../evidence-contract.js';
 
