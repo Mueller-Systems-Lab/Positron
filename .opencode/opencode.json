@@ -1,0 +1,54 @@
+{
+	"$schema": "https://opencode.ai/config.json",
+	"tools": {
+		"github_*": false,
+		"github_get_issue": true,
+		"github_list_issues": true,
+		"github_search_issues": true,
+		"github_add_issue_comment": true,
+		"github_update_issue": true
+	},
+	"permission": {
+		"github_*": "deny",
+		"github_get_issue": "deny",
+		"github_list_issues": "deny",
+		"github_search_issues": "deny",
+		"github_add_issue_comment": "deny",
+		"github_update_issue": "deny"
+	},
+	"agent": {
+		"issue-orchestrator": {
+			"tools": {
+				"github_*": false,
+				"github_get_issue": true,
+				"github_list_issues": true,
+				"github_search_issues": true,
+				"github_add_issue_comment": true,
+				"github_update_issue": true
+			},
+			"permission": {
+				"github_*": "deny",
+				"bash": {
+					"gh api *": "deny",
+					"gh pr merge *": "deny",
+					"gh pr review *": "deny",
+					"gh repo create *": "deny",
+					"gh repo delete *": "deny",
+					"gh repo edit *": "deny",
+					"gh workflow *": "deny",
+					"gh secret *": "deny",
+					"gh variable *": "deny",
+					"gh release *": "deny",
+					"git push *": "deny",
+					"git branch -d *": "deny",
+					"git branch -D *": "deny"
+				},
+				"github_get_issue": "allow",
+				"github_list_issues": "allow",
+				"github_search_issues": "allow",
+				"github_add_issue_comment": "allow",
+				"github_update_issue": "allow"
+			}
+		}
+	}
+}
