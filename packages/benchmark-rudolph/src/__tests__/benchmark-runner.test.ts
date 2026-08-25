@@ -8,8 +8,8 @@
 import type { Fixture } from '@positron/opencode-adapter';
 import type { OpenCodePhase } from '@positron/shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { BenchmarkRunner } from '../benchmark-runner.js';
 import type { RudolphBenchmarkConfig } from '../benchmark-runner.js';
+import { BenchmarkRunner } from '../benchmark-runner.js';
 
 const FIXED_TIMESTAMP = '2026-12-24T10:00:00Z';
 

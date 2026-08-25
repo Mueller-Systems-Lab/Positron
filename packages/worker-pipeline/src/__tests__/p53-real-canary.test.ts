@@ -1,20 +1,18 @@
 import {
 	applyControlPlaneMigrations,
+	buildFailureDiagnosis,
+	buildRoutingDecision,
 	completeAttempt,
 	createAttempt,
 	createJob,
-	getAttempt,
-} from '@positron/control-plane';
-import {
 	DEFAULT_CAPABILITY_SAMPLE_THRESHOLD,
-	buildFailureDiagnosis,
-	buildRoutingDecision,
 	decideRouting,
 	diagnoseFailureDomain,
 	evaluateCapabilityEvidence,
+	getAttempt,
 	hasRealDelta,
+	validateContract,
 } from '@positron/control-plane';
-import { validateContract } from '@positron/control-plane';
 // Positron P5.3 — Real Canaries (STRATEGY, EXECUTION, CAPABILITY)
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';

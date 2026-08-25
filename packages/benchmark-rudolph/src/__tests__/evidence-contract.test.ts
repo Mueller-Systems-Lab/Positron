@@ -5,6 +5,7 @@
 // Red Tests: 8, 9, 10, 11, 14 from the specification
 
 import { describe, expect, it } from 'vitest';
+import type { BenchmarkIssueResult, RudolphBenchmarkRunSummary } from '../evidence-contract.js';
 import {
 	containsSecrets,
 	createCommandResult,
@@ -13,7 +14,6 @@ import {
 	redactSecrets,
 	validateRunSummary,
 } from '../evidence-contract.js';
-import type { BenchmarkIssueResult, RudolphBenchmarkRunSummary } from '../evidence-contract.js';
 
 // =============================================================================
 // Red Test 8: Evidence contains executionMode

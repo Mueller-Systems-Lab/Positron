@@ -14,14 +14,15 @@
 //   Red Test 22: UNKNOWN must not be replaced by assumption
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { BenchmarkRunner } from '../benchmark-runner.js';
 import type { RudolphBenchmarkConfig } from '../benchmark-runner.js';
+import { BenchmarkRunner } from '../benchmark-runner.js';
 import {
 	checkCommitReadiness,
 	isCommitReady,
 	isRedHoldAction,
 	runControlledRealModeProbe,
 } from '../controlled-real-probe.js';
+import type { BenchmarkIssueResult } from '../evidence-contract.js';
 import {
 	containsSecrets,
 	createIssueResult,
@@ -29,7 +30,6 @@ import {
 	redactSecrets,
 	validateRunSummary,
 } from '../evidence-contract.js';
-import type { BenchmarkIssueResult } from '../evidence-contract.js';
 
 const FIXED_TIMESTAMP = '2026-12-24T10:00:00Z';
 

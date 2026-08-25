@@ -6,8 +6,13 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type {
+	AttemptRecord,
+	FindingContract,
+	JobRecord,
+	VerificationContract,
+} from '@positron/control-plane';
 import {
-	IdempotencyRegistry,
 	applyControlPlaneMigrations,
 	assertAttemptActive,
 	assertExecutionContext,
@@ -19,6 +24,7 @@ import {
 	classifyFailure,
 	completeAttempt,
 	createAttempt,
+	createCancellationSource,
 	createJob,
 	decideRouting,
 	diagnoseFailureDomain,
@@ -26,6 +32,7 @@ import {
 	evaluateRetry,
 	fingerprint,
 	getProductionPointer,
+	IdempotencyRegistry,
 	idempotencyKey,
 	mapAttemptRow,
 	recoverStaleLeases,
@@ -33,20 +40,24 @@ import {
 	resolveAttemptLeaseTtlMs,
 	resolveEffectiveHarnessFromEnv,
 	resolveHarnessProfileFromEnv,
+	startLeaseHeartbeat,
 	storeDecision,
 	updateJobState,
 	validateContract,
 } from '@positron/control-plane';
-import { createCancellationSource, startLeaseHeartbeat } from '@positron/control-plane';
-import type { AttemptRecord, FindingContract, JobRecord } from '@positron/control-plane';
-import type { VerificationContract } from '@positron/control-plane';
-import type { GitHubStatusSyncService } from '@positron/github-adapter';
 import type {
 	EvidenceItem,
 	GitHubAdapter,
 	GitHubStatusSyncInput,
 	GitHubStatusSyncResult,
+	GitHubStatusSyncService,
 } from '@positron/github-adapter';
+import type {
+	GateRuntimeMode,
+	RunEventData,
+	RunState,
+	TransitionResult,
+} from '@positron/run-state';
 import {
 	createRun,
 	getRequiredGates,
@@ -58,22 +69,8 @@ import {
 	transition,
 	tryTransitionWithGates,
 } from '@positron/run-state';
-import type {
-	GateRuntimeMode,
-	RunEventData,
-	RunState,
-	TransitionResult,
-} from '@positron/run-state';
-import { TestCommandDetector, TestRunner } from '@positron/sandbox';
 import type { GitWorkspaceAdapter } from '@positron/sandbox';
-import {
-	MAX_FIX_LOOPS,
-	buildRemoteUrl,
-	createRunId,
-	generateBranchName,
-	parsePhase,
-	parseRunStatus,
-} from '@positron/shared';
+import { TestCommandDetector, TestRunner } from '@positron/sandbox';
 import type {
 	EventLevel,
 	GateEvaluationContext,
@@ -82,6 +79,14 @@ import type {
 	Phase,
 	RepositoryConfig,
 	SpecKitAdapter,
+} from '@positron/shared';
+import {
+	buildRemoteUrl,
+	createRunId,
+	generateBranchName,
+	MAX_FIX_LOOPS,
+	parsePhase,
+	parseRunStatus,
 } from '@positron/shared';
 import type { GatewayService } from '@positron/tool-gateway';
 import type Database from 'better-sqlite3';

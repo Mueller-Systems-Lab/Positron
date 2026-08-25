@@ -78,10 +78,10 @@ export async function runTasks(workspacePath?: string, plan?: string): Promise<s
 	];
 }
 
-export { RealSpecKitAdapter } from './real-adapter.js';
+export { computeSha256, isPathSafe, scanWorkspace } from './artifact-scanner.js';
 export {
-	FakeSpecKitAdapter,
 	FAKE_HEALTH_AVAILABLE,
 	FAKE_HEALTH_UNAVAILABLE,
+	FakeSpecKitAdapter,
 } from './fake-adapter.js';
-export { scanWorkspace, isPathSafe, computeSha256 } from './artifact-scanner.js';
+export { RealSpecKitAdapter } from './real-adapter.js';
