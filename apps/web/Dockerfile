@@ -6,14 +6,17 @@ ENV NODE_ENV=production
 
 # Root workspace config (npm needs this for workspace resolution)
 COPY package.json ./
+COPY tsconfig.json ./tsconfig.json
 COPY packages/shared/package.json ./packages/shared/
-COPY packages/shared/dist ./packages/shared/dist
+COPY packages/shared/tsconfig.json ./packages/shared/tsconfig.json
+COPY packages/shared/src ./packages/shared/src
 
 # Web package dependencies
 COPY apps/web/package.json ./apps/web/
 
 # Install dependencies including dev (needed for vite build)
 RUN npm install --include=dev
+RUN npx tsc -b packages/shared
 
 # Copy web source
 COPY apps/web/index.html ./apps/web/
@@ -22,7 +25,6 @@ COPY apps/web/vite.config.ts ./apps/web/
 COPY apps/web/tailwind.config.js ./apps/web/
 COPY apps/web/postcss.config.js ./apps/web/
 COPY apps/web/tsconfig.json ./apps/web/
-COPY tsconfig.json ./tsconfig.json
 
 # Build
 WORKDIR /app/apps/web
