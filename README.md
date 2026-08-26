@@ -127,11 +127,10 @@ npm run test:route-smoke
 
 The full local and CI truth is recorded in [Current Capabilities](docs/status/current-capabilities.md). Historical test totals remain in dated evidence and are not maintained as marketing badges.
 
-- [Live website](https://xxammaxx.github.io/Positron/) (after Pages deployment)
+- [Live website](https://xxammaxx.github.io/Positron/)
 - [Documentation index](docs/README.md)
 - [Architecture](docs/architecture.md)
 - [Security](SECURITY.md)
 - [Current status](docs/status/current-capabilities.md)
 - [Contributing](CONTRIBUTING.md)
 - [License](LICENSE)
-
