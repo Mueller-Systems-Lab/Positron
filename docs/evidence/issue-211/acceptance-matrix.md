@@ -17,9 +17,9 @@
 | Artifact scan | cleanup manifest and tracked artifact audit | PASS |
 | All-agent participation | `agent-inventory.md`; unavailable roles explicitly recorded | PASS WITH LIMITATION |
 | Landing source | `site/`, claims matrix | PASS |
-| GitHub Pages deployment | Pages workflow run `32963400901` | PASS |
+| GitHub Pages deployment | Pages workflow run `32964885893` (Build + Deploy) | PASS |
 | Live Pages verification | `pages-live-verification.md` | PASS |
 | Easy fresh-clone install | quickstart proof and Windows CI dry-run | PASS |
 | Required reviews | architecture/security/docs/UX/visual workstreams | PASS WITH LIMITATION |
-| All #211 PRs landed | #446, #448, #449 exact-head merges | PASS |
+| All #211 PRs landed | #446, #448, #449, #450, #451 exact-head merges | PASS |
 | #308 unchanged | live issue remains open; no mutation performed | PASS |

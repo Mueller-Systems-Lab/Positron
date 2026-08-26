@@ -46,4 +46,4 @@
 - [x] T027 Merge only with exact frozen head and normal merge commits.
 - [x] T028 Enable Pages after Pages PR lands, observe build/deploy, and retrieve returned URL.
 - [x] T029 Verify live Pages URL with Playwright and update homepage only afterward.
-- [ ] T030 Re-read #211, publish final evidence, verify #308 unchanged, and close #211.
+- [x] T030 Re-read #211, publish final evidence, verify #308 unchanged, and close #211.
