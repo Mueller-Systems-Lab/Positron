@@ -165,15 +165,15 @@ Positron/
 ## Tests
 
 ```bash
-npm test                    # 917 core tests
-npm test --workspace apps/web  # 196 frontend tests
+npm test                    # current root + Web suite; see current status docs
+npm test --workspace apps/web  # current frontend suite
 ```
 
 ## Known Limitations
 
-- **GitHub Actions**: advisory-only (zero-step CI), tracked in Issue #268
-- **GitHub-CI**: not required for local usage
-- **Repo**: currently private — no public distribution claims
+- **GitHub Actions**: check current workflow status before relying on CI
+- **GitHub-CI**: required contexts are documented in the current status page
+- **Repo**: public source repository; no production distribution claim
 - **Docker**: requires Redis for full production stack
 - **Worker**: needs Redis (via Docker or local Redis install)
 
