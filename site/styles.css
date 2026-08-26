@@ -373,6 +373,9 @@ h2 em {
 	gap: 7rem;
 	align-items: start;
 }
+.two > * {
+	min-width: 0;
+}
 .copy {
 	max-width: 440px;
 	color: var(--muted);
