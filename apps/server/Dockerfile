@@ -30,6 +30,8 @@ COPY --from=builder /app/packages/speckit-adapter/package.json ./packages/specki
 COPY --from=builder /app/packages/opencode-adapter/package.json ./packages/opencode-adapter/package.json
 COPY --from=builder /app/packages/sandbox/package.json ./packages/sandbox/package.json
 COPY --from=builder /app/packages/tool-gateway/package.json ./packages/tool-gateway/package.json
+COPY --from=builder /app/packages/control-plane/package.json ./packages/control-plane/package.json
+COPY --from=builder /app/packages/worker-pipeline/package.json ./packages/worker-pipeline/package.json
 COPY --from=builder /app/apps/server/package.json ./apps/server/package.json
 
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
@@ -39,6 +41,8 @@ COPY --from=builder /app/packages/speckit-adapter/dist ./packages/speckit-adapte
 COPY --from=builder /app/packages/opencode-adapter/dist ./packages/opencode-adapter/dist
 COPY --from=builder /app/packages/sandbox/dist ./packages/sandbox/dist
 COPY --from=builder /app/packages/tool-gateway/dist ./packages/tool-gateway/dist
+COPY --from=builder /app/packages/control-plane/dist ./packages/control-plane/dist
+COPY --from=builder /app/packages/worker-pipeline/dist ./packages/worker-pipeline/dist
 COPY --from=builder /app/apps/server/dist ./apps/server/dist
 
 RUN mkdir -p /app/.positron/runs /app/.opencode/audit /app/workspace && chown -R node:node /app/.positron /app/.opencode /app/workspace

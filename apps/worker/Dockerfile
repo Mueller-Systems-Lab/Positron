@@ -19,6 +19,8 @@ COPY --from=builder /app/packages/sandbox/package.json ./packages/sandbox/packag
 COPY --from=builder /app/packages/speckit-adapter/package.json ./packages/speckit-adapter/package.json
 COPY --from=builder /app/packages/opencode-adapter/package.json ./packages/opencode-adapter/package.json
 COPY --from=builder /app/packages/tool-gateway/package.json ./packages/tool-gateway/package.json
+COPY --from=builder /app/packages/control-plane/package.json ./packages/control-plane/package.json
+COPY --from=builder /app/packages/worker-pipeline/package.json ./packages/worker-pipeline/package.json
 # Built dist files
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/run-state/dist ./packages/run-state/dist
@@ -27,6 +29,8 @@ COPY --from=builder /app/packages/sandbox/dist ./packages/sandbox/dist
 COPY --from=builder /app/packages/speckit-adapter/dist ./packages/speckit-adapter/dist
 COPY --from=builder /app/packages/opencode-adapter/dist ./packages/opencode-adapter/dist
 COPY --from=builder /app/packages/tool-gateway/dist ./packages/tool-gateway/dist
+COPY --from=builder /app/packages/control-plane/dist ./packages/control-plane/dist
+COPY --from=builder /app/packages/worker-pipeline/dist ./packages/worker-pipeline/dist
 COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
 COPY --from=builder /app/package.json ./package.json
 RUN mkdir -p /app/.positron/runs /app/.opencode/audit /app/workspace && chown -R node:node /app/.positron /app/.opencode /app/workspace

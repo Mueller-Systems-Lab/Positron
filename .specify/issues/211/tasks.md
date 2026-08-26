@@ -9,7 +9,7 @@
 - [x] T002 Read `AGENTS.md`, Constitution, Issue #211, current metadata, and open work.
 - [x] T003 Inventory configured/allowed/unavailable/forbidden agent roles without enabling forbidden agents.
 - [x] T004 Record official GitHub Pages workflow guidance and action versions.
-- [ ] T005 Post phase evidence to Issue #211.
+- [x] T005 Post phase evidence to Issue #211.
 
 ## Phase 2 — Repository truth (PR A)
 
@@ -23,12 +23,12 @@
 
 ## Phase 3 — Demo installation (PR B)
 
-- [ ] T013 Reproduce the legacy Docker instructions from a clean checkout.
-- [ ] T014 Implement isolated fake/demo Compose path.
-- [ ] T015 Implement Linux quickstart and doctor commands.
-- [ ] T016 Implement Windows quickstart/doctor dry-run path.
-- [ ] T017 Verify idempotence, health, UI, route smoke, and credential ignore behavior.
-- [ ] T018 Record clean-clone installation evidence.
+- [x] T013 Reproduce the legacy Docker instructions from a clean checkout.
+- [x] T014 Implement isolated fake/demo Compose path.
+- [x] T015 Implement Linux quickstart and doctor commands.
+- [x] T016 Implement Windows quickstart/doctor dry-run path.
+- [x] T017 Verify idempotence, health, UI, route smoke, and credential ignore behavior.
+- [x] T018 Record clean-clone installation evidence.
 
 ## Phase 4 — Visual evidence and landing (PR C)
 
@@ -47,4 +47,3 @@
 - [ ] T028 Enable Pages after Pages PR lands, observe build/deploy, and retrieve returned URL.
 - [ ] T029 Verify live Pages URL with Playwright and update homepage only afterward.
 - [ ] T030 Re-read #211, publish final evidence, verify #308 unchanged, and close #211.
-

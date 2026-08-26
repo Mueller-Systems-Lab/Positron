@@ -21,5 +21,10 @@
 
 ## Review status
 
-**PASS for the selected architecture, pending implementation and final scans.** Any runtime/doc conflict discovered during implementation must be recorded and resolved explicitly; it must not be papered over in README prose.
-
+**PASS for the implemented demo path.** The clean-build review found and
+corrected missing runtime workspace artifacts in the server/worker images, and
+the Compose review found and corrected capability restrictions incompatible
+with the official Redis/Nginx images. The resulting stack has no host tool
+mounts, no published Redis port, no working external token, and no enabled
+push/merge path. Any runtime/doc conflict discovered in later phases must be
+recorded and resolved explicitly; it must not be papered over in README prose.
