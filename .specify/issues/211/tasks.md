@@ -32,12 +32,12 @@
 
 ## Phase 4 — Visual evidence and landing (PR C)
 
-- [ ] T019 Start demo-safe stack and capture only existing UI routes.
-- [ ] T020 Perform screenshot privacy and visual QA review.
-- [ ] T021 Build static landing page and local base-path checks.
-- [ ] T022 Add accessibility, responsive, asset, and console tests.
-- [ ] T023 Add official GitHub Pages workflow with required permissions.
-- [ ] T024 Run site build/checks and document claims.
+- [x] T019 Start demo-safe stack and capture only existing UI routes.
+- [x] T020 Perform screenshot privacy and visual QA review.
+- [x] T021 Build static landing page and local base-path checks.
+- [x] T022 Add accessibility, responsive, asset, and console tests.
+- [x] T023 Add official GitHub Pages workflow with required permissions.
+- [x] T024 Run site build/checks and document claims.
 
 ## Phase 5 — Integration and release of scope
 
