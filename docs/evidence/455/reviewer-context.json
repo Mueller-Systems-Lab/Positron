@@ -2,7 +2,7 @@
   "ISSUE": 455,
   "PR": 456,
   "BASE_SHA": "3fa61beba126238d03b0954d39b1d1af507d8c47",
-  "HEAD_SHA": "0a274e293c5e23a65e03b23639e9cd6e9b795e8b",
+  "HEAD_SHA": "5a27e98e6313d97c1c74c743975a6e21195e3d70",
   "PHASE": "PRE_MERGE",
   "REVIEW_EXECUTION_INSTRUCTION": "Perform a bounded independent review of this supplied evidence package only. Do not call tools, read additional files, edit, write, spawn tasks, use GitHub, push, or merge. Return the structured reviewer contract and state limitations when the package does not prove a claim.",
   "ACCEPTANCE_CRITERIA": [
