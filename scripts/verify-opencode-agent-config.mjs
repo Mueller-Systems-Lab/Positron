@@ -116,7 +116,7 @@ for (const id of ['issue-orchestrator', ...required]) {
 }
 
 process.stdout.write(
-	[
+	`${[
 		`AGENT_CONFIG_REGRESSION=PASS required=${required.length}`,
 		'CONTROLLER_ALLOWLIST=PASS',
 		'REVIEWER_READ_ONLY_PERMISSIONS=PASS',
@@ -124,5 +124,5 @@ process.stdout.write(
 		'HARD_DENY_MATRIX=PASS',
 		'DEEPSEEK_CONFIGURED_FOR_REQUIRED_AGENTS=0',
 		'BUILT_IN_INVENTORY=build,plan,general,explore',
-	].join('\n') + '\n',
+	].join('\n')}\n`,
 );
