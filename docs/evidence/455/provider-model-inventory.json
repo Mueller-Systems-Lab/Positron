@@ -35,7 +35,9 @@
 			"LOCAL": false,
 			"CONNECTED": true,
 			"DEEPSEEK": false,
-			"PROBE_STATUS": "UPSTREAM_TIMEOUT"
+			"PROBE_STATUS": "WORKING",
+			"TEXT_COMPLETION": "PASS",
+			"ISOLATED_REVIEWER_PROBE": "PASS"
 		},
 		{
 			"MODEL": "lmstudio/openai/gpt-oss-20b",

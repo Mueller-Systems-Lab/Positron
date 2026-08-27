@@ -74,7 +74,7 @@
 		},
 		"audit-repository-reality": {
 			"description": "Audits current repository, GitHub, Pages, and active-issue claims for stale or fabricated reality.",
-			"mode": "subagent",
+			"mode": "all",
 			"permission": {
 				"edit": "deny",
 				"write": "deny",
@@ -86,7 +86,7 @@
 		},
 		"audit-repository-hygiene": {
 			"description": "Audits cleanup manifest, root structure, docs layout, evidence boundaries, and artifact exclusions.",
-			"mode": "subagent",
+			"mode": "all",
 			"permission": {
 				"edit": "deny",
 				"write": "deny",
@@ -98,7 +98,7 @@
 		},
 		"review-architecture": {
 			"description": "Reviews the single-controller architecture and the active issue's demo/static-site boundaries.",
-			"mode": "subagent",
+			"mode": "all",
 			"permission": {
 				"edit": "deny",
 				"write": "deny",
@@ -110,7 +110,7 @@
 		},
 		"review-security": {
 			"description": "Reviews secrets, safe defaults, workflow privileges, and reviewer permission boundaries.",
-			"mode": "subagent",
+			"mode": "all",
 			"permission": {
 				"edit": "deny",
 				"write": "deny",
@@ -122,7 +122,7 @@
 		},
 		"review-devex-installer": {
 			"description": "Reviews fresh-clone install instructions, quickstart UX, configuration burden, failures, and mode separation.",
-			"mode": "subagent",
+			"mode": "all",
 			"permission": {
 				"edit": "deny",
 				"write": "deny",
@@ -134,7 +134,7 @@
 		},
 		"review-docker-infrastructure": {
 			"description": "Reviews quickstart and advanced Compose topology, credentials, health flow, and host dependency boundaries.",
-			"mode": "subagent",
+			"mode": "all",
 			"permission": {
 				"edit": "deny",
 				"write": "deny",
@@ -146,7 +146,7 @@
 		},
 		"review-frontend-landing": {
 			"description": "Reviews static landing source, responsive structure, assets, links, and truthfulness of public claims.",
-			"mode": "subagent",
+			"mode": "all",
 			"permission": {
 				"edit": "deny",
 				"write": "deny",
@@ -158,7 +158,7 @@
 		},
 		"review-ux-accessibility": {
 			"description": "Reviews semantic structure, focus, keyboard usability, contrast, reduced motion, mobile behavior, and alt text.",
-			"mode": "subagent",
+			"mode": "all",
 			"permission": {
 				"edit": "deny",
 				"write": "deny",
@@ -170,7 +170,7 @@
 		},
 		"review-visual-qa": {
 			"description": "Reviews screenshot freshness/privacy, live Pages evidence, desktop/mobile coverage, and visible breakage claims.",
-			"mode": "subagent",
+			"mode": "all",
 			"permission": {
 				"edit": "deny",
 				"write": "deny",
@@ -182,7 +182,7 @@
 		},
 		"review-documentation-truth": {
 			"description": "Checks consistency among README, install/status/security docs, env example, Pages copy, and GitHub state.",
-			"mode": "subagent",
+			"mode": "all",
 			"permission": {
 				"edit": "deny",
 				"write": "deny",
@@ -194,7 +194,7 @@
 		},
 		"review-github-pages": {
 			"description": "Reviews the Pages workflow, permissions, base path, URL evidence, metadata, and deployment records.",
-			"mode": "subagent",
+			"mode": "all",
 			"permission": {
 				"edit": "deny",
 				"write": "deny",
@@ -206,7 +206,7 @@
 		},
 		"review-test-tooling": {
 			"description": "Reviews CI, Biome, build/typecheck/tests, Playwright, route smoke, and secret/artifact evidence.",
-			"mode": "subagent",
+			"mode": "all",
 			"permission": {
 				"edit": "deny",
 				"write": "deny",
@@ -223,7 +223,7 @@
 		},
 		"review-integration": {
 			"description": "Reviews the exact active change set and its supplied dependency history against current main.",
-			"mode": "subagent",
+			"mode": "all",
 			"permission": {
 				"edit": "deny",
 				"write": "deny",
@@ -235,7 +235,7 @@
 		},
 		"review-release-packaging": {
 			"description": "Reviews release publication state, draft honesty, version language, and installation packaging claims.",
-			"mode": "subagent",
+			"mode": "all",
 			"permission": {
 				"edit": "deny",
 				"write": "deny",
@@ -247,7 +247,7 @@
 		},
 		"review-governance": {
 			"description": "Reviews scope delta, hard denies, branch safety, untouched tracks, and the new agent permission architecture.",
-			"mode": "subagent",
+			"mode": "all",
 			"permission": {
 				"edit": "deny",
 				"write": "deny",
@@ -259,7 +259,7 @@
 		},
 		"research-official-docs": {
 			"description": "Researches only official OpenCode and GitHub Pages documentation needed to validate the runtime contract.",
-			"mode": "subagent",
+			"mode": "all",
 			"permission": {
 				"edit": "deny",
 				"write": "deny",
@@ -273,7 +273,7 @@
 		},
 		"review-independent-final": {
 			"description": "Independent lifecycle verifier; evaluates supplied active-issue evidence without receiving a desired classification.",
-			"mode": "subagent",
+			"mode": "all",
 			"permission": {
 				"edit": "deny",
 				"write": "deny",
