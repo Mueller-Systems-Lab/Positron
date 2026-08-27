@@ -9,17 +9,19 @@
 | Docker quickstart | `docker-compose.quickstart.yml` and clean build proof | PASS |
 | Advanced Real Mode docs | `docs/install/advanced.md`, `SECURITY.md` | PASS |
 | Safety defaults truth | `.env.example`, Compose, security review | PASS |
-| Architecture docs | `docs/architecture/`, `architecture-review.md` | PASS |
+| Architecture docs | `docs/architecture/`, architecture review | PASS |
 | QA status | PR #446, #448, #449 checks; local route/site checks | PASS |
 | Repository metadata | public repo, Pages enabled, verified homepage | PASS |
 | Templates / security / license | existing root governance files audited | PASS |
 | Secret scan | local generated env ignored; screenshots reviewed | PASS |
 | Artifact scan | cleanup manifest and tracked artifact audit | PASS |
-| All-agent participation | `agent-inventory.md`; unavailable roles explicitly recorded | PASS WITH LIMITATION |
+| All-agent participation | `agent-inventory.md`, `runtime-manifest.md`, 17 unique child sessions | PASS |
+| Required independent reviews | `independent-reviews/*.md`, final verifier, 0 critical/major blockers | PASS |
 | Landing source | `site/`, claims matrix | PASS |
-| GitHub Pages deployment | Pages workflow run `32964885893` (Build + Deploy) | PASS |
+| GitHub Pages deployment | `pages-live-verification.md`, run `32964885893` | PASS |
 | Live Pages verification | `pages-live-verification.md` | PASS |
 | Easy fresh-clone install | quickstart proof and Windows CI dry-run | PASS |
-| Required reviews | architecture/security/docs/UX/visual workstreams | PASS WITH LIMITATION |
-| All #211 PRs landed | #446, #448, #449, #450, #451 exact-head merges | PASS |
+| All #211 PRs landed | #446, #448, #449, #450, #451, #452 exact-head merges | PASS |
 | #308 unchanged | live issue remains open; no mutation performed | PASS |
+
+The historical 2026-08-26 `PASS WITH LIMITATION` entries are superseded by the runtime proof and remain described in `agent-inventory.md`; no unrelated technical status was rewritten.
