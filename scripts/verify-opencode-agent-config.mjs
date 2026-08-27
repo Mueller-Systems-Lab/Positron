@@ -115,10 +115,14 @@ for (const id of ['issue-orchestrator', ...required]) {
 	}
 }
 
-console.log(`AGENT_CONFIG_REGRESSION=PASS required=${required.length}`);
-console.log('CONTROLLER_ALLOWLIST=PASS');
-console.log('REVIEWER_READ_ONLY_PERMISSIONS=PASS');
-console.log('REVIEWER_NESTED_TASK_DENY=PASS');
-console.log('HARD_DENY_MATRIX=PASS');
-console.log('DEEPSEEK_CONFIGURED_FOR_REQUIRED_AGENTS=0');
-console.log('BUILT_IN_INVENTORY=build,plan,general,explore');
+process.stdout.write(
+	[
+		`AGENT_CONFIG_REGRESSION=PASS required=${required.length}`,
+		'CONTROLLER_ALLOWLIST=PASS',
+		'REVIEWER_READ_ONLY_PERMISSIONS=PASS',
+		'REVIEWER_NESTED_TASK_DENY=PASS',
+		'HARD_DENY_MATRIX=PASS',
+		'DEEPSEEK_CONFIGURED_FOR_REQUIRED_AGENTS=0',
+		'BUILT_IN_INVENTORY=build,plan,general,explore',
+	].join('\n') + '\n',
+);
