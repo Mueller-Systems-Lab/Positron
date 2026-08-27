@@ -83,7 +83,7 @@ export function evaluatePushPolicy(branch: string, flags: string[]): PushPolicyR
  * Generiert eine Commit-Message im Positron-Format.
  */
 export function generateCommitMessage(issueNumber: number, description: string): string {
-	return `feat(issue-${issueNumber}): ${description}\n\nAutomated by Positron — https://github.com/xxammaxx/Positron`;
+	return `feat(issue-${issueNumber}): ${description}\n\nAutomated by Positron — https://github.com/Mueller-Systems-Lab/Positron`;
 }
 
 /**

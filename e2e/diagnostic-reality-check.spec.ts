@@ -192,7 +192,7 @@ test.describe('Positron Reality Check', () => {
 		const demoRunBtn = page.getByRole('button', { name: /Start Demo Run/i });
 
 		// Fill in the form
-		await repoInput.fill('xxammaxx/Positron');
+		await repoInput.fill('Mueller-Systems-Lab/Positron');
 		await issueInput.fill('1');
 		console.log('[Diagnostic] Filled repo/issue inputs for demo run');
 

@@ -4,8 +4,8 @@
 // feeds the Phase 1B reconciler, and prints a decision summary.
 //
 // Usage:
-//   node scripts/collect-github-context.mjs --repo xxammaxx/Positron --dry-run
-//   node scripts/collect-github-context.mjs --repo xxammaxx/Positron --output ".local-release/snapshot.json"
+//   node scripts/collect-github-context.mjs --repo Mueller-Systems-Lab/Positron --dry-run
+//   node scripts/collect-github-context.mjs --repo Mueller-Systems-Lab/Positron --output ".local-release/snapshot.json"
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -77,7 +77,7 @@ function parseArgs() {
 	const args = process.argv.slice(2);
 	const options = {
 		dryRun: false,
-		repo: 'xxammaxx/Positron',
+		repo: 'Mueller-Systems-Lab/Positron',
 		output: null,
 		help: false,
 		targetPr: null,
@@ -124,7 +124,7 @@ Usage:
   node scripts/collect-github-context.mjs [options]
 
 Options:
-  --repo <owner/name>     Target repository (default: xxammaxx/Positron)
+  --repo <owner/name>     Target repository (default: Mueller-Systems-Lab/Positron)
   --dry-run               Simulate without calling GitHub
   --output <path>         Write JSON snapshot to file
   --target-pr <number>    Enrich a specific PR with review findings

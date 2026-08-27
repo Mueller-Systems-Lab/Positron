@@ -3,7 +3,7 @@
 > **Status:** ACTIVE
 > **Established:** 2026-08-03T06:34:31Z
 > **Evidence Run:** POS-NORTHSTAR-R4
-> **Controller Issue:** xxammaxx/Positron#308
+> **Controller Issue:** Mueller-Systems-Lab/Positron#308
 
 ## Quick Reference
 

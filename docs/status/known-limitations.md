@@ -7,8 +7,8 @@ This page describes current limitations only. Historical counts and incident rep
 
 | Limitation | Status | Follow-up |
 | --- | --- | --- |
-| Productive Full Real Mode is not generally validated | OPEN / GATED | [#308](https://github.com/xxammaxx/Positron/issues/308) |
-| Repo-wide Biome correctness backlog may still exist despite formatting gates | OPEN / TRACKED | [#340](https://github.com/xxammaxx/Positron/issues/340) is closed as a historical cleanup track; inspect current CI for new findings |
+| Productive Full Real Mode is not generally validated | OPEN / GATED | [#308](https://github.com/Mueller-Systems-Lab/Positron/issues/308) |
+| Repo-wide Biome correctness backlog may still exist despite formatting gates | OPEN / TRACKED | [#340](https://github.com/Mueller-Systems-Lab/Positron/issues/340) is closed as a historical cleanup track; inspect current CI for new findings |
 | Root Docker Compose is advanced and requires explicit secrets/host integrations | DOCUMENTED | Use the fake/demo quickstart for first runs |
 | Admin routes require an admin token when enabled | DOCUMENTED | Quickstart generates a local ignored token |
 | Browser voice output depends on local Web Speech API support | DOCUMENTED | Voice is optional and browser-local |

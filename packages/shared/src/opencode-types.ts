@@ -84,7 +84,7 @@ export interface OpenCodeRunInput {
 	issueBody?: string;
 	/** Issue-Nummer */
 	issueNumber?: number;
-	/** Target repository owner (e.g. "xxammaxx") */
+	/** Target repository owner (e.g. "Mueller-Systems-Lab") */
 	repoOwner?: string;
 	/** Target repository name (e.g. "positron-sandbox") */
 	repoName?: string;

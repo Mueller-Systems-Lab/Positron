@@ -24,7 +24,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const SANDBOX_REPO = 'xxammaxx/positron-sandbox';
 const SANDBOX_ISSUE = 1;
-const NON_SANDBOX_REPO = 'xxammaxx/Positron';
+const NON_SANDBOX_REPO = 'Mueller-Systems-Lab/Positron';
 const NON_SANDBOX_ISSUE = 308;
 const TEST_IDEMPOTENCY_KEY = 'harness-test-run-001';
 const TEST_IDEMPOTENCY_KEY_2 = 'harness-test-run-002';

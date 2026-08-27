@@ -92,7 +92,7 @@ vi.mock('../hooks/useDashboardSSE.js', () => ({
 		runs: [
 			{
 				id: 'test-run-dash',
-				repoId: 'xxammaxx/Positron',
+				repoId: 'Mueller-Systems-Lab/Positron',
 				issueNumber: 1,
 				branch: null,
 				phase: 'DONE',
@@ -124,7 +124,7 @@ vi.mock('../hooks/useRun.js', () => ({
 	useRun: () => ({
 		run: {
 			id: 'test-run-abc12345def67890',
-			repoId: 'xxammaxx/Positron',
+			repoId: 'Mueller-Systems-Lab/Positron',
 			issueNumber: 340,
 			branch: 'positron/issue-340-track-d2a',
 			phase: 'DONE',

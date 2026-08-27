@@ -1,13 +1,13 @@
 # Positron
 
-[![Quality Gates](https://github.com/xxammaxx/Positron/actions/workflows/quality-gates.yml/badge.svg?branch=main)](https://github.com/xxammaxx/Positron/actions/workflows/quality-gates.yml)
+[![Quality Gates](https://github.com/Mueller-Systems-Lab/Positron/actions/workflows/quality-gates.yml/badge.svg?branch=main)](https://github.com/Mueller-Systems-Lab/Positron/actions/workflows/quality-gates.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-8bd450.svg)](LICENSE)
 
 **Evidence-gated GitHub issue-to-PR orchestration for supervised autonomous coding workflows.**
 
 Positron is for teams and maintainers who want LLM workers to move a GitHub Issue through Specify, Plan, Tasks, implementation, review, evidence, and a gated PR while one controller retains authority over routing, promotion, retries, and completion.
 
-> Pre-release / active development. Fake/demo mode is the safe way to explore Positron. Productive Full Real Mode is not claimed as generally production-ready while [#308](https://github.com/xxammaxx/Positron/issues/308) remains open.
+> Pre-release / active development. Fake/demo mode is the safe way to explore Positron. Productive Full Real Mode is not claimed as generally production-ready while [#308](https://github.com/Mueller-Systems-Lab/Positron/issues/308) remains open.
 
 ## Try it in one command
 
@@ -44,7 +44,7 @@ See [Getting Started](docs/getting-started/README.md) for prerequisites, trouble
 | Durable run/job/attempt state and deterministic gates | PROVEN | [Durable control plane](docs/architecture/durable-control-plane.md) |
 | Safe fake/demo UI and local browser workflow | DEMO | `scripts/quickstart.sh`, current screenshots, route-smoke checks |
 | GitHub, SpecKit, OpenCode adapters | GATED | Explicit mode and credential/tool configuration required |
-| Full productive Real Mode | DEFERRED | Validation remains tracked in [#308](https://github.com/xxammaxx/Positron/issues/308) |
+| Full productive Real Mode | DEFERRED | Validation remains tracked in [#308](https://github.com/Mueller-Systems-Lab/Positron/issues/308) |
 | Positron production deployment | DEFERRED | Not part of this repository-polish scope |
 
 Status vocabulary is intentional: **PROVEN** means backed by current repository evidence, **GATED** means available only behind explicit controls, **DEMO** means safe local exploration, **EXPERIMENTAL** means incomplete or subject to change, and **DEFERRED** means intentionally out of scope or blocked.
@@ -127,7 +127,7 @@ npm run test:route-smoke
 
 The full local and CI truth is recorded in [Current Capabilities](docs/status/current-capabilities.md). Historical test totals remain in dated evidence and are not maintained as marketing badges.
 
-- [Live website](https://xxammaxx.github.io/Positron/)
+- [Live website](https://mueller-systems-lab.github.io/Positron/)
 - [Documentation index](docs/README.md)
 - [Architecture](docs/architecture.md)
 - [Security](SECURITY.md)

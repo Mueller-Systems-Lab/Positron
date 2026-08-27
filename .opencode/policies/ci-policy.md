@@ -4,7 +4,7 @@
 **Ersetzt:** CI Policy v1 vom 2026-06-21
 **Entscheider:** Projektleitung (Human Gate) + R3-R1 CI Contract Evidence
 **Scope:** Projektweit, bis auf Widerruf
-**Referenz:** Issue [#268](https://github.com/xxammaxx/Positron/issues/268) (CLOSED), PR [#415](https://github.com/xxammaxx/Positron/pull/415), Issue [#416](https://github.com/xxammaxx/Positron/issues/416)
+**Referenz:** Issue [#268](https://github.com/Mueller-Systems-Lab/Positron/issues/268) (CLOSED), PR [#415](https://github.com/Mueller-Systems-Lab/Positron/pull/415), Issue [#416](https://github.com/Mueller-Systems-Lab/Positron/issues/416)
 
 ## Policy
 
@@ -19,7 +19,7 @@ Vor jedem PR müssen folgende lokale Gates grün sein:
 | Typecheck | `npm run typecheck` | Exit 0 |
 | Tests | `npm test` (self-contained: pretest → build → root + Web Vitest) | Exit 0 |
 
-`npx biome check .` bleibt advisory-only (bekannter Lint-Backlog, Issue [#340](https://github.com/xxammaxx/Positron/issues/340)).
+`npx biome check .` bleibt advisory-only (bekannter Lint-Backlog, Issue [#340](https://github.com/Mueller-Systems-Lab/Positron/issues/340)).
 
 ### §2 GitHub Actions sind erforderlich für Protected-Branch Merge
 

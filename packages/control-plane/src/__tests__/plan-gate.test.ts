@@ -9,7 +9,7 @@ const HEAD = 'a'.repeat(40);
 const validPlan = {
 	contract: 'positron.plan.v1',
 	run_id: 'run_abc12345',
-	repository_ref: 'xxammaxx/Positron',
+	repository_ref: 'Mueller-Systems-Lab/Positron',
 	repository_head: HEAD,
 	targets: { files: ['src/sum.js'], symbols: ['add'] },
 	acceptance_criteria: ['add(2, 3) returns 5'],
@@ -29,7 +29,7 @@ describe('PLAN_GATE_APPROVE', () => {
 	});
 
 	it('approves with matching expected repository identity and head', () => {
-		const result = evaluatePlanGate(validPlan, 'xxammaxx/Positron', HEAD);
+		const result = evaluatePlanGate(validPlan, 'Mueller-Systems-Lab/Positron', HEAD);
 		expect(result.status).toBe('APPROVED');
 	});
 });
@@ -48,7 +48,7 @@ describe('PLAN_GATE_REJECT', () => {
 	});
 
 	it('rejects repository HEAD mismatch', () => {
-		const result = evaluatePlanGate(validPlan, 'xxammaxx/Positron', 'b'.repeat(40));
+		const result = evaluatePlanGate(validPlan, 'Mueller-Systems-Lab/Positron', 'b'.repeat(40));
 		expect(result.status).toBe('REJECTED');
 		expect(result.errors.some((e) => e.includes('repository_head mismatch'))).toBe(true);
 	});

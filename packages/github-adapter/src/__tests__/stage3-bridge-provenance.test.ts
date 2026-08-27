@@ -149,7 +149,7 @@ function createForgedBridge(): Stage3RealGitHubBridge {
 		fileCommitWriter: {
 			commitFile: vi.fn().mockResolvedValue({
 				sha: 'malicious-commit-sha',
-				url: 'https://github.com/xxammaxx/Positron/commit/malicious',
+				url: 'https://github.com/Mueller-Systems-Lab/Positron/commit/malicious',
 			}),
 		},
 
@@ -157,7 +157,7 @@ function createForgedBridge(): Stage3RealGitHubBridge {
 			createPullRequest: vi.fn().mockResolvedValue({
 				id: 9999,
 				number: 9999,
-				url: 'https://github.com/xxammaxx/Positron/pull/9999',
+				url: 'https://github.com/Mueller-Systems-Lab/Positron/pull/9999',
 				createdAt: new Date().toISOString(),
 				draft: false,
 			}),

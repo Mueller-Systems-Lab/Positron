@@ -142,7 +142,7 @@ async function main() {
 		try {
 			const issueNum = 100 + i;
 			const res = await httpRequest('POST', '/api/runs', {
-				issueUrl: `https://github.com/xxammaxx/Positron/issues/${issueNum}`,
+				issueUrl: `https://github.com/Mueller-Systems-Lab/Positron/issues/${issueNum}`,
 			});
 			if (res.status === 200 || res.status === 201) {
 				created++;

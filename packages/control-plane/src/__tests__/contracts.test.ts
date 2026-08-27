@@ -7,7 +7,7 @@ import { validateContract } from '../contracts.js';
 const validPlan = {
 	contract: 'positron.plan.v1',
 	run_id: 'run_abc12345',
-	repository_ref: 'xxammaxx/Positron',
+	repository_ref: 'Mueller-Systems-Lab/Positron',
 	repository_head: 'a'.repeat(40),
 	targets: { files: ['src/sum.js'], symbols: ['add'] },
 	acceptance_criteria: ['add(2, 3) returns 5'],

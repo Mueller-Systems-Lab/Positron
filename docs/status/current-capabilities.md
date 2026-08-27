@@ -21,14 +21,14 @@ This is living documentation. Dated test totals and historical issue snapshots b
 
 ## Current quality contract
 
-The required branch-protection contexts are `format-check`, `differential-lint`, `build`, `typecheck`, `unit-tests`, and `observability-config-check`. Run status is mutable and should be read from [GitHub Actions](https://github.com/xxammaxx/Positron/actions), not copied into a fixed badge count.
+The required branch-protection contexts are `format-check`, `differential-lint`, `build`, `typecheck`, `unit-tests`, and `observability-config-check`. Run status is mutable and should be read from [GitHub Actions](https://github.com/Mueller-Systems-Lab/Positron/actions), not copied into a fixed badge count.
 
 Use `npm test`, `npm run build`, `npm run typecheck`, and the relevant Playwright/route-smoke commands for a dated snapshot. The exact result for each Issue #211 run is recorded in its evidence and GitHub comments.
 
 ## Current issue state relevant to this document
 
-- [#211](https://github.com/xxammaxx/Positron/issues/211) is the active repository polish/install/Pages track.
-- [#308](https://github.com/xxammaxx/Positron/issues/308) remains open and unchanged by this issue.
+- [#211](https://github.com/Mueller-Systems-Lab/Positron/issues/211) is the active repository polish/install/Pages track.
+- [#308](https://github.com/Mueller-Systems-Lab/Positron/issues/308) remains open and unchanged by this issue.
 - #250, #340, #416, #421, and #402 are closed historical work; they are references to evidence, not current backlog.
 
 ## Related living docs

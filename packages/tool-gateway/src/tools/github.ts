@@ -111,7 +111,7 @@ export const githubCommentEvidenceDraftDef: ToolDefinition = {
 export const githubReadIssueHandler: ToolHandler = async (call): Promise<ToolResult> => {
 	try {
 		const issueNumber = call.arguments.issueNumber as number;
-		const repo = (call.arguments.repo as string) || 'xxammaxx/Positron';
+		const repo = (call.arguments.repo as string) || 'Mueller-Systems-Lab/Positron';
 
 		// In fake/offline mode, return a simulated response
 		if (process.env.POSITRON_GITHUB_MODE === 'fake' || process.env.GITHUB_MODE === 'fake') {
@@ -165,7 +165,7 @@ export const githubCommentEvidenceDraftHandler: ToolHandler = async (call): Prom
 	try {
 		const issueNumber = call.arguments.issueNumber as number;
 		const body = call.arguments.body as string;
-		const repo = (call.arguments.repo as string) || 'xxammaxx/Positron';
+		const repo = (call.arguments.repo as string) || 'Mueller-Systems-Lab/Positron';
 
 		const draftId = `draft-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 

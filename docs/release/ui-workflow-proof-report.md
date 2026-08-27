@@ -2,7 +2,7 @@
 
 ## Summary
 - **Status:** PASS
-- **Timestamp:** 2026-07-17T10:42:39.128Z
+- **Timestamp:** 2026-08-27T13:26:19.148Z
 
 ## Verification Results
 
@@ -12,12 +12,12 @@
 | Runs endpoint | ✅ true |
 | UI screenshots captured | ✅ true |
 | Network log file exists | ✅ true |
-| Captured API calls | ✅ 13 calls logged |
+| Captured API calls | ✅ 16 calls logged |
 | No server errors (5xx) | ✅ true |
-| Screenshots count | ✅ 12 screenshots |
+| Screenshots count | ✅ 13 screenshots |
 
 ## Network Calls
-Total API calls captured: 13
+Total API calls captured: 16
 
 | Method | URL | Status |
 |--------|-----|--------|
@@ -25,10 +25,13 @@ Total API calls captured: 13
 | GET | /api/projects | 200 |
 | GET | /api/health | 200 |
 | GET | /api/projects | 200 |
-| GET | /api/stream | 200 |
+| GET | /api/health | 200 |
 | GET | /api/health | 200 |
 | GET | /api/projects | 200 |
 | GET | /api/health | 200 |
+| GET | /api/projects | 200 |
+| GET | /api/health | 200 |
+| GET | /api/stream | 200 |
 | GET | /api/health | 200 |
 | GET | /api/health | 200 |
 | GET | /api/runs | 200 |
@@ -44,6 +47,7 @@ Total API calls captured: 13
 - docs/release/ui-workflow-proof/06-demo-run-before.png
 - docs/release/ui-workflow-proof/06-demo-run-started.png
 - docs/release/ui-workflow-proof/07-run-in-list.png
+- docs/release/ui-workflow-proof/08-run-detail.png
 - docs/release/ui-workflow-proof/08-runs-page.png
 - docs/release/ui-workflow-proof/09-evidence-page.png
 - docs/release/ui-workflow-proof/10-settings-page.png

@@ -1,6 +1,6 @@
 # Label Convention — Positron Governance
 
-> **Version:** 1.0.0 | **Effective:** 2026-06-27 | **Scope:** xxammaxx/Positron GitHub labels
+> **Version:** 1.0.0 | **Effective:** 2026-06-27 | **Scope:** Mueller-Systems-Lab/Positron GitHub labels
 
 ---
 
@@ -138,6 +138,6 @@ These label operations require owner approval:
 
 ## References
 
-- [Issue #306 — Backlog Hygiene](https://github.com/xxammaxx/Positron/issues/306)
+- [Issue #306 — Backlog Hygiene](https://github.com/Mueller-Systems-Lab/Positron/issues/306)
 - [CONTRIBUTING.md](../../CONTRIBUTING.md)
 - [Deprecated Label Decision Package](../evidence/issue-306/deprecated-label-decision-package.md)

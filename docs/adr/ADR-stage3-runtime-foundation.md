@@ -27,7 +27,7 @@ The canonical target values are fixed in `docs/evidence/issue-308/stage3-supervi
 | Commit | Exactly 1 (message: `feat(issue-308): stage 3 supervised real mode pilot`) |
 | PR | Draft, exactly 1 (title: `feat(issue-308): Stage 3 supervised real mode pilot — sandbox marker`) |
 | Merge | FORBIDDEN |
-| Production repo | FORBIDDEN (`xxammaxx/Positron`) |
+| Production repo | FORBIDDEN (`Mueller-Systems-Lab/Positron`) |
 
 The design challenge: Stage 2 was a single-operation harness (validate → write comment). Stage 3 is a **multi-phase orchestrated sequence** (branch → file-commit → draft-PR) where partial failures are possible, state must be tracked across phases, and idempotency is scoped to the entire run, not to individual operations.
 
@@ -71,7 +71,7 @@ Pure validation gatekeeper. Validates every input parameter, enforces quantity l
 export interface Stage3PilotConfig {
   enabled: boolean;                       // false = block everything
   allowedRepository: string;              // e.g. 'xxammaxx/positron-sandbox'
-  forbiddenRepositories: string[];        // e.g. ['xxammaxx/Positron']
+  forbiddenRepositories: string[];        // e.g. ['Mueller-Systems-Lab/Positron']
   allowedBaseBranch: string;              // e.g. 'main'
   allowedTargetBranch: string;            // e.g. 'positron/issue-308-stage3-pilot'
   allowedFilePath: string;                // e.g. 'stage3/positron-supervised-pilot.md'
@@ -775,7 +775,7 @@ The harness uses in-process flags (`_runInProgress`, `_activeRunCount`). This is
 
 ### Security Impact
 
-- **Positive**: 24 validation gates with token-free audit trail. Zero chance of writing to the production repo (`xxammaxx/Positron` is explicitly forbidden in policy gate 3).
+- **Positive**: 24 validation gates with token-free audit trail. Zero chance of writing to the production repo (`Mueller-Systems-Lab/Positron` is explicitly forbidden in policy gate 3).
 - **Positive**: Build-law constraint ensures no live writes in the current build iteration.
 - **Neutral**: The live path exists in code but is unreachable through the factory defaults.
 - **Neutral**: Concurrency protection is process-scoped, not distributed.
