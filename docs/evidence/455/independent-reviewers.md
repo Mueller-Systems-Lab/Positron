@@ -193,3 +193,40 @@ BLOCKING_MAJOR=0
 These 16 sessions are fresh continuation evidence and are not counted as the
 historical 16 sessions above. The independent-final reviewer remains a
 separate seventeenth session and must complete before merge.
+
+### Fresh independent-final reviewer
+
+The seventeenth reviewer completed in a fresh isolated direct session after
+the 16-domain wave. The machine-recorded OpenCode session ID is authoritative
+over any session label repeated in model text.
+
+```text
+AGENT=review-independent-final
+BACKEND=ISOLATED
+SESSION_ID=ses_fbab82addffeqJZCunPVNTuTDV
+PARENT_SESSION_ID=NONE
+CHILD_ATTEMPT=NO_STRUCTURED_CHILD_RESULT
+MODEL=kilo/nvidia/nemotron-3-super-120b-a12b:free
+VERDICT=MERGE_READY=true
+CRITICAL=0
+MAJOR=0
+FRESH_CONTEXT=YES
+REVIEWER_MUTATION_PERMISSION=DENIED
+```
+
+The independent final reviewer reported no blockers from the supplied
+pre-merge evidence and clearly stated its bounded evidence-only limitation.
+The resulting fresh-review totals are:
+
+```text
+FRESH_REVIEWERS_EXECUTED=17
+UNIQUE_INDEPENDENT_SESSIONS=17
+DOMAIN_REVIEWERS_EXECUTED=16
+FINAL_CHILD_CREATED=NO
+ISOLATED_FALLBACK_USED=YES
+CHILD_BACKEND_STATUS=DEGRADED
+BLOCKING_CRITICAL=0
+BLOCKING_MAJOR=0
+DEEPSEEK=0
+PAID_CALLS=0
+```

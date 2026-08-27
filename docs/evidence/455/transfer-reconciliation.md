@@ -183,3 +183,18 @@ FRESH_REVIEWERS=16
 DEEPSEEK=0
 PAID_CALLS=0
 ```
+
+The independent final reviewer then completed as a fresh isolated session:
+
+```text
+FINAL_AGENT=review-independent-final
+FINAL_BACKEND=ISOLATED
+FINAL_SESSION_ID=ses_fbab82addffeqJZCunPVNTuTDV
+FINAL_CHILD_ATTEMPT=NO_STRUCTURED_CHILD_RESULT
+FINAL_MODEL=kilo/nvidia/nemotron-3-super-120b-a12b:free
+FINAL_VERDICT=MERGE_READY=true
+FINAL_CRITICAL=0
+FINAL_MAJOR=0
+FRESH_REVIEWERS=17
+UNIQUE_INDEPENDENT_SESSIONS=17
+```
