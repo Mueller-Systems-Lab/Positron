@@ -42,6 +42,17 @@ const assert = (condition, message) => {
 	if (!condition) throw new Error(message);
 };
 
+const finalReviewCommand = readFileSync('.opencode/commands/independent-final-review.md', 'utf8');
+assert(
+	finalReviewCommand.includes('agent: review-independent-final'),
+	'final review command target missing',
+);
+assert(finalReviewCommand.includes('subtask: true'), 'final review command must force a subtask');
+assert(
+	finalReviewCommand.includes('$ARGUMENTS'),
+	'final review command must accept caller context',
+);
+
 assert(
 	config.agent?.['issue-orchestrator']?.mode === 'primary',
 	'issue-orchestrator must be primary',
@@ -78,6 +89,12 @@ for (const id of required) {
 		const covered = typeof bash === 'object' ? bash['*'] : bash;
 		assert(explicit === 'deny' || covered === 'deny', `${id} deny missing: ${command}`);
 	}
+	assert(
+		!/(?:Issue\s*#?211|#(?:446|447|448|449|450|451|452)\b|PRs?\s*#(?:446|447|448|449|450|451|452))/i.test(
+			`${agent.description}\n${agent.prompt}`,
+		),
+		`${id} contains stale issue/PR coupling`,
+	);
 }
 
 const listed = spawnSync('opencode', ['agent', 'list'], { encoding: 'utf8' });

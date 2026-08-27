@@ -56,3 +56,48 @@ REVIEWER_MERGE=DENIED
 
 This is a blocking runtime regression. The PR must not merge or close Issue
 #455 until the missing final verifier actually completes.
+
+## Continuation: Issue #455 runtime repair
+
+The failure was classified as a controller dispatch failure, not a reviewer
+permission denial. The final reviewer was configured and permitted in the
+controller allowlist, but the controller stopped after announcing delegation
+without creating the task. The repaired configuration removes stale #211 and
+#446--#452 assumptions from current reviewer definitions and adds the stable
+OpenCode command `.opencode/commands/independent-final-review.md`:
+
+```text
+agent: review-independent-final
+subtask: true
+```
+
+The static regression now verifies the generic reviewer contract, all 17
+read-only deny boundaries, and the command frontmatter/`$ARGUMENTS` contract.
+It passed with `required=17` and `DEEPSEEK_CONFIGURED_FOR_REQUIRED_AGENTS=0`.
+
+The harmless command smoke produced a real task event with separate parent and
+child session IDs and completed with `COMMAND_SMOKE_PASS`. This proves command
+parsing and deterministic subtask creation. It is not counted as a real Issue
+#455 reviewer.
+
+## Fresh-review execution status
+
+Fresh real-review attempts were made after the configuration repair. The
+stable `opencode 1.18.22` process initialized but emitted no JSON event and no
+task event for the bounded domain-group and real final-review attempts. A
+minimal provider probe also emitted zero bytes and timed out after 90 seconds.
+The attempts were stopped at their explicit timeouts; no child session was
+counted without machine-readable evidence.
+
+```text
+FRESH_DOMAIN_REVIEWERS_EXECUTED=0
+FRESH_DOMAIN_UNIQUE_CHILD_SESSIONS=0
+FRESH_FINAL_REVIEW_CHILD_CREATED=0
+COMMAND_SMOKE_CHILD_COUNTED=0
+DEEPSEEK_AGENT_USAGE=0
+FINAL_REVIEW_RUNTIME=BLOCKED_BY_STABLE_PROVIDER_NO_EVENT
+```
+
+The original 16 sessions remain historical evidence from the pre-repair
+runtime and are not relabeled as fresh. The PR and Issue #455 therefore remain
+blocked; no merge or issue closure is justified by this evidence.

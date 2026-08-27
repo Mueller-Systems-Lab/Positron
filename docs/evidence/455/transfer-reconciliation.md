@@ -97,3 +97,36 @@ files include `docs/evidence/**`, `docs/changelog/**`, `docs/release/**`,
 | Issue #211 | closed / unchanged |
 | Issue #308 | open / unchanged |
 | Runtime behavior changes | 0 intended |
+
+## Reviewer-runtime continuation
+
+The continuation isolated the actual defect: the controller failed to invoke
+the configured `review-independent-final` task. There was no evidence of a
+reviewer permission denial. Current reviewer definitions were generalized to
+consume active issue/PR context and no longer hard-code Issue #211 or the old
+review PR range. The stable OpenCode command mechanism was added and statically
+verified with `agent: review-independent-final`, `subtask: true`, and
+`$ARGUMENTS`.
+
+`opencode --version` returned `1.18.22`. The deterministic synthetic smoke
+created a real child task with distinct parent/child session IDs and completed
+read-only. Real fresh domain and final-review invocations then produced no
+JSON event, task event, or child-session evidence before their bounded
+timeouts, including a 90-second minimal provider probe. This is recorded as a
+runtime block rather than a successful reviewer wave.
+
+```text
+CURRENT_REVIEWER_HARDCODED_OLD_ISSUE_IDS=0
+CURRENT_REVIEWER_HARDCODED_OLD_PR_IDS=0
+CONFIGURED_REVIEWERS=17
+FRESH_REVIEWERS_EXECUTED=0
+FRESH_UNIQUE_CHILD_SESSIONS=0
+DETERMINISTIC_COMMAND_SMOKE=PASS
+REAL_FINAL_REVIEW=BLOCKED_NO_STABLE_PROVIDER_EVENT
+DEEPSEEK_AGENT_USAGE=0
+```
+
+The previous 16/17 reviewer evidence is preserved unchanged as historical
+attempt evidence. Because the required fresh 17-review proof is absent, this
+continuation cannot safely freeze, merge PR #456, deploy Pages, or close Issue
+#455.

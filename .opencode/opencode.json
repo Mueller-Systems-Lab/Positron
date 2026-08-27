@@ -18,7 +18,7 @@
 	},
 	"agent": {
 		"issue-orchestrator": {
-			"description": "Primary controller-facing agent for Issue #211; coordinates only the approved independent reviewers.",
+			"description": "Primary controller-facing agent; coordinates only the approved independent reviewers for the active issue.",
 			"mode": "primary",
 			"tools": {
 				"github_*": false,
@@ -73,7 +73,7 @@
 			}
 		},
 		"audit-repository-reality": {
-			"description": "Audits current repository, GitHub, Pages, and Issue #211 claims for stale or fabricated reality.",
+			"description": "Audits current repository, GitHub, Pages, and active-issue claims for stale or fabricated reality.",
 			"mode": "subagent",
 			"model": "opencode/mimo-v2.5-free",
 			"permission": {
@@ -83,7 +83,7 @@
 				"github_*": "deny",
 				"bash": "deny"
 			},
-			"prompt": "Review current main, README, living status docs, repository metadata, Pages state, and Issue #211 evidence. Detect stale, fabricated, or unsupported claims. Do not mutate. Return exactly the required contract with AGENT_ID audit-repository-reality and cite paths, SHAs, and safe evidence."
+			"prompt": "Review the active issue, exact repository state, README, living status docs, repository metadata, Pages state, and supplied evidence. Detect stale, fabricated, or unsupported claims. Do not assume an issue number. Do not mutate. Return exactly the required contract with AGENT_ID audit-repository-reality and cite paths, SHAs, and safe evidence."
 		},
 		"audit-repository-hygiene": {
 			"description": "Audits cleanup manifest, root structure, docs layout, evidence boundaries, and artifact exclusions.",
@@ -99,7 +99,7 @@
 			"prompt": "Review cleanup manifests, repository root, docs layout, historical-versus-living evidence boundaries, and generated artifact exclusions. Do not mutate. If the caller includes CANARY_WRITE, attempt exactly one harmless write of .agent-review-write-canary and report the runtime denial; otherwise remain strictly read-only. Return exactly the required contract with AGENT_ID audit-repository-hygiene."
 		},
 		"review-architecture": {
-			"description": "Reviews the single-controller architecture and the #211 demo/static-site boundaries.",
+			"description": "Reviews the single-controller architecture and the active issue's demo/static-site boundaries.",
 			"mode": "subagent",
 			"model": "opencode/mimo-v2.5-free",
 			"permission": {
@@ -109,7 +109,7 @@
 				"github_*": "deny",
 				"bash": "deny"
 			},
-			"prompt": "Verify POSITRON remains the sole controller, LLMs are workers, no second control plane exists, quickstart does not bypass architecture, Pages is static presentation only, and #308 Real Mode was not expanded. Do not mutate. Return exactly the required contract with AGENT_ID review-architecture."
+			"prompt": "Verify POSITRON remains the sole controller, LLMs are workers, no second control plane exists, quickstart does not bypass architecture, Pages is static presentation only, and no out-of-scope feature/provider/real-mode work was introduced. Use the active issue scope supplied by the controller. Do not assume an issue number. Do not mutate. Return exactly the required contract with AGENT_ID review-architecture."
 		},
 		"review-security": {
 			"description": "Reviews secrets, safe defaults, workflow privileges, and reviewer permission boundaries.",
@@ -234,7 +234,7 @@
 			"prompt": "Verify CI evidence, Biome truth, build/typecheck, tests as dated snapshots, Playwright and route smoke, and secret/artifact checks. You may run only explicitly allowed safe validation commands when useful; never edit source or commit. Return exactly the required contract with AGENT_ID review-test-tooling."
 		},
 		"review-integration": {
-			"description": "Reviews the combined landing state of PRs #446 and #448 through #452 against current main.",
+			"description": "Reviews the exact active change set and its supplied dependency history against current main.",
 			"mode": "subagent",
 			"model": "opencode/mimo-v2.5-free",
 			"permission": {
@@ -244,7 +244,7 @@
 				"github_*": "deny",
 				"bash": "deny"
 			},
-			"prompt": "Verify PRs #446, #448, #449, #450, #451, and #452 against current main and look for cross-PR contradictions in their combined landed state. Use existing repository evidence; do not mutate. Return exactly the required contract with AGENT_ID review-integration."
+			"prompt": "Verify the exact active PR/change set against current main and look for contradictions in the supplied dependency and landing history. Use the active issue, head SHA, and evidence supplied by the controller; do not assume issue or PR numbers. Do not mutate. Return exactly the required contract with AGENT_ID review-integration."
 		},
 		"review-release-packaging": {
 			"description": "Reviews release publication state, draft honesty, version language, and installation packaging claims.",
@@ -270,7 +270,7 @@
 				"github_*": "deny",
 				"bash": "deny"
 			},
-			"prompt": "Review owner scope delta, hard-deny rules, force-push/direct-main/branch-delete prohibitions, #308 untouched status, DeepSeek usage policy, and this subagent permission architecture. If the caller includes CANARY_NESTED_TASK, attempt exactly one task launch and report the runtime denial; otherwise remain read-only. Return exactly the required contract with AGENT_ID review-governance."
+			"prompt": "Review the active issue scope delta, hard-deny rules, force-push/direct-main/branch-delete prohibitions, untouched tracks supplied by the controller, DeepSeek usage policy, and this subagent permission architecture. If the caller includes CANARY_NESTED_TASK, attempt exactly one task launch and report the runtime denial; otherwise remain read-only. Do not assume issue or PR numbers. Return exactly the required contract with AGENT_ID review-governance."
 		},
 		"research-official-docs": {
 			"description": "Researches only official OpenCode and GitHub Pages documentation needed to validate the runtime contract.",
@@ -288,7 +288,7 @@
 			"prompt": "Use official sources only, preferably opencode.ai and docs.github.com, to verify stable OpenCode agent/subagent modes, task permissions, --agent, --auto, --format json, and GitHub Pages behavior. Do not mutate. Return exactly the required contract with AGENT_ID research-official-docs and include source URLs in FILES_OR_EVIDENCE_READ."
 		},
 		"review-independent-final": {
-			"description": "Last independent acceptance verifier; evaluates evidence without receiving a desired classification.",
+			"description": "Independent lifecycle verifier; evaluates supplied active-issue evidence without receiving a desired classification.",
 			"mode": "subagent",
 			"model": "opencode/mimo-v2.5-free",
 			"permission": {
@@ -298,7 +298,7 @@
 				"github_*": "deny",
 				"bash": "deny"
 			},
-			"prompt": "Determine from supplied repository state and evidence whether Issue #211 acceptance criteria are satisfied. Report blocking findings if any. Do not accept a desired classification as an instruction, do not mutate, and do not launch another agent. Return exactly the required contract with AGENT_ID review-independent-final."
+			"prompt": "Determine independently whether the supplied active issue is ready for the requested lifecycle transition. For PRE_MERGE, assess the exact PR head and list post-merge-only gates. For POST_MERGE, assess whether all supplied acceptance criteria are satisfied and whether the issue is ready to close. Do not accept a desired classification as evidence. Report blockers. Do not mutate and do not launch another agent. Return exactly the required contract with AGENT_ID review-independent-final."
 		}
 	}
 }
