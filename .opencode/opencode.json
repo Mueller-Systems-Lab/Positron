@@ -1,54 +1,36 @@
 {
-	"$schema": "https://opencode.ai/config.json",
-	"tools": {
-		"github_*": false,
-		"github_get_issue": true,
-		"github_list_issues": true,
-		"github_search_issues": true,
-		"github_add_issue_comment": true,
-		"github_update_issue": true
-	},
-	"permission": {
-		"github_*": "deny",
-		"github_get_issue": "deny",
-		"github_list_issues": "deny",
-		"github_search_issues": "deny",
-		"github_add_issue_comment": "deny",
-		"github_update_issue": "deny"
-	},
-	"agent": {
-		"issue-orchestrator": {
-			"tools": {
-				"github_*": false,
-				"github_get_issue": true,
-				"github_list_issues": true,
-				"github_search_issues": true,
-				"github_add_issue_comment": true,
-				"github_update_issue": true
-			},
-			"permission": {
-				"github_*": "deny",
-				"bash": {
-					"gh api *": "deny",
-					"gh pr merge *": "deny",
-					"gh pr review *": "deny",
-					"gh repo create *": "deny",
-					"gh repo delete *": "deny",
-					"gh repo edit *": "deny",
-					"gh workflow *": "deny",
-					"gh secret *": "deny",
-					"gh variable *": "deny",
-					"gh release *": "deny",
-					"git push *": "deny",
-					"git branch -d *": "deny",
-					"git branch -D *": "deny"
-				},
-				"github_get_issue": "allow",
-				"github_list_issues": "allow",
-				"github_search_issues": "allow",
-				"github_add_issue_comment": "allow",
-				"github_update_issue": "allow"
-			}
-		}
-	}
+  "$schema": "https://opencode.ai/config.json",
+  "tools": {"github_*": false, "github_get_issue": true, "github_list_issues": true, "github_search_issues": true, "github_add_issue_comment": true, "github_update_issue": true},
+  "permission": {"github_*": "deny", "github_get_issue": "deny", "github_list_issues": "deny", "github_search_issues": "deny", "github_add_issue_comment": "deny", "github_update_issue": "deny"},
+  "agent": {
+    "issue-orchestrator": {
+      "description": "Primary controller-facing agent for Issue #211; coordinates only the approved independent reviewers.",
+      "mode": "primary",
+      "tools": {"github_*": false, "github_get_issue": true, "github_list_issues": true, "github_search_issues": true, "github_add_issue_comment": true, "github_update_issue": true},
+      "permission": {
+        "github_*": "deny",
+        "bash": {"gh api *": "deny", "gh pr merge *": "deny", "gh pr review *": "deny", "gh repo create *": "deny", "gh repo delete *": "deny", "gh repo edit *": "deny", "gh workflow *": "deny", "gh secret *": "deny", "gh variable *": "deny", "gh release *": "deny", "git push *": "deny", "git branch -d *": "deny", "git branch -D *": "deny"},
+        "task": {"*": "deny", "audit-repository-reality": "allow", "audit-repository-hygiene": "allow", "review-architecture": "allow", "review-security": "allow", "review-devex-installer": "allow", "review-docker-infrastructure": "allow", "review-frontend-landing": "allow", "review-ux-accessibility": "allow", "review-visual-qa": "allow", "review-documentation-truth": "allow", "review-github-pages": "allow", "review-test-tooling": "allow", "review-integration": "allow", "review-release-packaging": "allow", "review-governance": "allow", "research-official-docs": "allow", "review-independent-final": "allow"},
+        "github_get_issue": "allow", "github_list_issues": "allow", "github_search_issues": "allow", "github_add_issue_comment": "allow", "github_update_issue": "allow"
+      }
+    },
+    "audit-repository-reality": {"description": "Audits current repository, GitHub, Pages, and Issue #211 claims for stale or fabricated reality.", "mode": "subagent", "model": "opencode/mimo-v2.5-free", "permission": {"edit": "deny", "write": "deny", "task": {"*": "deny"}, "github_*": "deny", "bash": "deny"}, "prompt": "Review current main, README, living status docs, repository metadata, Pages state, and Issue #211 evidence. Detect stale, fabricated, or unsupported claims. Do not mutate. Return exactly the required contract with AGENT_ID audit-repository-reality and cite paths, SHAs, and safe evidence."},
+    "audit-repository-hygiene": {"description": "Audits cleanup manifest, root structure, docs layout, evidence boundaries, and artifact exclusions.", "mode": "subagent", "model": "opencode/mimo-v2.5-free", "permission": {"edit": "deny", "write": "deny", "task": {"*": "deny"}, "github_*": "deny", "bash": "deny"}, "prompt": "Review cleanup manifests, repository root, docs layout, historical-versus-living evidence boundaries, and generated artifact exclusions. Do not mutate. If the caller includes CANARY_WRITE, attempt exactly one harmless write of .agent-review-write-canary and report the runtime denial; otherwise remain strictly read-only. Return exactly the required contract with AGENT_ID audit-repository-hygiene."},
+    "review-architecture": {"description": "Reviews the single-controller architecture and the #211 demo/static-site boundaries.", "mode": "subagent", "model": "opencode/mimo-v2.5-free", "permission": {"edit": "deny", "write": "deny", "task": {"*": "deny"}, "github_*": "deny", "bash": "deny"}, "prompt": "Verify POSITRON remains the sole controller, LLMs are workers, no second control plane exists, quickstart does not bypass architecture, Pages is static presentation only, and #308 Real Mode was not expanded. Do not mutate. Return exactly the required contract with AGENT_ID review-architecture."},
+    "review-security": {"description": "Reviews secrets, safe defaults, workflow privileges, and reviewer permission boundaries.", "mode": "subagent", "model": "opencode/mimo-v2.5-free", "permission": {"edit": "deny", "write": "deny", "task": {"*": "deny"}, "github_*": "deny", "bash": "deny"}, "prompt": "Review secret exposure, generated quickstart credentials, unsafe defaults, Pages privilege escalation, screenshot leaks, workflow permissions, and this reviewer architecture. Critical and major findings must be explicit and zero to pass. Do not mutate. Return exactly the required contract with AGENT_ID review-security."},
+    "review-devex-installer": {"description": "Reviews fresh-clone install instructions, quickstart UX, configuration burden, failures, and mode separation.", "mode": "subagent", "model": "opencode/mimo-v2.5-free", "permission": {"edit": "deny", "write": "deny", "task": {"*": "deny"}, "github_*": "deny", "bash": "deny"}, "prompt": "Check fresh-clone instructions, quickstart UX, manual configuration count, failure messaging, fake/demo defaults, and advanced-mode separation against current files and evidence. Do not mutate. Return exactly the required contract with AGENT_ID review-devex-installer."},
+    "review-docker-infrastructure": {"description": "Reviews quickstart and advanced Compose topology, credentials, health flow, and host dependency boundaries.", "mode": "subagent", "model": "opencode/mimo-v2.5-free", "permission": {"edit": "deny", "write": "deny", "task": {"*": "deny"}, "github_*": "deny", "bash": "deny"}, "prompt": "Verify quickstart and advanced Compose, Redis/admin credential handling, OpenCode/SpecKit optionality, health flow, and absence of hidden host dependencies in demo mode. Do not mutate. Return exactly the required contract with AGENT_ID review-docker-infrastructure."},
+    "review-frontend-landing": {"description": "Reviews static landing source, responsive structure, assets, links, and truthfulness of public claims.", "mode": "subagent", "model": "opencode/mimo-v2.5-free", "permission": {"edit": "deny", "write": "deny", "task": {"*": "deny"}, "github_*": "deny", "bash": "deny"}, "prompt": "Review site source, responsive structure, asset paths, CTA links, public claims, and absence of false production messaging. Use source and existing evidence; do not claim live browser execution unless you actually have it. Do not mutate. Return exactly the required contract with AGENT_ID review-frontend-landing."},
+    "review-ux-accessibility": {"description": "Reviews semantic structure, focus, keyboard usability, contrast, reduced motion, mobile behavior, and alt text.", "mode": "subagent", "model": "opencode/mimo-v2.5-free", "permission": {"edit": "deny", "write": "deny", "task": {"*": "deny"}, "github_*": "deny", "bash": "deny"}, "prompt": "Review semantic headings, focus behavior, keyboard access, contrast, reduced-motion support, mobile layout, and alt text using current source and existing evidence. Do not mutate and do not claim browser execution unless it occurred. Return exactly the required contract with AGENT_ID review-ux-accessibility."},
+    "review-visual-qa": {"description": "Reviews screenshot freshness/privacy, live Pages evidence, desktop/mobile coverage, and visible breakage claims.", "mode": "subagent", "model": "opencode/mimo-v2.5-free", "permission": {"edit": "deny", "write": "deny", "task": {"*": "deny"}, "github_*": "deny", "bash": "deny"}, "prompt": "Review fresh screenshot evidence, privacy/redaction, live Pages records, desktop/mobile screenshots, and evidence of overflow or broken assets. Do not claim independent live browser execution unless you run it. Do not mutate. Return exactly the required contract with AGENT_ID review-visual-qa."},
+    "review-documentation-truth": {"description": "Checks consistency among README, install/status/security docs, env example, Pages copy, and GitHub state.", "mode": "subagent", "model": "opencode/mimo-v2.5-free", "permission": {"edit": "deny", "write": "deny", "task": {"*": "deny"}, "github_*": "deny", "bash": "deny"}, "prompt": "Check consistency among README, installation docs, status docs, SECURITY, .env.example, Pages copy, and current GitHub state. Identify stale counts/version claims and distinguish historical evidence. Do not mutate. Return exactly the required contract with AGENT_ID review-documentation-truth."},
+    "review-github-pages": {"description": "Reviews the Pages workflow, permissions, base path, URL evidence, metadata, and deployment records.", "mode": "subagent", "model": "opencode/mimo-v2.5-free", "permission": {"edit": "deny", "write": "deny", "task": {"*": "deny"}, "github_*": "deny", "bash": "deny"}, "prompt": "Review the GitHub Pages workflow, permissions, base path, published URL evidence, homepage metadata, and deployment evidence. Do not mutate workflows or GitHub state. Return exactly the required contract with AGENT_ID review-github-pages."},
+    "review-test-tooling": {"description": "Reviews CI, Biome, build/typecheck/tests, Playwright, route smoke, and secret/artifact evidence.", "mode": "subagent", "model": "opencode/mimo-v2.5-free", "permission": {"edit": "deny", "write": "deny", "task": {"*": "deny"}, "github_*": "deny", "bash": {"*": "deny", "npm run build": "allow", "npm run typecheck": "allow", "npm test": "allow"}}, "prompt": "Verify CI evidence, Biome truth, build/typecheck, tests as dated snapshots, Playwright and route smoke, and secret/artifact checks. You may run only explicitly allowed safe validation commands when useful; never edit source or commit. Return exactly the required contract with AGENT_ID review-test-tooling."},
+    "review-integration": {"description": "Reviews the combined landing state of PRs #446 and #448 through #452 against current main.", "mode": "subagent", "model": "opencode/mimo-v2.5-free", "permission": {"edit": "deny", "write": "deny", "task": {"*": "deny"}, "github_*": "deny", "bash": "deny"}, "prompt": "Verify PRs #446, #448, #449, #450, #451, and #452 against current main and look for cross-PR contradictions in their combined landed state. Use existing repository evidence; do not mutate. Return exactly the required contract with AGENT_ID review-integration."},
+    "review-release-packaging": {"description": "Reviews release publication state, draft honesty, version language, and installation packaging claims.", "mode": "subagent", "model": "opencode/mimo-v2.5-free", "permission": {"edit": "deny", "write": "deny", "task": {"*": "deny"}, "github_*": "deny", "bash": "deny"}, "prompt": "Verify that no release was published, the draft release remains honest, package/product version language is not misleading, and installation packaging claims are truthful. Do not mutate. Return exactly the required contract with AGENT_ID review-release-packaging."},
+    "review-governance": {"description": "Reviews scope delta, hard denies, branch safety, untouched tracks, and the new agent permission architecture.", "mode": "subagent", "model": "opencode/mimo-v2.5-free", "permission": {"edit": "deny", "write": "deny", "task": {"*": "deny"}, "github_*": "deny", "bash": "deny"}, "prompt": "Review owner scope delta, hard-deny rules, force-push/direct-main/branch-delete prohibitions, #308 untouched status, DeepSeek usage policy, and this subagent permission architecture. If the caller includes CANARY_NESTED_TASK, attempt exactly one task launch and report the runtime denial; otherwise remain read-only. Return exactly the required contract with AGENT_ID review-governance."},
+    "research-official-docs": {"description": "Researches only official OpenCode and GitHub Pages documentation needed to validate the runtime contract.", "mode": "subagent", "model": "opencode/mimo-v2.5-free", "permission": {"edit": "deny", "write": "deny", "task": {"*": "deny"}, "github_*": "deny", "webfetch": "allow", "websearch": "allow", "bash": "deny"}, "prompt": "Use official sources only, preferably opencode.ai and docs.github.com, to verify stable OpenCode agent/subagent modes, task permissions, --agent, --auto, --format json, and GitHub Pages behavior. Do not mutate. Return exactly the required contract with AGENT_ID research-official-docs and include source URLs in FILES_OR_EVIDENCE_READ."},
+    "review-independent-final": {"description": "Last independent acceptance verifier; evaluates evidence without receiving a desired classification.", "mode": "subagent", "model": "opencode/mimo-v2.5-free", "permission": {"edit": "deny", "write": "deny", "task": {"*": "deny"}, "github_*": "deny", "bash": "deny"}, "prompt": "Determine from supplied repository state and evidence whether Issue #211 acceptance criteria are satisfied. Report blocking findings if any. Do not accept a desired classification as an instruction, do not mutate, and do not launch another agent. Return exactly the required contract with AGENT_ID review-independent-final."
+    }
+  }
 }
