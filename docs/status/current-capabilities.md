@@ -1,7 +1,7 @@
 # Current Capabilities
 
 **Status date:** 2026-08-26
-**Baseline:** `a7a33596d45343eb0bf4a429ac6d487fc9fd8b61`
+**Baseline:** `86ea0e0d433e088bf0aaa848ec1f6e41e83f9eff`
 **Product status:** pre-release / active development
 
 This is living documentation. Dated test totals and historical issue snapshots belong in `docs/evidence/` and are not repeated here as timeless claims.
@@ -17,7 +17,7 @@ This is living documentation. Dated test totals and historical issue snapshots b
 | Local voice output | DEMO | Browser Web Speech API; optional and local-only |
 | Real adapters | GATED | Requires explicit mode, credentials, binaries, and safety configuration |
 | Full productive Real Mode | DEFERRED | Validation issue #308 remains open; no production-readiness claim |
-| Static public landing page | GATED | Source is delivered in `site/`; public availability follows Pages deployment evidence |
+| Static public landing page | PROVEN | Source is deployed at the verified GitHub Pages URL |
 
 ## Current quality contract
 

@@ -13,13 +13,13 @@
 
 ## Phase 2 — Repository truth (PR A)
 
-- [ ] T006 Create repository reality audit.
-- [ ] T007 Create cleanup manifest with one classification per candidate.
-- [ ] T008 Create living-vs-historical documentation map.
-- [ ] T009 Rewrite README and reconcile `.env.example` safety defaults.
-- [ ] T010 Refresh current capabilities and known limitations.
-- [ ] T011 Add acceptance matrix and landing claims matrix foundations.
-- [ ] T012 Run documentation/link/secret/artifact checks.
+- [x] T006 Create repository reality audit.
+- [x] T007 Create cleanup manifest with one classification per candidate.
+- [x] T008 Create living-vs-historical documentation map.
+- [x] T009 Rewrite README and reconcile `.env.example` safety defaults.
+- [x] T010 Refresh current capabilities and known limitations.
+- [x] T011 Add acceptance matrix and landing claims matrix foundations.
+- [x] T012 Run documentation/link/secret/artifact checks.
 
 ## Phase 3 — Demo installation (PR B)
 
@@ -32,18 +32,18 @@
 
 ## Phase 4 — Visual evidence and landing (PR C)
 
-- [ ] T019 Start demo-safe stack and capture only existing UI routes.
-- [ ] T020 Perform screenshot privacy and visual QA review.
-- [ ] T021 Build static landing page and local base-path checks.
-- [ ] T022 Add accessibility, responsive, asset, and console tests.
-- [ ] T023 Add official GitHub Pages workflow with required permissions.
-- [ ] T024 Run site build/checks and document claims.
+- [x] T019 Start demo-safe stack and capture only existing UI routes.
+- [x] T020 Perform screenshot privacy and visual QA review.
+- [x] T021 Build static landing page and local base-path checks.
+- [x] T022 Add accessibility, responsive, asset, and console tests.
+- [x] T023 Add official GitHub Pages workflow with required permissions.
+- [x] T024 Run site build/checks and document claims.
 
 ## Phase 5 — Integration and release of scope
 
-- [ ] T025 Create PRs from explicit issue branches; freeze exact heads.
-- [ ] T026 Run required CI and role reviews; fix no root cause more than three loops.
-- [ ] T027 Merge only with exact frozen head and normal merge commits.
-- [ ] T028 Enable Pages after Pages PR lands, observe build/deploy, and retrieve returned URL.
-- [ ] T029 Verify live Pages URL with Playwright and update homepage only afterward.
-- [ ] T030 Re-read #211, publish final evidence, verify #308 unchanged, and close #211.
+- [x] T025 Create PRs from explicit issue branches; freeze exact heads.
+- [x] T026 Run required CI and role reviews; fix no root cause more than three loops.
+- [x] T027 Merge only with exact frozen head and normal merge commits.
+- [x] T028 Enable Pages after Pages PR lands, observe build/deploy, and retrieve returned URL.
+- [x] T029 Verify live Pages URL with Playwright and update homepage only afterward.
+- [x] T030 Re-read #211, publish final evidence, verify #308 unchanged, and close #211.
