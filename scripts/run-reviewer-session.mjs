@@ -21,7 +21,8 @@ if (!agent || !model || !contextFile || !['AUTO', 'CHILD', 'ISOLATED'].includes(
 	);
 	process.exit(2);
 }
-if (!Number.isInteger(timeoutMs) || timeoutMs < 1000) throw new Error('timeout must be at least 1000ms');
+if (!Number.isInteger(timeoutMs) || timeoutMs < 1000)
+	throw new Error('timeout must be at least 1000ms');
 
 const context = readFileSync(contextFile, 'utf8');
 const provider = model.split('/', 1)[0];
@@ -53,7 +54,8 @@ const run = (commandArgs) => {
 		.map((event) => event.part.text)
 		.join('\n');
 	const completed = events.some(
-		(event) => event.type === 'step_finish' && event.part?.reason && event.part.reason !== 'tool-calls',
+		(event) =>
+			event.type === 'step_finish' && event.part?.reason && event.part.reason !== 'tool-calls',
 	);
 	return {
 		started,
@@ -73,7 +75,11 @@ const structured = (text) => {
 	const count = (name) => {
 		const value = field(name);
 		const number = Number(value);
-		return Number.isFinite(number) ? number : value === '' || /^(none|zero|n\/a)$/i.test(value) ? 0 : null;
+		return Number.isFinite(number)
+			? number
+			: value === '' || /^(none|zero|n\/a)$/i.test(value)
+				? 0
+				: null;
 	};
 	return {
 		verdict: field('VERDICT') || field('READY') || field('MERGE_READY') || field('CLOSE_READY'),
@@ -110,16 +116,20 @@ const isolatedArgs = [
 ];
 
 const isSuccessfulChild = (result) => {
-	const taskEvents = result.events.filter((event) => event.type === 'tool_use' && event.part?.tool === 'task');
+	const taskEvents = result.events.filter(
+		(event) => event.type === 'tool_use' && event.part?.tool === 'task',
+	);
 	const task = taskEvents.at(-1);
 	const metadata = task?.metadata ?? task?.part?.metadata ?? {};
 	const taskOutput = task?.part?.state?.output ?? '';
 	const childSessionId = metadata.sessionId ?? metadata.sessionID;
 	return Boolean(
 		result.completed &&
-		task?.part?.state?.status === 'completed' &&
-		childSessionId &&
-		new RegExp(`AGENT:\\s*${agent.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}`, 'i').test(taskOutput),
+			task?.part?.state?.status === 'completed' &&
+			childSessionId &&
+			new RegExp(`AGENT:\\s*${agent.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}`, 'i').test(
+				taskOutput,
+			),
 	);
 };
 

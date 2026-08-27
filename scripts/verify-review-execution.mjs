@@ -30,8 +30,11 @@ const assert = (condition, message) => {
 assert(runner.includes("readOption('--backend', 'AUTO')"), 'AUTO must be the default backend');
 assert(runner.includes("'--agent'"), 'isolated invocation must select the exact reviewer agent');
 assert(runner.includes("'--model'"), 'runtime model must be explicit');
-assert(runner.includes("selectedBackend = 'ISOLATED'"), 'AUTO must explicitly record isolated fallback');
-assert(runner.includes("CHILD_ATTEMPT"), 'fallback reason must be recorded');
+assert(
+	runner.includes("selectedBackend = 'ISOLATED'"),
+	'AUTO must explicitly record isolated fallback',
+);
+assert(runner.includes('CHILD_ATTEMPT'), 'fallback reason must be recorded');
 assert(!runner.includes('--continue'), 'reviewer sessions may not be resumed');
 assert(!runner.includes('--session'), 'reviewer sessions may not reuse a session');
 
