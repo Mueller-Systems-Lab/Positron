@@ -101,3 +101,43 @@ FINAL_REVIEW_RUNTIME=BLOCKED_BY_STABLE_PROVIDER_NO_EVENT
 The original 16 sessions remain historical evidence from the pre-repair
 runtime and are not relabeled as fresh. The PR and Issue #455 therefore remain
 blocked; no merge or issue closure is justified by this evidence.
+
+## Provider runtime continuation
+
+The reusable reviewer roles are now model-agnostic. All 17 reviewer definitions
+omit `model`, so OpenCode resolves each child from the invoking primary model;
+`HARDCODED_REVIEWER_MODEL_COUNT = 0`. The deterministic selector reads the
+machine-readable [provider-model-inventory.json](provider-model-inventory.json)
+and excludes DeepSeek, paid candidates, unavailable candidates, and candidates
+without a completed probe.
+
+```text
+PREVIOUS_MODEL=opencode/mimo-v2.5-free
+PREVIOUS_FAILURE=NO_EVENT
+OPENCODE_OLD_VERSION=1.18.22
+OPENCODE_NEW_VERSION=1.18.23
+UPGRADE_CAUSALITY=NOT_CAUSAL_FOR_OPENCODE_FREE_PROBES
+DIRECT_OFFICIAL_FREE_ENDPOINT=HTTP_404
+```
+
+The first Kilo Nemotron probe completed with three JSON events, but subsequent
+Kilo probes were partial or timed out. The connected Zai coding-plan
+`glm-5.3-flash` completed a minimal text probe (`step_start`, `text`,
+`step_finish`), while its real child wrapper produced no event. The wrapper
+capability gate therefore failed and no model is claimed as a usable reviewer
+model:
+
+```text
+MODEL_SELECTION_CANDIDATE=zai-coding-plan/glm-5.3-flash
+SELECTED_REVIEW_MODEL=NONE
+TOOL_CAPABILITY_TEST=FAIL_NO_EVENT
+FRESH_REVIEWERS=0
+UNIQUE_CHILD_SESSIONS=0
+DEEPSEEK=0
+FINAL_REVIEW=NOT_RUN
+BLOCKED_STATE=AMBER_POSITRON_455_SUBAGENT_RUNTIME_NO_EVENT
+```
+
+The deterministic command wrapper is present for each first-wave domain and
+the independent final reviewer, but no wrapper result is counted without a
+fresh child session, completed result, and provider/model metadata.

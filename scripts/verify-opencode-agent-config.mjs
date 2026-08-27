@@ -53,6 +53,13 @@ assert(
 	'final review command must accept caller context',
 );
 
+for (const id of required.slice(0, -1)) {
+	const command = readFileSync(`.opencode/commands/${id}.md`, 'utf8');
+	assert(command.includes(`agent: ${id}`), `${id} command target missing`);
+	assert(command.includes('subtask: true'), `${id} command must force a subtask`);
+	assert(command.includes('$ARGUMENTS'), `${id} command must accept caller context`);
+}
+
 assert(
 	config.agent?.['issue-orchestrator']?.mode === 'primary',
 	'issue-orchestrator must be primary',
@@ -78,7 +85,7 @@ for (const id of required) {
 	assert(agent.mode === 'subagent', `${id} must be a subagent`);
 	assert(agent.description, `${id} description missing`);
 	assert(agent.prompt, `${id} system prompt missing`);
-	assert(agent.model && !/deepseek/i.test(agent.model), `${id} has a forbidden model`);
+	assert(!('model' in agent), `${id} must inherit the invoking primary model`);
 	assert(agent.permission?.edit === 'deny', `${id} edit permission must deny`);
 	assert(agent.permission?.write === 'deny', `${id} write permission must deny`);
 	assert(agent.permission?.task?.['*'] === 'deny', `${id} task permission must deny`);
@@ -96,6 +103,24 @@ for (const id of required) {
 		`${id} contains stale issue/PR coupling`,
 	);
 }
+
+assert(
+	Object.values(config.agent)
+		.filter((agent) => agent.mode === 'subagent')
+		.every((agent) => !('model' in agent)),
+	'no reviewer may pin a model',
+);
+
+const selected = spawnSync(
+	'node',
+	['scripts/select-review-model.mjs', 'docs/evidence/455/provider-model-inventory.json'],
+	{ encoding: 'utf8' },
+);
+assert(selected.status === 0, 'deterministic review model selection failed');
+assert(
+	JSON.parse(selected.stdout).selected === 'zai-coding-plan/glm-5.3-flash',
+	'deterministic review model selection changed unexpectedly',
+);
 
 const listed = spawnSync('opencode', ['agent', 'list'], { encoding: 'utf8' });
 assert(listed.status === 0, 'opencode agent list failed');
@@ -139,6 +164,7 @@ process.stdout.write(
 		'REVIEWER_READ_ONLY_PERMISSIONS=PASS',
 		'REVIEWER_NESTED_TASK_DENY=PASS',
 		'HARD_DENY_MATRIX=PASS',
+		'REVIEW_MODEL_SELECTION=PASS selected=zai-coding-plan/glm-5.3-flash',
 		'DEEPSEEK_CONFIGURED_FOR_REQUIRED_AGENTS=0',
 		'BUILT_IN_INVENTORY=build,plan,general,explore',
 	].join('\n')}\n`,

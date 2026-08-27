@@ -1,0 +1,63 @@
+{
+	"catalog_source": "opencode models --refresh --verbose",
+	"catalog_version": "1.18.23",
+	"catalog_count": 1218,
+	"inventory_scope": "zero-cost or local tool-calling candidates considered for Issue #455",
+	"models": [
+		{
+			"MODEL": "opencode/mimo-v2.5-free",
+			"PROVIDER": "opencode",
+			"INPUT_COST": 0,
+			"OUTPUT_COST": 0,
+			"AVAILABLE": true,
+			"LOCAL": false,
+			"CONNECTED": true,
+			"DEEPSEEK": false,
+			"PROBE_STATUS": "CLI_NO_EVENT"
+		},
+		{
+			"MODEL": "opencode/big-pickle",
+			"PROVIDER": "opencode",
+			"INPUT_COST": 0,
+			"OUTPUT_COST": 0,
+			"AVAILABLE": true,
+			"LOCAL": false,
+			"CONNECTED": true,
+			"DEEPSEEK": false,
+			"PROBE_STATUS": "CLI_NO_EVENT"
+		},
+		{
+			"MODEL": "kilo/nvidia/nemotron-3-super-120b-a12b:free",
+			"PROVIDER": "kilo",
+			"INPUT_COST": 0,
+			"OUTPUT_COST": 0,
+			"AVAILABLE": true,
+			"LOCAL": false,
+			"CONNECTED": true,
+			"DEEPSEEK": false,
+			"PROBE_STATUS": "UPSTREAM_TIMEOUT"
+		},
+		{
+			"MODEL": "lmstudio/openai/gpt-oss-20b",
+			"PROVIDER": "lmstudio",
+			"INPUT_COST": 0,
+			"OUTPUT_COST": 0,
+			"AVAILABLE": true,
+			"LOCAL": true,
+			"CONNECTED": true,
+			"DEEPSEEK": false,
+			"PROBE_STATUS": "CLI_NO_EVENT"
+		},
+		{
+			"MODEL": "zai-coding-plan/glm-5.3-flash",
+			"PROVIDER": "zai-coding-plan",
+			"INPUT_COST": 0,
+			"OUTPUT_COST": 0,
+			"AVAILABLE": true,
+			"LOCAL": false,
+			"CONNECTED": true,
+			"DEEPSEEK": false,
+			"PROBE_STATUS": "WORKING"
+		}
+	]
+}

@@ -64,11 +64,38 @@ files include `docs/evidence/**`, `docs/changelog/**`, `docs/release/**`,
 | Field | Result |
 | --- | --- |
 | Configured reviewers | 17 (from `.opencode/opencode.json`) |
-| Executed reviewers | 16; `review-independent-final` blocked by controller runtime |
-| Unique child sessions | 16 |
-| Provider/model | `opencode/mimo-v2.5-free`; DeepSeek forbidden |
+| Hard-coded reviewer model count | 0; reviewers inherit the invoking primary model |
+| Executed fresh reviewers | 0; capability gate blocked before wave execution |
+| Historical reviewer sessions | 16; preserved and not relabeled as fresh |
+| Provider/model candidate | `zai-coding-plan/glm-5.3-flash`; minimal probe only |
 | Reviewer write/task/GitHub/push/merge authority | deny by configuration; confirmed in completed reviewer evidence |
 | DeepSeek usage | 0 required |
+
+## Provider runtime matrix
+
+```text
+PREVIOUS_MODEL=opencode/mimo-v2.5-free
+PREVIOUS_FAILURE=NO_EVENT
+PROVIDER_MATRIX=docs/evidence/455/provider-model-inventory.json
+SELECTED_REVIEW_MODEL=NONE
+SELECTION_REASON=No candidate passed both minimal completion and real child-session capability
+FRESH_REVIEWERS=0
+UNIQUE_CHILD_SESSIONS=0
+DEEPSEEK=0
+```
+
+The current catalog was refreshed with `opencode models --refresh --verbose`.
+The official Console documentation was checked at runtime; its documented
+free endpoint returned HTTP 404 here. `mimo` and `big-pickle` returned no CLI
+events on both stable 1.18.22 and 1.18.23. Kilo Nemotron produced one complete
+minimal probe followed by partial/time-out probes. Zai coding-plan produced a
+complete minimal probe, but its actual child wrapper produced no event. Local
+LM Studio, Ollama, and llama.cpp entries also produced no response. Therefore
+the truthful current outcome is:
+
+```text
+AMBER_POSITRON_455_SUBAGENT_RUNTIME_NO_EVENT
+```
 
 ## Validation ledger
 
@@ -108,7 +135,8 @@ review PR range. The stable OpenCode command mechanism was added and statically
 verified with `agent: review-independent-final`, `subtask: true`, and
 `$ARGUMENTS`.
 
-`opencode --version` returned `1.18.22`. The deterministic synthetic smoke
+`opencode --version` returned `1.18.23` after an official stable upgrade from
+1.18.22. The deterministic synthetic smoke
 created a real child task with distinct parent/child session IDs and completed
 read-only. Real fresh domain and final-review invocations then produced no
 JSON event, task event, or child-session evidence before their bounded
@@ -118,6 +146,7 @@ runtime block rather than a successful reviewer wave.
 ```text
 CURRENT_REVIEWER_HARDCODED_OLD_ISSUE_IDS=0
 CURRENT_REVIEWER_HARDCODED_OLD_PR_IDS=0
+HARDCODED_REVIEWER_MODEL_COUNT=0
 CONFIGURED_REVIEWERS=17
 FRESH_REVIEWERS_EXECUTED=0
 FRESH_UNIQUE_CHILD_SESSIONS=0
