@@ -1,31 +1,31 @@
 {
-  "ISSUE": 455,
-  "PR": 456,
-  "BASE_SHA": "3fa61beba126238d03b0954d39b1d1af507d8c47",
-  "HEAD_SHA": "bd60d8767be97d678fb58a2c401917b559fc9383",
-  "PHASE": "PRE_MERGE",
-  "REVIEW_EXECUTION_INSTRUCTION": "Perform a bounded independent review of this supplied evidence package only. Do not call tools, read additional files, edit, write, spawn tasks, use GitHub, push, or merge. Return the structured reviewer contract and state limitations when the package does not prove a claim.",
-  "ACCEPTANCE_CRITERIA": [
-    "17 distinct independent OpenCode reviewer sessions",
-    "fresh context and exact reviewer identity for every session",
-    "read-only permissions with edit, write, task, GitHub, push, and merge denied",
-    "no desired verdict supplied to reviewers",
-    "zero DeepSeek and zero paid model calls",
-    "current transfer references reconciled while historical evidence remains truthful"
-  ],
-  "CHANGED_FILE_LIST": "See git diff --name-only BASE_SHA...HEAD_SHA; the active change set is the existing Issue #455 transfer/reviewer hardening plus the README merge resolution.",
-  "TRANSFER_INVENTORY_SUMMARY": "Current Mueller-Systems-Lab repository and Pages references are expected; stale current owner and Pages references must remain zero.",
-  "HISTORICAL_PRESERVATION_SUMMARY": "Historical evidence is preserved and excluded from current-reference replacement.",
-  "TEST_RESULTS": "npm test PASS: root 132 files/2632 tests and web 21 files/421 tests; build PASS.",
-  "CI_RESULTS": "CI for the new head is pending live completion.",
-  "REVIEW_WAVE": "16 fresh independent isolated sessions completed; child backend degraded with explicit timeout records; all blocking critical and major counts are zero.",
-  "PAGES_SOURCE_RESULT": "Pages source URLs and workflow are in the change set; live deployment is a post-merge gate.",
-  "KNOWN_POST_MERGE_ONLY_GATES": [
-    "required CI on the final pushed head",
-    "exact-head merge",
-    "GitHub Pages build and deployment",
-    "live Pages validation",
-    "fresh-clone quickstart and health proof"
-  ],
-  "PREVIOUS_REVIEWER_FINDINGS": "Historical 16-reviewer evidence and prior provider/subagent outage evidence remain in independent-reviewers.md; this run must produce fresh independent evidence."
+	"ISSUE": 455,
+	"PR": 456,
+	"BASE_SHA": "3fa61beba126238d03b0954d39b1d1af507d8c47",
+	"HEAD_SHA": "bd60d8767be97d678fb58a2c401917b559fc9383",
+	"PHASE": "PRE_MERGE",
+	"REVIEW_EXECUTION_INSTRUCTION": "Perform a bounded independent review of this supplied evidence package only. Do not call tools, read additional files, edit, write, spawn tasks, use GitHub, push, or merge. Return the structured reviewer contract and state limitations when the package does not prove a claim.",
+	"ACCEPTANCE_CRITERIA": [
+		"17 distinct independent OpenCode reviewer sessions",
+		"fresh context and exact reviewer identity for every session",
+		"read-only permissions with edit, write, task, GitHub, push, and merge denied",
+		"no desired verdict supplied to reviewers",
+		"zero DeepSeek and zero paid model calls",
+		"current transfer references reconciled while historical evidence remains truthful"
+	],
+	"CHANGED_FILE_LIST": "See git diff --name-only BASE_SHA...HEAD_SHA; the active change set is the existing Issue #455 transfer/reviewer hardening plus the README merge resolution.",
+	"TRANSFER_INVENTORY_SUMMARY": "Current Mueller-Systems-Lab repository and Pages references are expected; stale current owner and Pages references must remain zero.",
+	"HISTORICAL_PRESERVATION_SUMMARY": "Historical evidence is preserved and excluded from current-reference replacement.",
+	"TEST_RESULTS": "npm test PASS: root 132 files/2632 tests and web 21 files/421 tests; build PASS.",
+	"CI_RESULTS": "CI for the new head is pending live completion.",
+	"REVIEW_WAVE": "16 fresh independent isolated sessions completed; child backend degraded with explicit timeout records; all blocking critical and major counts are zero.",
+	"PAGES_SOURCE_RESULT": "Pages source URLs and workflow are in the change set; live deployment is a post-merge gate.",
+	"KNOWN_POST_MERGE_ONLY_GATES": [
+		"required CI on the final pushed head",
+		"exact-head merge",
+		"GitHub Pages build and deployment",
+		"live Pages validation",
+		"fresh-clone quickstart and health proof"
+	],
+	"PREVIOUS_REVIEWER_FINDINGS": "Historical 16-reviewer evidence and prior provider/subagent outage evidence remain in independent-reviewers.md; this run must produce fresh independent evidence."
 }
