@@ -82,7 +82,7 @@ for (const command of dangerous)
 for (const id of required) {
 	const agent = config.agent[id];
 	assert(agent, `required agent missing: ${id}`);
-	assert(agent.mode === 'subagent', `${id} must be a subagent`);
+	assert(agent.mode === 'all', `${id} must support direct isolated execution`);
 	assert(agent.description, `${id} description missing`);
 	assert(agent.prompt, `${id} system prompt missing`);
 	assert(!('model' in agent), `${id} must inherit the invoking primary model`);
@@ -106,9 +106,9 @@ for (const id of required) {
 
 assert(
 	Object.values(config.agent)
-		.filter((agent) => agent.mode === 'subagent')
+		.filter((agent) => agent.mode === 'all')
 		.every((agent) => !('model' in agent)),
-	'no reviewer may pin a model',
+	'directly selectable reviewers may not pin a model',
 );
 
 const selected = spawnSync(
@@ -118,7 +118,7 @@ const selected = spawnSync(
 );
 assert(selected.status === 0, 'deterministic review model selection failed');
 assert(
-	JSON.parse(selected.stdout).selected === 'zai-coding-plan/glm-5.3-flash',
+	JSON.parse(selected.stdout).selected === 'kilo/nvidia/nemotron-3-super-120b-a12b:free',
 	'deterministic review model selection changed unexpectedly',
 );
 
@@ -132,7 +132,7 @@ for (const id of ['issue-orchestrator', ...required]) {
 	assert(debug.status === 0, `opencode debug agent failed: ${id}`);
 	const resolved = JSON.parse(debug.stdout);
 	assert(
-		resolved.mode === (id === 'issue-orchestrator' ? 'primary' : 'subagent'),
+		resolved.mode === (id === 'issue-orchestrator' ? 'primary' : 'all'),
 		`${id} mode is not resolved correctly`,
 	);
 	const rules = resolved.permission ?? [];
@@ -162,9 +162,10 @@ process.stdout.write(
 		`AGENT_CONFIG_REGRESSION=PASS required=${required.length}`,
 		'CONTROLLER_ALLOWLIST=PASS',
 		'REVIEWER_READ_ONLY_PERMISSIONS=PASS',
+		'REVIEWER_MODE_ALL_MUTATION_EXPANSION=0',
 		'REVIEWER_NESTED_TASK_DENY=PASS',
 		'HARD_DENY_MATRIX=PASS',
-		'REVIEW_MODEL_SELECTION=PASS selected=zai-coding-plan/glm-5.3-flash',
+		'REVIEW_MODEL_SELECTION=PASS selected=kilo/nvidia/nemotron-3-super-120b-a12b:free',
 		'DEEPSEEK_CONFIGURED_FOR_REQUIRED_AGENTS=0',
 		'BUILT_IN_INVENTORY=build,plan,general,explore',
 	].join('\n')}\n`,
