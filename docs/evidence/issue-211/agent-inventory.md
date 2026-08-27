@@ -1,36 +1,36 @@
 # Issue #211 — Agent / Worker Inventory
 
-**Inventory date:** 2026-08-26
-**Controller:** Positron run / OpenAI GPT-5
-**DeepSeek usage:** 0
+**Inventory date:** 2026-08-27
+**Controller:** Positron / OpenCode `1.18.22` stable
+**Primary controller session:** `ses_fbe2938abffeXMe7ceXzWB7gzN`
+**Final-verifier controller session:** `ses_fbe12e351ffeGJFm3bAkfZVB7y`
+**Provider/model:** `opencode/mimo-v2.5-free` for all required reviewer children
+**DeepSeek agent usage:** 0
 
-The execution environment exposes one active Codex controller and no callable subagent-spawn interface. The repository contains an OpenCode `issue-orchestrator` configuration, but its privileged GitHub mutation permissions are denied. Required responsibilities are therefore executed as explicit, evidence-producing delegated workstreams by the controller; no ceremonial or fabricated agent calls are recorded.
+The former limitation is retained as history: the 2026-08-26 run exposed only the controller and recorded no callable independent worker inventory. On 2026-08-27, project-scoped agents were configured and the stable runtime executed every required reviewer through the real `task` mechanism. No reviewer received mutation authority.
 
-| AGENT / WORKSTREAM | ROLE | PROVIDER | MODEL | TRUST TIER | AVAILABLE | ALLOWED | ASSIGNED TASK | OUTPUT |
+| AGENT_ID | MODE | AVAILABLE | ALLOWED | EXECUTED | CHILD_SESSION_ID | PROVIDER / MODEL | VERDICT | EVIDENCE |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Controller / Orchestrator | single control authority | OpenAI | GPT-5 | L0 | yes | yes | scope, sequencing, GitHub state, exact-head decisions | this run + issue ledger |
-| Repository Reality Audit | current-main and metadata audit | OpenAI | GPT-5 | Tier 0/L1 | delegated | yes | inspect current main, GitHub state, runtime/config drift | `repository-reality.md` |
-| Repository Hygiene | root/docs/artifact classification | OpenAI | GPT-5 | L1 | delegated | yes | classify cleanup candidates without blind deletion | `repository-cleanup-manifest.md` |
-| Architecture | quickstart boundary and controller invariants | OpenAI | GPT-5 | L1 | delegated | yes | approve dedicated demo Compose design | `architecture-review.md` |
-| Security | safe defaults, secrets, action permissions | OpenAI | GPT-5 | L1 | delegated | yes | inspect scripts, Compose, site and workflow | `security-review.md` |
-| DevEx / Installer | one-command local/demo UX | OpenAI | GPT-5 | L1 | delegated | yes | implement and test quickstarts/doctor | PR B evidence |
-| Docker / Infrastructure | container topology and Compose | OpenAI | GPT-5 | Tier 1 | delegated | yes | reproduce legacy path and build demo path | Docker evidence |
-| Frontend / Landing Page | static site implementation | OpenAI | GPT-5 | L1 | delegated | yes | build `site/` | PR C site |
-| UX / Accessibility | keyboard, semantics, focus, contrast, motion | OpenAI | GPT-5 | L1 | delegated | yes | review landing page | accessibility evidence |
-| Visual QA / Playwright | screenshot and browser verification | OpenAI | GPT-5 | Tier 1 | delegated | yes | capture/inspect current views and site | screenshot/site evidence |
-| Documentation | README/status/install synchronization | OpenAI | GPT-5 | L1 | delegated | yes | update living docs and claim mapping | PR A/PR C docs |
-| GitHub / Pages Integration | workflow/settings/deployment | OpenAI | GPT-5 | Tier 0 + owner-authorized mutation | delegated | yes | official Pages workflow and post-merge enablement | Pages evidence |
-| Test / Tooling | relevant quality gates and scans | OpenAI | GPT-5 | Tier 1 | delegated | yes | run tests, link/secret/artifact checks | test evidence |
-| Integration | cross-PR merge/rebase checks | OpenAI | GPT-5 | L1 | delegated | yes | verify each frozen head and main refresh | PR ledger |
-| Release / Packaging Review | release boundary and package truth | OpenAI | GPT-5 | L1 | delegated | yes | keep draft unpublished and no runtime release | release review |
-| Governance / Policy | scope, isolation, no-main/no-secret policy | OpenAI | GPT-5 | L0/L1 | delegated | yes | review portable path assumption and gates | governance evidence |
-| Independent Final Verifier | fresh final inspection | OpenAI | GPT-5 | L0/L1 | delegated | yes | independently check acceptance matrix | final evidence |
-| Research Agent | official external Pages guidance | OpenAI | GPT-5 | Tier 0 | delegated | yes | verify official action families/pins | Issue comment + claims |
-| `issue-orchestrator` configured worker | repository-configured agent | OpenCode config | model unspecified | policy-denied GitHub mutation | yes (config only) | limited | configuration inventory only; not invoked for writes | `.opencode/opencode.json` audit |
-| DeepSeek agents | forbidden by owner scope | any | DeepSeek | forbidden | no | no | no task | `DEEPSEEK_AGENT_USAGE=0` |
-| Paperclip / OpenClaw / quarantined external agents | forbidden/quarantined by `AGENTS.md` | external | unspecified | forbidden/quarantined | no | no | no task | not enabled |
+| audit-repository-reality | subagent | YES | YES | YES | `ses_fbe283c72ffePe9Y45Wm4ulNz7` | opencode / mimo-v2.5-free | PASS_WITH_MINOR | independent-reviews/repository-reality.md |
+| audit-repository-hygiene | subagent | YES | YES | YES | `ses_fbe282128ffeuaBKBa70R3cbWv` | opencode / mimo-v2.5-free | PASS | independent-reviews/repository-hygiene.md |
+| review-architecture | subagent | YES | YES | YES | `ses_fbe280939ffeU07hQuNk44itSB` | opencode / mimo-v2.5-free | PASS_WITH_MINOR | independent-reviews/architecture.md |
+| review-security | subagent | YES | YES | YES | `ses_fbe27f92bffemHboOv2UOCwRkH` | opencode / mimo-v2.5-free | PASS_WITH_MINOR | independent-reviews/security.md |
+| review-devex-installer | subagent | YES | YES | YES | `ses_fbe27d399ffept8Uxuc115pwhH` | opencode / mimo-v2.5-free | PASS_WITH_MINOR | independent-reviews/devex-installer.md |
+| review-docker-infrastructure | subagent | YES | YES | YES | `ses_fbe27b2d3ffertp4TI7Q0aS5Vm` | opencode / mimo-v2.5-free | PASS_WITH_MINOR | independent-reviews/docker-infrastructure.md |
+| review-frontend-landing | subagent | YES | YES | YES | `ses_fbe27916cffekutuG56uKBc5c4` | opencode / mimo-v2.5-free | PASS_WITH_MINOR | independent-reviews/frontend-landing.md |
+| review-ux-accessibility | subagent | YES | YES | YES | `ses_fbe27712dffezf2whHW4vInfPC` | opencode / mimo-v2.5-free | PASS_WITH_MINOR | independent-reviews/ux-accessibility.md |
+| review-visual-qa | subagent | YES | YES | YES | `ses_fbe274479ffeMpxSkDOD5csSt4` | opencode / mimo-v2.5-free | PASS | independent-reviews/visual-qa.md |
+| review-documentation-truth | subagent | YES | YES | YES | `ses_fbe271e59ffeGrTCf8Sd9tx9CW` | opencode / mimo-v2.5-free | PASS_WITH_MINOR | independent-reviews/documentation-truth.md |
+| review-github-pages | subagent | YES | YES | YES | `ses_fbe26fabdffe2C2Ugfu0ksTI9n` | opencode / mimo-v2.5-free | PASS | independent-reviews/github-pages.md |
+| review-test-tooling | subagent | YES | YES | YES | `ses_fbe26dd62ffer0o2KPpkLF1RFb` | opencode / mimo-v2.5-free | PASS | independent-reviews/test-tooling.md |
+| review-integration | subagent | YES | YES | YES | `ses_fbe267662ffei5Wn204352toPU` | opencode / mimo-v2.5-free | PASS_WITH_MINOR | independent-reviews/integration.md |
+| review-release-packaging | subagent | YES | YES | YES | `ses_fbe260396ffe9CDrvRttpFG3Mg` | opencode / mimo-v2.5-free | PASS | independent-reviews/release-packaging.md |
+| review-governance | subagent | YES | YES | YES | `ses_fbe25d359ffeMVcALoJ29ptgLV` | opencode / mimo-v2.5-free | PASS_WITH_MINOR | independent-reviews/governance.md |
+| research-official-docs | subagent | YES | YES | YES | `ses_fbe25c556ffeDPo5Jm3RzfUfv7` | opencode / mimo-v2.5-free | PASS_WITH_MINOR | independent-reviews/official-docs-research.md |
+| review-independent-final | subagent | YES | YES | YES | `ses_fbe119745ffecn2msq3w2mBUFM` | opencode / mimo-v2.5-free | PASS_WITH_MINOR; 0 critical/major; no blockers | independent-reviews/final-verifier.md |
 
-## Participation note
-
-Each allowed responsibility above has an assigned evidence output or an auditable implementation activity. The environment did not provide callable independent agents, so role separation is documented as workstreams executed under the single Positron controller; this preserves the architecture invariant and avoids claiming independent review where none occurred.
-
+**Required reviewer count:** 17
+**Executed required reviewer count:** 17
+**Unique required child sessions:** 17
+**Built-ins discovered:** `build` (primary), `plan` (primary), `general` (subagent), `explore` (subagent). They were not allowed for this scoped run because the controller allowlist intentionally contains only the approved Issue #211 reviewers; therefore they were not used.
+**Canaries:** write `DENIED` / file absent; nested task `DENIED` / `TASK_DENIED=YES`.
