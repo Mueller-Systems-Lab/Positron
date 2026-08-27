@@ -159,3 +159,27 @@ The previous 16/17 reviewer evidence is preserved unchanged as historical
 attempt evidence. Because the required fresh 17-review proof is absent, this
 continuation cannot safely freeze, merge PR #456, deploy Pages, or close Issue
 #455.
+
+## Current review-independence continuation
+
+The canonical requirement is now 17 distinct independent OpenCode sessions;
+child topology is preferred but not required. Stable OpenCode direct selection
+of `mode: subagent` falls back to the default agent, so all reusable reviewer
+definitions use `mode: all` with the same explicit read-only denies. The
+execution regression confirms `REVIEWER_MODE_ALL_MUTATION_EXPANSION=0` and
+forbids session reuse. `AUTO` child attempts were recorded as timeouts and the
+16 completed domain reviews used fresh isolated sessions with the verified
+zero-cost Kilo Nemotron model.
+
+```text
+REVIEW_INDEPENDENCE_CONTRACT=17_UNIQUE_INDEPENDENT_SESSIONS
+CHILD_RUNTIME_STATUS=DEGRADED
+ISOLATED_FALLBACK_USED=YES
+FRESH_DOMAIN_REVIEWERS=16
+FRESH_UNIQUE_INDEPENDENT_SESSIONS=16
+SELECTED_REVIEW_MODEL=kilo/nvidia/nemotron-3-super-120b-a12b:free
+SELECTION_REASON=Catalog-listed zero-cost connected candidate with completed text and isolated reviewer probes; DeepSeek excluded
+FRESH_REVIEWERS=16
+DEEPSEEK=0
+PAID_CALLS=0
+```

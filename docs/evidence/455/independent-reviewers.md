@@ -141,3 +141,55 @@ BLOCKED_STATE=AMBER_POSITRON_455_SUBAGENT_RUNTIME_NO_EVENT
 The deterministic command wrapper is present for each first-wave domain and
 the independent final reviewer, but no wrapper result is counted without a
 fresh child session, completed result, and provider/model metadata.
+
+## Review-independence execution contract — current continuation
+
+The owner corrected the acceptance contract from topology-specific `17 unique
+child sessions` to `17 unique independent OpenCode sessions`. Child execution
+remains preferred. Stable direct selection of a `mode: subagent` reviewer
+silently fell back to the default agent, so the shared definitions use
+`mode: all` for both child and isolated execution. Explicit edit/write/task/
+GitHub/push/merge denies are unchanged; the direct-selection regression
+reports `REVIEWER_MODE_ALL_MUTATION_EXPANSION=0`.
+
+Each `AUTO` run tried the issue-orchestrator child command first. Its timeout
+was recorded, and each completed reviewer below used a new isolated direct
+session with fresh context; no session was resumed or reused. All used
+`kilo/nvidia/nemotron-3-super-120b-a12b:free`.
+
+| Agent | Backend | Independent session | Child attempt | Critical | Major |
+| --- | --- | --- | --- | ---: | ---: |
+| `audit-repository-reality` | ISOLATED | `ses_fbacbc0d5ffe1rRwL0qocz0LMr` | TIMEOUT | 0 | 0 |
+| `audit-repository-hygiene` | ISOLATED | `ses_fbacbc0caffe47ASRwujomJVex` | TIMEOUT | 0 | 0 |
+| `review-architecture` | ISOLATED | `ses_fbad0dcf4ffeLfzKlOJ56ZdlfH` | TIMEOUT | 0 | 0 |
+| `review-security` | ISOLATED | `ses_fbac88f80ffeaVk0ODMZLIBg5s` | TIMEOUT | 0 | 0 |
+| `review-devex-installer` | ISOLATED | `ses_fbacb0a24ffe954g7R8XTY2i0t` | TIMEOUT | 0 | 0 |
+| `review-docker-infrastructure` | ISOLATED | `ses_fbacf7cc0ffecCvNuQFWBHP03l` | TIMEOUT | 0 | 0 |
+| `review-frontend-landing` | ISOLATED | `ses_fbac67f5cffezeuMmZQOBycFyl` | TIMEOUT | 0 | 0 |
+| `review-ux-accessibility` | ISOLATED | `ses_fbac7f3cdffeX8A3KGxa3DIDTP` | TIMEOUT | 0 | 0 |
+| `review-visual-qa` | ISOLATED | `ses_fbac3447dffeKqYJTxmK4eajLe` | TIMEOUT | 0 | 0 |
+| `review-documentation-truth` | ISOLATED | `ses_fbaca9d2bffevALXxnTanL4Ehk` | TIMEOUT | 0 | 0 |
+| `review-github-pages` | ISOLATED | `ses_fbac5c38cffecUAgSc4VoOjhBz` | TIMEOUT | 0 | 0 |
+| `review-test-tooling` | ISOLATED | `ses_fbac8513bffeijysjHChCqXK4Y` | TIMEOUT | 0 | 0 |
+| `review-integration` | ISOLATED | `ses_fbac8faeaffeSlh6HYeV16cV4j` | TIMEOUT | 0 | 0 |
+| `review-release-packaging` | ISOLATED | `ses_fbaccd8d8ffehj1xtBMFSTXjJU` | TIMEOUT | 0 | 0 |
+| `review-governance` | ISOLATED | `ses_fbac5111dffeX27DkYUE0vqFOT` | TIMEOUT | 0 | 0 |
+| `research-official-docs` | ISOLATED | `ses_fbacb5e97ffeLCNejZOf2PudnV` | TIMEOUT | 0 | 0 |
+
+```text
+REVIEW_INDEPENDENCE_CONTRACT=17_UNIQUE_INDEPENDENT_SESSIONS
+CHILD_BACKEND_STATUS=DEGRADED
+ISOLATED_FALLBACK_USED=YES
+DOMAIN_REVIEWERS_EXECUTED=16
+UNIQUE_INDEPENDENT_SESSIONS=16
+FRESH_CONTEXT=YES
+REVIEWER_MUTATION_PERMISSION=DENIED
+DEEPSEEK=0
+PAID_CALLS=0
+BLOCKING_CRITICAL=0
+BLOCKING_MAJOR=0
+```
+
+These 16 sessions are fresh continuation evidence and are not counted as the
+historical 16 sessions above. The independent-final reviewer remains a
+separate seventeenth session and must complete before merge.
