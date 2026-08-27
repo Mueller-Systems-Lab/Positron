@@ -7,6 +7,8 @@
 
 Positron is for teams and maintainers who want LLM workers to move a GitHub Issue through Specify, Plan, Tasks, implementation, review, evidence, and a gated PR while one controller retains authority over routing, promotion, retries, and completion.
 
+Developed by [Mueller-Systems-Lab](https://github.com/Mueller-Systems-Lab). Positron remains an independent product identity.
+
 > Pre-release / active development. Fake/demo mode is the safe way to explore Positron. Productive Full Real Mode is not claimed as generally production-ready while [#308](https://github.com/Mueller-Systems-Lab/Positron/issues/308) remains open.
 
 ## Try it in one command
