@@ -1,8 +1,8 @@
 # Independent review — security
 
-**Agent:** `review-security`  
-**Child session:** `ses_fbe27f92bffemHboOv2UOCwRkH`  
-**Provider/model:** `opencode/mimo-v2.5-free`  
+**Agent:** `review-security`
+**Child session:** `ses_fbe27f92bffemHboOv2UOCwRkH`
+**Provider/model:** `opencode/mimo-v2.5-free`
 **Verdict:** PASS_WITH_MINOR
 
 The reviewer verified fake/demo defaults, disabled push/merge, enabled merge kill switch, fail-closed admin/Redis configuration, Pages permissions, first-party action usage, env exclusions, and the reviewer read-only policy. Critical findings: 0. Major findings: 0.

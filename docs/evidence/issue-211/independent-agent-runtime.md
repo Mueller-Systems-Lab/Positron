@@ -1,9 +1,9 @@
 # Issue #211 — Independent OpenCode agent runtime
 
-**Run date:** 2026-08-27  
-**Repository HEAD at execution:** `81416e98a5e013a487d46b5d5a98b19856fb3a91`  
-**CLI:** `opencode 1.18.22`  
-**Upgrade:** not needed; no upgrade was performed  
+**Run date:** 2026-08-27
+**Repository HEAD at execution:** `81416e98a5e013a487d46b5d5a98b19856fb3a91`
+**CLI:** `opencode 1.18.22`
+**Upgrade:** not needed; no upgrade was performed
 **Stable/beta:** stable installed CLI; no beta/`opencode2` migration
 
 | Capability | Result | Evidence |

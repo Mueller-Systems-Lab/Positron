@@ -1,8 +1,8 @@
 # Independent review — documentation truth
 
-**Agent:** `review-documentation-truth`  
-**Child session:** `ses_fbe271e59ffeGrTCf8Sd9tx9CW`  
-**Provider/model:** `opencode/mimo-v2.5-free`  
+**Agent:** `review-documentation-truth`
+**Child session:** `ses_fbe271e59ffeGrTCf8Sd9tx9CW`
+**Provider/model:** `opencode/mimo-v2.5-free`
 **Verdict:** PASS_WITH_MINOR
 
 The reviewer checked README, install/status/security docs, `.env.example`, Pages copy, referenced files, CI-check language, fake defaults, and stale-count/version claims. No security misinformation or stale fixed counts were found.

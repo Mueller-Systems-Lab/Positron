@@ -1,8 +1,8 @@
 # Independent review — governance
 
-**Agent:** `review-governance`  
-**Child session:** `ses_fbe25d359ffeMVcALoJ29ptgLV`  
-**Provider/model:** `opencode/mimo-v2.5-free`  
+**Agent:** `review-governance`
+**Child session:** `ses_fbe25d359ffeMVcALoJ29ptgLV`
+**Provider/model:** `opencode/mimo-v2.5-free`
 **Verdict:** PASS_WITH_MINOR
 
 The reviewer verified scope boundaries, no force push/direct-main/branch deletion, #308 and provider constraints, and the new read-only reviewer permission architecture. No critical or major governance finding was reported.

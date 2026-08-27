@@ -1,8 +1,8 @@
 # Independent review — Docker / infrastructure
 
-**Agent:** `review-docker-infrastructure`  
-**Child session:** `ses_fbe27b2d3ffertp4TI7Q0aS5Vm`  
-**Provider/model:** `opencode/mimo-v2.5-free`  
+**Agent:** `review-docker-infrastructure`
+**Child session:** `ses_fbe27b2d3ffertp4TI7Q0aS5Vm`
+**Provider/model:** `opencode/mimo-v2.5-free`
 **Verdict:** PASS_WITH_MINOR
 
 The reviewer verified quickstart versus advanced Compose, fake adapters, generated credentials, internal Redis exposure, health checks, no host tool mounts in demo mode, and safety flags.
