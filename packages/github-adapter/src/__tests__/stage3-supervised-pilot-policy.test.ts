@@ -179,11 +179,11 @@ describe('Stage3SupervisedPilotPolicy — Negative: Policy Gate', () => {
 // ---------------------------------------------------------------------------
 
 describe('Stage3SupervisedPilotPolicy — Negative: Repository', () => {
-	it('blocks production repository (xxammaxx/Positron) — forbidden gate', () => {
+	it('blocks production repository (Mueller-Systems-Lab/Positron) — forbidden gate', () => {
 		const policy = makePolicy();
 		const result = policy.validate({
 			operation: 'createBranch',
-			repository: 'xxammaxx/Positron',
+			repository: 'Mueller-Systems-Lab/Positron',
 			baseBranch: STAGE3_CANONICAL.baseBranch,
 			targetBranch: STAGE3_CANONICAL.targetBranch,
 			idempotencyKey: PK,

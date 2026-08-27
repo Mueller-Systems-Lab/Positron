@@ -11,7 +11,7 @@
  *
  * Umgebungsvariablen:
  *   GITHUB_TOKEN   - GitHub Personal Access Token
- *   REPO           - Repository (default: xxammaxx/Positron)
+ *   REPO           - Repository (default: Mueller-Systems-Lab/Positron)
  */
 
 import { execSync } from 'node:child_process';
@@ -20,7 +20,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO = process.env.REPO || 'xxammaxx/Positron';
+const REPO = process.env.REPO || 'Mueller-Systems-Lab/Positron';
 const BRANCH = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
 const COMMIT = execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
 const REPORTS_DIR = join(__dirname, '..', 'reports');

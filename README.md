@@ -9,7 +9,7 @@ Positron is for teams and maintainers who want LLM workers to move a GitHub Issu
 
 Developed by [Mueller-Systems-Lab](https://github.com/Mueller-Systems-Lab). Positron remains an independent product identity.
 
-> Pre-release / active development. Fake/demo mode is the safe way to explore Positron. Productive Full Real Mode is not claimed as generally production-ready while [#308](https://github.com/xxammaxx/Positron/issues/308) remains open.
+> Pre-release / active development. Fake/demo mode is the safe way to explore Positron. Productive Full Real Mode is not claimed as generally production-ready while [#308](https://github.com/Mueller-Systems-Lab/Positron/issues/308) remains open.
 
 ## Try it in one command
 
@@ -46,7 +46,7 @@ See [Getting Started](docs/getting-started/README.md) for prerequisites, trouble
 | Durable run/job/attempt state and deterministic gates | PROVEN | [Durable control plane](docs/architecture/durable-control-plane.md) |
 | Safe fake/demo UI and local browser workflow | DEMO | `scripts/quickstart.sh`, current screenshots, route-smoke checks |
 | GitHub, SpecKit, OpenCode adapters | GATED | Explicit mode and credential/tool configuration required |
-| Full productive Real Mode | DEFERRED | Validation remains tracked in [#308](https://github.com/xxammaxx/Positron/issues/308) |
+| Full productive Real Mode | DEFERRED | Validation remains tracked in [#308](https://github.com/Mueller-Systems-Lab/Positron/issues/308) |
 | Positron production deployment | DEFERRED | Not part of this repository-polish scope |
 
 Status vocabulary is intentional: **PROVEN** means backed by current repository evidence, **GATED** means available only behind explicit controls, **DEMO** means safe local exploration, **EXPERIMENTAL** means incomplete or subject to change, and **DEFERRED** means intentionally out of scope or blocked.

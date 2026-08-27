@@ -6,7 +6,7 @@
 // Read-only. No GitHub mutations, no apply behavior, no CI reruns.
 //
 // Usage:
-//   node scripts/run-evidence-gate.mjs --dry-run --repo xxammaxx/Positron
+//   node scripts/run-evidence-gate.mjs --dry-run --repo Mueller-Systems-Lab/Positron
 //   node scripts/run-evidence-gate.mjs --snapshot .local-release/snapshot.json
 //   node scripts/run-evidence-gate.mjs --dry-run --output .local-release/evidence-gate/report.json --format json
 
@@ -80,7 +80,7 @@ function parseArgs() {
 	const args = process.argv.slice(2);
 	const options = {
 		dryRun: false,
-		repo: 'xxammaxx/Positron',
+		repo: 'Mueller-Systems-Lab/Positron',
 		snapshot: null, // path to existing snapshot JSON file
 		output: null, // path to write report JSON
 		format: 'text', // 'text' or 'json'
@@ -147,7 +147,7 @@ Usage:
 
 Options:
   --dry-run               Use synthetic fixture data (no network)
-  --repo <owner/name>     Target repository (default: xxammaxx/Positron)
+  --repo <owner/name>     Target repository (default: Mueller-Systems-Lab/Positron)
   --snapshot <path>       Read snapshot from JSON file instead of live gh
   --output <path>         Write report JSON to file
   --format text|json      Output format (default: text)

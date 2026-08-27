@@ -82,7 +82,7 @@ export const CANONICAL_FILE_CONTENT = [
 // ---------------------------------------------------------------------------
 
 export const CANONICAL_REPOSITORY = 'xxammaxx/positron-sandbox';
-export const FORBIDDEN_REPOSITORIES = ['xxammaxx/Positron'] as const;
+export const FORBIDDEN_REPOSITORIES = ['Mueller-Systems-Lab/Positron'] as const;
 export const CANONICAL_BASE_BRANCH = 'main';
 export const CANONICAL_TARGET_BRANCH = 'positron/issue-308-stage3-pilot';
 export const CANONICAL_FILE_PATH = 'stage3/positron-supervised-pilot.md';

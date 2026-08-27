@@ -1,0 +1,232 @@
+# Independent reviewer evidence — Issue #455
+
+## Runtime policy
+
+All completed reviewers ran through the configured `issue-orchestrator` with
+`opencode/mimo-v2.5-free`. DeepSeek usage was zero. Reviewer permissions were
+read-only: file writes, nested task spawning, GitHub mutation, push, and merge
+were denied by `.opencode/opencode.json`.
+
+## Completed reviewers
+
+| Agent | Role | Provider/model | Parent | Child session | Critical | Major |
+| --- | --- | --- | --- | --- | ---: | ---: |
+| `audit-repository-reality` | repository reality | opencode / mimo-v2.5-free | issue-455 orchestrator | `ses_fbc953236ffe5dtt5StHVHqfwt` | 0 | 0 |
+| `audit-repository-hygiene` | repository hygiene | opencode / mimo-v2.5-free | issue-455 orchestrator | `ses_fbc9521c1ffeeYe5YwqwmWxz7J` | 0 | 0 |
+| `review-architecture` | architecture | opencode / mimo-v2.5-free | issue-455 orchestrator | `ses_fbc951040ffex4Yxj20L5BxbDF` | 0 | 0 |
+| `review-security` | security | opencode / mimo-v2.5-free | issue-455 orchestrator | `ses_fbc94ff55ffe7cp6zICPpx354x` | 0 | 0 |
+| `review-devex-installer` | developer experience/install | opencode / mimo-v2.5-free | issue-455 orchestrator | `ses_fbc94ee23ffeotPAwZ0SzxRh3u` | 0 | 0 |
+| `review-docker-infrastructure` | Docker/infrastructure | opencode / mimo-v2.5-free | issue-455 orchestrator | `ses_fbc94dcc2ffe0DW7Jluz3rqSDz` | 0 | 1 |
+| `review-frontend-landing` | frontend landing | opencode / mimo-v2.5-free | issue-455 orchestrator | `ses_fbc94cb5dffeJ7G4DGfVIddFP5` | 0 | 0 |
+| `review-ux-accessibility` | UX/accessibility | opencode / mimo-v2.5-free | issue-455 orchestrator | `ses_fbc94bb8bffeguyJUH09Jde9br` | 0 | 0 |
+| `review-visual-qa` | visual QA | opencode / mimo-v2.5-free | issue-455 orchestrator | `ses_fbc8c7428ffe4Ucoq8Gqp0SDST` | 3* | 2* |
+| `review-documentation-truth` | documentation truth | opencode / mimo-v2.5-free | issue-455 orchestrator | `ses_fbc949927ffe45JhA5Y6yxljHq` | 0 | 0 |
+| `review-github-pages` | GitHub Pages | opencode / mimo-v2.5-free | issue-455 orchestrator | `ses_fbc948822ffeQDzmT7a2b8iu3a` | 1* | 0 |
+| `review-test-tooling` | test tooling | opencode / mimo-v2.5-free | issue-455 orchestrator | `ses_fbc94787cffeWFaG4ALAJpMKYO` | 0 | 2 |
+| `review-integration` | integration | opencode / mimo-v2.5-free | issue-455 orchestrator | `ses_fbc86ec82ffeXaoxg1NTbTYZhX` | 0 | 0 |
+| `review-release-packaging` | release/packaging | opencode / mimo-v2.5-free | issue-455 orchestrator | `ses_fbc945902ffeA81iKB6B5Y7gvP` | 0 | 1 |
+| `review-governance` | governance | opencode / mimo-v2.5-free | issue-455 orchestrator | `ses_fbc94483bffeMSkULR1XtOo8SS` | 0 | 1 |
+| `research-official-docs` | official documentation research | opencode / mimo-v2.5-free | issue-455 orchestrator | `ses_fbc9435c5ffejhS6HJvfiWaoxh` | 0 | 0 |
+
+`*` The Pages/visual critical findings describe the intentionally stale live
+deployment before merge. They are expected pre-merge observations, not source
+branch defects, and must be rechecked after deployment. The release reviewer
+flagged an unrelated pre-existing developer-local path; it is outside this
+transfer scope. The test-tooling major findings led to wiring the transfer
+regression into the blocking unit-test job and updating the stale JSDoc example.
+
+## Missing reviewer and runtime blocker
+
+`review-independent-final` is configured as the seventeenth reviewer but did
+not produce a child session. Three controller attempts (including a resumed
+session) stopped after announcing delegation or before invoking the task; no
+result was counted. Therefore:
+
+```text
+CONFIGURED_REVIEWERS=17
+EXECUTED_REVIEWERS=16
+UNIQUE_CHILD_SESSIONS=16
+DEEPSEEK_AGENT_USAGE=0
+REVIEWER_WRITE=DENIED
+REVIEWER_TASK_SPAWN=DENIED
+REVIEWER_GITHUB_MUTATION=DENIED
+REVIEWER_PUSH=DENIED
+REVIEWER_MERGE=DENIED
+```
+
+This is a blocking runtime regression. The PR must not merge or close Issue
+#455 until the missing final verifier actually completes.
+
+## Continuation: Issue #455 runtime repair
+
+The failure was classified as a controller dispatch failure, not a reviewer
+permission denial. The final reviewer was configured and permitted in the
+controller allowlist, but the controller stopped after announcing delegation
+without creating the task. The repaired configuration removes stale #211 and
+#446--#452 assumptions from current reviewer definitions and adds the stable
+OpenCode command `.opencode/commands/independent-final-review.md`:
+
+```text
+agent: review-independent-final
+subtask: true
+```
+
+The static regression now verifies the generic reviewer contract, all 17
+read-only deny boundaries, and the command frontmatter/`$ARGUMENTS` contract.
+It passed with `required=17` and `DEEPSEEK_CONFIGURED_FOR_REQUIRED_AGENTS=0`.
+
+The harmless command smoke produced a real task event with separate parent and
+child session IDs and completed with `COMMAND_SMOKE_PASS`. This proves command
+parsing and deterministic subtask creation. It is not counted as a real Issue
+#455 reviewer.
+
+## Fresh-review execution status
+
+Fresh real-review attempts were made after the configuration repair. The
+stable `opencode 1.18.22` process initialized but emitted no JSON event and no
+task event for the bounded domain-group and real final-review attempts. A
+minimal provider probe also emitted zero bytes and timed out after 90 seconds.
+The attempts were stopped at their explicit timeouts; no child session was
+counted without machine-readable evidence.
+
+```text
+FRESH_DOMAIN_REVIEWERS_EXECUTED=0
+FRESH_DOMAIN_UNIQUE_CHILD_SESSIONS=0
+FRESH_FINAL_REVIEW_CHILD_CREATED=0
+COMMAND_SMOKE_CHILD_COUNTED=0
+DEEPSEEK_AGENT_USAGE=0
+FINAL_REVIEW_RUNTIME=BLOCKED_BY_STABLE_PROVIDER_NO_EVENT
+```
+
+The original 16 sessions remain historical evidence from the pre-repair
+runtime and are not relabeled as fresh. The PR and Issue #455 therefore remain
+blocked; no merge or issue closure is justified by this evidence.
+
+## Provider runtime continuation
+
+The reusable reviewer roles are now model-agnostic. All 17 reviewer definitions
+omit `model`, so OpenCode resolves each child from the invoking primary model;
+`HARDCODED_REVIEWER_MODEL_COUNT = 0`. The deterministic selector reads the
+machine-readable [provider-model-inventory.json](provider-model-inventory.json)
+and excludes DeepSeek, paid candidates, unavailable candidates, and candidates
+without a completed probe.
+
+```text
+PREVIOUS_MODEL=opencode/mimo-v2.5-free
+PREVIOUS_FAILURE=NO_EVENT
+OPENCODE_OLD_VERSION=1.18.22
+OPENCODE_NEW_VERSION=1.18.23
+UPGRADE_CAUSALITY=NOT_CAUSAL_FOR_OPENCODE_FREE_PROBES
+DIRECT_OFFICIAL_FREE_ENDPOINT=HTTP_404
+```
+
+The first Kilo Nemotron probe completed with three JSON events, but subsequent
+Kilo probes were partial or timed out. The connected Zai coding-plan
+`glm-5.3-flash` completed a minimal text probe (`step_start`, `text`,
+`step_finish`), while its real child wrapper produced no event. The wrapper
+capability gate therefore failed and no model is claimed as a usable reviewer
+model:
+
+```text
+MODEL_SELECTION_CANDIDATE=zai-coding-plan/glm-5.3-flash
+SELECTED_REVIEW_MODEL=NONE
+TOOL_CAPABILITY_TEST=FAIL_NO_EVENT
+FRESH_REVIEWERS=0
+UNIQUE_CHILD_SESSIONS=0
+DEEPSEEK=0
+FINAL_REVIEW=NOT_RUN
+BLOCKED_STATE=AMBER_POSITRON_455_SUBAGENT_RUNTIME_NO_EVENT
+```
+
+The deterministic command wrapper is present for each first-wave domain and
+the independent final reviewer, but no wrapper result is counted without a
+fresh child session, completed result, and provider/model metadata.
+
+## Review-independence execution contract — current continuation
+
+The owner corrected the acceptance contract from topology-specific `17 unique
+child sessions` to `17 unique independent OpenCode sessions`. Child execution
+remains preferred. Stable direct selection of a `mode: subagent` reviewer
+silently fell back to the default agent, so the shared definitions use
+`mode: all` for both child and isolated execution. Explicit edit/write/task/
+GitHub/push/merge denies are unchanged; the direct-selection regression
+reports `REVIEWER_MODE_ALL_MUTATION_EXPANSION=0`.
+
+Each `AUTO` run tried the issue-orchestrator child command first. Its timeout
+was recorded, and each completed reviewer below used a new isolated direct
+session with fresh context; no session was resumed or reused. All used
+`kilo/nvidia/nemotron-3-super-120b-a12b:free`.
+
+| Agent | Backend | Independent session | Child attempt | Critical | Major |
+| --- | --- | --- | --- | ---: | ---: |
+| `audit-repository-reality` | ISOLATED | `ses_fbacbc0d5ffe1rRwL0qocz0LMr` | TIMEOUT | 0 | 0 |
+| `audit-repository-hygiene` | ISOLATED | `ses_fbacbc0caffe47ASRwujomJVex` | TIMEOUT | 0 | 0 |
+| `review-architecture` | ISOLATED | `ses_fbad0dcf4ffeLfzKlOJ56ZdlfH` | TIMEOUT | 0 | 0 |
+| `review-security` | ISOLATED | `ses_fbac88f80ffeaVk0ODMZLIBg5s` | TIMEOUT | 0 | 0 |
+| `review-devex-installer` | ISOLATED | `ses_fbacb0a24ffe954g7R8XTY2i0t` | TIMEOUT | 0 | 0 |
+| `review-docker-infrastructure` | ISOLATED | `ses_fbacf7cc0ffecCvNuQFWBHP03l` | TIMEOUT | 0 | 0 |
+| `review-frontend-landing` | ISOLATED | `ses_fbac67f5cffezeuMmZQOBycFyl` | TIMEOUT | 0 | 0 |
+| `review-ux-accessibility` | ISOLATED | `ses_fbac7f3cdffeX8A3KGxa3DIDTP` | TIMEOUT | 0 | 0 |
+| `review-visual-qa` | ISOLATED | `ses_fbac3447dffeKqYJTxmK4eajLe` | TIMEOUT | 0 | 0 |
+| `review-documentation-truth` | ISOLATED | `ses_fbaca9d2bffevALXxnTanL4Ehk` | TIMEOUT | 0 | 0 |
+| `review-github-pages` | ISOLATED | `ses_fbac5c38cffecUAgSc4VoOjhBz` | TIMEOUT | 0 | 0 |
+| `review-test-tooling` | ISOLATED | `ses_fbac8513bffeijysjHChCqXK4Y` | TIMEOUT | 0 | 0 |
+| `review-integration` | ISOLATED | `ses_fbac8faeaffeSlh6HYeV16cV4j` | TIMEOUT | 0 | 0 |
+| `review-release-packaging` | ISOLATED | `ses_fbaccd8d8ffehj1xtBMFSTXjJU` | TIMEOUT | 0 | 0 |
+| `review-governance` | ISOLATED | `ses_fbac5111dffeX27DkYUE0vqFOT` | TIMEOUT | 0 | 0 |
+| `research-official-docs` | ISOLATED | `ses_fbacb5e97ffeLCNejZOf2PudnV` | TIMEOUT | 0 | 0 |
+
+```text
+REVIEW_INDEPENDENCE_CONTRACT=17_UNIQUE_INDEPENDENT_SESSIONS
+CHILD_BACKEND_STATUS=DEGRADED
+ISOLATED_FALLBACK_USED=YES
+DOMAIN_REVIEWERS_EXECUTED=16
+UNIQUE_INDEPENDENT_SESSIONS=16
+FRESH_CONTEXT=YES
+REVIEWER_MUTATION_PERMISSION=DENIED
+DEEPSEEK=0
+PAID_CALLS=0
+BLOCKING_CRITICAL=0
+BLOCKING_MAJOR=0
+```
+
+These 16 sessions are fresh continuation evidence and are not counted as the
+historical 16 sessions above. The independent-final reviewer remains a
+separate seventeenth session and must complete before merge.
+
+### Fresh independent-final reviewer
+
+The seventeenth reviewer completed in a fresh isolated direct session after
+the 16-domain wave. The machine-recorded OpenCode session ID is authoritative
+over any session label repeated in model text.
+
+```text
+AGENT=review-independent-final
+BACKEND=ISOLATED
+SESSION_ID=ses_fbab82addffeqJZCunPVNTuTDV
+PARENT_SESSION_ID=NONE
+CHILD_ATTEMPT=NO_STRUCTURED_CHILD_RESULT
+MODEL=kilo/nvidia/nemotron-3-super-120b-a12b:free
+VERDICT=MERGE_READY=true
+CRITICAL=0
+MAJOR=0
+FRESH_CONTEXT=YES
+REVIEWER_MUTATION_PERMISSION=DENIED
+```
+
+The independent final reviewer reported no blockers from the supplied
+pre-merge evidence and clearly stated its bounded evidence-only limitation.
+The resulting fresh-review totals are:
+
+```text
+FRESH_REVIEWERS_EXECUTED=17
+UNIQUE_INDEPENDENT_SESSIONS=17
+DOMAIN_REVIEWERS_EXECUTED=16
+FINAL_CHILD_CREATED=NO
+ISOLATED_FALLBACK_USED=YES
+CHILD_BACKEND_STATUS=DEGRADED
+BLOCKING_CRITICAL=0
+BLOCKING_MAJOR=0
+DEEPSEEK=0
+PAID_CALLS=0
+```

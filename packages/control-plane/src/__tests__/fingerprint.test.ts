@@ -8,7 +8,7 @@ import { canonicalJson, fingerprint, semanticallyEqual } from '../fingerprint.js
 const basePlan = {
 	contract: 'positron.plan.v1',
 	run_id: 'run_1',
-	repository_ref: 'xxammaxx/Positron',
+	repository_ref: 'Mueller-Systems-Lab/Positron',
 	repository_head: 'a'.repeat(40),
 	targets: { files: ['src/a.ts'], symbols: ['foo'] },
 	acceptance_criteria: ['foo works'],

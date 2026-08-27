@@ -18,7 +18,7 @@ npm run typecheck
 npm test
 ```
 
-`npx biome check .` is currently advisory-only because a known lint backlog exists ([#340](https://github.com/xxammaxx/Positron/issues/340)).
+`npx biome check .` is currently advisory-only because a known lint backlog exists ([#340](https://github.com/Mueller-Systems-Lab/Positron/issues/340)).
 
 ## CI Gates
 

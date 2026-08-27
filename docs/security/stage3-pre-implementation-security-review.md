@@ -172,7 +172,7 @@ However, there's a subtle concern: **The approval package is a markdown file in 
 - **ALLOW-04**: Verify commit message mismatch → ABORT (test with different message)
 - **ALLOW-05**: Verify PR title mismatch → ABORT
 - **ALLOW-06**: Verify PR body mismatch → ABORT
-- **ALLOW-07**: Verify production repo `xxammaxx/Positron` → ABORT
+- **ALLOW-07**: Verify production repo `Mueller-Systems-Lab/Positron` → ABORT
 - **ALLOW-08**: Verify merge attempt → ABORT (POSITRON_MERGE_KILL_SWITCH=true)
 - **ALLOW-09**: Verify second file attempt → ABORT
 - **ALLOW-10**: Verify executable file attempt → ABORT
@@ -498,7 +498,7 @@ The approval package defines a 7-step manual-human lifecycle:
 - **RED-03**: Attempt to reuse an idempotency key after a successful Stage 3 write → expect ABORT
 - **RED-04**: Attempt to create a branch with a name not matching the allowlisted value → expect ABORT
 - **RED-05**: Send two concurrent Stage 3 requests and verify one is rejected
-- **RED-06**: Attempt to write to `xxammaxx/Positron` → expect ABORT
+- **RED-06**: Attempt to write to `Mueller-Systems-Lab/Positron` → expect ABORT
 - **RED-07**: Pass a modified PR body that hashes to the same SHA-256 (theoretically impossible for SHA-256, but test the hash comparison logic)
 
 ---
@@ -569,7 +569,7 @@ The approval package defines a 7-step manual-human lifecycle:
 | T1 | Token in error message → must be redacted in audit | Secret Handling | P0 |
 | T2 | Token in process.env after write → must be cleared | Token Lifecycle | P0 |
 | T3 | Second run with same idempotency key → ABORT | Fail-Closed | P0 |
-| T4 | Write to production repo `xxammaxx/Positron` → ABORT | Allowlist | P0 |
+| T4 | Write to production repo `Mueller-Systems-Lab/Positron` → ABORT | Allowlist | P0 |
 | T5 | SHA-256 mismatch on file content → ABORT | Allowlist | P0 |
 | T6 | PR title mismatch → ABORT | Allowlist | P0 |
 | T7 | `POSITRON_MERGE_KILL_SWITCH=false` → ABORT | Kill-Switch | P0 |

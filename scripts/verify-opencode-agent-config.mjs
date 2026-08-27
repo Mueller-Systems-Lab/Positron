@@ -42,6 +42,24 @@ const assert = (condition, message) => {
 	if (!condition) throw new Error(message);
 };
 
+const finalReviewCommand = readFileSync('.opencode/commands/independent-final-review.md', 'utf8');
+assert(
+	finalReviewCommand.includes('agent: review-independent-final'),
+	'final review command target missing',
+);
+assert(finalReviewCommand.includes('subtask: true'), 'final review command must force a subtask');
+assert(
+	finalReviewCommand.includes('$ARGUMENTS'),
+	'final review command must accept caller context',
+);
+
+for (const id of required.slice(0, -1)) {
+	const command = readFileSync(`.opencode/commands/${id}.md`, 'utf8');
+	assert(command.includes(`agent: ${id}`), `${id} command target missing`);
+	assert(command.includes('subtask: true'), `${id} command must force a subtask`);
+	assert(command.includes('$ARGUMENTS'), `${id} command must accept caller context`);
+}
+
 assert(
 	config.agent?.['issue-orchestrator']?.mode === 'primary',
 	'issue-orchestrator must be primary',
@@ -64,10 +82,10 @@ for (const command of dangerous)
 for (const id of required) {
 	const agent = config.agent[id];
 	assert(agent, `required agent missing: ${id}`);
-	assert(agent.mode === 'subagent', `${id} must be a subagent`);
+	assert(agent.mode === 'all', `${id} must support direct isolated execution`);
 	assert(agent.description, `${id} description missing`);
 	assert(agent.prompt, `${id} system prompt missing`);
-	assert(agent.model && !/deepseek/i.test(agent.model), `${id} has a forbidden model`);
+	assert(!('model' in agent), `${id} must inherit the invoking primary model`);
 	assert(agent.permission?.edit === 'deny', `${id} edit permission must deny`);
 	assert(agent.permission?.write === 'deny', `${id} write permission must deny`);
 	assert(agent.permission?.task?.['*'] === 'deny', `${id} task permission must deny`);
@@ -78,7 +96,31 @@ for (const id of required) {
 		const covered = typeof bash === 'object' ? bash['*'] : bash;
 		assert(explicit === 'deny' || covered === 'deny', `${id} deny missing: ${command}`);
 	}
+	assert(
+		!/(?:Issue\s*#?211|#(?:446|447|448|449|450|451|452)\b|PRs?\s*#(?:446|447|448|449|450|451|452))/i.test(
+			`${agent.description}\n${agent.prompt}`,
+		),
+		`${id} contains stale issue/PR coupling`,
+	);
 }
+
+assert(
+	Object.values(config.agent)
+		.filter((agent) => agent.mode === 'all')
+		.every((agent) => !('model' in agent)),
+	'directly selectable reviewers may not pin a model',
+);
+
+const selected = spawnSync(
+	'node',
+	['scripts/select-review-model.mjs', 'docs/evidence/455/provider-model-inventory.json'],
+	{ encoding: 'utf8' },
+);
+assert(selected.status === 0, 'deterministic review model selection failed');
+assert(
+	JSON.parse(selected.stdout).selected === 'kilo/nvidia/nemotron-3-super-120b-a12b:free',
+	'deterministic review model selection changed unexpectedly',
+);
 
 const listed = spawnSync('opencode', ['agent', 'list'], { encoding: 'utf8' });
 assert(listed.status === 0, 'opencode agent list failed');
@@ -90,7 +132,7 @@ for (const id of ['issue-orchestrator', ...required]) {
 	assert(debug.status === 0, `opencode debug agent failed: ${id}`);
 	const resolved = JSON.parse(debug.stdout);
 	assert(
-		resolved.mode === (id === 'issue-orchestrator' ? 'primary' : 'subagent'),
+		resolved.mode === (id === 'issue-orchestrator' ? 'primary' : 'all'),
 		`${id} mode is not resolved correctly`,
 	);
 	const rules = resolved.permission ?? [];
@@ -120,8 +162,10 @@ process.stdout.write(
 		`AGENT_CONFIG_REGRESSION=PASS required=${required.length}`,
 		'CONTROLLER_ALLOWLIST=PASS',
 		'REVIEWER_READ_ONLY_PERMISSIONS=PASS',
+		'REVIEWER_MODE_ALL_MUTATION_EXPANSION=0',
 		'REVIEWER_NESTED_TASK_DENY=PASS',
 		'HARD_DENY_MATRIX=PASS',
+		'REVIEW_MODEL_SELECTION=PASS selected=kilo/nvidia/nemotron-3-super-120b-a12b:free',
 		'DEEPSEEK_CONFIGURED_FOR_REQUIRED_AGENTS=0',
 		'BUILT_IN_INVENTORY=build,plan,general,explore',
 	].join('\n')}\n`,

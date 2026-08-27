@@ -104,7 +104,7 @@ vi.mock('../hooks/useDashboardSSE.js', () => ({
 		runs: [
 			{
 				id: 'test-run-1',
-				repoId: 'xxammaxx/Positron',
+				repoId: 'Mueller-Systems-Lab/Positron',
 				issueNumber: 1,
 				branch: null,
 				phase: 'DONE',

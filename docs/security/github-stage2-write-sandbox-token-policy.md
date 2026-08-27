@@ -49,7 +49,7 @@ The token MUST be scoped to a single sandbox repository:
 - **Verified:** 2026-07-10 dry-run preflight — repo exists, issue #1 open, label `positron-stage2-sandbox` present
 - **Alternative:** NONE — only `xxammaxx/positron-sandbox` is permitted for Stage 2
 
-The token MUST NOT have access to any other repositories, especially NOT `xxammaxx/Positron`.
+The token MUST NOT have access to any other repositories, especially NOT `Mueller-Systems-Lab/Positron`.
 
 ### Token Expiry
 
@@ -137,7 +137,7 @@ After the Stage-2 test:
 | Issues permission | Read-only | Read and write |
 | Contents permission | Read-only | No access |
 | Pull requests permission | Read-only | No access |
-| Repository scope | xxammaxx/Positron | xxammaxx/positron-sandbox (recommended) |
+| Repository scope | Mueller-Systems-Lab/Positron | xxammaxx/positron-sandbox (recommended) |
 | Max operations | Unlimited reads | Exactly 1 write |
 | Human approval | Not required | Required before each write |
 | Dry-run preview | Not required | Required before each write |

@@ -781,7 +781,9 @@ describe('Stage3RuntimeHarness — Negative: Repository', () => {
 	it('blocks production Positron repository', async () => {
 		const policy = createStage3PilotPolicy();
 		const harness = new Stage3RuntimeHarness({ policy, config: { enabled: true, fakeMode: true } });
-		const result = await harness.execute(makeValidInput({ repository: 'xxammaxx/Positron' }));
+		const result = await harness.execute(
+			makeValidInput({ repository: 'Mueller-Systems-Lab/Positron' }),
+		);
 		expect(result.success).toBe(false);
 		expect(result.reason).toContain('forbidden');
 	});

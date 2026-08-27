@@ -103,7 +103,7 @@ describe('Red Test: Egress Violation', () => {
 
 		const result = await gateway.execute({
 			toolId: 'test.github',
-			arguments: { url: 'https://api.github.com/repos/xxammaxx/Positron' },
+			arguments: { url: 'https://api.github.com/repos/Mueller-Systems-Lab/Positron' },
 			runId: 'run-001',
 			phase: 'IMPLEMENT',
 			autonomyLevel: 2,

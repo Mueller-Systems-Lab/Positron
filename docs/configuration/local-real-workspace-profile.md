@@ -40,7 +40,7 @@ POSITRON_WORKSPACE_ROOT=&lt;POSITRON_WORKSPACE_ROOT&gt;
 
 # ── GitHub ────────────────────────────────────────────────
 GITHUB_TOKEN=ghp_YOUR_TOKEN
-POSITRON_REPO_OWNER=xxammaxx
+POSITRON_REPO_OWNER=Mueller-Systems-Lab
 POSITRON_REPO_NAME=Positron
 ```
 

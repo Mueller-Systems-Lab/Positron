@@ -136,7 +136,7 @@ describe('F2: Scanner regex deterministic (no g flag state bug)', () => {
 		const withDocs = makeDef({
 			id: 'test.docs',
 			description:
-				'Reads issues from https://github.com/xxammaxx/Positron via the GitHub API. Safe read-only tool.',
+				'Reads issues from https://github.com/Mueller-Systems-Lab/Positron via the GitHub API. Safe read-only tool.',
 		});
 
 		// Scan 5 times — URL should appear as warning each time, never block
@@ -485,7 +485,7 @@ describe('F7: Egress arbitrary-key detection (recursive scan)', () => {
 	it('ALLOWS authorized host regardless of key name', async () => {
 		const result = await gateway.execute({
 			toolId: 'test.restricted',
-			arguments: { target: 'https://api.github.com/repos/xxammaxx/Positron' },
+			arguments: { target: 'https://api.github.com/repos/Mueller-Systems-Lab/Positron' },
 			runId: 'run-001',
 			phase: 'IMPLEMENT',
 			autonomyLevel: 2,

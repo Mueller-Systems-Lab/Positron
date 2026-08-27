@@ -107,7 +107,7 @@ $readmeContent = @"
 | **Commit** | `$commit` |
 | **Branch** | `$branch` |
 | **Packaged** | $date |
-| **Repo** | https://github.com/xxammaxx/Positron (private) |
+| **Repo** | https://github.com/Mueller-Systems-Lab/Positron (private) |
 
 ## Prerequisites
 
@@ -188,7 +188,7 @@ No secrets are needed for local development with `fake` mode.
 
 ## Support
 
-- Issue tracker: https://github.com/xxammaxx/Positron/issues
+- Issue tracker: https://github.com/Mueller-Systems-Lab/Positron/issues
 - Docs: `docs/install/windows-local-installer.md`
 
 ---
@@ -240,7 +240,7 @@ version: $version
 commit: $commit
 branch: $branch
 date: $date
-repo: https://github.com/xxammaxx/Positron (private)
+repo: https://github.com/Mueller-Systems-Lab/Positron (private)
 node_min: 22
 node_current: $((node --version 2>&1).ToString().Trim())
 npm: $((npm --version 2>&1).ToString().Trim())

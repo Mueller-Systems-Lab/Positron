@@ -73,7 +73,7 @@ Redaction helpers exist in:
 All Stage-1 operations must be audited. Audit events must include:
 
 - Operation name (e.g., `getIssue`, `listPullRequests`)
-- Repository (e.g., `xxammaxx/Positron`)
+- Repository (e.g., `Mueller-Systems-Lab/Positron`)
 - Issue/PR number (if applicable)
 - Result status (success/failure/denied)
 - Timestamp
@@ -90,7 +90,7 @@ Audit events must NEVER include:
 Before executing the Stage-1 probe, verify:
 
 - [ ] Token is fine-grained with read-only scopes only
-- [ ] Token has access ONLY to `xxammaxx/Positron`
+- [ ] Token has access ONLY to `Mueller-Systems-Lab/Positron`
 - [ ] Token is NOT hardcoded in any file
 - [ ] `POSITRON_GITHUB_MODE=real` is NOT set (kept at default)
 - [ ] `POSITRON_ENABLE_PUSH=true` is NOT set

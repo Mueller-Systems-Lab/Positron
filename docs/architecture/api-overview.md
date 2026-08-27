@@ -6,7 +6,7 @@ author: Positron Team
 
 # Positron — API Overview
 
-> **Note:** This document catalogs the current API endpoints as of the latest sync. Full expansion of Issue #229 and #243 endpoints is tracked separately in [Issue #251](https://github.com/xxammaxx/Positron/issues/251).
+> **Note:** This document catalogs the current API endpoints as of the latest sync. Full expansion of Issue #229 and #243 endpoints is tracked separately in [Issue #251](https://github.com/Mueller-Systems-Lab/Positron/issues/251).
 
 All routes are served by the Express server under `/api`. The current implementation does not enforce application-level authentication; access is expected to be protected by deployment controls.
 
@@ -244,7 +244,7 @@ All routes are served by the Express server under `/api`. The current implementa
 
 ## Issue #229 Endpoints — Architectural Specification
 
-> **Status:** Designed in [Issue #229](https://github.com/xxammaxx/Positron/issues/229). These endpoints are part of the Tool Gateway + Oversight UI + Blueprint Launcher + Infrastructure layer. POST endpoints are **disabled by default** (gateway safety gate). Notation: `[planned]` = designed but not fully wired; `[active]` = implemented and active.
+> **Status:** Designed in [Issue #229](https://github.com/Mueller-Systems-Lab/Positron/issues/229). These endpoints are part of the Tool Gateway + Oversight UI + Blueprint Launcher + Infrastructure layer. POST endpoints are **disabled by default** (gateway safety gate). Notation: `[planned]` = designed but not fully wired; `[active]` = implemented and active.
 
 ### Oversight Endpoints (Issue #229)
 
@@ -637,5 +637,5 @@ HL7: `/api/tool-gateway`
 
 ## Changelog
 
-- **2026-07-02:** Added Issue #229 endpoint specifications (Oversight, Blueprints, Infrastructure State, Infrastructure Gates, Tool Gateway). Total 18 planned + 2 tool-gateway endpoints. POST endpoints marked disabled-by-default. [Issue #251](https://github.com/xxammaxx/Positron/issues/251)
+- **2026-07-02:** Added Issue #229 endpoint specifications (Oversight, Blueprints, Infrastructure State, Infrastructure Gates, Tool Gateway). Total 18 planned + 2 tool-gateway endpoints. POST endpoints marked disabled-by-default. [Issue #251](https://github.com/Mueller-Systems-Lab/Positron/issues/251)
 - **2026-06-27:** Initial sync of current endpoints.
