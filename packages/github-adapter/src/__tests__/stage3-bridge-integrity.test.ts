@@ -524,8 +524,8 @@ describe('Phase D: Deep Freeze', () => {
 
 		// Methods still work
 		const result = await bridge.branchWriter.createBranch({
-			owner: 'xxammaxx',
-			repo: 'positron-sandbox',
+			owner: 'Mueller-Systems-Lab',
+			repo: 'positron-308-sandbox',
 			branch: STAGE3_CANONICAL.targetBranch,
 			sourceBranch: STAGE3_CANONICAL.baseBranch,
 			expectedSourceSha: TEST_BASE_SHA,
@@ -670,8 +670,8 @@ describe('Phase F: Branch-Writer expectedSourceSha Enforcement', () => {
 		const { bridge, transport } = createTrustedBridge();
 		await expect(
 			bridge.branchWriter.createBranch({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				branch: STAGE3_CANONICAL.targetBranch,
 				sourceBranch: STAGE3_CANONICAL.baseBranch,
 				expectedSourceSha: WRONG_SHA,
@@ -684,8 +684,8 @@ describe('Phase F: Branch-Writer expectedSourceSha Enforcement', () => {
 		const { bridge, transport } = createTrustedBridge();
 		await expect(
 			bridge.branchWriter.createBranch({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				branch: STAGE3_CANONICAL.targetBranch,
 				sourceBranch: STAGE3_CANONICAL.baseBranch,
 				expectedSourceSha: '',
@@ -698,8 +698,8 @@ describe('Phase F: Branch-Writer expectedSourceSha Enforcement', () => {
 		const { bridge, transport } = createTrustedBridge();
 		await expect(
 			bridge.branchWriter.createBranch({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				branch: STAGE3_CANONICAL.targetBranch,
 				sourceBranch: STAGE3_CANONICAL.baseBranch,
 				expectedSourceSha: 'abc123',
@@ -712,8 +712,8 @@ describe('Phase F: Branch-Writer expectedSourceSha Enforcement', () => {
 		const { bridge, transport } = createTrustedBridge();
 		await expect(
 			bridge.branchWriter.createBranch({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				branch: STAGE3_CANONICAL.targetBranch,
 				sourceBranch: STAGE3_CANONICAL.baseBranch,
 				expectedSourceSha: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
@@ -726,8 +726,8 @@ describe('Phase F: Branch-Writer expectedSourceSha Enforcement', () => {
 		const { bridge, transport } = createTrustedBridge();
 		await expect(
 			bridge.branchWriter.createBranch({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				branch: STAGE3_CANONICAL.targetBranch,
 				sourceBranch: STAGE3_CANONICAL.baseBranch,
 				expectedSourceSha: '1111111111111111111111111111111111111111',
@@ -739,8 +739,8 @@ describe('Phase F: Branch-Writer expectedSourceSha Enforcement', () => {
 	it('correct SHA is accepted and transport is called', async () => {
 		const { bridge, transport } = createTrustedBridge();
 		const result = await bridge.branchWriter.createBranch({
-			owner: 'xxammaxx',
-			repo: 'positron-sandbox',
+			owner: 'Mueller-Systems-Lab',
+			repo: 'positron-308-sandbox',
 			branch: STAGE3_CANONICAL.targetBranch,
 			sourceBranch: STAGE3_CANONICAL.baseBranch,
 			expectedSourceSha: TEST_BASE_SHA,
@@ -760,7 +760,7 @@ describe('Phase G: Base Resolver Defense-in-Depth', () => {
 		await expect(
 			bridge.baseResolver.resolveBase({
 				owner: 'evil-attacker',
-				repo: 'positron-sandbox',
+				repo: 'positron-308-sandbox',
 				branch: STAGE3_CANONICAL.baseBranch,
 			}),
 		).rejects.toThrow(GitHubValidationError);
@@ -771,7 +771,7 @@ describe('Phase G: Base Resolver Defense-in-Depth', () => {
 		const { bridge, transport } = createTrustedBridge();
 		await expect(
 			bridge.baseResolver.resolveBase({
-				owner: 'xxammaxx',
+				owner: 'Mueller-Systems-Lab',
 				repo: 'malicious-repo',
 				branch: STAGE3_CANONICAL.baseBranch,
 			}),
@@ -783,8 +783,8 @@ describe('Phase G: Base Resolver Defense-in-Depth', () => {
 		const { bridge, transport } = createTrustedBridge();
 		await expect(
 			bridge.baseResolver.resolveBase({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				branch: 'malicious-branch',
 			}),
 		).rejects.toThrow(GitHubValidationError);
@@ -794,8 +794,8 @@ describe('Phase G: Base Resolver Defense-in-Depth', () => {
 	it('correct args are accepted and transport is called', async () => {
 		const { bridge, transport } = createTrustedBridge();
 		const result = await bridge.baseResolver.resolveBase({
-			owner: 'xxammaxx',
-			repo: 'positron-sandbox',
+			owner: 'Mueller-Systems-Lab',
+			repo: 'positron-308-sandbox',
 			branch: STAGE3_CANONICAL.baseBranch,
 		});
 		expect(result).toBeDefined();
@@ -810,7 +810,7 @@ describe('Phase G: Base Resolver Defense-in-Depth', () => {
 		await expect(
 			bridge.baseResolver.resolveBase({
 				owner: 'evil',
-				repo: 'positron-sandbox',
+				repo: 'positron-308-sandbox',
 				branch: STAGE3_CANONICAL.baseBranch,
 			}),
 		).rejects.toThrow();
@@ -818,7 +818,7 @@ describe('Phase G: Base Resolver Defense-in-Depth', () => {
 		// Wrong repo
 		await expect(
 			bridge.baseResolver.resolveBase({
-				owner: 'xxammaxx',
+				owner: 'Mueller-Systems-Lab',
 				repo: 'evil',
 				branch: STAGE3_CANONICAL.baseBranch,
 			}),
@@ -827,8 +827,8 @@ describe('Phase G: Base Resolver Defense-in-Depth', () => {
 		// Wrong branch
 		await expect(
 			bridge.baseResolver.resolveBase({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				branch: 'evil',
 			}),
 		).rejects.toThrow();
@@ -847,8 +847,8 @@ describe('Phase H: Direct Writer Call Tests', () => {
 		const { bridge, transport } = createTrustedBridge();
 		await expect(
 			bridge.branchWriter.createBranch({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				branch: STAGE3_CANONICAL.targetBranch,
 				sourceBranch: STAGE3_CANONICAL.baseBranch,
 				expectedSourceSha: WRONG_SHA,
@@ -862,7 +862,7 @@ describe('Phase H: Direct Writer Call Tests', () => {
 		await expect(
 			bridge.branchWriter.createBranch({
 				owner: 'evil-owner',
-				repo: 'positron-sandbox',
+				repo: 'positron-308-sandbox',
 				branch: STAGE3_CANONICAL.targetBranch,
 				sourceBranch: STAGE3_CANONICAL.baseBranch,
 				expectedSourceSha: TEST_BASE_SHA,
@@ -875,7 +875,7 @@ describe('Phase H: Direct Writer Call Tests', () => {
 		const { bridge, transport } = createTrustedBridge();
 		await expect(
 			bridge.branchWriter.createBranch({
-				owner: 'xxammaxx',
+				owner: 'Mueller-Systems-Lab',
 				repo: 'wrong-repo',
 				branch: STAGE3_CANONICAL.targetBranch,
 				sourceBranch: STAGE3_CANONICAL.baseBranch,
@@ -889,8 +889,8 @@ describe('Phase H: Direct Writer Call Tests', () => {
 		const { bridge, transport } = createTrustedBridge();
 		await expect(
 			bridge.branchWriter.createBranch({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				branch: STAGE3_CANONICAL.targetBranch,
 				sourceBranch: 'wrong-source',
 				expectedSourceSha: TEST_BASE_SHA,
@@ -903,8 +903,8 @@ describe('Phase H: Direct Writer Call Tests', () => {
 		const { bridge, transport } = createTrustedBridge();
 		await expect(
 			bridge.branchWriter.createBranch({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				branch: 'wrong-target',
 				sourceBranch: STAGE3_CANONICAL.baseBranch,
 				expectedSourceSha: TEST_BASE_SHA,
@@ -917,8 +917,8 @@ describe('Phase H: Direct Writer Call Tests', () => {
 		const { bridge, transport } = createTrustedBridge();
 		await expect(
 			bridge.fileCommitWriter.commitFile({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				branch: STAGE3_CANONICAL.targetBranch,
 				filePath: STAGE3_CANONICAL.filePath,
 				content: 'malicious content',
@@ -933,8 +933,8 @@ describe('Phase H: Direct Writer Call Tests', () => {
 		const { bridge, transport } = createTrustedBridge();
 		await expect(
 			bridge.fileCommitWriter.commitFile({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				branch: STAGE3_CANONICAL.targetBranch,
 				filePath: 'wrong/path.md',
 				content: CANONICAL_FILE_CONTENT,
@@ -949,8 +949,8 @@ describe('Phase H: Direct Writer Call Tests', () => {
 		const { bridge, transport } = createTrustedBridge();
 		await expect(
 			bridge.fileCommitWriter.commitFile({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				branch: STAGE3_CANONICAL.targetBranch,
 				filePath: STAGE3_CANONICAL.filePath,
 				content: CANONICAL_FILE_CONTENT,
@@ -965,8 +965,8 @@ describe('Phase H: Direct Writer Call Tests', () => {
 		const { bridge, transport } = createTrustedBridge();
 		await expect(
 			bridge.prWriter.createPullRequest({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				title: 'wrong PR title',
 				head: STAGE3_CANONICAL.targetBranch,
 				base: STAGE3_CANONICAL.baseBranch,
@@ -981,8 +981,8 @@ describe('Phase H: Direct Writer Call Tests', () => {
 		const { bridge, transport } = createTrustedBridge();
 		await expect(
 			bridge.prWriter.createPullRequest({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				title: STAGE3_CANONICAL.prTitle,
 				head: STAGE3_CANONICAL.targetBranch,
 				base: STAGE3_CANONICAL.baseBranch,
@@ -997,8 +997,8 @@ describe('Phase H: Direct Writer Call Tests', () => {
 		const { bridge, transport } = createTrustedBridge();
 		await expect(
 			bridge.prWriter.createPullRequest({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				title: STAGE3_CANONICAL.prTitle,
 				head: STAGE3_CANONICAL.targetBranch,
 				base: STAGE3_CANONICAL.baseBranch,

@@ -3,6 +3,9 @@
 // Connects to Redis (BullMQ), opens SQLite DB, creates adapters,
 // and processes pipeline jobs from the queue.
 
+import fs from 'node:fs';
+import path from 'node:path';
+
 import {
 	admitNext,
 	enqueueItem,
@@ -10,8 +13,10 @@ import {
 	markRunStarted,
 	resolveAttemptLeaseTtlMs,
 } from '@positron/control-plane';
-import type { GitHubAdapter } from '@positron/github-adapter';
+import type { GitHubAdapter, Stage3AuditSink } from '@positron/github-adapter';
 import {
+	assembleStage3Pilot,
+	createEnvRuntimeSafetyProbe,
 	createRealGitHubAdapter,
 	FakeGitHubAdapter,
 	GitHubStatusSyncService,
@@ -40,6 +45,7 @@ import {
 import { FakeSpecKitAdapter, RealSpecKitAdapter } from '@positron/speckit-adapter';
 import { createAuditSink, GatewayService, ToolRegistry } from '@positron/tool-gateway';
 import {
+	createStage3ExecutionAuthorityProvider,
 	isRunInWorkerScope,
 	isTerminalRunRecord,
 	type PipelineDeps,
@@ -142,6 +148,26 @@ const workerGateway = new GatewayService(workerToolRegistry, { enabled: true });
 workerGateway.onAudit = createAuditSink({
 	runId: 'worker-runtime',
 	source: 'worker',
+});
+const stage3AuditSink: Stage3AuditSink = {
+	async record(event) {
+		const auditDir = path.resolve('.opencode', 'audit');
+		fs.mkdirSync(auditDir, { recursive: true });
+		fs.appendFileSync(
+			path.join(auditDir, 'stage3-runtime.jsonl'),
+			`${JSON.stringify(event)}\n`,
+			'utf8',
+		);
+	},
+};
+const stage3Pilot = assembleStage3Pilot({
+	enabled: process.env.POSITRON_STAGE3_PILOT_ENABLED === 'true',
+	runtimeMode: github instanceof FakeGitHubAdapter ? 'fake' : 'real',
+	targetRepository: repository.repo,
+	sandboxCredential: process.env.POSITRON_STAGE3_SANDBOX_TOKEN,
+	executionAuthority: createStage3ExecutionAuthorityProvider(db),
+	runtimeSafetyProbe: createEnvRuntimeSafetyProbe(),
+	auditSink: stage3AuditSink,
 });
 
 // ---------------------------------------------------------------------------
@@ -258,6 +284,7 @@ const worker = new Worker<PipelineJobData, PipelineJobResult>(
 			speckit,
 			opencode,
 			github,
+			stage3Pilot,
 			syncService,
 			gateway: workerGateway,
 			gateRuntimeMode,

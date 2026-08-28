@@ -59,8 +59,13 @@ import type {
 	GitHubAdapter,
 	GitHubStatusSyncInput,
 	GitHubStatusSyncResult,
+	Stage3AuditSink,
+	Stage3CanonicalLiveExecutor,
+	Stage3RunBoundApprovalProvider,
 } from '@positron/github-adapter';
 import {
+	assembleStage3Pilot,
+	createEnvRuntimeSafetyProbe,
 	createRealGitHubAdapter,
 	FakeGitHubAdapter,
 	GitHubStatusSyncService,
@@ -100,7 +105,7 @@ import {
 import { FakeSpecKitAdapter, RealSpecKitAdapter } from '@positron/speckit-adapter';
 import { createAuditSink, GatewayService, ToolRegistry } from '@positron/tool-gateway';
 import type { PipelineDeps } from '@positron/worker-pipeline';
-import { runPipeline } from '@positron/worker-pipeline';
+import { createStage3ExecutionAuthorityProvider, runPipeline } from '@positron/worker-pipeline';
 import type Database from 'better-sqlite3';
 import express from 'express';
 import { getManagedTargetProjects } from './data/managed-target-projects.js';
@@ -166,6 +171,10 @@ interface ServerOptions {
 	opencodeAdapter?: OpenCodeAdapter;
 	/** Pfad zur SQLite-Datenbank. Default: ~/.positron/positron.db. Für Tests: ':memory:'. */
 	dbPath?: string;
+	/** Durable approval source; absent means the pilot cannot be enabled. */
+	stage3ApprovalProvider?: Stage3RunBoundApprovalProvider;
+	/** Optional replacement for the default durable Stage 3 audit sink. */
+	stage3AuditSink?: Stage3AuditSink;
 }
 
 function resolveAdapter(adapter?: GitHubAdapter): {
@@ -207,6 +216,7 @@ function resolveRepositoryConfig(repository?: RepositoryConfig): RepositoryConfi
 
 // SQLite-Datenbankverbindung (initialisiert in createApp)
 let db: Database.Database | null = null;
+let activeStage3Pilot: Stage3CanonicalLiveExecutor | undefined;
 
 // Adapter-Standards (werden in createApp basierend auf Env-Vars konfiguriert)
 // Env-Vars: POSITRON_WORKSPACE_ROOT, POSITRON_SPECKIT_MODE, POSITRON_OPENCODE_MODE
@@ -681,6 +691,7 @@ async function runFullPipeline(
 			speckit,
 			opencode,
 			github,
+			stage3Pilot: activeStage3Pilot,
 			syncService,
 			gateRuntimeMode,
 			// P4: zentrale, validierte Attempt-Lease-TTL (POSITRON_ATTEMPT_LEASE_TTL_MS)
@@ -1141,6 +1152,27 @@ export function createApp(options: ServerOptions = {}) {
 	gateway.onAudit = createAuditSink({
 		runId: 'server-runtime',
 		source: 'server',
+	});
+	const stage3AuditSink: Stage3AuditSink = options.stage3AuditSink ?? {
+		async record(event) {
+			const auditDir = path.resolve('.opencode', 'audit');
+			fs.mkdirSync(auditDir, { recursive: true });
+			fs.appendFileSync(
+				path.join(auditDir, 'stage3-runtime.jsonl'),
+				`${JSON.stringify(event)}\n`,
+				'utf8',
+			);
+		},
+	};
+	activeStage3Pilot = assembleStage3Pilot({
+		enabled: process.env.POSITRON_STAGE3_PILOT_ENABLED === 'true',
+		runtimeMode: githubMode,
+		targetRepository: repository.repo,
+		sandboxCredential: process.env.POSITRON_STAGE3_SANDBOX_TOKEN,
+		approvalProvider: options.stage3ApprovalProvider,
+		executionAuthority: createStage3ExecutionAuthorityProvider(getDb()),
+		runtimeSafetyProbe: createEnvRuntimeSafetyProbe(),
+		auditSink: stage3AuditSink,
 	});
 
 	// ── P4: Scheduler config (early, for canonical intake) ──

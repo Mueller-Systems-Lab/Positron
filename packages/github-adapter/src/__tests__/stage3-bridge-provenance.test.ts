@@ -576,7 +576,7 @@ describe('Defense-in-Depth — writer argument validation in trusted bridge', ()
 		await expect(
 			bridge.branchWriter.createBranch({
 				owner: 'evil-owner',
-				repo: 'positron-sandbox',
+				repo: 'positron-308-sandbox',
 				branch: STAGE3_CANONICAL.targetBranch,
 				sourceBranch: STAGE3_CANONICAL.baseBranch,
 				expectedSourceSha: TEST_BASE_SHA,
@@ -588,8 +588,8 @@ describe('Defense-in-Depth — writer argument validation in trusted bridge', ()
 		const bridge = createTrustedBridge();
 		await expect(
 			bridge.branchWriter.createBranch({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				branch: 'malicious-branch',
 				sourceBranch: STAGE3_CANONICAL.baseBranch,
 				expectedSourceSha: TEST_BASE_SHA,
@@ -601,8 +601,8 @@ describe('Defense-in-Depth — writer argument validation in trusted bridge', ()
 		const bridge = createTrustedBridge();
 		await expect(
 			bridge.fileCommitWriter.commitFile({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				branch: STAGE3_CANONICAL.targetBranch,
 				filePath: STAGE3_CANONICAL.filePath,
 				content: 'malicious content',
@@ -616,8 +616,8 @@ describe('Defense-in-Depth — writer argument validation in trusted bridge', ()
 		const bridge = createTrustedBridge();
 		await expect(
 			bridge.fileCommitWriter.commitFile({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				branch: STAGE3_CANONICAL.targetBranch,
 				filePath: 'packages/github-adapter/src/index.ts',
 				content: CANONICAL_FILE_CONTENT,
@@ -631,8 +631,8 @@ describe('Defense-in-Depth — writer argument validation in trusted bridge', ()
 		const bridge = createTrustedBridge();
 		await expect(
 			bridge.prWriter.createPullRequest({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				title: 'malicious PR title',
 				head: STAGE3_CANONICAL.targetBranch,
 				base: STAGE3_CANONICAL.baseBranch,
@@ -646,8 +646,8 @@ describe('Defense-in-Depth — writer argument validation in trusted bridge', ()
 		const bridge = createTrustedBridge();
 		await expect(
 			bridge.prWriter.createPullRequest({
-				owner: 'xxammaxx',
-				repo: 'positron-sandbox',
+				owner: 'Mueller-Systems-Lab',
+				repo: 'positron-308-sandbox',
 				title: STAGE3_CANONICAL.prTitle,
 				head: STAGE3_CANONICAL.targetBranch,
 				base: STAGE3_CANONICAL.baseBranch,

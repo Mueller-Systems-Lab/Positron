@@ -180,8 +180,8 @@ describe('C1: Public Export Surface — forbidden symbols not exported', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('C2: Immutable Repository Binding — assertBound rejection', () => {
-	const BOUND_OWNER = 'xxammaxx';
-	const BOUND_REPO = 'positron-sandbox';
+	const BOUND_OWNER = 'Mueller-Systems-Lab';
+	const BOUND_REPO = 'positron-308-sandbox';
 	const WRONG_OWNER = 'evil-attacker';
 	const WRONG_REPO = 'malicious-repo';
 
@@ -658,8 +658,8 @@ describe('Bridge Forgery — adversarial objects', () => {
 
 describe('Post-Write Verification — adversarial negative tests', () => {
 	const BASE_INPUT = {
-		owner: 'xxammaxx',
-		repo: 'positron-sandbox',
+		owner: 'Mueller-Systems-Lab',
+		repo: 'positron-308-sandbox',
 		baseBranch: 'main',
 		expectedBaseSha: 'expected-base-sha',
 		targetBranch: 'positron/issue-308-stage3-pilot',
@@ -922,8 +922,8 @@ describe('Forbidden Endpoint Detection', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Transport — no forbidden endpoints during operations', () => {
-	const OWNER = 'xxammaxx';
-	const REPO = 'positron-sandbox';
+	const OWNER = 'Mueller-Systems-Lab';
+	const REPO = 'positron-308-sandbox';
 
 	it('no forbidden endpoints called during resolveBaseSha', async () => {
 		const octokit = createMockOctokit();

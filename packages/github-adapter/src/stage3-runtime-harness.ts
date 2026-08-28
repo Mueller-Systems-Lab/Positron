@@ -30,6 +30,12 @@ import {
 	verifyBridgeCapabilities,
 	verifyTrustedBridgeIntegrity,
 } from './stage3-real-github-bridge.js';
+import type {
+	RunBoundStage3Approval,
+	Stage3ExecutionAuthorityProvider,
+	Stage3ExecutionIdentity,
+} from './stage3-run-bound-approval.js';
+import { validateRunBoundStage3Approval } from './stage3-run-bound-approval.js';
 import type { Stage3RuntimeSafetyProbe } from './stage3-runtime-safety-probe.js';
 import { validateSafetySnapshot } from './stage3-runtime-safety-probe.js';
 import type {
@@ -133,6 +139,13 @@ export interface Stage3LiveHarnessInput extends Stage3HarnessInputBase {
 
 	/** Structured approval binding with cryptographic hashes. */
 	approvalBinding: Stage3ApprovalBinding;
+
+	/** Run-bound envelope and current durable identity for canonical execution. */
+	runBoundApproval?: RunBoundStage3Approval;
+	executionIdentity?: Stage3ExecutionIdentity;
+
+	/** Current durable authority, re-read before preflight and each mutation. */
+	executionAuthority?: Stage3ExecutionAuthorityProvider;
 
 	/** Trusted runtime safety probe — NOT caller-supplied booleans. */
 	runtimeSafetyProbe: Stage3RuntimeSafetyProbe;
@@ -245,6 +258,9 @@ export interface Stage3HarnessConfig {
 
 	/** Whether the harness is in fake mode. In fake mode, writers are simulated. */
 	fakeMode: boolean;
+
+	/** Require durable Run/Job/Attempt identity binding in live mode. */
+	requireRunBoundApproval?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -287,6 +303,7 @@ export class Stage3RuntimeHarness {
 		this.config = {
 			enabled: true,
 			fakeMode: true,
+			requireRunBoundApproval: false,
 			...params.config,
 		};
 	}
@@ -324,6 +341,21 @@ export class Stage3RuntimeHarness {
 			} catch {
 				return false;
 			}
+		};
+		const runBoundFailure = async (): Promise<string | undefined> => {
+			if (!isLive || !this.config.requireRunBoundApproval) return undefined;
+			if (!input.executionIdentity || !input.executionAuthority) {
+				return 'STAGE3_EXECUTION_AUTHORITY_PROVIDER_MISSING';
+			}
+			const authority = await input.executionAuthority.revalidate(input.executionIdentity);
+			if (!authority.valid) {
+				return authority.reason ?? 'STAGE3_CURRENT_EXECUTION_AUTHORITY_INVALID';
+			}
+			const validation = validateRunBoundStage3Approval(
+				input.runBoundApproval,
+				authority.currentIdentity,
+			);
+			return validation.valid ? undefined : validation.reason;
 		};
 
 		// Effective policy values: in live mode, these are always satisfied
@@ -376,6 +408,39 @@ export class Stage3RuntimeHarness {
 				false,
 				'harness-gate',
 			);
+		}
+
+		// Canonical live execution must carry the current durable identity before
+		// any bridge read or writer call. Legacy direct harness tests retain the
+		// v1 behavior unless requireRunBoundApproval is explicitly enabled.
+		if (isLive && this.config.requireRunBoundApproval) {
+			const failure = await runBoundFailure();
+			if (failure) {
+				const auditEvent = this._audit(
+					'live',
+					'createBranch',
+					input.repository,
+					'blocked',
+					`Run-bound approval validation failed: ${failure}`,
+					undefined,
+					undefined,
+					idempotencyKey,
+					'preflight-run-binding',
+				);
+				auditEvents.push(auditEvent);
+				await _emit(auditEvent);
+				return this._result(
+					false,
+					`Run-bound approval invalid: ${failure}`,
+					false,
+					false,
+					auditEvents,
+					'live',
+					false,
+					false,
+					'preflight-run-binding',
+				);
+			}
 		}
 
 		// ── Phase 0a: Reserve idempotency key for this multi-phase run ──
@@ -922,6 +987,33 @@ export class Stage3RuntimeHarness {
 		} else if (isLive) {
 			// Live mode: call the bridge's branch writer
 			const writer = input.bridge.branchWriter;
+			const failure = await runBoundFailure();
+			if (failure) {
+				const auditEvent = this._audit(
+					'live',
+					'createBranch',
+					input.repository,
+					'blocked',
+					`Run-bound approval invalid before branch mutation: ${failure}`,
+					undefined,
+					undefined,
+					idempotencyKey,
+					'pre-write-branch-binding',
+				);
+				auditEvents.push(auditEvent);
+				await _emit(auditEvent);
+				return this._result(
+					false,
+					`Run-bound approval invalid: ${failure}`,
+					true,
+					false,
+					auditEvents,
+					mode,
+					false,
+					false,
+					'pre-write-branch-binding',
+				);
+			}
 			this.policy.markWriteAttempted();
 			try {
 				const result = await writer.createBranch({
@@ -1142,6 +1234,34 @@ export class Stage3RuntimeHarness {
 			}
 		} else if (isLive) {
 			const writer = input.bridge.fileCommitWriter;
+			const failure = await runBoundFailure();
+			if (failure) {
+				const auditEvent = this._audit(
+					'live',
+					'commitFile',
+					input.repository,
+					'blocked',
+					`Run-bound approval invalid before commit mutation: ${failure}`,
+					preview.fileSha256,
+					preview.fileLength,
+					idempotencyKey,
+					'pre-write-commit-binding',
+				);
+				auditEvents.push(auditEvent);
+				await _emit(auditEvent);
+				return this._result(
+					false,
+					`Run-bound approval invalid: ${failure}`,
+					true,
+					true,
+					auditEvents,
+					mode,
+					false,
+					true,
+					'pre-write-commit-binding',
+					branchResult,
+				);
+			}
 			this.policy.markWriteAttempted();
 			try {
 				const result = await writer.commitFile({
@@ -1379,6 +1499,35 @@ export class Stage3RuntimeHarness {
 			}
 		} else if (isLive) {
 			const writer = input.bridge.prWriter;
+			const failure = await runBoundFailure();
+			if (failure) {
+				const auditEvent = this._audit(
+					'live',
+					'createPullRequest',
+					input.repository,
+					'blocked',
+					`Run-bound approval invalid before PR mutation: ${failure}`,
+					preview.fileSha256,
+					preview.fileLength,
+					idempotencyKey,
+					'pre-write-pr-binding',
+				);
+				auditEvents.push(auditEvent);
+				await _emit(auditEvent);
+				return this._result(
+					false,
+					`Run-bound approval invalid: ${failure}`,
+					true,
+					true,
+					auditEvents,
+					mode,
+					false,
+					true,
+					'pre-write-pr-binding',
+					branchResult,
+					commitResult,
+				);
+			}
 			this.policy.markWriteAttempted();
 			try {
 				const result = await writer.createPullRequest({

@@ -84,6 +84,7 @@ e2e/**/*.d.ts.map
 
 # OpenCode local audit logs (never commit)
 .opencode/logs/
+.opencode/audit/
 
 # Local release packaging (generated, never commit)
 .local-release/

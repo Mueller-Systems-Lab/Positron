@@ -38,7 +38,6 @@ import {
 	verifyPreWrite,
 } from '../stage3-reader-verifier.js';
 import type { Stage3RealGitHubBridge } from '../stage3-real-github-bridge.js';
-
 import {
 	createMockStage3Bridge,
 	STAGE3_FORBIDDEN_CAPABILITIES,
@@ -50,6 +49,7 @@ import {
 	createSafeSnapshot,
 	validateSafetySnapshot,
 } from '../stage3-runtime-safety-probe.js';
+import { STAGE3_CANONICAL } from '../stage3-supervised-pilot-policy.js';
 
 // ---------------------------------------------------------------------------
 // Canonical test values (imported from stage3-canonical-manifest.ts)
@@ -67,6 +67,7 @@ const CANONICAL_VALUES = {
 };
 
 function makeCanonicalBinding(overrides?: Partial<Stage3ApprovalBinding>): Stage3ApprovalBinding {
+	const expiresAt = new Date(Date.now() + 3600000).toISOString();
 	const approvalText = generateApprovalText({
 		repository: CANONICAL_VALUES.repository,
 		baseBranch: CANONICAL_VALUES.baseBranch,
@@ -77,7 +78,7 @@ function makeCanonicalBinding(overrides?: Partial<Stage3ApprovalBinding>): Stage
 		fileSha256: CANONICAL_VALUES.fileSha256,
 		commitMetadataSha256: CANONICAL_VALUES.commitMetadataSha256,
 		prMetadataSha256: CANONICAL_VALUES.prMetadataSha256,
-		expiresAt: new Date(Date.now() + 3600000).toISOString(),
+		expiresAt,
 	});
 
 	return createApprovalBinding({
@@ -91,7 +92,7 @@ function makeCanonicalBinding(overrides?: Partial<Stage3ApprovalBinding>): Stage
 		fileSha256: CANONICAL_VALUES.fileSha256,
 		commitMetadataSha256: CANONICAL_VALUES.commitMetadataSha256,
 		prMetadataSha256: CANONICAL_VALUES.prMetadataSha256,
-		expiresAt: new Date(Date.now() + 3600000).toISOString(),
+		expiresAt,
 		...overrides,
 	});
 }
@@ -565,7 +566,7 @@ describe('Stage3ReadOnlyVerifier', () => {
 				filePath: 'stage3/positron-supervised-pilot.md',
 				expectedFileContent: 'test',
 				expectedFileSha256: 'expected-file-sha',
-				expectedFileBytes: 1724,
+				expectedFileBytes: STAGE3_CANONICAL.fileUtf8ByteLength,
 				expectedCommitMessage: 'test',
 				expectedPrTitle: 'test',
 				expectedPrBody: 'test',
