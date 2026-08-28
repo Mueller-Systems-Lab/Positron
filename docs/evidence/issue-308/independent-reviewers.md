@@ -17,8 +17,8 @@ sessions do not count.
 | Metric | Value |
 |---|---:|
 | PLANNED | 17 |
-| SPAWN_ATTEMPTED | 25 |
-| SPAWNED | 25 |
+| SPAWN_ATTEMPTED | 19 |
+| SPAWNED | 19 |
 | COMPLETED | 16 |
 | RESULT_CAPTURED | 16 |
 | COUNTED | 16 |
@@ -37,28 +37,28 @@ Therefore 17/17 is not claimed yet.
 
 ## Current final-head role ledger
 
-Review head for every row below: `048da09d6f8d1ac9cfdab5f15bfa996661772ce6`.
+Review head for every row below: `b0cfd871885cb329d50fc591478de8aaaf28f594`.
 Base at the live refresh: `fcea2d1802bd6ba0e19e5fd5edae0987432f4e2e`.
 Backend for every counted row: `ISOLATED`.
 
 | Required role | Session ID | Completion | Result | Critical | Major | Verdict | Counted |
 |---|---|---|---|---:|---:|---|---|
-| audit-repository-reality | `ses_fb90d3009ffeP83R4aatOfte6I` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
-| audit-repository-hygiene | `ses_fb90d2f8effeHX27ybY3P1Lq1G` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
-| review-architecture | `ses_fb90d2fc2ffek433bGLsNH7Lm9` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
-| review-security | `ses_fb90d2f98ffecVTHdXrmeW2sy9` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
-| review-devex-installer | `ses_fb8fa9109ffelUy3VnMAOcNonD` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
-| review-docker-infrastructure | `ses_fb906a401ffeDG5FkLJHRL61F3` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
-| review-frontend-landing | `ses_fb90a0e54ffessGQ7BXzurWFZV` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
-| review-ux-accessibility | `ses_fb90a0d83ffeFGKSXfLkd4E63f` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
-| review-visual-qa | `ses_fb90a0e02ffeGlSjXXWI6eTO0r` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
-| review-documentation-truth | `ses_fb906a32bffe1TswYnb0zIFKES` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
-| review-github-pages | `ses_fb8f795caffe26Cjrf3CZTdcfL` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
-| review-test-tooling | `ses_fb902f93fffeu5KrpTKDidchuk` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
-| review-integration | `ses_fb902f8e7ffeqFbf8TvuUYF0Gj` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
-| review-release-packaging | `ses_fb902f957ffedt2piPmQmZYSUt` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
-| review-governance | `ses_fb8f6c25fffeLxzfpBYpr3Zl2N` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
-| research-official-docs | `ses_fb90174f6ffex4IxkA2PfBLO5z` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| audit-repository-reality | `ses_fb8df60bcffe139wqCXR663KWC` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| audit-repository-hygiene | `ses_fb8f1eab8ffeMaeUY004A7rqFM` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-architecture | `ses_fb8f1ea23ffejFuwPqDjqEa22H` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-security | `ses_fb8f1eaf3ffe2CO2TpBXM1FYow` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-devex-installer | `ses_fb8edf6a9ffep2ohidzxKQC4B0` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-docker-infrastructure | `ses_fb8edf666ffe8fhP5yua0NMW3l` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-frontend-landing | `ses_fb8edf665ffekg11aKnNgTypr6` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-ux-accessibility | `ses_fb8edf64effelJPtscC4tV3192` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-visual-qa | `ses_fb8e95c35ffeJx7KuWuiPXUmwq` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-documentation-truth | `ses_fb8e95c44ffeSo4187CMuQVRdL` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-github-pages | `ses_fb8e95c0fffe7SvPmpXp50J7Y2` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-test-tooling | `ses_fb8e95c03ffe03ZXjEj8zD9bQ8` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-integration | `ses_fb8e23a8dffej5hX6VGh6t95iS` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-release-packaging | `ses_fb8e23a8effeTBOB3KmuACL4ot` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-governance | `ses_fb8e6f3a3ffeepmGcLTxl9Lw4f` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| research-official-docs | `ses_fb8e6f3b1ffeX2gcj95C14ouW9` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
 | review-independent-final | — | NOT STARTED | — | — | — | MUST RUN LAST | NO |
 
 Some model responses used generic `ROLE` text or self-reported placeholder
@@ -86,7 +86,7 @@ changes; focused tests and green CI are the evidence for `FIXED` dispositions.
 | Sandbox-only credential unavailable | MAJOR for Phase 3 readiness | PRE_EXISTING_OUT_OF_SCOPE for remediation PR; Phase 3 remains blocked |
 | Existing container/UI baseline concerns | MAJOR/minor | PRE_EXISTING_OUT_OF_SCOPE; no related product change |
 
-Additional final-head reviewer notes were non-blocking: local synchronous
+Additional b0cfd871 final-head reviewer notes were non-blocking: local synchronous
 audit-file I/O, limited static-only review, and expected absence of the
 sandbox credential. No final-head result identified a Critical or Major issue.
 
