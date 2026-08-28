@@ -32,6 +32,7 @@ import {
 } from './stage3-real-github-bridge.js';
 import type {
 	RunBoundStage3Approval,
+	Stage3ExecutionAuthorityProvider,
 	Stage3ExecutionIdentity,
 } from './stage3-run-bound-approval.js';
 import { validateRunBoundStage3Approval } from './stage3-run-bound-approval.js';
@@ -142,6 +143,9 @@ export interface Stage3LiveHarnessInput extends Stage3HarnessInputBase {
 	/** Run-bound envelope and current durable identity for canonical execution. */
 	runBoundApproval?: RunBoundStage3Approval;
 	executionIdentity?: Stage3ExecutionIdentity;
+
+	/** Current durable authority, re-read before preflight and each mutation. */
+	executionAuthority?: Stage3ExecutionAuthorityProvider;
 
 	/** Trusted runtime safety probe — NOT caller-supplied booleans. */
 	runtimeSafetyProbe: Stage3RuntimeSafetyProbe;
@@ -338,11 +342,18 @@ export class Stage3RuntimeHarness {
 				return false;
 			}
 		};
-		const runBoundFailure = (): string | undefined => {
+		const runBoundFailure = async (): Promise<string | undefined> => {
 			if (!isLive || !this.config.requireRunBoundApproval) return undefined;
+			if (!input.executionIdentity || !input.executionAuthority) {
+				return 'STAGE3_EXECUTION_AUTHORITY_PROVIDER_MISSING';
+			}
+			const authority = await input.executionAuthority.revalidate(input.executionIdentity);
+			if (!authority.valid) {
+				return authority.reason ?? 'STAGE3_CURRENT_EXECUTION_AUTHORITY_INVALID';
+			}
 			const validation = validateRunBoundStage3Approval(
 				input.runBoundApproval,
-				input.executionIdentity,
+				authority.currentIdentity,
 			);
 			return validation.valid ? undefined : validation.reason;
 		};
@@ -403,7 +414,7 @@ export class Stage3RuntimeHarness {
 		// any bridge read or writer call. Legacy direct harness tests retain the
 		// v1 behavior unless requireRunBoundApproval is explicitly enabled.
 		if (isLive && this.config.requireRunBoundApproval) {
-			const failure = runBoundFailure();
+			const failure = await runBoundFailure();
 			if (failure) {
 				const auditEvent = this._audit(
 					'live',
@@ -976,7 +987,7 @@ export class Stage3RuntimeHarness {
 		} else if (isLive) {
 			// Live mode: call the bridge's branch writer
 			const writer = input.bridge.branchWriter;
-			const failure = runBoundFailure();
+			const failure = await runBoundFailure();
 			if (failure) {
 				const auditEvent = this._audit(
 					'live',
@@ -1223,7 +1234,7 @@ export class Stage3RuntimeHarness {
 			}
 		} else if (isLive) {
 			const writer = input.bridge.fileCommitWriter;
-			const failure = runBoundFailure();
+			const failure = await runBoundFailure();
 			if (failure) {
 				const auditEvent = this._audit(
 					'live',
@@ -1488,7 +1499,7 @@ export class Stage3RuntimeHarness {
 			}
 		} else if (isLive) {
 			const writer = input.bridge.prWriter;
-			const failure = runBoundFailure();
+			const failure = await runBoundFailure();
 			if (failure) {
 				const auditEvent = this._audit(
 					'live',

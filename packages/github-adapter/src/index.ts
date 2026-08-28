@@ -75,14 +75,26 @@ export type {
 	RunBoundApprovalValidationResult,
 	RunBoundStage3Approval,
 	Stage3ExecutionIdentity,
+	Stage3ExecutionAuthorityProvider,
 } from './stage3-run-bound-approval.js';
 export {
 	computeRunBoundApprovalFingerprint,
 	createRunBoundStage3Approval,
 	validateRunBoundStage3Approval,
 } from './stage3-run-bound-approval.js';
-export type { Stage3CanonicalLiveExecutor } from './stage3-canonical-executor.js';
-export { createStage3CanonicalLiveExecutor } from './stage3-canonical-executor.js';
+export type {
+	Stage3CanonicalLiveExecutor,
+	Stage3RunBoundApprovalProvider,
+} from './stage3-canonical-executor.js';
+export {
+	createStage3CanonicalLiveExecutor,
+	createStage3CanonicalLiveExecutorFactory,
+} from './stage3-canonical-executor.js';
+export {
+	assembleStage3Pilot,
+	STAGE3_SANDBOX_CREDENTIAL_MISSING,
+} from './stage3-pilot-bootstrap.js';
+export type { Stage3PilotBootstrapOptions } from './stage3-pilot-bootstrap.js';
 export type {
 	Stage3BaseDriftResult,
 	Stage3BaseResolver,

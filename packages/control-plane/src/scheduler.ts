@@ -541,6 +541,14 @@ export function markRunStarted(
 		)
 		.run(runId, now, queueItemId);
 	if (res.changes !== 1) return null;
+	// Bind the reservation to the durable run at the same lifecycle boundary.
+	// Admission reserves by queue item before a run ID exists; Stage 3 authority
+	// must never have to infer that relationship from a snapshot.
+	db.prepare(
+		`UPDATE cp_provider_reservations
+		 SET run_id = ?
+		 WHERE owner_id = ? AND status = 'reserved' AND (run_id IS NULL OR run_id = ?)`,
+	).run(runId, queueItemId, runId);
 	const updated = getQueueItem(db, queueItemId);
 	if (updated) {
 		emit(config ?? {}, {

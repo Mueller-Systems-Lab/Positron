@@ -66,6 +66,21 @@ export interface RunBoundApprovalValidationResult {
 	reason?: string;
 }
 
+/**
+ * Read-only authority boundary for the durable control plane.
+ *
+ * The harness deliberately knows nothing about SQL or control-plane tables.
+ * The owner of the canonical pipeline supplies this provider and must read
+ * current state for every mutation boundary.
+ */
+export interface Stage3ExecutionAuthorityProvider {
+	revalidate(boundIdentity: Stage3ExecutionIdentity): Promise<{
+		valid: boolean;
+		currentIdentity?: Stage3ExecutionIdentity;
+		reason?: string;
+	}>;
+}
+
 function compareIdentity(
 	approved: Stage3ExecutionIdentity,
 	actual: Stage3ExecutionIdentity,

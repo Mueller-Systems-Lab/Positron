@@ -933,7 +933,9 @@ function loadStage3ExecutionIdentity(
 				released_at: string | null;
 		  }
 		| undefined;
-	if (!lock || lock.released_at !== null) throw new Error('STAGE3_WORKSPACE_LOCK_IDENTITY_MISSING');
+	if (!lock || lock.released_at !== null || lock.owner_id !== queue.queue_item_id) {
+		throw new Error('STAGE3_WORKSPACE_LOCK_IDENTITY_MISSING');
+	}
 	const reservation = getDb(deps)
 		.prepare(
 			"SELECT reservation_id FROM cp_provider_reservations WHERE owner_id = ? AND run_id = ? AND status = 'reserved' LIMIT 1",

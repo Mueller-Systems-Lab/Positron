@@ -17,4 +17,18 @@ Generated: 2026-08-28. No external Stage 3 mutation was attempted.
 | Eligible sandbox-only credential | FAIL |
 | Pre-approval external mutations | `0` |
 
-Classification: `AMBER_POSITRON_308_SANDBOX_CREDENTIAL_REQUIRED`.
+Additional current checks:
+
+- Productive Stage 3 bootstrap is explicit and disabled by default: PASS.
+- Enabling without `POSITRON_STAGE3_SANDBOX_TOKEN` fails closed with
+  `STAGE3_SANDBOX_CREDENTIAL_MISSING`: PASS.
+- Production and non-canonical targets fail before executor construction:
+  PASS.
+- Current durable authority is reread before preflight, branch, commit, and
+  PR boundaries: PASS (deterministic tests).
+- Phase 4 zero-effect failure matrix: PASS (see
+  `phase4-failure-matrix.md`).
+
+The live sandbox-only credential and final-head 17-reviewer wave remain
+pending. Classification:
+`AMBER_POSITRON_308_PRE_PHASE3_MULTI_BLOCKED`.

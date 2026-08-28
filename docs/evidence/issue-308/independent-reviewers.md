@@ -1,6 +1,8 @@
 # Issue #308 — reviewer lifecycle ledger
 
-Generated: 2026-08-28. Reconciled against PR #460 head `58990b5`.
+Generated: 2026-08-28. Reconciled against the prior runtime evidence and
+current PR #460 continuation. The source fixes below are not yet represented
+by a frozen final review head.
 
 ## Accounting rule
 
@@ -19,7 +21,7 @@ available. A closed session without a captured result does not count.
 | COMPLETED | 11 known |
 | RESULT_CAPTURED | 11 known |
 | COUNTED (role-qualified historical/current-target results) | 7 |
-| CURRENT_HEAD_COUNTED (`58990b5`) | 0 pending fresh review wave |
+| CURRENT_HEAD_COUNTED (current continuation) | 0 pending fresh review wave |
 | UNIQUE_COUNTED_SESSION_IDS | 7 |
 | CHILD_BACKEND_COMPLETED | 11 |
 | ISOLATED_BACKEND_COMPLETED | 0 |
@@ -79,6 +81,30 @@ already covered role:
 The earlier evidence statement “0/17; every spawn failed” is superseded by
 this ledger. It was false as a description of the later runtime transcript,
 but no success is inferred from sessions without results.
+
+## Captured finding dispositions
+
+These are dispositions of recovered historical results only; they do not
+count as final-head reviews.
+
+| ROLE / SESSION | HEAD | FINDING | SEVERITY | STATUS |
+|---|---|---|---|---|
+| audit-repository-reality / `01a04660-4d8d...` | e917ba6 | snapshot-only authority; lock owner unchecked; productive bootstrap absent; Phase 4 absent | C/M | FIXED (current continuation) |
+| audit-repository-hygiene / `01a04660-4e06...` | e917ba6 | manifest hash and fixture drift; historical commit label; evidence incompleteness | M | FIXED / PRE_EXISTING_OUT_OF_SCOPE |
+| review-architecture / `01a04660-4e42...` | e917ba6 | productive wiring absent; snapshot revalidation; live path trust gap | C/M | FIXED (current continuation) |
+| review-security / `01a04660-4e7c...` | e917ba6 | unbound/self-attested approval; injected executor trust; credential/denylist concerns | M | FIXED (binding/bootstrap) / PRE_EXISTING_OUT_OF_SCOPE (credential not available for Phase 3) |
+| review-devex-installer / `01a04660-4eba...` | e917ba6 | helper expiry mismatch; productive wiring absent; package-script and Docker concerns | M | FIXED / PRE_EXISTING_OUT_OF_SCOPE |
+| review-docker-infrastructure / `01a04660-4eff...` | e917ba6 | productive wiring absent; reservation run binding; runtime/container isolation concerns | C/M | FIXED (wiring/reservation) / PRE_EXISTING_OUT_OF_SCOPE (container baseline) |
+| review-frontend-landing / `01a04668-cc38...` | 67028d7 | no applicable frontend surface; verify presentation/status truth | minor | PRE_EXISTING_OUT_OF_SCOPE / N/A with evidence |
+| audit-repository-reality / `01a04668-c744...` | 67028d7 | snapshot-only authority; productive wiring and Phase 4 absent | C/M | FIXED (current continuation) |
+| audit-repository-hygiene / `01a04668-c8e7...` | 67028d7 | worktree/head drift and historical evidence concerns | M | FIXED / PRE_EXISTING_OUT_OF_SCOPE |
+| review-devex-installer / `01a04668-c993...` | 67028d7 | stale review instructions; quickstart/install and count drift | M | PRE_EXISTING_OUT_OF_SCOPE |
+| review-docker-infrastructure / `01a04668-ca91...` | 67028d7 | compose token/build-context/mount/network concerns | M | PRE_EXISTING_OUT_OF_SCOPE |
+
+No recovered historical result is silently deleted. A finding remains
+`STILL_BLOCKING` until the current implementation or current evidence proves
+the disposition; the only remaining implementation blockers before the final
+review wave were B1/B2/Phase 4 and they now have focused tests.
 
 ## Gate status
 

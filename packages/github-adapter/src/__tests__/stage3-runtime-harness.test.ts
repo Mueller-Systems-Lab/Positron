@@ -9,6 +9,7 @@ import {
 	createSyntheticApprovalBinding,
 	generateApprovalText,
 } from '../stage3-approval-binding.js';
+import { createRunBoundStage3Approval } from '../stage3-run-bound-approval.js';
 import { createFakeBaseResolver } from '../stage3-base-resolver.js';
 import { CANONICAL_FILE_CONTENT } from '../stage3-canonical-manifest.js';
 import type { createFakeReadOnlyVerifier } from '../stage3-reader-verifier.js';
@@ -398,6 +399,81 @@ describe('Stage3RuntimeHarness — Positive: Happy Path (Fake Mode)', () => {
 		expect(result2.success).toBe(true);
 		expect(result2.branchCount).toBe(1);
 	});
+});
+
+describe('Stage3RuntimeHarness — authoritative mutation boundaries', () => {
+	const executionIdentity = {
+		runId: 'run-boundary-test',
+		queueItemId: 'queue-boundary-test',
+		jobId: 'job-boundary-test',
+		attemptId: 'attempt-boundary-test',
+		workspaceKey: STAGE3_CANONICAL.repository,
+		attemptLeaseOwnerId: 'owner-boundary-test',
+		attemptLeaseGeneration: 1,
+		workspaceLockOwnerId: 'queue-boundary-test',
+		workspaceLockGeneration: 1,
+		providerReservationId: 'reservation-boundary-test',
+		idempotencyKey: 'run-boundary-test:job-boundary-test:attempt-boundary-test',
+	} as const;
+
+	it.each([
+		['branch', 2, 0, 0, 0],
+		['commit', 3, 1, 0, 0],
+		['PR', 4, 1, 1, 0],
+	] as const)(
+		'%s is revalidated from current authority before mutation',
+		async (_boundary, failAt, expectedBranch, expectedCommit, expectedPr) => {
+			const branch = createSpyBranchWriter();
+			const commit = createSpyFileCommitWriter();
+			const pr = createSpyPrWriter();
+			const verifier = createStatefulVerifier();
+			branch.createBranch.mockImplementation(async (input) => {
+				verifier.simulateWritesComplete();
+				return { ref: `refs/heads/${input.branch}`, sha: 'branch-sha' };
+			});
+			let authorityReads = 0;
+			const authority = {
+				async revalidate() {
+					authorityReads++;
+					return authorityReads === failAt
+						? { valid: false, currentIdentity: executionIdentity, reason: `stale at ${_boundary}` }
+						: { valid: true, currentIdentity: executionIdentity };
+				},
+			};
+			const approval = createRunBoundStage3Approval({
+				effectBinding: LIVE_APPROVAL_BINDING,
+				runBinding: executionIdentity,
+			});
+			const harness = new Stage3RuntimeHarness({
+				policy: createStage3PilotPolicy(),
+				config: { enabled: true, fakeMode: false, requireRunBoundApproval: true },
+			});
+			const result = await harness.execute({
+				mode: 'live',
+				repository: STAGE3_CANONICAL.repository,
+				fileContent: CANONICAL_FILE_CONTENT,
+				idempotencyKey: executionIdentity.idempotencyKey,
+				approvalText: LIVE_APPROVAL_TEXT,
+				approvalBinding: LIVE_APPROVAL_BINDING,
+				runBoundApproval: approval,
+				executionIdentity,
+				executionAuthority: authority,
+				runtimeSafetyProbe: createFakeRuntimeSafetyProbe(),
+				bridge: createTestBridge({
+					branchWriter: branch,
+					fileCommitWriter: commit,
+					prWriter: pr,
+					verifier,
+				}),
+				auditSink: createSpyAuditSink(),
+			} satisfies Stage3LiveHarnessInput);
+			expect(result.success).toBe(false);
+			expect(branch.createBranch).toHaveBeenCalledTimes(expectedBranch);
+			expect(commit.commitFile).toHaveBeenCalledTimes(expectedCommit);
+			expect(pr.createPullRequest).toHaveBeenCalledTimes(expectedPr);
+			expect(authorityReads).toBe(failAt);
+		},
+	);
 });
 
 // ---------------------------------------------------------------------------

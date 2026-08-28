@@ -11,3 +11,4 @@ export {
 	isTerminalRunRecord,
 	runPipeline,
 } from './pipeline-runner.js';
+export { createStage3ExecutionAuthorityProvider } from './stage3-execution-authority.js';
