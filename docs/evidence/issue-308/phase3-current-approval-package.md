@@ -22,7 +22,7 @@ available to the real adapter in this execution environment.
 - File SHA-256: `60d95c696b9a6895e16dbdb8b2dc4f8c77b2eef432af7de7015b2af714003a9d`
 - Commit metadata SHA-256: `b2355e388aba0f51fb639b341deb01265f244d93a0fcc1964ad88e3fe5f1628f`
 - PR metadata SHA-256: `b5b141f2d41194eda6e3cc94946a236bda5769719cef786354f155e316ee625d`
-- Manifest SHA-256: `f78596635305890e00c9424c3606c7c38f65cb8e4551b68f0b8298e53f0f8`
+- Manifest SHA-256: `f78596635305890e00c9424c3606c7c38f65efdcb8e4551b68f0b8298e53f0f8`
 - Effects: exactly 1 branch, 1 file, 1 commit, 1 draft PR; merge forbidden
 
 The required run-bound IDs and expiry cannot be filled without starting a

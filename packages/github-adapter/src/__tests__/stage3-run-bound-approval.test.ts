@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	createApprovalBinding,
-	generateApprovalText,
-} from '../stage3-approval-binding.js';
+import { createApprovalBinding, generateApprovalText } from '../stage3-approval-binding.js';
 import {
 	CANONICAL_BASE_BRANCH,
 	CANONICAL_COMMIT_MESSAGE_SHA256,
@@ -23,7 +20,7 @@ const identity = {
 	queueItemId: 'queue-308-a',
 	jobId: 'job-308-a',
 	attemptId: 'attempt-308-a',
-	workspaceKey: 'Mueller-Systems-Lab/Positron',
+	workspaceKey: CANONICAL_REPOSITORY,
 	attemptLeaseOwnerId: 'ctl:run-308-a:attempt',
 	attemptLeaseGeneration: 3,
 	workspaceLockOwnerId: 'queue-308-a',
@@ -78,7 +75,10 @@ describe('Stage 3 run-bound approval', () => {
 			});
 			const changed = {
 				...identity,
-				[field]: typeof identity[field] === 'number' ? Number(identity[field]) + 1 : `${identity[field]}-other`,
+				[field]:
+					typeof identity[field] === 'number'
+						? Number(identity[field]) + 1
+						: `${identity[field]}-other`,
 			};
 			const result = validateRunBoundStage3Approval(approval, changed);
 			expect(result.valid).toBe(false);
@@ -92,10 +92,8 @@ describe('Stage 3 run-bound approval', () => {
 			runBinding: identity,
 		});
 		expect(
-			validateRunBoundStage3Approval(
-				{ ...approval, approvalFingerprint: '0'.repeat(64) },
-				identity,
-			).valid,
+			validateRunBoundStage3Approval({ ...approval, approvalFingerprint: '0'.repeat(64) }, identity)
+				.valid,
 		).toBe(false);
 		expect(validateRunBoundStage3Approval(undefined, identity).valid).toBe(false);
 	});

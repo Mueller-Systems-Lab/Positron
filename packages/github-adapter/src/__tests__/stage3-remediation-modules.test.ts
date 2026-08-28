@@ -67,6 +67,7 @@ const CANONICAL_VALUES = {
 };
 
 function makeCanonicalBinding(overrides?: Partial<Stage3ApprovalBinding>): Stage3ApprovalBinding {
+	const expiresAt = new Date(Date.now() + 3600000).toISOString();
 	const approvalText = generateApprovalText({
 		repository: CANONICAL_VALUES.repository,
 		baseBranch: CANONICAL_VALUES.baseBranch,
@@ -77,7 +78,7 @@ function makeCanonicalBinding(overrides?: Partial<Stage3ApprovalBinding>): Stage
 		fileSha256: CANONICAL_VALUES.fileSha256,
 		commitMetadataSha256: CANONICAL_VALUES.commitMetadataSha256,
 		prMetadataSha256: CANONICAL_VALUES.prMetadataSha256,
-		expiresAt: new Date(Date.now() + 3600000).toISOString(),
+		expiresAt,
 	});
 
 	return createApprovalBinding({
@@ -91,7 +92,7 @@ function makeCanonicalBinding(overrides?: Partial<Stage3ApprovalBinding>): Stage
 		fileSha256: CANONICAL_VALUES.fileSha256,
 		commitMetadataSha256: CANONICAL_VALUES.commitMetadataSha256,
 		prMetadataSha256: CANONICAL_VALUES.prMetadataSha256,
-		expiresAt: new Date(Date.now() + 3600000).toISOString(),
+		expiresAt,
 		...overrides,
 	});
 }
