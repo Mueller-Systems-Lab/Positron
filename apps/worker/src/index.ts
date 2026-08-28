@@ -153,7 +153,11 @@ const stage3AuditSink: Stage3AuditSink = {
 	async record(event) {
 		const auditDir = path.resolve('.opencode', 'audit');
 		fs.mkdirSync(auditDir, { recursive: true });
-		fs.appendFileSync(path.join(auditDir, 'stage3-runtime.jsonl'), `${JSON.stringify(event)}\n`, 'utf8');
+		fs.appendFileSync(
+			path.join(auditDir, 'stage3-runtime.jsonl'),
+			`${JSON.stringify(event)}\n`,
+			'utf8',
+		);
 	},
 };
 const stage3Pilot = assembleStage3Pilot({
