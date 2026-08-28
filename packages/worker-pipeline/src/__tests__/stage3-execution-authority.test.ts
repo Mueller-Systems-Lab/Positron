@@ -110,14 +110,14 @@ describe('Stage3 authoritative execution authority', () => {
 		],
 		[
 			'workspace lock released',
-			(s: ReturnType<typeof setup>) =>
+			(_s: ReturnType<typeof setup>) =>
 				db
 					.prepare('UPDATE cp_workspace_locks SET released_at = ? WHERE workspace_key = ?')
 					.run(new Date().toISOString(), STAGE3_CANONICAL.repository),
 		],
 		[
 			'workspace lock owner changed',
-			(s: ReturnType<typeof setup>) =>
+			(_s: ReturnType<typeof setup>) =>
 				db
 					.prepare('UPDATE cp_workspace_locks SET owner_id = ? WHERE workspace_key = ?')
 					.run('other-owner', STAGE3_CANONICAL.repository),
