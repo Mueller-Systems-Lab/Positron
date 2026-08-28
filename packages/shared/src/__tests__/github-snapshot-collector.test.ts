@@ -40,7 +40,7 @@ const ghIssueListJson = [
 			{ name: 'epic' },
 			{ name: 'tooling' },
 		],
-		url: 'https://github.com/xxammaxx/Positron/issues/279',
+		url: 'https://github.com/Mueller-Systems-Lab/Positron/issues/279',
 		body: 'This issue replaces the old #229 chain...',
 	},
 	{
@@ -48,7 +48,7 @@ const ghIssueListJson = [
 		title: 'CI Recovery: diagnose and repair systemic Quality Gates failures',
 		state: 'OPEN',
 		labels: [{ name: 'bug' }, { name: 'infrastructure' }, { name: 'priority: high' }],
-		url: 'https://github.com/xxammaxx/Positron/issues/268',
+		url: 'https://github.com/Mueller-Systems-Lab/Positron/issues/268',
 		body: '',
 	},
 	{
@@ -57,7 +57,7 @@ const ghIssueListJson = [
 			'MCP/OpenCode Provider Bootstrap: Tool Gateway + Free Models + Spec Kit Sync + Oversight UI',
 		state: 'OPEN',
 		labels: [{ name: 'enhancement' }, { name: 'architecture' }, { name: 'P1' }, { name: 'epic' }],
-		url: 'https://github.com/xxammaxx/Positron/issues/229',
+		url: 'https://github.com/Mueller-Systems-Lab/Positron/issues/229',
 		body: '',
 	},
 	{
@@ -65,7 +65,7 @@ const ghIssueListJson = [
 		title: 'Completed feature',
 		state: 'CLOSED',
 		labels: [{ name: 'enhancement' }],
-		url: 'https://github.com/xxammaxx/Positron/issues/100',
+		url: 'https://github.com/Mueller-Systems-Lab/Positron/issues/100',
 		body: 'Done in PR #101',
 	},
 ];
@@ -78,7 +78,7 @@ const ghPrListJson = [
 		state: 'OPEN',
 		mergeable: 'MERGEABLE',
 		isDraft: false,
-		url: 'https://github.com/xxammaxx/Positron/pull/218',
+		url: 'https://github.com/Mueller-Systems-Lab/Positron/pull/218',
 	},
 	{
 		number: 200,
@@ -86,7 +86,7 @@ const ghPrListJson = [
 		state: 'CLOSED',
 		mergeable: null,
 		isDraft: false,
-		url: 'https://github.com/xxammaxx/Positron/pull/200',
+		url: 'https://github.com/Mueller-Systems-Lab/Positron/pull/200',
 	},
 	{
 		number: 300,
@@ -94,7 +94,7 @@ const ghPrListJson = [
 		state: 'OPEN',
 		mergeable: 'MERGEABLE',
 		isDraft: true,
-		url: 'https://github.com/xxammaxx/Positron/pull/300',
+		url: 'https://github.com/Mueller-Systems-Lab/Positron/pull/300',
 	},
 ];
 
@@ -146,7 +146,7 @@ describe('normalizeGitHubIssuesFromGhJson', () => {
 			'epic',
 			'tooling',
 		]);
-		expect(issue279!.url).toBe('https://github.com/xxammaxx/Positron/issues/279');
+		expect(issue279!.url).toBe('https://github.com/Mueller-Systems-Lab/Positron/issues/279');
 	});
 
 	test('returns empty array for empty input', () => {
@@ -192,7 +192,7 @@ describe('normalizeGitHubPullRequestsFromGhJson', () => {
 		expect(pr218!.state).toBe('OPEN');
 		expect(pr218!.mergeable).toBe('MERGEABLE');
 		expect(pr218!.isDraft).toBe(false);
-		expect(pr218!.url).toBe('https://github.com/xxammaxx/Positron/pull/218');
+		expect(pr218!.url).toBe('https://github.com/Mueller-Systems-Lab/Positron/pull/218');
 	});
 
 	test('preserves DRAFT state', () => {
