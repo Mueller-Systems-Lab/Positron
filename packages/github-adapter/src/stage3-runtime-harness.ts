@@ -20,11 +20,6 @@
 import { redactValue } from '@positron/shared';
 import type { Stage3ApprovalBinding } from './stage3-approval-binding.js';
 import { computeApprovalTextSha256, validateApprovalBinding } from './stage3-approval-binding.js';
-import type {
-	RunBoundStage3Approval,
-	Stage3ExecutionIdentity,
-} from './stage3-run-bound-approval.js';
-import { validateRunBoundStage3Approval } from './stage3-run-bound-approval.js';
 import type { Stage3BaseResolver } from './stage3-base-resolver.js';
 import { checkBaseDrift } from './stage3-base-resolver.js';
 import type { Stage3ReadOnlyVerifier } from './stage3-reader-verifier.js';
@@ -35,6 +30,11 @@ import {
 	verifyBridgeCapabilities,
 	verifyTrustedBridgeIntegrity,
 } from './stage3-real-github-bridge.js';
+import type {
+	RunBoundStage3Approval,
+	Stage3ExecutionIdentity,
+} from './stage3-run-bound-approval.js';
+import { validateRunBoundStage3Approval } from './stage3-run-bound-approval.js';
 import type { Stage3RuntimeSafetyProbe } from './stage3-runtime-safety-probe.js';
 import { validateSafetySnapshot } from './stage3-runtime-safety-probe.js';
 import type {

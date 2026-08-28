@@ -1,5 +1,3 @@
-import type { Stage3CanonicalLiveExecutor, Stage3HarnessResult } from '@positron/github-adapter';
-import { STAGE3_CANONICAL } from '@positron/github-adapter';
 import {
 	acquireWorkspaceLock,
 	applyControlPlaneMigrations,
@@ -7,12 +5,14 @@ import {
 	completeAttempt,
 	createAttempt,
 	createJob,
+	enqueueItem,
 	reserveProviderSlot,
 	updateJobState,
 	updateQueueItem,
-	enqueueItem,
 } from '@positron/control-plane';
-import { FakeGitHubAdapter } from '@positron/github-adapter';
+import type { Stage3CanonicalLiveExecutor, Stage3HarnessResult } from '@positron/github-adapter';
+import { FakeGitHubAdapter, STAGE3_CANONICAL } from '@positron/github-adapter';
+import { FakeOpenCodeAdapter } from '@positron/opencode-adapter';
 import type { GateRuntimeMode, RunState } from '@positron/run-state';
 import {
 	applyMigrations,
@@ -21,7 +21,6 @@ import {
 	createRun,
 } from '@positron/run-state';
 import { FakeGitWorkspaceAdapter } from '@positron/sandbox';
-import { FakeOpenCodeAdapter } from '@positron/opencode-adapter';
 import { FakeSpecKitAdapter } from '@positron/speckit-adapter';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
