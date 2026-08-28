@@ -1,6 +1,6 @@
 # Issue #308 — reviewer lifecycle ledger
 
-Generated: 2026-08-28. Reconciled against PR #460 head `6ad9013`.
+Generated: 2026-08-28. Reconciled against PR #460 head `58990b5`.
 
 ## Accounting rule
 
@@ -19,7 +19,7 @@ available. A closed session without a captured result does not count.
 | COMPLETED | 11 known |
 | RESULT_CAPTURED | 11 known |
 | COUNTED (role-qualified historical/current-target results) | 7 |
-| CURRENT_HEAD_COUNTED (`6ad9013`) | 0 pending fresh review wave |
+| CURRENT_HEAD_COUNTED (`58990b5`) | 0 pending fresh review wave |
 | UNIQUE_COUNTED_SESSION_IDS | 7 |
 | CHILD_BACKEND_COMPLETED | 11 |
 | ISOLATED_BACKEND_COMPLETED | 0 |
@@ -47,12 +47,12 @@ current-head final-review gate.
 | review-devex-installer | yes | `01a04660-4eba-7950-8128-a0493ccf0cb9` | e917ba6 | spawned | completed | yes | BLOCKED | yes (historical) |
 | review-docker-infrastructure | yes | `01a04660-4eff-76b0-bda0-4e472a4fc87f` | e917ba6 | spawned | completed | yes | BLOCKED | yes (historical) |
 | review-frontend-landing | yes | `01a04668-cc38-7d11-9a52-b63d1fda752a` | 67028d7 | spawned | completed | yes | NOT_APPLICABLE / PASS | yes (historical) |
-| review-ux-accessibility | yes | `01a0467d-67d3-7fc3-8107-2e6a9c122244` | 6ad9013 | spawned | stalled/shutdown | no | no result | no |
-| review-visual-qa | yes | `01a0467d-680c-7880-b494-9f407245c6ba` | 6ad9013 | spawned | stalled/shutdown | no | no result | no |
-| review-documentation-truth | yes | `01a04681-da62-7f81-92c3-145afe63f38f` + isolated fallback | 6ad9013 | spawned/fallback attempted | stalled/shutdown; fallback no structured result | no | no result | no |
-| review-github-pages | yes | `01a04681-da96-7c70-9e56-2188df116fac` | 6ad9013 | spawned | stalled/shutdown | no | no result | no |
-| review-test-tooling | yes | `01a04681-dad2-71c1-90b8-7cf087acbdf0` | 6ad9013 | spawned | stalled/shutdown | no | no result | no |
-| review-integration | yes | `01a04681-db0c-7cf1-b265-4b34f619681f` | 6ad9013 | spawned | stalled/shutdown | no | no result | no |
+| review-ux-accessibility | yes | `01a0467d-67d3-7fc3-8107-2e6a9c122244` | 6ad9013 (pre-ledger) | spawned | stalled/shutdown | no | no result | no |
+| review-visual-qa | yes | `01a0467d-680c-7880-b494-9f407245c6ba` | 6ad9013 (pre-ledger) | spawned | stalled/shutdown | no | no result | no |
+| review-documentation-truth | yes | `01a04681-da62-7f81-92c3-145afe63f38f` + isolated fallback | 6ad9013 / 58990b5 | spawned/fallback attempted | stalled/shutdown; fallback no structured result | no | no result | no |
+| review-github-pages | yes | `01a04681-da96-7c70-9e56-2188df116fac` | 6ad9013 (pre-ledger) | spawned | stalled/shutdown | no | no result | no |
+| review-test-tooling | yes | `01a04681-dad2-71c1-90b8-7cf087acbdf0` | 6ad9013 (pre-ledger) | spawned | stalled/shutdown | no | no result | no |
+| review-integration | yes | `01a04681-db0c-7cf1-b265-4b34f619681f` | 6ad9013 (pre-ledger) | spawned | stalled/shutdown | no | no result | no |
 | review-release-packaging | historical attempt | unrecovered | unknown | unknown | unknown | no | N/A | no |
 | review-governance | historical attempt | unrecovered | unknown | unknown | unknown | no | N/A | no |
 | research-official-docs | historical attempt | unrecovered | unknown | unknown | unknown | no | N/A | no |
