@@ -72,6 +72,18 @@ export {
 	validateApprovalBinding,
 } from './stage3-approval-binding.js';
 export type {
+	RunBoundApprovalValidationResult,
+	RunBoundStage3Approval,
+	Stage3ExecutionIdentity,
+} from './stage3-run-bound-approval.js';
+export {
+	computeRunBoundApprovalFingerprint,
+	createRunBoundStage3Approval,
+	validateRunBoundStage3Approval,
+} from './stage3-run-bound-approval.js';
+export type { Stage3CanonicalLiveExecutor } from './stage3-canonical-executor.js';
+export { createStage3CanonicalLiveExecutor } from './stage3-canonical-executor.js';
+export type {
 	Stage3BaseDriftResult,
 	Stage3BaseResolver,
 	Stage3ResolvedBase,

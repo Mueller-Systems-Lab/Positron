@@ -38,7 +38,6 @@ import {
 	verifyPreWrite,
 } from '../stage3-reader-verifier.js';
 import type { Stage3RealGitHubBridge } from '../stage3-real-github-bridge.js';
-
 import {
 	createMockStage3Bridge,
 	STAGE3_FORBIDDEN_CAPABILITIES,
@@ -50,6 +49,7 @@ import {
 	createSafeSnapshot,
 	validateSafetySnapshot,
 } from '../stage3-runtime-safety-probe.js';
+import { STAGE3_CANONICAL } from '../stage3-supervised-pilot-policy.js';
 
 // ---------------------------------------------------------------------------
 // Canonical test values (imported from stage3-canonical-manifest.ts)
@@ -565,7 +565,7 @@ describe('Stage3ReadOnlyVerifier', () => {
 				filePath: 'stage3/positron-supervised-pilot.md',
 				expectedFileContent: 'test',
 				expectedFileSha256: 'expected-file-sha',
-				expectedFileBytes: 1724,
+				expectedFileBytes: STAGE3_CANONICAL.fileUtf8ByteLength,
 				expectedCommitMessage: 'test',
 				expectedPrTitle: 'test',
 				expectedPrBody: 'test',

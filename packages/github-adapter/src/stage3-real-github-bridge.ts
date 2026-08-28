@@ -426,7 +426,7 @@ export function createMockStage3Bridge(params?: {
 					return {
 						content: 'test-content',
 						gitBlobSha: 'fake-git-blob-sha-000000000000000000000000',
-						size: 1724,
+						size: STAGE3_CANONICAL.fileUtf8ByteLength,
 						exists: path === filePath,
 					};
 				},

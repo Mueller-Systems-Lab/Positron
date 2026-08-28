@@ -9,6 +9,14 @@
 // sufficient. Fake mode may use synthetic bindings for testing.
 
 import crypto from 'node:crypto';
+import {
+	CANONICAL_BASE_BRANCH,
+	CANONICAL_FILE_LENGTH,
+	CANONICAL_FILE_PATH,
+	CANONICAL_FILE_SHA256,
+	CANONICAL_REPOSITORY,
+	CANONICAL_TARGET_BRANCH,
+} from './stage3-canonical-manifest.js';
 
 // ---------------------------------------------------------------------------
 // Approval Binding Interface
@@ -365,13 +373,13 @@ export function createSyntheticApprovalBinding(
 	const base: Stage3ApprovalBinding = {
 		version: 'stage3-approval-v1',
 		approvalTextSha256: 'synthetic-test-binding-not-for-live-use',
-		repository: 'xxammaxx/positron-sandbox',
-		baseBranch: 'main',
+		repository: CANONICAL_REPOSITORY,
+		baseBranch: CANONICAL_BASE_BRANCH,
 		expectedBaseSha: '0000000000000000000000000000000000000000000000000000000000000000',
-		targetBranch: 'positron/issue-308-stage3-pilot',
-		filePath: 'stage3/positron-supervised-pilot.md',
-		fileUtf8ByteLength: 1724,
-		fileSha256: '73ac6e0faf0b13118de60a3a1eb02a54e68d272ecf137f356d134e84ea9f46ff',
+		targetBranch: CANONICAL_TARGET_BRANCH,
+		filePath: CANONICAL_FILE_PATH,
+		fileUtf8ByteLength: CANONICAL_FILE_LENGTH,
+		fileSha256: CANONICAL_FILE_SHA256,
 		commitMetadataSha256: 'synthetic-commit-hash',
 		prMetadataSha256: 'synthetic-pr-hash',
 		maxBranches: 1,

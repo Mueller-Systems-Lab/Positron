@@ -27,6 +27,7 @@ export type JobType =
 	| 'review'
 	| 'decide'
 	| 'fix'
+	| 'stage3-pilot'
 	| 'split';
 
 export type JobState = 'pending' | 'running' | 'succeeded' | 'failed' | 'blocked' | 'skipped';

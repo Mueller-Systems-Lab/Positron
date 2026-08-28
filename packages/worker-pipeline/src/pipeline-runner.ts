@@ -51,7 +51,11 @@ import type {
 	GitHubStatusSyncInput,
 	GitHubStatusSyncResult,
 	GitHubStatusSyncService,
+	Stage3CanonicalLiveExecutor,
+	Stage3ExecutionIdentity,
+	Stage3HarnessResult,
 } from '@positron/github-adapter';
+import { STAGE3_CANONICAL } from '@positron/github-adapter';
 import type {
 	GateRuntimeMode,
 	RunEventData,
@@ -102,6 +106,9 @@ export interface PipelineDeps {
 	speckit: SpecKitAdapter;
 	opencode: OpenCodeAdapter;
 	github: GitHubAdapter;
+	/** Optional bounded Issue #308 pilot executor. When present, COMMIT/PR_CREATE
+	 * use only the canonical Stage 3 bridge; generic GitHub writes are skipped. */
+	stage3Pilot?: Stage3CanonicalLiveExecutor;
 	syncService?: GitHubStatusSyncService;
 	/** Issue #322: Optional gateway service for tool audit enforcement */
 	gateway?: GatewayService;
@@ -477,7 +484,8 @@ function trackJobAttempt(
 		| 'tasks'
 		| 'analyze'
 		| 'baseline'
-		| 'review',
+		| 'review'
+		| 'stage3-pilot',
 	workerType: string,
 	provider: string | null,
 	model: string | null,
@@ -897,6 +905,73 @@ function loadLastAttempt(runId: string, jobType: string, deps: PipelineDeps): At
 		console.error(`[Worker] loadLastAttempt failed: ${String(err).slice(0, 200)}`);
 		return null;
 	}
+}
+
+function loadStage3ExecutionIdentity(
+	run: RunState,
+	mutationAttempt: AttemptRecord,
+	deps: PipelineDeps,
+): Stage3ExecutionIdentity {
+	const queue = getDb(deps)
+		.prepare('SELECT queue_item_id, repository_ref FROM cp_queue WHERE run_id = ? LIMIT 1')
+		.get(run.id) as { queue_item_id: string; repository_ref: string } | undefined;
+	if (!queue || queue.repository_ref !== STAGE3_CANONICAL.repository) {
+		throw new Error('STAGE3_CANONICAL_QUEUE_TARGET_MISMATCH');
+	}
+	if (!mutationAttempt.lease_owner_id || !Number.isInteger(mutationAttempt.lease_generation)) {
+		throw new Error('STAGE3_ATTEMPT_LEASE_IDENTITY_MISSING');
+	}
+	const lock = getDb(deps)
+		.prepare(
+			'SELECT workspace_key, owner_id, lease_generation, released_at FROM cp_workspace_locks WHERE workspace_key = ?',
+		)
+		.get(queue.repository_ref) as
+		| {
+				workspace_key: string;
+				owner_id: string;
+				lease_generation: number;
+				released_at: string | null;
+		  }
+		| undefined;
+	if (!lock || lock.released_at !== null) throw new Error('STAGE3_WORKSPACE_LOCK_IDENTITY_MISSING');
+	const reservation = getDb(deps)
+		.prepare(
+			"SELECT reservation_id FROM cp_provider_reservations WHERE owner_id = ? AND run_id = ? AND status = 'reserved' LIMIT 1",
+		)
+		.get(queue.queue_item_id, run.id) as { reservation_id: string } | undefined;
+	if (!reservation) throw new Error('STAGE3_PROVIDER_RESERVATION_IDENTITY_MISSING');
+
+	return {
+		runId: run.id,
+		queueItemId: queue.queue_item_id,
+		jobId: mutationAttempt.job_id,
+		attemptId: mutationAttempt.attempt_id,
+		workspaceKey: lock.workspace_key,
+		attemptLeaseOwnerId: mutationAttempt.lease_owner_id,
+		attemptLeaseGeneration: mutationAttempt.lease_generation,
+		workspaceLockOwnerId: lock.owner_id,
+		workspaceLockGeneration: Number(lock.lease_generation),
+		providerReservationId: reservation.reservation_id,
+		idempotencyKey: idempotencyKey(run.id, mutationAttempt.job_id, mutationAttempt.attempt_id),
+	};
+}
+
+function summarizeStage3Result(result: Stage3HarnessResult): Record<string, unknown> {
+	return {
+		success: result.success,
+		policyAllowed: result.policyAllowed,
+		writeExecuted: result.writeExecuted,
+		writeAttempted: result.writeAttempted,
+		confirmedMutationCount: result.confirmedMutationCount,
+		mutationState: result.mutationState,
+		branchRef: result.branchResult?.ref ?? null,
+		branchSha: result.branchResult?.sha ?? null,
+		commitSha: result.commitResult?.sha ?? null,
+		commitUrl: result.commitResult?.url ?? null,
+		prNumber: result.prResult?.number ?? null,
+		prUrl: result.prResult?.url ?? null,
+		prDraft: result.prResult?.draft ?? false,
+	};
 }
 
 /** Lädt das neueste Artifact eines Typs als Text. */
@@ -2586,6 +2661,119 @@ async function executePhase(
 		case 'COMMIT': {
 			const branch =
 				current.branch ?? generateBranchName(current.issueNumber, `run-${current.id.slice(0, 8)}`);
+			if (deps.stage3Pilot) {
+				let pilotTracking: JobAttemptTracking | null = null;
+				try {
+					const buildAttempt = loadLastAttempt(current.id, 'build', deps);
+					if (!buildAttempt || buildAttempt.status !== 'succeeded') {
+						throw new Error('STAGE3_BUILD_ATTEMPT_NOT_SUCCEEDED');
+					}
+					pilotTracking = trackJobAttempt(
+						current,
+						deps,
+						'stage3-pilot',
+						'stage3-canonical-bridge',
+						'github',
+						null,
+						'positron.stage3-pilot.v1',
+						fingerprint({ runId: current.id, buildAttempt: buildAttempt.attempt_id }),
+					);
+					if (pilotTracking.duplicate) {
+						throw new Error('STAGE3_PILOT_IDEMPOTENCY_DUPLICATE');
+					}
+					assertWorkerContext(current, pilotTracking, deps);
+					const executionIdentity = loadStage3ExecutionIdentity(
+						current,
+						{
+							...pilotTracking.attempt,
+							lease_owner_id: pilotTracking.ownerId,
+							lease_generation: pilotTracking.generation,
+						},
+						deps,
+					);
+					const pilotResult = await deps.stage3Pilot.execute({ executionIdentity });
+					const payload = summarizeStage3Result(pilotResult);
+					completeTrackedAttempt(pilotTracking, deps, {
+						status: pilotResult.success ? 'succeeded' : 'blocked',
+						output_contract: 'positron.stage3-pilot.v1',
+						output_json: JSON.stringify(payload),
+						output_fingerprint: fingerprint(payload),
+						result_ref: pilotResult.prResult?.url ?? pilotResult.reason ?? 'stage3-pilot',
+						failure_class: pilotResult.success ? null : 'POLICY_BLOCKED',
+						failure_signature: pilotResult.success
+							? null
+							: (pilotResult.reason ?? 'stage3-blocked'),
+					});
+					updateJobState(
+						getDb(deps),
+						pilotTracking.job.job_id,
+						pilotResult.success ? 'succeeded' : 'blocked',
+					);
+					storeEvent(
+						{
+							id: createRunId(),
+							runId: current.id,
+							phase: 'COMMIT',
+							level: pilotResult.success ? 'INFO' : 'ERROR',
+							message: pilotResult.success
+								? 'STAGE3_CANONICAL_PILOT_COMPLETED'
+								: 'STAGE3_CANONICAL_PILOT_BLOCKED',
+							payload,
+							createdAt: new Date().toISOString(),
+						},
+						deps,
+					);
+					if (!pilotResult.success) {
+						result = markFailed(
+							current,
+							'FAILED_BLOCKED',
+							`Stage 3 pilot blocked: ${pilotResult.reason ?? pilotResult.mutationState}`,
+						);
+						break;
+					}
+					current.branch = STAGE3_CANONICAL.targetBranch;
+					const summary = `Stage 3 bounded pilot completed: PR #${String(payload.prNumber)}`;
+					result = phaseRequiresGates('PR_CREATE')
+						? tryTransitionWithGates(
+								current,
+								'PR_CREATE',
+								summary,
+								{
+									runId: current.id,
+									phase: current.phase,
+									targetPhase: 'PR_CREATE',
+									gateTypes: getRequiredGates('PR_CREATE'),
+								},
+								'INFO',
+								null,
+							)
+						: transition(current, 'PR_CREATE', summary, 'INFO');
+				} catch (err) {
+					if (pilotTracking && !pilotTracking.duplicate) {
+						completeTrackedAttempt(pilotTracking, deps, {
+							status: 'blocked',
+							failure_class: 'EXECUTION_FAILURE',
+							failure_signature: 'stage3-pilot-exception',
+						});
+						updateJobState(getDb(deps), pilotTracking.job.job_id, 'blocked');
+					}
+					const message = `Stage 3 canonical pilot failed: ${String(err).slice(0, 200)}`;
+					storeEvent(
+						{
+							id: createRunId(),
+							runId: current.id,
+							phase: 'COMMIT',
+							level: 'ERROR',
+							message,
+							payload: null,
+							createdAt: new Date().toISOString(),
+						},
+						deps,
+					);
+					result = markFailed(current, 'FAILED_BLOCKED', message);
+				}
+				break;
+			}
 			const pushAllowed = process.env.POSITRON_ENABLE_PUSH === 'true';
 			const commitMsg = `fix(issue-${current.issueNumber}): Positron automated changes [Run: ${current.id.slice(0, 8)}]`;
 			const commitWsPath = current.workspacePath ?? `/tmp/positron-ws-${current.id.slice(0, 8)}`;
@@ -2694,6 +2882,40 @@ async function executePhase(
 		case 'PR_CREATE': {
 			const branch =
 				current.branch ?? generateBranchName(current.issueNumber, `run-${current.id.slice(0, 8)}`);
+			if (deps.stage3Pilot) {
+				const row = getDb(deps)
+					.prepare(
+						"SELECT payload_json FROM run_events WHERE run_id = ? AND message = 'STAGE3_CANONICAL_PILOT_COMPLETED' ORDER BY created_at DESC LIMIT 1",
+					)
+					.get(current.id) as { payload_json: string } | undefined;
+				let payload: Record<string, unknown> | null = null;
+				try {
+					payload = row ? (JSON.parse(row.payload_json) as Record<string, unknown>) : null;
+				} catch {
+					payload = null;
+				}
+				if (!payload || payload.prNumber === null || payload.prNumber === undefined) {
+					result = markFailed(current, 'FAILED_BLOCKED', 'STAGE3_CANONICAL_PILOT_RESULT_MISSING');
+					break;
+				}
+				const summary = `Stage 3 draft PR verified for ${branch}: #${String(payload.prNumber)}`;
+				result = phaseRequiresGates('MERGE')
+					? tryTransitionWithGates(
+							current,
+							'MERGE',
+							summary,
+							{
+								runId: current.id,
+								phase: current.phase,
+								targetPhase: 'MERGE',
+								gateTypes: getRequiredGates('MERGE'),
+							},
+							'INFO',
+							null,
+						)
+					: transition(current, 'MERGE', summary, 'INFO');
+				break;
+			}
 			const evidence = buildEvidence(current);
 			const body = `## Positron Automated Changes\n\n**Run ID:** \`${current.id}\`\n**Issue:** #${current.issueNumber}\n**Branch:** \`${branch}\`\n\n---\n\nCloses #${current.issueNumber}\n\n_Generated by [Positron](https://github.com/Mueller-Systems-Lab/Positron)_`;
 
@@ -2860,6 +3082,15 @@ async function executePhase(
 			break;
 		}
 		case 'MERGE': {
+			if (deps.stage3Pilot) {
+				result = transition(
+					current,
+					'DONE',
+					'Stage 3 supervised pilot complete; merge is permanently forbidden',
+					'INFO',
+				);
+				break;
+			}
 			// --- Issue #321: Gate DONE transitions on evidence_required ---
 			const doneGateCtx: GateEvaluationContext = {
 				runId: current.id,

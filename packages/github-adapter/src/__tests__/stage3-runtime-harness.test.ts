@@ -624,15 +624,15 @@ describe('Stage3RuntimeHarness — Positive: Live Mode with Spy Writers', () => 
 
 		await harness.execute(input as Stage3HarnessInput);
 		expect(spyBranch.createBranch).toHaveBeenCalledWith({
-			owner: 'xxammaxx',
-			repo: 'positron-sandbox',
+			owner: 'Mueller-Systems-Lab',
+			repo: 'positron-308-sandbox',
 			branch: STAGE3_CANONICAL.targetBranch,
 			sourceBranch: STAGE3_CANONICAL.baseBranch,
 			expectedSourceSha: TEST_BASE_SHA,
 		});
 		expect(spyFileCommit.commitFile).toHaveBeenCalledWith({
-			owner: 'xxammaxx',
-			repo: 'positron-sandbox',
+			owner: 'Mueller-Systems-Lab',
+			repo: 'positron-308-sandbox',
 			branch: STAGE3_CANONICAL.targetBranch,
 			filePath: STAGE3_CANONICAL.filePath,
 			content: CANONICAL_FILE_CONTENT,
