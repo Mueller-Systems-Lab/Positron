@@ -1,113 +1,111 @@
-# Issue #308 — reviewer lifecycle ledger
+# Issue #308 — independent reviewer lifecycle ledger
 
-Generated: 2026-08-28. Reconciled against the prior runtime evidence and
-current PR #460 continuation. The source fixes below are not yet represented
-by a frozen final review head.
+Generated: 2026-08-28. This ledger supersedes the earlier statement that all
+reviewer spawns failed. It preserves that history while separating spawn,
+completion, result capture, and counting.
 
-## Accounting rule
+## Counting rule
 
-`SPAWN_ATTEMPTED`, `SPAWNED`, `COMPLETED`, `RESULT_CAPTURED`, and `COUNTED`
-are distinct states. A session counts only when its role, unique session,
-target, independent execution, structured result, and findings are all
-available. A closed session without a captured result does not count.
+A reviewer counts only when the required role was selected, a unique session
+was created, the exact review head was supplied, the session ran independently,
+a structured result was returned and captured, and its verdict/findings are
+available for disposition. Spawned, timed-out, or closed-without-result
+sessions do not count.
 
-## Reconciled totals
+## Current final-head accounting
 
 | Metric | Value |
 |---|---:|
 | PLANNED | 17 |
-| SPAWN_ATTEMPTED | 31 known collaborator attempts |
-| SPAWNED | 19 known |
-| COMPLETED | 11 known |
-| RESULT_CAPTURED | 11 known |
-| COUNTED (role-qualified historical/current-target results) | 7 |
-| CURRENT_HEAD_COUNTED (current continuation) | 0 pending fresh review wave |
-| UNIQUE_COUNTED_SESSION_IDS | 7 |
-| CHILD_BACKEND_COMPLETED | 11 |
-| ISOLATED_BACKEND_COMPLETED | 0 |
-| SPAWN_FAILURES | 12 known |
-| TIMEOUTS | 0 classified |
-| CRITICAL | at least 2 across captured results |
-| MAJOR | at least 20 across captured results |
+| SPAWN_ATTEMPTED | 25 |
+| SPAWNED | 25 |
+| COMPLETED | 16 |
+| RESULT_CAPTURED | 16 |
+| COUNTED | 16 |
+| UNIQUE_COUNTED_SESSION_IDS | 16 |
+| CHILD_BACKEND_COMPLETED | 0 |
+| ISOLATED_BACKEND_COMPLETED | 16 |
+| SPAWN_FAILURES | 0 |
+| TIMEOUTS | 3 |
+| CRITICAL | 0 |
+| MAJOR | 0 |
 | DEEPSEEK | 0 |
 
-The initial six completed results were recovered from the runtime transcript
-and mapped to the first six requested roles by original wave order and
-matching findings. Five later duplicate-role results are retained as
-captured evidence but are not double-counted. The later wave was observed
-before the final lint-only head change, so it does not satisfy the
-current-head final-review gate.
+`review-independent-final` is intentionally not started until the other 16
+results, their dispositions, this evidence commit, and fresh CI are complete.
+Therefore 17/17 is not claimed yet.
 
-## Role ledger
+## Current final-head role ledger
 
-| Required role | SPAWN_ATTEMPT | SESSION_ID | TARGET | SPAWN_STATUS | COMPLETION | RESULT_CAPTURED | VERDICT | COUNTED |
-|---|---|---|---|---|---|---|---|---|
-| audit-repository-reality | yes | `01a04660-4d8d-7ca3-aa2c-8dd37f48a265` | e917ba6 | spawned | completed | yes | BLOCKED/AMBER | yes (historical) |
-| audit-repository-hygiene | yes | `01a04660-4e06-7cc2-8197-2428a9cb9fae` | e917ba6 | spawned | completed | yes | BLOCKED | yes (historical) |
-| review-architecture | yes | `01a04660-4e42-7362-ae83-39aae0823480` + fresh `01a0467d-6767-7d12-8b27-5890639ba8a2` | e917ba6 / 6ad9013 | spawned | historical completed; fresh stalled/shutdown | historical yes; fresh no | REJECT / no fresh verdict | yes (historical) |
-| review-security | yes | `01a04660-4e7c-78c0-967b-7f34a299728d` + fresh `01a0467d-6797-7173-8021-77a9a5e931f4` | e917ba6 / 6ad9013 | spawned | historical completed; fresh stalled/shutdown | historical yes; fresh no | NO-GO / no fresh verdict | yes (historical) |
-| review-devex-installer | yes | `01a04660-4eba-7950-8128-a0493ccf0cb9` | e917ba6 | spawned | completed | yes | BLOCKED | yes (historical) |
-| review-docker-infrastructure | yes | `01a04660-4eff-76b0-bda0-4e472a4fc87f` | e917ba6 | spawned | completed | yes | BLOCKED | yes (historical) |
-| review-frontend-landing | yes | `01a04668-cc38-7d11-9a52-b63d1fda752a` | 67028d7 | spawned | completed | yes | NOT_APPLICABLE / PASS | yes (historical) |
-| review-ux-accessibility | yes | `01a0467d-67d3-7fc3-8107-2e6a9c122244` | 6ad9013 (pre-ledger) | spawned | stalled/shutdown | no | no result | no |
-| review-visual-qa | yes | `01a0467d-680c-7880-b494-9f407245c6ba` | 6ad9013 (pre-ledger) | spawned | stalled/shutdown | no | no result | no |
-| review-documentation-truth | yes | `01a04681-da62-7f81-92c3-145afe63f38f` + isolated fallback | 6ad9013 / 58990b5 | spawned/fallback attempted | stalled/shutdown; fallback no structured result | no | no result | no |
-| review-github-pages | yes | `01a04681-da96-7c70-9e56-2188df116fac` | 6ad9013 (pre-ledger) | spawned | stalled/shutdown | no | no result | no |
-| review-test-tooling | yes | `01a04681-dad2-71c1-90b8-7cf087acbdf0` | 6ad9013 (pre-ledger) | spawned | stalled/shutdown | no | no result | no |
-| review-integration | yes | `01a04681-db0c-7cf1-b265-4b34f619681f` | 6ad9013 (pre-ledger) | spawned | stalled/shutdown | no | no result | no |
-| review-release-packaging | historical attempt | unrecovered | unknown | unknown | unknown | no | N/A | no |
-| review-governance | historical attempt | unrecovered | unknown | unknown | unknown | no | N/A | no |
-| research-official-docs | historical attempt | unrecovered | unknown | unknown | unknown | no | N/A | no |
-| review-independent-final | not started (must run last) | — | — | — | — | no | blocked by prerequisites | no |
+Review head for every row below: `048da09d6f8d1ac9cfdab5f15bfa996661772ce6`.
+Base at the live refresh: `fcea2d1802bd6ba0e19e5fd5edae0987432f4e2e`.
+Backend for every counted row: `ISOLATED`.
 
-## Duplicate and failed waves
+| Required role | Session ID | Completion | Result | Critical | Major | Verdict | Counted |
+|---|---|---|---|---:|---:|---|---|
+| audit-repository-reality | `ses_fb90d3009ffeP83R4aatOfte6I` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| audit-repository-hygiene | `ses_fb90d2f8effeHX27ybY3P1Lq1G` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-architecture | `ses_fb90d2fc2ffek433bGLsNH7Lm9` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-security | `ses_fb90d2f98ffecVTHdXrmeW2sy9` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-devex-installer | `ses_fb8fa9109ffelUy3VnMAOcNonD` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-docker-infrastructure | `ses_fb906a401ffeDG5FkLJHRL61F3` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-frontend-landing | `ses_fb90a0e54ffessGQ7BXzurWFZV` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-ux-accessibility | `ses_fb90a0d83ffeFGKSXfLkd4E63f` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-visual-qa | `ses_fb90a0e02ffeGlSjXXWI6eTO0r` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-documentation-truth | `ses_fb906a32bffe1TswYnb0zIFKES` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-github-pages | `ses_fb8f795caffe26Cjrf3CZTdcfL` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-test-tooling | `ses_fb902f93fffeu5KrpTKDidchuk` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-integration | `ses_fb902f8e7ffeqFbf8TvuUYF0Gj` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-release-packaging | `ses_fb902f957ffedt2piPmQmZYSUt` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-governance | `ses_fb8f6c25fffeLxzfpBYpr3Zl2N` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| research-official-docs | `ses_fb90174f6ffex4IxkA2PfBLO5z` | COMPLETED | CAPTURED | 0 | 0 | YES | YES |
+| review-independent-final | — | NOT STARTED | — | — | — | MUST RUN LAST | NO |
 
-These results are captured and retained but do not add a second count to an
-already covered role:
+Some model responses used generic `ROLE` text or self-reported placeholder
+session IDs. The ledger uses the actual session IDs emitted by the isolated
+runner, the assigned required role, and the runner-captured structured result.
+Those limitations remain in the underlying captured outputs and are not
+silently rewritten as stronger evidence.
 
-- `01a04668-c744-71e1-b2c5-ed63dd92a1cf` — reality, completed, blocked;
-  reviewed the pre-`6ad9013` head.
-- `01a04668-c8e7-7510-986b-28b0b07eba98` — hygiene, completed, not approved;
-  reviewed the pre-`6ad9013` head.
-- `01a04668-c993-74f0-a6ef-e594a086e687` — DevEx, completed, blocked;
-  reviewed the pre-`6ad9013` head.
-- `01a04668-ca91-7b81-9405-ea2eee40cda3` — Docker, completed, blocked;
-  reviewed the pre-`6ad9013` head.
-- `01a04668-cc38-7d11-9a52-b63d1fda752a` — frontend/landing, completed,
-  not applicable; reviewed the pre-`6ad9013` head.
-- `review-ux-accessibility` in the first recovery attempt was a spawn
-  failure; it has no session and counts zero.
+## Historical recovery and dispositions
 
-The earlier evidence statement “0/17; every spawn failed” is superseded by
-this ledger. It was false as a description of the later runtime transcript,
-but no success is inferred from sessions without results.
+The earlier recovered sessions remain valid historical evidence only. They
+reviewed earlier heads and therefore do not satisfy the current-head gate.
+Known historical findings included productive bootstrap absence, snapshot-only
+authority revalidation, approval binding gaps, reservation binding, and missing
+Phase-4 coverage. The current branch contains the corresponding narrow
+bootstrap, authority-provider, scheduler-binding, and deterministic Phase-4
+changes; focused tests and green CI are the evidence for `FIXED` dispositions.
 
-## Captured finding dispositions
+| Historical finding | Severity | Disposition |
+|---|---|---|
+| Productive Stage-3 bootstrap absent | CRITICAL/MAJOR | FIXED; current bootstrap tests and explicit disabled/default guards |
+| Snapshot-only mutation-boundary validation | CRITICAL/MAJOR | FIXED; current authority provider and TOCTOU tests |
+| Reservation/run binding gap | MAJOR | FIXED; scheduler binding and authority tests |
+| Phase-4 failure-mode coverage absent | MAJOR | FIXED; canonical zero-writer Phase-4 suite |
+| Sandbox-only credential unavailable | MAJOR for Phase 3 readiness | PRE_EXISTING_OUT_OF_SCOPE for remediation PR; Phase 3 remains blocked |
+| Existing container/UI baseline concerns | MAJOR/minor | PRE_EXISTING_OUT_OF_SCOPE; no related product change |
 
-These are dispositions of recovered historical results only; they do not
-count as final-head reviews.
+Additional final-head reviewer notes were non-blocking: local synchronous
+audit-file I/O, limited static-only review, and expected absence of the
+sandbox credential. No final-head result identified a Critical or Major issue.
 
-| ROLE / SESSION | HEAD | FINDING | SEVERITY | STATUS |
-|---|---|---|---|---|
-| audit-repository-reality / `01a04660-4d8d...` | e917ba6 | snapshot-only authority; lock owner unchecked; productive bootstrap absent; Phase 4 absent | C/M | FIXED (current continuation) |
-| audit-repository-hygiene / `01a04660-4e06...` | e917ba6 | manifest hash and fixture drift; historical commit label; evidence incompleteness | M | FIXED / PRE_EXISTING_OUT_OF_SCOPE |
-| review-architecture / `01a04660-4e42...` | e917ba6 | productive wiring absent; snapshot revalidation; live path trust gap | C/M | FIXED (current continuation) |
-| review-security / `01a04660-4e7c...` | e917ba6 | unbound/self-attested approval; injected executor trust; credential/denylist concerns | M | FIXED (binding/bootstrap) / PRE_EXISTING_OUT_OF_SCOPE (credential not available for Phase 3) |
-| review-devex-installer / `01a04660-4eba...` | e917ba6 | helper expiry mismatch; productive wiring absent; package-script and Docker concerns | M | FIXED / PRE_EXISTING_OUT_OF_SCOPE |
-| review-docker-infrastructure / `01a04660-4eff...` | e917ba6 | productive wiring absent; reservation run binding; runtime/container isolation concerns | C/M | FIXED (wiring/reservation) / PRE_EXISTING_OUT_OF_SCOPE (container baseline) |
-| review-frontend-landing / `01a04668-cc38...` | 67028d7 | no applicable frontend surface; verify presentation/status truth | minor | PRE_EXISTING_OUT_OF_SCOPE / N/A with evidence |
-| audit-repository-reality / `01a04668-c744...` | 67028d7 | snapshot-only authority; productive wiring and Phase 4 absent | C/M | FIXED (current continuation) |
-| audit-repository-hygiene / `01a04668-c8e7...` | 67028d7 | worktree/head drift and historical evidence concerns | M | FIXED / PRE_EXISTING_OUT_OF_SCOPE |
-| review-devex-installer / `01a04668-c993...` | 67028d7 | stale review instructions; quickstart/install and count drift | M | PRE_EXISTING_OUT_OF_SCOPE |
-| review-docker-infrastructure / `01a04668-ca91...` | 67028d7 | compose token/build-context/mount/network concerns | M | PRE_EXISTING_OUT_OF_SCOPE |
+## Failed and superseded lifecycle records
 
-No recovered historical result is silently deleted. A finding remains
-`STILL_BLOCKING` until the current implementation or current evidence proves
-the disposition; the only remaining implementation blockers before the final
-review wave were B1/B2/Phase 4 and they now have focused tests.
+- The first collaborator wave created four sessions but returned no results;
+  all were closed as `CHILD_SESSION_STALLED` and count zero.
+- Three isolated retries timed out after partial progress and count zero.
+- Earlier final-head attempts targeted `6355098` or `ff0e395`; they are not
+  current-head reviews after the normal merge of updated `main`.
+- Historical recovered sessions at `e917ba6`, `67028d7`, and other prior
+  heads remain in the prior ledger history and are not double-counted.
+- The old “0/17; every spawn failed” statement is superseded because the
+  runtime transcript proves spawned and completed sessions; no success is
+  inferred from spawn-only or timeout records.
 
-## Gate status
+## Current conclusion
 
-The ledger is incomplete: 17 current-head completed results do not exist.
-No reviewer PASS, remediation readiness, Phase 3 readiness, merge, or Issue
-#308 closure is claimed.
+PR #460 is not yet eligible for final independent lifecycle approval solely
+from this ledger: current count is 16/17 and the final reviewer must run last.
+Phase 3 has not executed, no sandbox credential was acquired, no sandbox PR
+exists, and production writes remain zero.
