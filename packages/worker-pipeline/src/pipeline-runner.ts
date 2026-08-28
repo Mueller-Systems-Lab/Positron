@@ -2665,7 +2665,7 @@ async function executePhase(
 				let pilotTracking: JobAttemptTracking | null = null;
 				try {
 					const buildAttempt = loadLastAttempt(current.id, 'build', deps);
-					if (!buildAttempt || buildAttempt.status !== 'succeeded') {
+					if (buildAttempt?.status !== 'succeeded') {
 						throw new Error('STAGE3_BUILD_ATTEMPT_NOT_SUCCEEDED');
 					}
 					pilotTracking = trackJobAttempt(
