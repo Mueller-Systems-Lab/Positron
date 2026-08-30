@@ -6,6 +6,11 @@ author: Positron Team
 
 # Positron v3.0 — Architecture
 
+The current consolidation topology and legacy-source boundaries are documented
+in [Architecture After #447](architecture-after-consolidation.md). It ratifies
+one Positron controller and keeps OpenCode-Agenten-Oekosystem as a separate
+companion distribution layer.
+
 Positron is an evidence-gated GitHub issue execution system: the web UI requests work, the server orchestrates a deterministic run state machine, adapters encapsulate external systems, and SQLite persists every run, event, and artifact so progress can be resumed and audited.
 
 ## Technology stack

@@ -1,7 +1,7 @@
 # Current Capabilities
 
-**Status date:** 2026-08-26
-**Baseline:** `86ea0e0d433e088bf0aaa848ec1f6e41e83f9eff`
+**Status date:** 2026-08-30
+**Baseline:** `2b1b1c95244fdb947ee9c09ccd1626c19b51e5d0`
 **Product status:** pre-release / active development
 
 This is living documentation. Dated test totals and historical issue snapshots belong in `docs/evidence/` and are not repeated here as timeless claims.
@@ -16,7 +16,8 @@ This is living documentation. Dated test totals and historical issue snapshots b
 | Operator cockpit | PROVEN | Dashboard, runs, run detail, evidence, repositories, projects, evolution, settings, admin routes |
 | Local voice output | DEMO | Browser Web Speech API; optional and local-only |
 | Real adapters | GATED | Requires explicit mode, credentials, binaries, and safety configuration |
-| Full productive Real Mode | DEFERRED | Validation issue #308 remains open; no production-readiness claim |
+| Supervised Full Real Mode validation | PROVEN / GATED | Issue #308 is closed; this does not authorize unsupervised Real Mode or deployment |
+| Heterogeneous worker control-plane boundary | PROVEN | [Issue #447 architecture](../architecture/architecture-after-consolidation.md) |
 | Static public landing page | PROVEN | Source is deployed at the verified GitHub Pages URL |
 
 ## Current quality contract
@@ -28,7 +29,8 @@ Use `npm test`, `npm run build`, `npm run typecheck`, and the relevant Playwrigh
 ## Current issue state relevant to this document
 
 - [#211](https://github.com/Mueller-Systems-Lab/Positron/issues/211) is the active repository polish/install/Pages track.
-- [#308](https://github.com/Mueller-Systems-Lab/Positron/issues/308) remains open and unchanged by this issue.
+- [#308](https://github.com/Mueller-Systems-Lab/Positron/issues/308) is closed after supervised validation; unsupervised Real Mode remains gated.
+- [#447](https://github.com/Mueller-Systems-Lab/Positron/issues/447) is the current portfolio-consolidation track.
 - #250, #340, #416, #421, and #402 are closed historical work; they are references to evidence, not current backlog.
 
 ## Related living docs
