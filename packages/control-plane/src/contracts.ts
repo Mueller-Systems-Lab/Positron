@@ -30,7 +30,8 @@ export type ContractId =
 	| 'positron.routing-decision.v1'
 	| 'positron.harness-candidate.v1'
 	| 'positron.harness-evaluation.v1'
-	| 'positron.harness-promotion-decision.v1';
+	| 'positron.harness-promotion-decision.v1'
+	| 'positron.workflow-mutation.v1';
 
 export const CONTRACT_IDS: readonly ContractId[] = [
 	'positron.issue.v1',
@@ -44,6 +45,7 @@ export const CONTRACT_IDS: readonly ContractId[] = [
 	'positron.harness-candidate.v1',
 	'positron.harness-evaluation.v1',
 	'positron.harness-promotion-decision.v1',
+	'positron.workflow-mutation.v1',
 	'positron.review-batch.v1',
 	'positron.decision.v1',
 	'positron.split.v1',
@@ -844,6 +846,37 @@ const CONTRACT_REGISTRY: Record<ContractId, ContractSchema> = {
 			return errors;
 		},
 	},
+	// External workflow adapters (for example n8n) may request a mutation,
+	// but the control plane remains the only policy authority.
+	'positron.workflow-mutation.v1': {
+		contractId: 'positron.workflow-mutation.v1',
+		version: 1,
+		fields: {
+			run_id: { type: 'string', required: true, minLength: 1 },
+			job_id: { type: 'string', required: true, minLength: 1 },
+			attempt_id: { type: 'string', required: true, minLength: 1 },
+			workflow_id: { type: 'string', required: true, minLength: 1 },
+			action: { type: 'string', required: true, minLength: 1 },
+			protected_workflow: { type: 'boolean', required: true },
+			baseline_sha256: { type: 'string', required: true, pattern: /^[0-9a-f]{64}$/ },
+			observed_sha256: { type: 'string', required: true, pattern: /^[0-9a-f]{64}$/ },
+			proposed_sha256: { type: 'string', required: true, pattern: /^[0-9a-f]{64}$/ },
+			provenance: {
+				type: 'object',
+				required: true,
+				requiredKeys: ['adapter', 'source_ref', 'evidence_ref'],
+			},
+			approval_ref: { type: 'string', minLength: 1 },
+		},
+		additional: (doc) => {
+			const errors: string[] = [];
+			const actions = ['CREATE', 'UPDATE', 'ACTIVATE', 'DEACTIVATE', 'DELETE'];
+			if (!actions.includes(doc.action as string)) {
+				errors.push(`action must be one of ${actions.join(', ')}`);
+			}
+			return errors;
+		},
+	},
 };
 
 /** Gibt das Schema für eine Contract-ID zurück oder null bei unbekannter ID. */
@@ -1108,6 +1141,28 @@ export interface ReviewBatchContract {
 	job_id: string;
 	attempt_id: string;
 	findings: FindingContract[];
+}
+
+/** A policy request from an external workflow system; never an authority path. */
+export type WorkflowMutationAction = 'CREATE' | 'UPDATE' | 'ACTIVATE' | 'DEACTIVATE' | 'DELETE';
+
+export interface WorkflowMutationContract {
+	contract: 'positron.workflow-mutation.v1';
+	run_id: string;
+	job_id: string;
+	attempt_id: string;
+	workflow_id: string;
+	action: WorkflowMutationAction;
+	protected_workflow: boolean;
+	baseline_sha256: string;
+	observed_sha256: string;
+	proposed_sha256: string;
+	provenance: {
+		adapter: string;
+		source_ref: string;
+		evidence_ref: string;
+	};
+	approval_ref?: string;
 }
 
 /** Fachlicher Status eines Research-Workers (Barrier-Semantik). */
