@@ -9,11 +9,12 @@
 //   2. Policy Validation (all 20+ gates)
 //   3. Preview Generation
 //   4. Audit Pre-Write
-//   5. Branch Creation (exactly 1)
-//   6. File Commit (exactly 1)
-//   7. Draft PR Creation (exactly 1)
-//   8. Verify (read-only)
-//   9. Audit Success / Failure
+//   5. Durable Approval Consumption (live mode, before first writer)
+//   6. Branch Creation (exactly 1)
+//   7. File Commit (exactly 1)
+//   8. Draft PR Creation (exactly 1)
+//   9. Verify (read-only)
+//  10. Audit Success / Failure
 //
 // Partial failures: no auto-retry, no false success, no continuing to next phase.
 
@@ -36,6 +37,7 @@ import type {
 	Stage3ExecutionIdentity,
 } from './stage3-run-bound-approval.js';
 import { validateRunBoundStage3Approval } from './stage3-run-bound-approval.js';
+import { computeManifestSha256 } from './stage3-canonical-manifest.js';
 import type { Stage3RuntimeSafetyProbe } from './stage3-runtime-safety-probe.js';
 import { validateSafetySnapshot } from './stage3-runtime-safety-probe.js';
 import type {
@@ -342,6 +344,7 @@ export class Stage3RuntimeHarness {
 				return false;
 			}
 		};
+		let authoritativeIdentity: Stage3ExecutionIdentity | undefined;
 		const runBoundFailure = async (): Promise<string | undefined> => {
 			if (!isLive || !this.config.requireRunBoundApproval) return undefined;
 			if (!input.executionIdentity || !input.executionAuthority) {
@@ -351,11 +354,45 @@ export class Stage3RuntimeHarness {
 			if (!authority.valid) {
 				return authority.reason ?? 'STAGE3_CURRENT_EXECUTION_AUTHORITY_INVALID';
 			}
+			authoritativeIdentity = authority.currentIdentity ?? input.executionIdentity;
 			const validation = validateRunBoundStage3Approval(
 				input.runBoundApproval,
-				authority.currentIdentity,
+				authoritativeIdentity,
 			);
 			return validation.valid ? undefined : validation.reason;
+		};
+		let approvalConsumptionPersisted = false;
+		const persistApprovalConsumption = async (): Promise<void> => {
+			if (!isLive || !this.config.requireRunBoundApproval || approvalConsumptionPersisted) return;
+			if (!input.executionIdentity || !input.executionAuthority || !input.runBoundApproval) {
+				throw new Error('STAGE3_APPROVAL_CONSUMPTION_PERSISTENCE_UNAVAILABLE');
+			}
+			if (!input.executionAuthority.persistApprovalConsumption) {
+				throw new Error('STAGE3_APPROVAL_CONSUMPTION_PERSISTENCE_UNAVAILABLE');
+			}
+			const currentIdentity = authoritativeIdentity ?? input.executionIdentity;
+			await input.executionAuthority.persistApprovalConsumption({
+				approvalFingerprint: input.runBoundApproval.approvalFingerprint,
+				runId: currentIdentity.runId,
+				queueItemId: currentIdentity.queueItemId,
+				jobId: currentIdentity.jobId,
+				attemptId: currentIdentity.attemptId,
+				repository: STAGE3_CANONICAL.repository,
+				repositoryId: STAGE3_CANONICAL.repositoryId,
+				baseSha: input.approvalBinding.expectedBaseSha,
+				effectManifestHash: computeManifestSha256(),
+				branchIdentity: STAGE3_CANONICAL.targetBranch,
+				filePath: STAGE3_CANONICAL.filePath,
+				fileSha256: input.approvalBinding.fileSha256,
+				commitMetadataSha256: input.approvalBinding.commitMetadataSha256,
+				prMetadataSha256: input.approvalBinding.prMetadataSha256,
+				approvalExpiresAt: input.approvalBinding.expiresAt,
+				idempotencyKey: currentIdentity.idempotencyKey,
+				approvalSchemaVersion: input.runBoundApproval.version,
+				attemptLeaseGeneration: currentIdentity.attemptLeaseGeneration,
+				workspaceLockGeneration: currentIdentity.workspaceLockGeneration,
+			});
+			approvalConsumptionPersisted = true;
 		};
 
 		// Effective policy values: in live mode, these are always satisfied
@@ -1012,6 +1049,37 @@ export class Stage3RuntimeHarness {
 					false,
 					false,
 					'pre-write-branch-binding',
+				);
+			}
+			try {
+				// Durable authority is consumed only after the final pre-write
+				// revalidation and immediately before the first external writer.
+				// A persistence/read-back failure therefore reaches no writer.
+				await persistApprovalConsumption();
+			} catch (error) {
+				const auditEvent = this._audit(
+					'live',
+					'createBranch',
+					input.repository,
+					'blocked',
+					redactValue(String(error)),
+					undefined,
+					undefined,
+					idempotencyKey,
+					'approval-consumption',
+				);
+				auditEvents.push(auditEvent);
+				await _emit(auditEvent);
+				return this._result(
+					false,
+					'Approval consumption persistence failed — write blocked (fail-closed)',
+					true,
+					false,
+					auditEvents,
+					mode,
+					false,
+					false,
+					'approval-consumption',
 				);
 			}
 			this.policy.markWriteAttempted();

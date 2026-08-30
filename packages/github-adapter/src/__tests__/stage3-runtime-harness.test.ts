@@ -439,6 +439,7 @@ describe('Stage3RuntimeHarness — authoritative mutation boundaries', () => {
 						? { valid: false, currentIdentity: executionIdentity, reason: `stale at ${_boundary}` }
 						: { valid: true, currentIdentity: executionIdentity };
 				},
+				persistApprovalConsumption: vi.fn().mockResolvedValue({ consumptionId: 'consumption-1' }),
 			};
 			const approval = createRunBoundStage3Approval({
 				effectBinding: LIVE_APPROVAL_BINDING,
@@ -474,6 +475,49 @@ describe('Stage3RuntimeHarness — authoritative mutation boundaries', () => {
 			expect(authorityReads).toBe(failAt);
 		},
 	);
+
+	it('fails closed with zero writer calls when approval consumption persistence fails', async () => {
+		const branch = createSpyBranchWriter();
+		const commit = createSpyFileCommitWriter();
+		const pr = createSpyPrWriter();
+		const authority = {
+			revalidate: vi.fn().mockResolvedValue({ valid: true, currentIdentity: executionIdentity }),
+			persistApprovalConsumption: vi.fn().mockRejectedValue(new Error('durable store unavailable')),
+		};
+		const approval = createRunBoundStage3Approval({
+			effectBinding: LIVE_APPROVAL_BINDING,
+			runBinding: executionIdentity,
+		});
+		const harness = new Stage3RuntimeHarness({
+			policy: createStage3PilotPolicy(),
+			config: { enabled: true, fakeMode: false, requireRunBoundApproval: true },
+		});
+		const result = await harness.execute({
+			mode: 'live',
+			repository: STAGE3_CANONICAL.repository,
+			fileContent: CANONICAL_FILE_CONTENT,
+			idempotencyKey: executionIdentity.idempotencyKey,
+			approvalText: LIVE_APPROVAL_TEXT,
+			approvalBinding: LIVE_APPROVAL_BINDING,
+			runBoundApproval: approval,
+			executionIdentity,
+			executionAuthority: authority,
+			runtimeSafetyProbe: createFakeRuntimeSafetyProbe(),
+			bridge: createTestBridge({
+				branchWriter: branch,
+				fileCommitWriter: commit,
+				prWriter: pr,
+				verifier: createStatefulVerifier(),
+			}),
+			auditSink: createSpyAuditSink(),
+		} satisfies Stage3LiveHarnessInput);
+		expect(result.success).toBe(false);
+		expect(result.reason).toContain('Approval consumption persistence failed');
+		expect(authority.persistApprovalConsumption).toHaveBeenCalledTimes(1);
+		expect(branch.createBranch).not.toHaveBeenCalled();
+		expect(commit.commitFile).not.toHaveBeenCalled();
+		expect(pr.createPullRequest).not.toHaveBeenCalled();
+	});
 });
 
 // ---------------------------------------------------------------------------

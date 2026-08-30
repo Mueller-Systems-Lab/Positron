@@ -66,6 +66,29 @@ export interface RunBoundApprovalValidationResult {
 	reason?: string;
 }
 
+/** Non-secret approval authority that must be durably consumed before writing. */
+export interface Stage3ApprovalConsumptionInput {
+	approvalFingerprint: string;
+	runId: string;
+	queueItemId: string;
+	jobId: string;
+	attemptId: string;
+	repository: string;
+	repositoryId: string;
+	baseSha: string;
+	effectManifestHash: string;
+	branchIdentity: string;
+	filePath: string;
+	fileSha256: string;
+	commitMetadataSha256: string;
+	prMetadataSha256: string;
+	approvalExpiresAt: string;
+	idempotencyKey: string;
+	approvalSchemaVersion: string;
+	attemptLeaseGeneration: number;
+	workspaceLockGeneration: number;
+}
+
 /**
  * Read-only authority boundary for the durable control plane.
  *
@@ -78,6 +101,9 @@ export interface Stage3ExecutionAuthorityProvider {
 		valid: boolean;
 		currentIdentity?: Stage3ExecutionIdentity;
 		reason?: string;
+	}>;
+	persistApprovalConsumption?(input: Stage3ApprovalConsumptionInput): Promise<{
+		consumptionId: string;
 	}>;
 }
 
