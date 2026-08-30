@@ -1,8 +1,9 @@
 # Issue #447 — Frozen-Head Review Matrix
 
-This packet records deterministic review evidence for PR #463 exact head
-`83bf30aac6f917218cca9b320486dd190baa7f1b`. It does not authorize a merge,
-source retirement, release or deployment.
+This packet records deterministic review evidence for PR #463's final head as
+reported by GitHub. The exact SHA is intentionally taken from the final PR
+verification rather than duplicated in a self-referential commit. It does not
+authorize a merge, source retirement, release or deployment.
 
 | Review | Result | Evidence |
 |---|---|---|

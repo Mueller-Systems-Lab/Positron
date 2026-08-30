@@ -2,7 +2,8 @@
 
 PR: [#463](https://github.com/Mueller-Systems-Lab/Positron/pull/463)
 
-Exact reviewed head: `83bf30aac6f917218cca9b320486dd190baa7f1b`
+Exact reviewed head: the final GitHub-reported head of PR #463 (recorded in the
+owner-gate report and not duplicated self-referentially in this commit).
 
 ## Classification
 
