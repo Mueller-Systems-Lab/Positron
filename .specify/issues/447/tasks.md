@@ -18,5 +18,5 @@
   including unavailable-source validation status.
 - [x] T010 [S6] Publish retirement matrix, commercial positioning and final
   acceptance/gate report.
-- [ ] T011 [S6] Run local gates, freeze final head, create/update PR and attach
+- [x] T011 [S6] Run local gates, freeze final head, create/update PR and attach
   exact-head evidence; owner merge authorization remains required.

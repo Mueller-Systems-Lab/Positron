@@ -1,5 +1,9 @@
 # Issue #447 — Final Consolidation Report (Pre-merge)
 
+PR: [#463](https://github.com/Mueller-Systems-Lab/Positron/pull/463)
+
+Exact reviewed head: `83bf30aac6f917218cca9b320486dd190baa7f1b`
+
 ## Classification
 
 `GREEN_POSITRON_447_PORTFOLIO_CONSOLIDATION_PR_READY` is permitted only when
@@ -18,7 +22,7 @@ owner-bound merge, source retirement and release publication.
 | OCAE separate | Architecture map and commercial positioning; PASS |
 | Second control plane | `NEW_CONTROL_PLANE_COUNT = 0`; deterministic architecture review required |
 | Security | No secrets copied; fail-closed workflow policy tests; changed-surface scan found no credential material |
-| Tests and CI | Root build/typecheck and Vitest green; local Playwright is blocked by an already-running server/auth mismatch; required CI remains pending on the PR head |
+| Tests and CI | Root build/typecheck and Vitest green; required CI including Playwright is green on the exact PR head; local Playwright remains environment-blocked by an already-running server/auth mismatch |
 | Retirement matrix | `source-retirement-readiness.md`; complete, all actual archival actions deferred |
 
 ## Required final evidence
@@ -44,8 +48,24 @@ owner-bound merge, source retirement and release publication.
 - Deterministic architecture, security, migration/provenance and documentation
   review: PASS for the changed surface; see [the frozen-head review matrix](final-review-matrix.md).
 
-The exact protected CI contexts must still be appended after the PR is pushed:
-`format-check`, `differential-lint`, `build`, `typecheck`, `unit-tests` and
-`observability-config-check`.
+## Exact-head CI
+
+All required contexts passed on the exact head: `format-check`,
+`differential-lint`, `build`, `typecheck`, `unit-tests` and
+`observability-config-check`. Additional `full-lint-report`, mutation,
+Windows tool-gateway and `e2e-playwright` checks also passed. The GitHub Pages
+`deploy` job was skipped by policy.
+
+## Final state at the owner gate
+
+- `ISSUE_447_STATUS = OPEN; PR READY FOR OWNER MERGE AUTHORIZATION`
+- `SOURCE_REPOS_EVALUATED = 20`
+- `SOURCES_RETIREMENT_READY = NONE` (all 20 remain owner-/validation-gated)
+- `NEW_CONTROL_PLANE_COUNT = 0`
+- `DEEPSEEK_AGENT_USAGE = 0`
+- `PAID_MODEL_CALLS = 0`
+- `OPEN_ISSUES_AFTER = #447`
+- `OPEN_PRS_AFTER = #463`
+- `RELEASE_READINESS = NOT A RELEASE CANDIDATE BEFORE OWNER MERGE AND POST-MERGE GATE`
 
 DeepSeek agent usage: `0` · paid model calls: `0` · source mutations: `0`.
