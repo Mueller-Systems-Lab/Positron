@@ -1,7 +1,9 @@
 import type {
 	Stage3ExecutionAuthorityProvider,
+	Stage3ApprovalConsumptionInput,
 	Stage3ExecutionIdentity,
 } from '@positron/github-adapter';
+import { persistApprovalConsumption as persistDurableApprovalConsumption } from '@positron/control-plane';
 import type Database from 'better-sqlite3';
 
 type IdentityRow = {
@@ -61,6 +63,10 @@ export function createStage3ExecutionAuthorityProvider(
 	db: Database.Database,
 ): Stage3ExecutionAuthorityProvider {
 	return {
+		async persistApprovalConsumption(input: Stage3ApprovalConsumptionInput) {
+			const record = persistDurableApprovalConsumption(db, input);
+			return { consumptionId: record.consumption_id };
+		},
 		async revalidate(boundIdentity) {
 			const row = db
 				.prepare(

@@ -74,6 +74,7 @@ export {
 export type {
 	RunBoundApprovalValidationResult,
 	RunBoundStage3Approval,
+	Stage3ApprovalConsumptionInput,
 	Stage3ExecutionIdentity,
 	Stage3ExecutionAuthorityProvider,
 } from './stage3-run-bound-approval.js';

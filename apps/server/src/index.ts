@@ -43,6 +43,7 @@ import {
 	isRunLeaseAlive,
 	listQueueItems,
 	listSchedulerEvents,
+	listDecisionReconciliations,
 	markRunFinished,
 	markRunStarted,
 	persistSchedulerEvent,
@@ -50,6 +51,7 @@ import {
 	recoverStaleLeases,
 	renewWorkspaceLock,
 	resolveAttemptLeaseTtlMs,
+	resolveEffectiveDecision,
 	resolveProviderCapacity,
 	resolveWorkspaceLockTtlMs,
 	schedulerCapacity,
@@ -2472,14 +2474,34 @@ export function createApp(options: ServerOptions = {}) {
 
 			const decisions = (
 				database
-					.prepare('SELECT * FROM cp_decisions WHERE run_id = ? ORDER BY created_at ASC')
+					.prepare('SELECT * FROM cp_decisions WHERE run_id = ? ORDER BY created_at ASC, decision_id ASC')
 					.all(id) as Array<Record<string, unknown>>
 			).map((row) => ({
+				decision_id: row.decision_id,
 				decision: row.decision,
 				reason_code: row.reason_code,
 				contract: row.contract_json,
 				created_at: row.created_at,
 			}));
+			const decisionReconciliations = listDecisionReconciliations(database, id).map((record) => ({
+				reconciliation_id: record.reconciliation_id,
+				run_id: record.run_id,
+				source_decision_id: record.source_decision_id,
+				job_id: record.job_id,
+				attempt_id: record.attempt_id,
+				previous_decision: record.previous_decision,
+				reconciled_decision: record.reconciled_decision,
+				reason_code: record.reason_code,
+				evidence_refs: JSON.parse(record.evidence_refs_json),
+				evidence_hashes: JSON.parse(record.evidence_hashes_json),
+				created_at: record.created_at,
+				original_event_time: record.original_event_time,
+				reconciliation_time: record.reconciliation_time,
+				reconstructed: record.reconstructed,
+				provenance_version: record.provenance_version,
+				resolution_ordinal: record.resolution_ordinal,
+			}));
+			const effectiveDecision = resolveEffectiveDecision(database, id);
 
 			const transitions = (
 				database
@@ -2497,6 +2519,8 @@ export function createApp(options: ServerOptions = {}) {
 				jobs,
 				attempts,
 				decisions,
+				decision_reconciliations: decisionReconciliations,
+				effective_decision: effectiveDecision,
 				transitions,
 			});
 		} catch (err) {

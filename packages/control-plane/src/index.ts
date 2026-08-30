@@ -215,6 +215,22 @@ export {
 	computeProfileKpis,
 	LEGACY_PROFILE_GROUP,
 } from './kpis.js';
+export type {
+	ApprovalConsumptionInput,
+	ApprovalConsumptionRecord,
+	DecisionReconciliationInput,
+	DecisionReconciliationRecord,
+	EffectiveDecision,
+} from './durable-evidence.js';
+export {
+	getApprovalConsumption,
+	listApprovalConsumptions,
+	listDecisionReconciliations,
+	persistApprovalConsumption,
+	reconcileDecision,
+	reconstructApprovalConsumption,
+	resolveEffectiveDecision,
+} from './durable-evidence.js';
 export type { ParallelExecutionSlice, ParallelismVerdict } from './parallelism.js';
 // ─── Gemeinsame Parallelitäts-Primitive ───
 export { assertRealParallelism, observedOverlapMs } from './parallelism.js';
@@ -357,6 +373,7 @@ export {
 	applyControlPlaneMigrations,
 	CONTROL_PLANE_SCHEMA_V1,
 	CONTROL_PLANE_SCHEMA_V10,
+	CONTROL_PLANE_SCHEMA_V11,
 	getMigrationVersion,
 	setMigrationVersion,
 	validateMigrationShape,

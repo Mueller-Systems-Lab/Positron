@@ -80,6 +80,8 @@ export const CANONICAL_FILE_CONTENT = [
 // ---------------------------------------------------------------------------
 
 export const CANONICAL_REPOSITORY = 'Mueller-Systems-Lab/positron-308-sandbox';
+/** GitHub repository id, bound to prevent owner/repository substitution. */
+export const CANONICAL_REPOSITORY_ID = '1349145121';
 export const FORBIDDEN_REPOSITORIES = [
 	'Mueller-Systems-Lab/Positron',
 	'xxammaxx/Positron',
@@ -234,6 +236,7 @@ export const CANONICAL_PR_METADATA_SHA256 = sha256Utf8(
 export const STAGE3_MANIFEST = {
 	manifestVersion: 1,
 	repository: CANONICAL_REPOSITORY,
+	repositoryId: CANONICAL_REPOSITORY_ID,
 	baseBranch: CANONICAL_BASE_BRANCH,
 	targetBranch: CANONICAL_TARGET_BRANCH,
 	filePath: CANONICAL_FILE_PATH,

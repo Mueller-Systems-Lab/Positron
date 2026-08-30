@@ -367,6 +367,76 @@ CREATE INDEX IF NOT EXISTS idx_cp_shadow_candidate ON cp_shadow_runs(candidate_i
 CREATE INDEX IF NOT EXISTS idx_cp_canary_candidate ON cp_canary_runs(candidate_id);
 `;
 
+/**
+ * V11 — durable decision reconciliation and supervised approval authority.
+ *
+ * Both tables are append-only. Existing decisions/attempts are never updated
+ * by this migration; legacy rows remain readable with no invented evidence.
+ */
+export const CONTROL_PLANE_SCHEMA_V11 = `
+CREATE TABLE IF NOT EXISTS cp_decision_reconciliations (
+  reconciliation_id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL,
+  source_decision_id TEXT NOT NULL,
+  job_id TEXT NOT NULL,
+  attempt_id TEXT NOT NULL,
+  previous_decision TEXT NOT NULL,
+  reconciled_decision TEXT NOT NULL,
+  reason_code TEXT NOT NULL,
+  evidence_refs_json TEXT NOT NULL,
+  evidence_hashes_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  original_event_time TEXT,
+  reconciliation_time TEXT NOT NULL,
+  reconstructed INTEGER NOT NULL DEFAULT 0 CHECK (reconstructed IN (0, 1)),
+  provenance_version TEXT NOT NULL,
+  resolution_ordinal INTEGER NOT NULL,
+  UNIQUE (run_id, source_decision_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cp_decision_reconciliations_run
+  ON cp_decision_reconciliations(run_id, resolution_ordinal);
+CREATE INDEX IF NOT EXISTS idx_cp_decision_reconciliations_source
+  ON cp_decision_reconciliations(source_decision_id);
+
+CREATE TABLE IF NOT EXISTS cp_approval_consumptions (
+  consumption_id TEXT PRIMARY KEY,
+  approval_fingerprint TEXT NOT NULL UNIQUE,
+  run_id TEXT NOT NULL,
+  queue_item_id TEXT NOT NULL,
+  job_id TEXT NOT NULL,
+  attempt_id TEXT NOT NULL,
+  repository TEXT NOT NULL,
+  repository_id TEXT NOT NULL,
+  base_sha TEXT NOT NULL,
+  effect_manifest_hash TEXT NOT NULL,
+  branch_identity TEXT NOT NULL,
+  branch_identity_hash TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  file_sha256 TEXT NOT NULL,
+  commit_metadata_sha256 TEXT NOT NULL,
+  pr_metadata_sha256 TEXT NOT NULL,
+  approval_expires_at TEXT NOT NULL,
+  consumed_at TEXT NOT NULL,
+  idempotency_key TEXT NOT NULL UNIQUE,
+  idempotency_key_hash TEXT NOT NULL,
+  approval_schema_version TEXT NOT NULL,
+  attempt_lease_generation INTEGER NOT NULL,
+  workspace_lock_generation INTEGER NOT NULL,
+  reconstructed INTEGER NOT NULL DEFAULT 0 CHECK (reconstructed IN (0, 1)),
+  original_native_persistence INTEGER NOT NULL DEFAULT 1 CHECK (original_native_persistence IN (0, 1)),
+  source_evidence_refs_json TEXT NOT NULL DEFAULT '[]',
+  source_evidence_hashes_json TEXT NOT NULL DEFAULT '[]',
+  provenance_version TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_cp_approval_consumptions_run
+  ON cp_approval_consumptions(run_id, attempt_id);
+CREATE INDEX IF NOT EXISTS idx_cp_approval_consumptions_idempotency
+  ON cp_approval_consumptions(idempotency_key);
+`;
+
 function applyV10(db: Database.Database): void {
 	db.exec(CONTROL_PLANE_SCHEMA_V10);
 	// P5.4 fix: ensure version columns exist for general rollback (idempotent)
@@ -413,6 +483,8 @@ export function applyControlPlaneMigrations(db: Database.Database): void {
 		applyV9(db);
 		// P5.4: Harness Evolution Sandbox (V10, idempotent)
 		applyV10(db);
+		// P5.5: Durable decision reconciliation and approval authority (V11)
+		db.exec(CONTROL_PLANE_SCHEMA_V11);
 	});
 	try {
 		doMigrate();
@@ -429,6 +501,7 @@ export function applyControlPlaneMigrations(db: Database.Database): void {
 		applyV8(db);
 		applyV9(db);
 		applyV10(db);
+		db.exec(CONTROL_PLANE_SCHEMA_V11);
 		throw e;
 	}
 	// Validate shape after migration
@@ -465,6 +538,21 @@ export function validateMigrationShape(db: Database.Database): void {
 		],
 		cp_harness_candidates: ['candidate_id', 'candidate_fingerprint', 'status'],
 		cp_queue: ['queue_item_id', 'queue_state', 'dedup_key'],
+		cp_decision_reconciliations: [
+			'reconciliation_id',
+			'run_id',
+			'source_decision_id',
+			'reconciled_decision',
+			'resolution_ordinal',
+		],
+		cp_approval_consumptions: [
+			'consumption_id',
+			'approval_fingerprint',
+			'run_id',
+			'attempt_id',
+			'effect_manifest_hash',
+			'reconstructed',
+		],
 	};
 	for (const [table, cols] of Object.entries(requiredTables)) {
 		const existing = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
