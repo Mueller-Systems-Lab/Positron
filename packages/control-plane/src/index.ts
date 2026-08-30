@@ -31,6 +31,8 @@ export type {
 	HarnessEvaluationContract,
 	HarnessProfileRefContract,
 	HarnessPromotionDecisionContract,
+	WorkflowMutationAction,
+	WorkflowMutationContract,
 	KernelPermissions,
 	ModelProvenanceStatus,
 	PlanContract,
@@ -47,6 +49,8 @@ export type {
 	VerificationCheckKind,
 	VerificationContract,
 } from './contracts.js';
+export type { WorkflowMutationPolicyResult } from './workflow-mutation-policy.js';
+export { evaluateWorkflowMutation } from './workflow-mutation-policy.js';
 // ─── Versionierte Data Contracts + Validator ───
 export {
 	CANDIDATE_STATUSES,
