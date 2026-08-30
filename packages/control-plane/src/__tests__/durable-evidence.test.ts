@@ -146,16 +146,16 @@ describe('DURABLE_DECISION_RECONCILIATION', () => {
 		const original = storeDecision(db, 'run-1', 'BLOCKED', 'NO_VERIFICATION', '{}');
 		expect(() =>
 			reconcileDecision(db, {
-			runId: 'run-1',
-			sourceDecisionId: original.decision_id,
-			jobId: 'job-not-in-run',
-			attemptId: 'attempt-1',
-			previousDecision: 'BLOCKED',
-			reconciledDecision: 'DONE',
-			reasonCode: 'RECONCILED',
-			evidenceRefs: ['evidence:1'],
-			evidenceHashes: [HASH],
-		}),
+				runId: 'run-1',
+				sourceDecisionId: original.decision_id,
+				jobId: 'job-not-in-run',
+				attemptId: 'attempt-1',
+				previousDecision: 'BLOCKED',
+				reconciledDecision: 'DONE',
+				reasonCode: 'RECONCILED',
+				evidenceRefs: ['evidence:1'],
+				evidenceHashes: [HASH],
+			}),
 		).toThrow('DECISION_RECONCILIATION_JOB_NOT_FOUND');
 	});
 });
