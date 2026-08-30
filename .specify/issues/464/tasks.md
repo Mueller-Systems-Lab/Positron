@@ -4,5 +4,5 @@
 - [x] Search GitHub installation/org surfaces and local evidence surfaces.
 - [x] Inspect the located n8n snapshot and replacement sandbox repository.
 - [x] Record complete rows for all twelve requested sources.
-- [ ] Run documentation consistency checks.
-- [ ] Commit, push and open the #464 PR.
+- [x] Run documentation consistency checks (`git diff --check`, `npm test`).
+- [x] Commit, push and open the #464 PR (#467).
