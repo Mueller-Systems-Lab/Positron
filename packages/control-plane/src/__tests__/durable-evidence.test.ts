@@ -21,7 +21,14 @@ beforeEach(() => {
 	db.prepare(
 		`INSERT INTO cp_jobs (job_id, run_id, job_type, state, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?)`,
-	).run('job-1', 'run-1', 'stage3-pilot', 'running', '2026-08-30T00:00:00.000Z', '2026-08-30T00:00:00.000Z');
+	).run(
+		'job-1',
+		'run-1',
+		'stage3-pilot',
+		'running',
+		'2026-08-30T00:00:00.000Z',
+		'2026-08-30T00:00:00.000Z',
+	);
 	db.prepare(
 		`INSERT INTO cp_attempts (attempt_id, run_id, job_id, status)
 		 VALUES (?, ?, ?, ?)`,

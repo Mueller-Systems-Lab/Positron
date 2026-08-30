@@ -135,9 +135,9 @@ function requireRunJobAttemptBinding(
 	attemptId: string,
 	prefix: string,
 ): void {
-	const job = db
-		.prepare('SELECT run_id FROM cp_jobs WHERE job_id = ?')
-		.get(jobId) as { run_id: string } | undefined;
+	const job = db.prepare('SELECT run_id FROM cp_jobs WHERE job_id = ?').get(jobId) as
+		| { run_id: string }
+		| undefined;
 	if (!job) throw new Error(`${prefix}_JOB_NOT_FOUND`);
 	if (job.run_id !== runId) throw new Error(`${prefix}_JOB_RUN_MISMATCH`);
 
