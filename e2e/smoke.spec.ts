@@ -2,7 +2,9 @@ import { expect, test } from '@playwright/test';
 
 test.describe('Positron Smoke Tests', () => {
 	test('Health Check ist erreichbar', async ({ page }) => {
-		const res = await page.request.get('http://localhost:3000/api/health');
+		const res = await page.request.get(
+			`http://localhost:${process.env.POSITRON_TEST_SERVER_PORT || '43100'}/api/health`,
+		);
 		expect(res.ok()).toBeTruthy();
 		const json = await res.json();
 		expect(json).toHaveProperty('status');
@@ -16,7 +18,9 @@ test.describe('Positron Smoke Tests', () => {
 	});
 
 	test('API-Runs-Endpoint antwortet', async ({ page }) => {
-		const res = await page.request.get('http://localhost:3000/api/runs');
+		const res = await page.request.get(
+			`http://localhost:${process.env.POSITRON_TEST_SERVER_PORT || '43100'}/api/runs`,
+		);
 		expect(res.ok()).toBeTruthy();
 		const json = await res.json();
 		expect(json).toHaveProperty('runs');

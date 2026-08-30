@@ -15,8 +15,8 @@ import { installAdminToken } from './fixtures/admin-auth';
 import { expect, test } from './fixtures/observe';
 
 const ARTIFACT_DIR = 'docs/release/ui-workflow-proof';
-const BACKEND_URL = 'http://localhost:3000';
-const FRONTEND_URL = 'http://localhost:5173';
+const BACKEND_URL = `http://localhost:${process.env.POSITRON_TEST_SERVER_PORT || '43100'}`;
+const FRONTEND_URL = `http://localhost:${process.env.POSITRON_TEST_WEB_PORT || '45100'}`;
 
 // Ensure artifact directory exists
 if (!fs.existsSync(ARTIFACT_DIR)) {

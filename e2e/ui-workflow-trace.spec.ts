@@ -20,8 +20,8 @@ import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 import { installAdminToken } from './fixtures/admin-auth';
 
 const ARTIFACT_DIR = 'test-results/positron-ui-workflow';
-const BACKEND_URL = 'http://localhost:3000';
-const FRONTEND_URL = 'http://localhost:5173';
+const BACKEND_URL = `http://localhost:${process.env.POSITRON_TEST_SERVER_PORT || '43100'}`;
+const FRONTEND_URL = `http://localhost:${process.env.POSITRON_TEST_WEB_PORT || '45100'}`;
 
 // Ensure artifact directory
 if (!fs.existsSync(ARTIFACT_DIR)) {

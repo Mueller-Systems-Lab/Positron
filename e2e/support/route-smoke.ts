@@ -1,4 +1,5 @@
 export const ROUTE_SMOKE_BASE_URL_ENV = 'POSITRON_ROUTE_SMOKE_BASE_URL' as const;
+const TEST_WEB_PORT = process.env.POSITRON_TEST_WEB_PORT || '45100';
 
 export type RouteSmokeMode = 'local' | 'external';
 
@@ -102,10 +103,10 @@ export const ROUTE_SMOKE_MANIFEST: readonly RouteSmokeManifestEntry[] = [
 export function getRouteSmokeTarget(rawValue: string | undefined): RouteSmokeTarget {
 	if (rawValue === undefined) {
 		return {
-			baseURL: 'http://localhost:5173/',
+			baseURL: `http://localhost:${TEST_WEB_PORT}/`,
 			mode: 'local',
 			source: 'playwright-webServer',
-			redactedURL: 'http://localhost:5173/',
+			redactedURL: `http://localhost:${TEST_WEB_PORT}/`,
 		};
 	}
 

@@ -13,6 +13,13 @@ import type {
 import { GitCommandError, GitCommandFailedError, runCommand } from './command-runner.js';
 import { evaluatePushPolicy, generateCommitMessage } from './commit-policy.js';
 import { validatePath, validateRemoteUrl } from './paths.js';
+import {
+	acquireExternalMutationLock,
+	assertExternalMutationWriter,
+	getExternalMutationLock,
+	openMutationLockDatabase,
+	releaseExternalMutationLock,
+} from './persistent-mutation-lock.js';
 
 /**
  * Echter Git-Workspace-Adapter.
@@ -30,7 +37,10 @@ export class RealGitWorkspaceAdapter implements GitWorkspaceAdapter {
 	 * SQLite advisory lock, or Redis lock) is required.
 	 * See follow-up issue for persistent workspace lock store.
 	 */
-	private locks = new Map<string, string>();
+	private locks = new Map<string, { ownerId: string; generation: number }>();
+	private lockDb = openMutationLockDatabase(
+		process.env['POSITRON_DB_PATH'] ?? path.join(process.cwd(), '.positron', 'positron.db'),
+	);
 	/** Workspace root for boundary validation */
 	private workspaceRoot: string;
 
@@ -237,6 +247,13 @@ export class RealGitWorkspaceAdapter implements GitWorkspaceAdapter {
 		const { workspacePath, branch, remote } = options;
 
 		validatePath(workspacePath);
+		const held = this.locks.get(workspacePath);
+		if (!held) throw new GitCommandError('External mutation blocked: persistent lock is required');
+		assertExternalMutationWriter(this.lockDb, {
+			resource_key: workspacePath,
+			owner_id: held.ownerId,
+			generation: held.generation,
+		});
 
 		// Push-Policy prüfen
 		const policy = evaluatePushPolicy(branch, []);
@@ -300,6 +317,14 @@ export class RealGitWorkspaceAdapter implements GitWorkspaceAdapter {
 		const resolved = path.resolve(workspacePath);
 		// Idempotent: workspace already gone
 		if (!fs.existsSync(resolved)) {
+			const held = this.locks.get(workspacePath);
+			if (held) {
+				releaseExternalMutationLock(this.lockDb, {
+					resource_key: workspacePath,
+					owner_id: held.ownerId,
+					generation: held.generation,
+				});
+			}
 			this.locks.delete(workspacePath);
 			return { destroyed: true, reason: 'Workspace already removed (idempotent)' };
 		}
@@ -320,17 +345,16 @@ export class RealGitWorkspaceAdapter implements GitWorkspaceAdapter {
 		if (!workspacePath || !ownerRunId) {
 			return { locked: false, reason: 'Workspace path and ownerRunId are required' };
 		}
-		const existingOwner = this.locks.get(workspacePath);
-		if (existingOwner) {
-			if (existingOwner === ownerRunId) {
-				return { locked: true, reason: 'Already locked by same owner (idempotent)' };
-			}
+		const existing = getExternalMutationLock(this.lockDb, workspacePath);
+		const acquired = acquireExternalMutationLock(this.lockDb, workspacePath, ownerRunId, 600_000);
+		if (!acquired)
 			return {
 				locked: false,
-				reason: `Workspace already locked by run "${existingOwner}"`,
+				reason: `Workspace already locked by run "${existing?.owner_id ?? 'unknown'}"`,
 			};
-		}
-		this.locks.set(workspacePath, ownerRunId);
+		this.locks.set(workspacePath, { ownerId: ownerRunId, generation: acquired.generation });
+		if (existing?.owner_id === ownerRunId && existing.status === 'ACTIVE')
+			return { locked: true, reason: 'Already locked by same owner (idempotent)' };
 		return { locked: true };
 	}
 
@@ -341,24 +365,29 @@ export class RealGitWorkspaceAdapter implements GitWorkspaceAdapter {
 		if (!workspacePath || !ownerRunId) {
 			return { unlocked: false, reason: 'Workspace path and ownerRunId are required' };
 		}
-		const existingOwner = this.locks.get(workspacePath);
-		if (!existingOwner) {
+		const held = this.locks.get(workspacePath);
+		if (!held) {
 			return { unlocked: true, reason: 'Not locked (idempotent)' };
 		}
-		if (existingOwner !== ownerRunId) {
+		if (held.ownerId !== ownerRunId) {
 			return {
 				unlocked: false,
-				reason: `Cannot unlock: workspace owned by "${existingOwner}", not "${ownerRunId}"`,
+				reason: `Cannot unlock: workspace owned by "${held.ownerId}", not "${ownerRunId}"`,
 			};
 		}
+		releaseExternalMutationLock(this.lockDb, {
+			resource_key: workspacePath,
+			owner_id: ownerRunId,
+			generation: held.generation,
+		});
 		this.locks.delete(workspacePath);
 		return { unlocked: true };
 	}
 
 	async isLocked(workspacePath: string): Promise<{ locked: boolean; ownerRunId?: string }> {
-		const owner = this.locks.get(workspacePath);
-		if (owner) {
-			return { locked: true, ownerRunId: owner };
+		const lock = getExternalMutationLock(this.lockDb, workspacePath);
+		if (lock?.status === 'ACTIVE' && new Date(lock.expires_at).getTime() > Date.now()) {
+			return { locked: true, ownerRunId: lock.owner_id };
 		}
 		return { locked: false };
 	}
