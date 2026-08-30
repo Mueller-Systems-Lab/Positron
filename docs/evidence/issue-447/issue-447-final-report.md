@@ -86,8 +86,8 @@ Windows tool-gateway and `e2e-playwright` checks also passed. The GitHub Pages
 - `NEW_CONTROL_PLANE_COUNT = 0`
 - `DEEPSEEK_AGENT_USAGE = 0`
 - `PAID_MODEL_CALLS = 0`
-- `OPEN_ISSUES_AFTER = #447, #464` at the time of this evidence update
-- `OPEN_PRS_AFTER = none at canonical main` (this report update is proposed separately)
+- `OPEN_ISSUES_AFTER = #447, #464, #465` after the current reality refresh
+- `OPEN_PRS_AFTER = #466` (this evidence update; not merged)
 - `RELEASE_READINESS = GREEN_POSITRON_447_COMPLETE_RELEASE_GAPS_IDENTIFIED`
 
 ## Closure decision
@@ -101,6 +101,9 @@ unknowns can still conceal unique assets, so they block a truthful claim of
 complete portfolio evaluation. They block future retirement independently as
 well. Follow-up issue [#464](https://github.com/Mueller-Systems-Lab/Positron/issues/464)
 tracks only that validation work.
+
+GitHub automatically closed #447 when #463 merged. The issue was reopened after
+verification because that automatic event did not satisfy the closure decision.
 
 DeepSeek agent usage: `0` · paid model calls: `0` · source mutations: `0`.
 
