@@ -363,7 +363,7 @@ export class Stage3RuntimeHarness {
 		};
 		let approvalConsumptionPersisted = false;
 		const persistApprovalConsumption = async (): Promise<void> => {
-			if (!isLive || approvalConsumptionPersisted) return;
+			if (!isLive || !this.config.requireRunBoundApproval || approvalConsumptionPersisted) return;
 			if (!input.executionIdentity || !input.executionAuthority || !input.runBoundApproval) {
 				throw new Error('STAGE3_APPROVAL_CONSUMPTION_PERSISTENCE_UNAVAILABLE');
 			}

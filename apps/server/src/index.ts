@@ -2474,7 +2474,9 @@ export function createApp(options: ServerOptions = {}) {
 
 			const decisions = (
 				database
-					.prepare('SELECT * FROM cp_decisions WHERE run_id = ? ORDER BY created_at ASC, decision_id ASC')
+					.prepare(
+						'SELECT * FROM cp_decisions WHERE run_id = ? ORDER BY created_at ASC, decision_id ASC',
+					)
 					.all(id) as Array<Record<string, unknown>>
 			).map((row) => ({
 				decision_id: row.decision_id,
