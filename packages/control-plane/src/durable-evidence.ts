@@ -183,7 +183,11 @@ function mapApproval(row: Record<string, unknown>): ApprovalConsumptionRecord {
 	};
 }
 
-function reconciliationComparable(input: DecisionReconciliationInput, record: DecisionReconciliationRecord, sourceEventTime: string | null): boolean {
+function reconciliationComparable(
+	input: DecisionReconciliationInput,
+	record: DecisionReconciliationRecord,
+	sourceEventTime: string | null,
+): boolean {
 	return (
 		record.run_id === input.runId &&
 		record.source_decision_id === input.sourceDecisionId &&
@@ -206,7 +210,13 @@ export function reconcileDecision(
 	input: DecisionReconciliationInput,
 ): { record: DecisionReconciliationRecord; created: boolean } {
 	for (const [name, value] of Object.entries(input)) {
-		if (name !== 'originalEventTime' && name !== 'reconciliationTime' && name !== 'reconstructed' && name !== 'provenanceVersion' && !Array.isArray(value)) {
+		if (
+			name !== 'originalEventTime' &&
+			name !== 'reconciliationTime' &&
+			name !== 'reconstructed' &&
+			name !== 'provenanceVersion' &&
+			!Array.isArray(value)
+		) {
 			requireText(name, value as string);
 		}
 	}
@@ -218,13 +228,27 @@ export function reconcileDecision(
 	}
 	for (const evidenceHash of input.evidenceHashes) requireHash('evidenceHash', evidenceHash);
 	const tx = db.transaction(() => {
-		const source = db.prepare('SELECT * FROM cp_decisions WHERE decision_id = ? AND run_id = ?').get(input.sourceDecisionId, input.runId) as Record<string, unknown> | undefined;
+		const source = db
+			.prepare('SELECT * FROM cp_decisions WHERE decision_id = ? AND run_id = ?')
+			.get(input.sourceDecisionId, input.runId) as Record<string, unknown> | undefined;
 		if (!source) throw new Error('DECISION_RECONCILIATION_SOURCE_NOT_FOUND');
-		if (String(source.decision) !== input.previousDecision) throw new Error('DECISION_RECONCILIATION_SOURCE_MISMATCH');
-		const existing = db.prepare('SELECT * FROM cp_decision_reconciliations WHERE run_id = ? AND source_decision_id = ?').get(input.runId, input.sourceDecisionId) as Record<string, unknown> | undefined;
+		if (String(source.decision) !== input.previousDecision)
+			throw new Error('DECISION_RECONCILIATION_SOURCE_MISMATCH');
+		const existing = db
+			.prepare(
+				'SELECT * FROM cp_decision_reconciliations WHERE run_id = ? AND source_decision_id = ?',
+			)
+			.get(input.runId, input.sourceDecisionId) as Record<string, unknown> | undefined;
 		if (existing) {
 			const record = mapReconciliation(existing);
-			if (!reconciliationComparable(input, record, source.created_at ? String(source.created_at) : null)) throw new Error('DECISION_RECONCILIATION_CONFLICT');
+			if (
+				!reconciliationComparable(
+					input,
+					record,
+					source.created_at ? String(source.created_at) : null,
+				)
+			)
+				throw new Error('DECISION_RECONCILIATION_CONFLICT');
 			return { record, created: false };
 		}
 		const reconciliationTime = input.reconciliationTime ?? nowIso();
@@ -240,44 +264,95 @@ export function reconcileDecision(
 			evidence_refs_json: json(input.evidenceRefs),
 			evidence_hashes_json: json(input.evidenceHashes),
 			created_at: reconciliationTime,
-			original_event_time: input.originalEventTime ?? (source.created_at ? String(source.created_at) : null),
+			original_event_time:
+				input.originalEventTime ?? (source.created_at ? String(source.created_at) : null),
 			reconciliation_time: reconciliationTime,
 			reconstructed: input.reconstructed ?? false,
 			provenance_version: input.provenanceVersion ?? 'positron.durable-evidence.v1',
-			resolution_ordinal: Number((db.prepare('SELECT COALESCE(MAX(resolution_ordinal), 0) AS n FROM cp_decision_reconciliations WHERE run_id = ?').get(input.runId) as { n: number }).n) + 1,
+			resolution_ordinal:
+				Number(
+					(
+						db
+							.prepare(
+								'SELECT COALESCE(MAX(resolution_ordinal), 0) AS n FROM cp_decision_reconciliations WHERE run_id = ?',
+							)
+							.get(input.runId) as { n: number }
+					).n,
+				) + 1,
 		};
 		db.prepare(`INSERT INTO cp_decision_reconciliations
 			(reconciliation_id, run_id, source_decision_id, job_id, attempt_id, previous_decision,
 			reconciled_decision, reason_code, evidence_refs_json, evidence_hashes_json, created_at,
 			original_event_time, reconciliation_time, reconstructed, provenance_version, resolution_ordinal)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-			record.reconciliation_id, record.run_id, record.source_decision_id, record.job_id,
-			record.attempt_id, record.previous_decision, record.reconciled_decision, record.reason_code,
-			record.evidence_refs_json, record.evidence_hashes_json, record.created_at,
-			record.original_event_time, record.reconciliation_time, record.reconstructed ? 1 : 0,
-			record.provenance_version, record.resolution_ordinal,
+			record.reconciliation_id,
+			record.run_id,
+			record.source_decision_id,
+			record.job_id,
+			record.attempt_id,
+			record.previous_decision,
+			record.reconciled_decision,
+			record.reason_code,
+			record.evidence_refs_json,
+			record.evidence_hashes_json,
+			record.created_at,
+			record.original_event_time,
+			record.reconciliation_time,
+			record.reconstructed ? 1 : 0,
+			record.provenance_version,
+			record.resolution_ordinal,
 		);
-		const readback = db.prepare('SELECT * FROM cp_decision_reconciliations WHERE reconciliation_id = ?').get(record.reconciliation_id) as Record<string, unknown> | undefined;
-		if (!readback || mapReconciliation(readback).reconciliation_id !== record.reconciliation_id) throw new Error('DECISION_RECONCILIATION_READBACK_FAILED');
+		const readback = db
+			.prepare('SELECT * FROM cp_decision_reconciliations WHERE reconciliation_id = ?')
+			.get(record.reconciliation_id) as Record<string, unknown> | undefined;
+		if (!readback || mapReconciliation(readback).reconciliation_id !== record.reconciliation_id)
+			throw new Error('DECISION_RECONCILIATION_READBACK_FAILED');
 		return { record: mapReconciliation(readback), created: true };
 	});
 	return tx();
 }
 
-export function listDecisionReconciliations(db: Database.Database, runId: string): DecisionReconciliationRecord[] {
-	return (db.prepare('SELECT * FROM cp_decision_reconciliations WHERE run_id = ? ORDER BY resolution_ordinal ASC, reconciliation_id ASC').all(runId) as Array<Record<string, unknown>>).map(mapReconciliation);
+export function listDecisionReconciliations(
+	db: Database.Database,
+	runId: string,
+): DecisionReconciliationRecord[] {
+	return (
+		db
+			.prepare(
+				'SELECT * FROM cp_decision_reconciliations WHERE run_id = ? ORDER BY resolution_ordinal ASC, reconciliation_id ASC',
+			)
+			.all(runId) as Array<Record<string, unknown>>
+	).map(mapReconciliation);
 }
 
 /** Resolve the effective result while retaining the complete historical view. */
-export function resolveEffectiveDecision(db: Database.Database, runId: string): EffectiveDecision | null {
-	const historical = (db.prepare('SELECT * FROM cp_decisions WHERE run_id = ? ORDER BY created_at ASC, decision_id ASC').all(runId) as Array<Record<string, unknown>>).map((row) => ({
-		decision_id: String(row.decision_id), run_id: String(row.run_id), decision: String(row.decision),
-		reason_code: String(row.reason_code), contract_json: String(row.contract_json), created_at: String(row.created_at),
+export function resolveEffectiveDecision(
+	db: Database.Database,
+	runId: string,
+): EffectiveDecision | null {
+	const historical = (
+		db
+			.prepare(
+				'SELECT * FROM cp_decisions WHERE run_id = ? ORDER BY created_at ASC, decision_id ASC',
+			)
+			.all(runId) as Array<Record<string, unknown>>
+	).map((row) => ({
+		decision_id: String(row.decision_id),
+		run_id: String(row.run_id),
+		decision: String(row.decision),
+		reason_code: String(row.reason_code),
+		contract_json: String(row.contract_json),
+		created_at: String(row.created_at),
 	}));
 	const source = historical.at(-1);
 	if (!source) return null;
-	const reconciliation = (db.prepare('SELECT * FROM cp_decision_reconciliations WHERE run_id = ? AND source_decision_id = ?').get(runId, source.decision_id) as Record<string, unknown> | undefined);
-	if (!reconciliation) return { historicalDecision: source, reconciliation: null, effectiveDecision: source };
+	const reconciliation = db
+		.prepare(
+			'SELECT * FROM cp_decision_reconciliations WHERE run_id = ? AND source_decision_id = ?',
+		)
+		.get(runId, source.decision_id) as Record<string, unknown> | undefined;
+	if (!reconciliation)
+		return { historicalDecision: source, reconciliation: null, effectiveDecision: source };
 	const resolved = mapReconciliation(reconciliation);
 	return {
 		historicalDecision: source,
@@ -290,46 +365,101 @@ export function resolveEffectiveDecision(db: Database.Database, runId: string): 
 	};
 }
 
-function approvalRowFromInput(input: ApprovalConsumptionInput, reconstructed: boolean): ApprovalConsumptionRecord {
+function approvalRowFromInput(
+	input: ApprovalConsumptionInput,
+	reconstructed: boolean,
+): ApprovalConsumptionRecord {
 	const consumedAt = input.consumedAt ?? nowIso();
 	return {
-		consumption_id: createId('approval'), approval_fingerprint: input.approvalFingerprint,
-		run_id: input.runId, queue_item_id: input.queueItemId, job_id: input.jobId, attempt_id: input.attemptId,
-		repository: input.repository, repository_id: input.repositoryId, base_sha: input.baseSha,
-		effect_manifest_hash: input.effectManifestHash, branch_identity: input.branchIdentity,
-		branch_identity_hash: hash(input.branchIdentity), file_path: input.filePath, file_sha256: input.fileSha256,
-		commit_metadata_sha256: input.commitMetadataSha256, pr_metadata_sha256: input.prMetadataSha256,
-		approval_expires_at: input.approvalExpiresAt, consumed_at: consumedAt, idempotency_key: input.idempotencyKey,
-		idempotency_key_hash: hash(input.idempotencyKey), approval_schema_version: input.approvalSchemaVersion,
-		attempt_lease_generation: input.attemptLeaseGeneration, workspace_lock_generation: input.workspaceLockGeneration,
-		reconstructed, original_native_persistence: !reconstructed,
-		source_evidence_refs_json: json(input.sourceEvidenceRefs ?? []), source_evidence_hashes_json: json(input.sourceEvidenceHashes ?? []),
-		provenance_version: input.provenanceVersion ?? 'positron.durable-evidence.v1', created_at: consumedAt,
+		consumption_id: createId('approval'),
+		approval_fingerprint: input.approvalFingerprint,
+		run_id: input.runId,
+		queue_item_id: input.queueItemId,
+		job_id: input.jobId,
+		attempt_id: input.attemptId,
+		repository: input.repository,
+		repository_id: input.repositoryId,
+		base_sha: input.baseSha,
+		effect_manifest_hash: input.effectManifestHash,
+		branch_identity: input.branchIdentity,
+		branch_identity_hash: hash(input.branchIdentity),
+		file_path: input.filePath,
+		file_sha256: input.fileSha256,
+		commit_metadata_sha256: input.commitMetadataSha256,
+		pr_metadata_sha256: input.prMetadataSha256,
+		approval_expires_at: input.approvalExpiresAt,
+		consumed_at: consumedAt,
+		idempotency_key: input.idempotencyKey,
+		idempotency_key_hash: hash(input.idempotencyKey),
+		approval_schema_version: input.approvalSchemaVersion,
+		attempt_lease_generation: input.attemptLeaseGeneration,
+		workspace_lock_generation: input.workspaceLockGeneration,
+		reconstructed,
+		original_native_persistence: !reconstructed,
+		source_evidence_refs_json: json(input.sourceEvidenceRefs ?? []),
+		source_evidence_hashes_json: json(input.sourceEvidenceHashes ?? []),
+		provenance_version: input.provenanceVersion ?? 'positron.durable-evidence.v1',
+		created_at: consumedAt,
 	};
 }
 
 function validateApprovalInput(input: ApprovalConsumptionInput, reconstructed: boolean): void {
 	for (const value of Object.values(input)) {
-		if (typeof value === 'string' && SECRET_LIKE.test(value)) throw new Error('APPROVAL_SECRET_INPUT_REJECTED');
+		if (typeof value === 'string' && SECRET_LIKE.test(value))
+			throw new Error('APPROVAL_SECRET_INPUT_REJECTED');
 	}
-	for (const value of [...(input.sourceEvidenceRefs ?? []), ...(input.sourceEvidenceHashes ?? [])]) {
+	for (const value of [
+		...(input.sourceEvidenceRefs ?? []),
+		...(input.sourceEvidenceHashes ?? []),
+	]) {
 		if (SECRET_LIKE.test(value)) throw new Error('APPROVAL_SECRET_INPUT_REJECTED');
 	}
 	for (const [name, value] of Object.entries(input)) {
-		if (name === 'consumedAt' || name === 'reconstructed' || name === 'originalNativePersistence' || name === 'sourceEvidenceRefs' || name === 'sourceEvidenceHashes' || name === 'provenanceVersion') continue;
+		if (
+			name === 'consumedAt' ||
+			name === 'reconstructed' ||
+			name === 'originalNativePersistence' ||
+			name === 'sourceEvidenceRefs' ||
+			name === 'sourceEvidenceHashes' ||
+			name === 'provenanceVersion'
+		)
+			continue;
 		if (typeof value === 'string') requireText(name, value);
 	}
-	for (const [name, value] of [['approvalFingerprint', input.approvalFingerprint], ['baseSha', input.baseSha], ['effectManifestHash', input.effectManifestHash], ['fileSha256', input.fileSha256], ['commitMetadataSha256', input.commitMetadataSha256], ['prMetadataSha256', input.prMetadataSha256]] as const) requireHash(name, value);
-	if (!Number.isInteger(input.attemptLeaseGeneration) || !Number.isInteger(input.workspaceLockGeneration)) throw new Error('APPROVAL_GENERATION_MALFORMED');
-	if (reconstructed && (!input.sourceEvidenceRefs?.length || !input.sourceEvidenceHashes?.length)) throw new Error('RECONSTRUCTED_APPROVAL_SOURCE_MISSING');
-	if ((input.sourceEvidenceRefs?.length ?? 0) !== (input.sourceEvidenceHashes?.length ?? 0)) throw new Error('APPROVAL_SOURCE_EVIDENCE_LENGTH_MISMATCH');
-	for (const sourceHash of input.sourceEvidenceHashes ?? []) requireHash('sourceEvidenceHash', sourceHash);
+	for (const [name, value] of [
+		['approvalFingerprint', input.approvalFingerprint],
+		['baseSha', input.baseSha],
+		['effectManifestHash', input.effectManifestHash],
+		['fileSha256', input.fileSha256],
+		['commitMetadataSha256', input.commitMetadataSha256],
+		['prMetadataSha256', input.prMetadataSha256],
+	] as const)
+		requireHash(name, value);
+	if (
+		!Number.isInteger(input.attemptLeaseGeneration) ||
+		!Number.isInteger(input.workspaceLockGeneration)
+	)
+		throw new Error('APPROVAL_GENERATION_MALFORMED');
+	if (reconstructed && (!input.sourceEvidenceRefs?.length || !input.sourceEvidenceHashes?.length))
+		throw new Error('RECONSTRUCTED_APPROVAL_SOURCE_MISSING');
+	if ((input.sourceEvidenceRefs?.length ?? 0) !== (input.sourceEvidenceHashes?.length ?? 0))
+		throw new Error('APPROVAL_SOURCE_EVIDENCE_LENGTH_MISMATCH');
+	for (const sourceHash of input.sourceEvidenceHashes ?? [])
+		requireHash('sourceEvidenceHash', sourceHash);
 }
 
-function persistApproval(db: Database.Database, input: ApprovalConsumptionInput, reconstructed: boolean): ApprovalConsumptionRecord {
+function persistApproval(
+	db: Database.Database,
+	input: ApprovalConsumptionInput,
+	reconstructed: boolean,
+): ApprovalConsumptionRecord {
 	validateApprovalInput(input, reconstructed);
 	const tx = db.transaction(() => {
-		const duplicate = db.prepare('SELECT consumption_id FROM cp_approval_consumptions WHERE approval_fingerprint = ? OR idempotency_key = ?').get(input.approvalFingerprint, input.idempotencyKey);
+		const duplicate = db
+			.prepare(
+				'SELECT consumption_id FROM cp_approval_consumptions WHERE approval_fingerprint = ? OR idempotency_key = ?',
+			)
+			.get(input.approvalFingerprint, input.idempotencyKey);
 		if (duplicate) throw new Error('APPROVAL_CONSUMPTION_REPLAY');
 		const record = approvalRowFromInput(input, reconstructed);
 		db.prepare(`INSERT INTO cp_approval_consumptions
@@ -340,37 +470,81 @@ function persistApproval(db: Database.Database, input: ApprovalConsumptionInput,
 			workspace_lock_generation, reconstructed, original_native_persistence, source_evidence_refs_json,
 			source_evidence_hashes_json, provenance_version, created_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-			record.consumption_id, record.approval_fingerprint, record.run_id, record.queue_item_id, record.job_id,
-			record.attempt_id, record.repository, record.repository_id, record.base_sha, record.effect_manifest_hash,
-		record.branch_identity, record.branch_identity_hash, record.file_path, record.file_sha256,
-		record.commit_metadata_sha256, record.pr_metadata_sha256, record.approval_expires_at, record.consumed_at,
-		record.idempotency_key, record.idempotency_key_hash, record.approval_schema_version,
-		record.attempt_lease_generation, record.workspace_lock_generation, record.reconstructed ? 1 : 0,
-		record.original_native_persistence ? 1 : 0, record.source_evidence_refs_json, record.source_evidence_hashes_json,
-		record.provenance_version, record.created_at,
+			record.consumption_id,
+			record.approval_fingerprint,
+			record.run_id,
+			record.queue_item_id,
+			record.job_id,
+			record.attempt_id,
+			record.repository,
+			record.repository_id,
+			record.base_sha,
+			record.effect_manifest_hash,
+			record.branch_identity,
+			record.branch_identity_hash,
+			record.file_path,
+			record.file_sha256,
+			record.commit_metadata_sha256,
+			record.pr_metadata_sha256,
+			record.approval_expires_at,
+			record.consumed_at,
+			record.idempotency_key,
+			record.idempotency_key_hash,
+			record.approval_schema_version,
+			record.attempt_lease_generation,
+			record.workspace_lock_generation,
+			record.reconstructed ? 1 : 0,
+			record.original_native_persistence ? 1 : 0,
+			record.source_evidence_refs_json,
+			record.source_evidence_hashes_json,
+			record.provenance_version,
+			record.created_at,
 		);
-		const readback = db.prepare('SELECT * FROM cp_approval_consumptions WHERE consumption_id = ?').get(record.consumption_id) as Record<string, unknown> | undefined;
-		if (!readback || mapApproval(readback).approval_fingerprint !== record.approval_fingerprint) throw new Error('APPROVAL_CONSUMPTION_READBACK_FAILED');
+		const readback = db
+			.prepare('SELECT * FROM cp_approval_consumptions WHERE consumption_id = ?')
+			.get(record.consumption_id) as Record<string, unknown> | undefined;
+		if (!readback || mapApproval(readback).approval_fingerprint !== record.approval_fingerprint)
+			throw new Error('APPROVAL_CONSUMPTION_READBACK_FAILED');
 		return mapApproval(readback);
 	});
 	return tx();
 }
 
 /** Native future-run authority. Must complete before the first writer call. */
-export function persistApprovalConsumption(db: Database.Database, input: ApprovalConsumptionInput): ApprovalConsumptionRecord {
+export function persistApprovalConsumption(
+	db: Database.Database,
+	input: ApprovalConsumptionInput,
+): ApprovalConsumptionRecord {
 	return persistApproval(db, input, false);
 }
 
 /** Bounded retrospective import; explicitly marks evidence as reconstructed. */
-export function reconstructApprovalConsumption(db: Database.Database, input: ApprovalConsumptionInput): ApprovalConsumptionRecord {
+export function reconstructApprovalConsumption(
+	db: Database.Database,
+	input: ApprovalConsumptionInput,
+): ApprovalConsumptionRecord {
 	return persistApproval(db, input, true);
 }
 
-export function getApprovalConsumption(db: Database.Database, fingerprint: string): ApprovalConsumptionRecord | null {
-	const row = db.prepare('SELECT * FROM cp_approval_consumptions WHERE approval_fingerprint = ?').get(fingerprint) as Record<string, unknown> | undefined;
+export function getApprovalConsumption(
+	db: Database.Database,
+	fingerprint: string,
+): ApprovalConsumptionRecord | null {
+	const row = db
+		.prepare('SELECT * FROM cp_approval_consumptions WHERE approval_fingerprint = ?')
+		.get(fingerprint) as Record<string, unknown> | undefined;
 	return row ? mapApproval(row) : null;
 }
 
-export function listApprovalConsumptions(db: Database.Database, runId: string): ApprovalConsumptionRecord[] {
-	return (db.prepare('SELECT * FROM cp_approval_consumptions WHERE run_id = ? ORDER BY consumed_at ASC, consumption_id ASC').all(runId) as Array<Record<string, unknown>>).map(mapApproval);
+export function listApprovalConsumptions(
+	db: Database.Database,
+	runId: string,
+): ApprovalConsumptionRecord[] {
+	return (
+		db
+			.prepare(
+				'SELECT * FROM cp_approval_consumptions WHERE run_id = ? ORDER BY consumed_at ASC, consumption_id ASC',
+			)
+			.all(runId) as Array<Record<string, unknown>>
+	).map(mapApproval);
 }
