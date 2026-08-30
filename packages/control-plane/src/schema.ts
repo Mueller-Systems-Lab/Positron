@@ -488,8 +488,9 @@ export function applyControlPlaneMigrations(db: Database.Database): void {
 	});
 	try {
 		doMigrate();
-	} catch (e) {
+	} catch {
 		// If transaction fails, try non-transactional fallback (for older SQLite)
+		// The fallback is successful only after the same shape validation below.
 		db.exec(CONTROL_PLANE_SCHEMA_V1);
 		applyV2(db);
 		applyV3(db);
@@ -502,7 +503,6 @@ export function applyControlPlaneMigrations(db: Database.Database): void {
 		applyV9(db);
 		applyV10(db);
 		db.exec(CONTROL_PLANE_SCHEMA_V11);
-		throw e;
 	}
 	// Validate shape after migration
 	validateMigrationShape(db);

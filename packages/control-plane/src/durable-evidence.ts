@@ -128,6 +128,27 @@ function requireHash(name: string, value: string): void {
 	if (!SHA256.test(value)) throw new Error(`${name}_MALFORMED`);
 }
 
+function requireRunJobAttemptBinding(
+	db: Database.Database,
+	runId: string,
+	jobId: string,
+	attemptId: string,
+	prefix: string,
+): void {
+	const job = db
+		.prepare('SELECT run_id FROM cp_jobs WHERE job_id = ?')
+		.get(jobId) as { run_id: string } | undefined;
+	if (!job) throw new Error(`${prefix}_JOB_NOT_FOUND`);
+	if (job.run_id !== runId) throw new Error(`${prefix}_JOB_RUN_MISMATCH`);
+
+	const attempt = db
+		.prepare('SELECT run_id, job_id FROM cp_attempts WHERE attempt_id = ?')
+		.get(attemptId) as { run_id: string; job_id: string } | undefined;
+	if (!attempt) throw new Error(`${prefix}_ATTEMPT_NOT_FOUND`);
+	if (attempt.run_id !== runId || attempt.job_id !== jobId)
+		throw new Error(`${prefix}_ATTEMPT_BINDING_MISMATCH`);
+}
+
 function mapReconciliation(row: Record<string, unknown>): DecisionReconciliationRecord {
 	return {
 		reconciliation_id: String(row.reconciliation_id),
@@ -234,6 +255,13 @@ export function reconcileDecision(
 		if (!source) throw new Error('DECISION_RECONCILIATION_SOURCE_NOT_FOUND');
 		if (String(source.decision) !== input.previousDecision)
 			throw new Error('DECISION_RECONCILIATION_SOURCE_MISMATCH');
+		requireRunJobAttemptBinding(
+			db,
+			input.runId,
+			input.jobId,
+			input.attemptId,
+			'DECISION_RECONCILIATION',
+		);
 		const existing = db
 			.prepare(
 				'SELECT * FROM cp_decision_reconciliations WHERE run_id = ? AND source_decision_id = ?',
@@ -369,7 +397,9 @@ function approvalRowFromInput(
 	input: ApprovalConsumptionInput,
 	reconstructed: boolean,
 ): ApprovalConsumptionRecord {
-	const consumedAt = input.consumedAt ?? nowIso();
+	// A retrospective import must record when it was reconstructed. A caller
+	// supplied timestamp is evidence input, not authoritative native history.
+	const consumedAt = reconstructed ? nowIso() : (input.consumedAt ?? nowIso());
 	return {
 		consumption_id: createId('approval'),
 		approval_fingerprint: input.approvalFingerprint,
@@ -448,6 +478,44 @@ function validateApprovalInput(input: ApprovalConsumptionInput, reconstructed: b
 		requireHash('sourceEvidenceHash', sourceHash);
 }
 
+function approvalRecordsEqual(
+	left: ApprovalConsumptionRecord,
+	right: ApprovalConsumptionRecord,
+): boolean {
+	const fields: Array<keyof ApprovalConsumptionRecord> = [
+		'consumption_id',
+		'approval_fingerprint',
+		'run_id',
+		'queue_item_id',
+		'job_id',
+		'attempt_id',
+		'repository',
+		'repository_id',
+		'base_sha',
+		'effect_manifest_hash',
+		'branch_identity',
+		'branch_identity_hash',
+		'file_path',
+		'file_sha256',
+		'commit_metadata_sha256',
+		'pr_metadata_sha256',
+		'approval_expires_at',
+		'consumed_at',
+		'idempotency_key',
+		'idempotency_key_hash',
+		'approval_schema_version',
+		'attempt_lease_generation',
+		'workspace_lock_generation',
+		'reconstructed',
+		'original_native_persistence',
+		'source_evidence_refs_json',
+		'source_evidence_hashes_json',
+		'provenance_version',
+		'created_at',
+	];
+	return fields.every((field) => left[field] === right[field]);
+}
+
 function persistApproval(
 	db: Database.Database,
 	input: ApprovalConsumptionInput,
@@ -455,6 +523,18 @@ function persistApproval(
 ): ApprovalConsumptionRecord {
 	validateApprovalInput(input, reconstructed);
 	const tx = db.transaction(() => {
+		requireRunJobAttemptBinding(
+			db,
+			input.runId,
+			input.jobId,
+			input.attemptId,
+			'APPROVAL_CONSUMPTION',
+		);
+		const queue = db
+			.prepare('SELECT run_id FROM cp_queue WHERE queue_item_id = ?')
+			.get(input.queueItemId) as { run_id: string | null } | undefined;
+		if (!queue) throw new Error('APPROVAL_CONSUMPTION_QUEUE_NOT_FOUND');
+		if (queue.run_id !== input.runId) throw new Error('APPROVAL_CONSUMPTION_QUEUE_RUN_MISMATCH');
 		const duplicate = db
 			.prepare(
 				'SELECT consumption_id FROM cp_approval_consumptions WHERE approval_fingerprint = ? OR idempotency_key = ?',
@@ -503,9 +583,10 @@ function persistApproval(
 		const readback = db
 			.prepare('SELECT * FROM cp_approval_consumptions WHERE consumption_id = ?')
 			.get(record.consumption_id) as Record<string, unknown> | undefined;
-		if (!readback || mapApproval(readback).approval_fingerprint !== record.approval_fingerprint)
+		const persisted = readback ? mapApproval(readback) : null;
+		if (!persisted || !approvalRecordsEqual(persisted, record))
 			throw new Error('APPROVAL_CONSUMPTION_READBACK_FAILED');
-		return mapApproval(readback);
+		return persisted;
 	});
 	return tx();
 }

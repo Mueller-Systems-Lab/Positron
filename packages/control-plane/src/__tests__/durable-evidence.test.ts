@@ -18,6 +18,27 @@ const HASH = 'a'.repeat(64);
 beforeEach(() => {
 	db = new Database(':memory:');
 	applyControlPlaneMigrations(db);
+	db.prepare(
+		`INSERT INTO cp_jobs (job_id, run_id, job_type, state, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
+	).run('job-1', 'run-1', 'stage3-pilot', 'running', '2026-08-30T00:00:00.000Z', '2026-08-30T00:00:00.000Z');
+	db.prepare(
+		`INSERT INTO cp_attempts (attempt_id, run_id, job_id, status)
+		 VALUES (?, ?, ?, ?)`,
+	).run('attempt-1', 'run-1', 'job-1', 'running');
+	db.prepare(
+		`INSERT INTO cp_queue
+		 (queue_item_id, source_type, source_ref, repository_ref, run_id, queue_state, enqueued_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+	).run(
+		'queue-1',
+		'issue',
+		'308',
+		'Mueller-Systems-Lab/positron-308-sandbox',
+		'run-1',
+		'RUNNING',
+		'2026-08-30T00:00:00.000Z',
+	);
 });
 
 describe('DURABLE_DECISION_RECONCILIATION', () => {
@@ -113,6 +134,23 @@ describe('DURABLE_DECISION_RECONCILIATION', () => {
 		applyControlPlaneMigrations(db);
 		expect(resolveEffectiveDecision(db, 'run-1')?.effectiveDecision.decision).toBe('DONE');
 	});
+
+	it('rejects reconciliation foreign identities', () => {
+		const original = storeDecision(db, 'run-1', 'BLOCKED', 'NO_VERIFICATION', '{}');
+		expect(() =>
+			reconcileDecision(db, {
+			runId: 'run-1',
+			sourceDecisionId: original.decision_id,
+			jobId: 'job-not-in-run',
+			attemptId: 'attempt-1',
+			previousDecision: 'BLOCKED',
+			reconciledDecision: 'DONE',
+			reasonCode: 'RECONCILED',
+			evidenceRefs: ['evidence:1'],
+			evidenceHashes: [HASH],
+		}),
+		).toThrow('DECISION_RECONCILIATION_JOB_NOT_FOUND');
+	});
 });
 
 function approvalInput(overrides: Record<string, unknown> = {}) {
@@ -167,6 +205,15 @@ describe('DURABLE_APPROVAL_CONSUMPTION', () => {
 		).toThrow('APPROVAL_CONSUMPTION_REPLAY');
 	});
 
+	it('rejects approval consumption with a foreign attempt binding', () => {
+		expect(() =>
+			persistApprovalConsumption(
+				db,
+				approvalInput({ attemptId: 'attempt-not-in-job', idempotencyKey: 'foreign-attempt' }),
+			),
+		).toThrow('APPROVAL_CONSUMPTION_ATTEMPT_NOT_FOUND');
+	});
+
 	it('marks retrospective evidence honestly and requires source evidence', () => {
 		expect(() => reconstructApprovalConsumption(db, approvalInput())).toThrow(
 			'RECONSTRUCTED_APPROVAL_SOURCE_MISSING',
@@ -180,6 +227,7 @@ describe('DURABLE_APPROVAL_CONSUMPTION', () => {
 		);
 		expect(record.reconstructed).toBe(true);
 		expect(record.original_native_persistence).toBe(false);
+		expect(record.consumed_at).not.toBe('2026-08-30T00:00:00.000Z');
 	});
 
 	it('fails closed when the durability table is unavailable', () => {

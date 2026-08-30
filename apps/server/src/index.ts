@@ -2407,6 +2407,17 @@ export function createApp(options: ServerOptions = {}) {
 		}
 	}
 
+	function parsePersistedEvidenceList(value: string): string[] | null {
+		try {
+			const parsed: unknown = JSON.parse(value);
+			return Array.isArray(parsed) && parsed.every((item) => typeof item === 'string')
+				? parsed
+				: null;
+		} catch {
+			return null;
+		}
+	}
+
 	app.get('/api/runs/:id/control-plane', (req, res) => {
 		const { id } = req.params;
 		try {
@@ -2494,8 +2505,8 @@ export function createApp(options: ServerOptions = {}) {
 				previous_decision: record.previous_decision,
 				reconciled_decision: record.reconciled_decision,
 				reason_code: record.reason_code,
-				evidence_refs: JSON.parse(record.evidence_refs_json),
-				evidence_hashes: JSON.parse(record.evidence_hashes_json),
+				evidence_refs: parsePersistedEvidenceList(record.evidence_refs_json),
+				evidence_hashes: parsePersistedEvidenceList(record.evidence_hashes_json),
 				created_at: record.created_at,
 				original_event_time: record.original_event_time,
 				reconciliation_time: record.reconciliation_time,
