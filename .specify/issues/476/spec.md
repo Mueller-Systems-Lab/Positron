@@ -26,6 +26,14 @@ only when they are reusable and remain non-authoritative.
   threshold is `AMBER_POSITRON_EXPLORATION_EVIDENCE_INSUFFICIENT`.
 - Candidate mutation after holdout start is invalid and must be rejected.
 
+## Closure extension (predeclared)
+
+The closure run adds exactly two independent paired holdout tasks, each run on
+A/B/C: `holdout-6-has-own-key` and `holdout-7-retry-status`. The extension is
+six submitted cells total, all attempted, with no optional stopping or further
+task addition after results are observed. The original five holdouts and their
+invalid provider cells remain unchanged in the combined analysis.
+
 The strategy is deliberately small and bounded: inspect the task/test signal,
 rank likely symbols/files, admit only the highest-confidence context, suppress
 identical reads, and widen only when the observed evidence requires it. It may

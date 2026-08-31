@@ -14,3 +14,6 @@
    reviews, and implement no productization unless every positive gate passes.
 7. Run the required repository checks and finish with a visible Playwright
    regression smoke; record all evidence and the PR handoff in GitHub.
+8. For closure capacity only, predeclare exactly two new independent paired
+   holdouts, attempt all six A/B/C cells, combine them with the original
+   evidence, and apply the frozen decision without optional stopping.

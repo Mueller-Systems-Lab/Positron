@@ -17,3 +17,7 @@
       relevant visible E2E gates.
 - [x] Publish redacted evidence, acceptance mapping, diff summary, and branch/
       PR state; leave productization disabled unless proven.
+- [x] Predeclare the bounded two-task paired closure extension and disjoint
+      partition fingerprints before running any new cell.
+- [x] Execute all six extension cells and combine the result with original
+      valid evidence under the unchanged gates.
