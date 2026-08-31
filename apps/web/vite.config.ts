@@ -7,10 +7,10 @@ export default defineConfig({
 		extensions: ['.tsx', '.ts', '.jsx', '.js', '.json'],
 	},
 	server: {
-		port: 5173,
+		port: Number(process.env.POSITRON_TEST_WEB_PORT || '45100'),
 		proxy: {
 			'/api': {
-				target: 'http://localhost:3000',
+				target: `http://localhost:${process.env.POSITRON_TEST_SERVER_PORT || '43100'}`,
 				changeOrigin: true,
 			},
 		},

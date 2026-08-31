@@ -43,7 +43,7 @@ type ParseResult =
 	| { kind: 'help' }
 	| { kind: 'error'; message: string };
 
-function parseArgs(argv: string[]): ParseResult {
+export function parseArgs(argv: string[]): ParseResult {
 	const args: RunCommandArgs = {
 		issueNumber: 0,
 		repoId: undefined,

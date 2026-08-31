@@ -42,8 +42,8 @@
 import { expect, test } from '@playwright/test';
 import { installAdminToken } from './fixtures/admin-auth';
 
-const BACKEND_URL = 'http://localhost:3000';
-const FRONTEND_URL = 'http://localhost:5173';
+const BACKEND_URL = `http://localhost:${process.env.POSITRON_TEST_SERVER_PORT || '43100'}`;
+const FRONTEND_URL = `http://localhost:${process.env.POSITRON_TEST_WEB_PORT || '45100'}`;
 
 test.describe('Full Run Lifecycle E2E (QA-028)', () => {
 	test.describe.configure({ mode: 'serial' });

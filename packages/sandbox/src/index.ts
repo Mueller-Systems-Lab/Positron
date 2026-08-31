@@ -57,6 +57,7 @@ export {
 	validateRemoteUrl,
 } from './paths.js';
 export { RealGitWorkspaceAdapter } from './real-adapter.js';
+export * from './persistent-mutation-lock.js';
 export {
 	ALLOWED_SPECKIT_COMMANDS,
 	BLOCKED_SPECKIT_COMMANDS,

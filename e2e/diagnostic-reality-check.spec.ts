@@ -16,7 +16,7 @@ import * as path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { installAdminToken } from './fixtures/admin-auth';
 
-const API_BASE = 'http://localhost:3000';
+const API_BASE = `http://localhost:${process.env.POSITRON_TEST_SERVER_PORT || '43100'}`;
 const DIAG_DIR = 'test-results/positron-reality-check';
 const SCREENSHOT_DIR = `${DIAG_DIR}/screenshots`;
 const NETWORK_LOG = `${DIAG_DIR}/network-log.json`;
@@ -106,8 +106,8 @@ test.describe('Positron Reality Check', () => {
 		const manifest = {
 			testName: 'Positron Reality Check',
 			timestamp: new Date().toISOString(),
-			baseUrl: 'http://localhost:5173',
-			apiUrl: 'http://localhost:3000',
+			baseUrl: `http://localhost:${process.env.POSITRON_TEST_WEB_PORT || '45100'}`,
+			apiUrl: API_BASE,
 			artifacts: {
 				screenshots: fs.readdirSync(SCREENSHOT_DIR).filter((f) => f.endsWith('.png')),
 				networkLog: 'network-log.json',

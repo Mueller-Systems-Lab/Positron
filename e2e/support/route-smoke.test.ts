@@ -12,7 +12,7 @@ import {
 describe('route smoke target contract', () => {
 	test('defaults to the self-started local target only when unset', () => {
 		expect(getRouteSmokeTarget(undefined)).toMatchObject({
-			baseURL: 'http://localhost:5173/',
+			baseURL: `http://localhost:${process.env.POSITRON_TEST_WEB_PORT || '45100'}/`,
 			mode: 'local',
 			source: 'playwright-webServer',
 		});

@@ -506,6 +506,9 @@ export function applyControlPlaneMigrations(db: Database.Database): void {
 	}
 	// Validate shape after migration
 	validateMigrationShape(db);
+	// The ledger is written only after every shape check succeeds. It is an
+	// informational compatibility marker, never a source of mutation authority.
+	setMigrationVersion(db, '11');
 }
 
 /**

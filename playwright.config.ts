@@ -8,8 +8,8 @@ import { getRouteSmokeTarget } from './e2e/support/route-smoke';
  * - Fake adapters only — no real GitHub/OpenCode calls
  * - Explicit VITEST=true skips .env loading (prevents real mode activation)
  * - Chromium only (consistent across CI and local)
- * - webServer auto-starts backend (port 3000) and frontend (port 5173)
- * - reuseExistingServer: true — works with manually started servers
+ * - webServer owns dedicated backend/frontend ports for every local run
+ * - unrelated manually started servers are never reused
  * - Single worker — sequential execution avoids port conflicts
  *
  * Evidence (L4 — Browser Verification):
@@ -44,6 +44,8 @@ const FAKE_MODE_ENV = {
 };
 
 const routeSmokeTarget = getRouteSmokeTarget(process.env.POSITRON_ROUTE_SMOKE_BASE_URL);
+const testServerPort = Number(process.env.POSITRON_TEST_SERVER_PORT || '43100');
+const testWebPort = Number(process.env.POSITRON_TEST_WEB_PORT || '45100');
 
 // QA-069: Propagate admin token to test worker processes.
 // Test workers inherit parent process.env, so setting it here ensures
@@ -74,21 +76,22 @@ export default defineConfig({
 		routeSmokeTarget.mode === 'local'
 			? [
 					{
-						command: 'npx tsx src/index.ts',
+						command: `npx tsx src/index.ts --port ${testServerPort}`,
 						cwd: './apps/server',
-						url: 'http://localhost:3000/api/health',
-						reuseExistingServer: true,
+						url: `http://localhost:${testServerPort}/api/health`,
+						reuseExistingServer: false,
 						timeout: 30000,
 						env: {
 							...process.env,
 							...FAKE_MODE_ENV,
+							PORT: String(testServerPort),
 						},
 					},
 					{
-						command: 'npx vite --port 5173',
+						command: `npx vite --port ${testWebPort}`,
 						cwd: './apps/web',
-						url: 'http://localhost:5173',
-						reuseExistingServer: true,
+						url: `http://localhost:${testWebPort}`,
+						reuseExistingServer: false,
 						timeout: 30000,
 					},
 				]
