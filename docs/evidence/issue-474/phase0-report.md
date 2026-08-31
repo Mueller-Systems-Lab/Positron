@@ -49,6 +49,18 @@ experimental evidence. Productization remains disabled until independent,
 real or faithfully replayed Positron attempts populate A/B/C and holdout
 partitions with immutable evidence.
 
+## Final validation reconciliation — 2026-08-31
+
+After the final `npm ci`, local Biome resolved to the repository-pinned
+`2.5.10`. The repository-wide local scripts still report pre-existing
+diagnostics: formatting differs in `.opencode/package.json`, and lint reports
+existing `biome.json` ignore-folder diagnostics plus existing test warnings.
+The PR's CI format/lint checks pass. This remains
+`BIOME_LOCAL_CI_DRIFT=PRE_EXISTING_CONFIGURATION_DIAGNOSTIC_DRIFT`, not a
+regression from Issue #474. The root build and Vite build pass; the optional
+`apps/web` build script is blocked by existing strict TypeScript errors in
+unrelated web tests.
+
 ## Verification
 
 - Phase-0 focused tests: 11 passed.
