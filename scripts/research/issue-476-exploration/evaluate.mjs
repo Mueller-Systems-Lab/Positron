@@ -36,4 +36,4 @@ const result = {
 	reproducible: true,
 };
 writeFileSync(join(root, 'value-gate.json'), `${JSON.stringify(result, null, 2)}\n`);
-console.log(JSON.stringify(result, null, 2));
+process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
