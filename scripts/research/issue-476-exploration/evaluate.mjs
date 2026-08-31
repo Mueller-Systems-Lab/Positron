@@ -8,14 +8,18 @@ const metrics = JSON.parse(readFileSync(join(root, 'metrics.json'), 'utf8'));
 const candidate = JSON.parse(readFileSync(join(root, 'candidate.json'), 'utf8'));
 const partition = JSON.parse(readFileSync(join(root, 'partition.json'), 'utf8'));
 const gate = evaluateValueGate(metrics.arms);
+const partitionIntersection = partition.intersection ?? [
+	...(partition.design_extension_intersection ?? []),
+	...(partition.old_holdout_extension_intersection ?? []),
+];
 const result = {
 	...gate,
 	candidate_id: candidate.candidate_id,
 	candidate_fingerprint: candidate.candidate_fingerprint,
 	design_partition_fingerprint: partition.design_partition_fingerprint,
 	holdout_partition_fingerprint: partition.holdout_partition_fingerprint,
-	partition_intersection: partition.intersection,
-	holdout_leakage: partition.intersection.length > 0,
+	partition_intersection: partitionIntersection,
+	holdout_leakage: partitionIntersection.length > 0,
 	compute_matched: true,
 	compute_explains_gain: gate.compute_explains_gain ?? false,
 	productization_implemented: false,

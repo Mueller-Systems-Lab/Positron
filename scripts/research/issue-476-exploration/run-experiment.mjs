@@ -5,6 +5,7 @@ import {
 	CANDIDATE_ID,
 	CONTEXT_BUDGET,
 	DESIGN_TASKS,
+	EXTENSION_TASKS,
 	MAX_STEPS,
 	MODEL,
 	OPENCODE_VERSION,
@@ -12,22 +13,25 @@ import {
 	TIMEOUT_MS,
 	aggregate,
 	buildCandidate,
+	buildExtensionPartition,
 	buildPartition,
 	extractTelemetry,
 } from './harness.mjs';
 
 const root = mkdtempSync('/tmp/positron-issue-476-runtime-');
+const extensionRun = process.argv.includes('--extension');
+const selectedTasks = extensionRun ? EXTENSION_TASKS : TASKS;
 const runsRoot = join(root, 'runs');
 const logsRoot = join(root, 'logs');
 mkdirSync(runsRoot, { recursive: true });
 mkdirSync(logsRoot, { recursive: true });
 const candidate = buildCandidate();
-const partition = buildPartition();
+const partition = extensionRun ? buildExtensionPartition() : buildPartition();
 writeFileSync(join(root, 'candidate.json'), `${JSON.stringify(candidate, null, 2)}\n`);
 writeFileSync(join(root, 'partition.json'), `${JSON.stringify(partition, null, 2)}\n`);
 writeFileSync(
 	join(root, 'run-manifest.json'),
-	`${JSON.stringify({ root, candidate_id: CANDIDATE_ID, model: MODEL, opencode_version: OPENCODE_VERSION, max_steps: MAX_STEPS, timeout_ms: TIMEOUT_MS, context_budget: CONTEXT_BUDGET, design_tasks: DESIGN_TASKS, holdout_tasks: TASKS.map(({ id }) => id), frozen_before_holdout: true }, null, 2)}\n`,
+	`${JSON.stringify({ root, candidate_id: CANDIDATE_ID, model: MODEL, opencode_version: OPENCODE_VERSION, max_steps: MAX_STEPS, timeout_ms: TIMEOUT_MS, context_budget: CONTEXT_BUDGET, design_tasks: DESIGN_TASKS, holdout_tasks: selectedTasks.map(({ id }) => id), extension_run: extensionRun, stopping_rule: extensionRun ? '2 tasks × A/B/C = 6 cells; all attempted; no optional stopping' : null, frozen_before_holdout: true }, null, 2)}\n`,
 );
 
 function prepareFixture(task, dir) {
@@ -140,7 +144,8 @@ function runOne(task, arm) {
 }
 
 const rows = [];
-for (const task of TASKS) {
+
+for (const task of selectedTasks) {
 	for (const arm of ['A', 'B', 'C']) {
 		const row = runOne(task, arm);
 		rows.push(row);

@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {
 	aggregate,
 	buildCandidate,
+	buildExtensionPartition,
 	buildPartition,
+	EXTENSION_TASKS,
 	evaluateValueGate,
 	negativeCanary,
 	sha256,
@@ -26,6 +28,18 @@ test('design and holdout partitions are frozen and disjoint', () => {
 	assert.equal(partition.frozen_before_holdout, true);
 	assert.match(partition.design_partition_fingerprint, /^[0-9a-f]{64}$/);
 	assert.match(partition.holdout_partition_fingerprint, /^[0-9a-f]{64}$/);
+});
+
+test('extension tasks are disjoint from design and original holdouts', () => {
+	const partition = buildExtensionPartition();
+	assert.deepEqual(partition.design_extension_intersection, []);
+	assert.deepEqual(partition.old_holdout_extension_intersection, []);
+	assert.equal(partition.extension_holdout.length, 2);
+	assert.deepEqual(
+		EXTENSION_TASKS.map(({ id }) => id),
+		['holdout-6-has-own-key', 'holdout-7-retry-status'],
+	);
+	assert.match(partition.extension_holdout_partition_fingerprint, /^[0-9a-f]{64}$/);
 });
 
 test('value gate is quality-first and requires both control comparisons', () => {

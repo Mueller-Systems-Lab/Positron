@@ -56,6 +56,44 @@ export const TASKS = [
 	},
 ];
 
+export const EXTENSION_TASKS = [
+	{
+		id: 'holdout-6-has-own-key',
+		name: 'has-own-key',
+		source:
+			"export function hasOwnKey(value, key) {\n  return value !== null && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, key);\n}\n",
+		buggySource: 'export function hasOwnKey(value, key) {\n  return key in Object(value);\n}\n',
+		test: `import test from 'node:test';
+import assert from 'node:assert/strict';
+import { hasOwnKey } from '../src/has-own-key.js';
+
+test('checks own keys without inherited properties', () => {
+	assert.equal(hasOwnKey({ enabled: true }, 'enabled'), true);
+	assert.equal(hasOwnKey({}, 'toString'), false);
+	assert.equal(hasOwnKey(null, 'enabled'), false);
+});
+`,
+	},
+	{
+		id: 'holdout-7-retry-status',
+		name: 'retry-status',
+		source:
+			'export function isRetryable(status) {\n  return status === 408 || status === 429 || (status >= 500 && status <= 599);\n}\n',
+		buggySource: 'export function isRetryable(status) {\n  return status >= 500;\n}\n',
+		test: `import test from 'node:test';
+import assert from 'node:assert/strict';
+import { isRetryable } from '../src/retry-status.js';
+
+test('recognizes retryable HTTP statuses', () => {
+	assert.equal(isRetryable(408), true);
+	assert.equal(isRetryable(429), true);
+	assert.equal(isRetryable(503), true);
+	assert.equal(isRetryable(404), false);
+});
+`,
+	},
+];
+
 export const DESIGN_TASKS = [
 	{ id: 'design-1-boundary', name: 'design-boundary' },
 	{ id: 'design-2-import', name: 'design-import' },
@@ -113,6 +151,32 @@ export function buildPartition() {
 		design_partition_fingerprint: sha256(source),
 		holdout_partition_fingerprint: sha256(holdout),
 		intersection: sourceIds.filter((id) => holdoutIds.includes(id)),
+		frozen_before_holdout: true,
+	};
+}
+
+export function buildExtensionPartition() {
+	const design = DESIGN_TASKS.map((task) => ({ id: task.id, fingerprint: sha256(task) }));
+	const oldHoldout = TASKS.map((task) => ({
+		id: task.id,
+		fingerprint: sha256({ id: task.id, name: task.name }),
+	}));
+	const extensionHoldout = EXTENSION_TASKS.map((task) => ({
+		id: task.id,
+		fingerprint: sha256({ id: task.id, name: task.name }),
+	}));
+	const designIds = design.map((item) => item.id);
+	const oldHoldoutIds = oldHoldout.map((item) => item.id);
+	const extensionIds = extensionHoldout.map((item) => item.id);
+	return {
+		design,
+		old_holdout: oldHoldout,
+		extension_holdout: extensionHoldout,
+		design_extension_intersection: designIds.filter((id) => extensionIds.includes(id)),
+		old_holdout_extension_intersection: oldHoldoutIds.filter((id) => extensionIds.includes(id)),
+		design_partition_fingerprint: sha256(design),
+		old_holdout_partition_fingerprint: sha256(oldHoldout),
+		extension_holdout_partition_fingerprint: sha256(extensionHoldout),
 		frozen_before_holdout: true,
 	};
 }
