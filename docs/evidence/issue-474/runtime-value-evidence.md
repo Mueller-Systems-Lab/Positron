@@ -225,3 +225,37 @@ Three read-only reviews were run after the runtime evidence was frozen:
 The architecture review's only note was to verify the autonomy deny rules in
 the final PR diff; `.opencode/opencode.json` is included in this change and
 was validated with `opencode debug config`. No review required a code fix.
+
+## Final visible Playwright closure
+
+After functional validation, reviews, documentation, and commits, the final
+browser run used the repository's existing route-smoke and diagnostic suites:
+
+```text
+DISPLAY=:0
+WAYLAND_DISPLAY=
+PLAYWRIGHT_MODE=HEADED_VISIBLE
+command= npx playwright test e2e/route-smoke.spec.ts e2e/diagnostic-reality-check.spec.ts --headed --workers=1 --trace on --reporter=line
+tests=15/15 PASS
+HEADED_BROWSER_VISIBLE=YES
+```
+
+All nine application routes were tested, including Dashboard, Runs, Run
+Detail, Evidence, Harness Evolution, repositories, projects, settings, and
+admin. The diagnostic suite captured eight redacted screenshots, 794 network
+entries, and 32 console entries. Page errors and console errors were both
+zero. Five logged network failures were expected SSE teardown races after
+the page/context closed; HTTP failures during the checks were zero.
+
+Route manifest SHA256:
+
+```text
+fd369d4a2b55e136ac286ec3fece9fb38b2fd91c09d1f7fad390ab744e3130a5  test-results/positron-reality-check/manifest.json
+522ca7cc333c8d3e739495e784614020b3480c1c363ff38856b74a4c74ed54e6  test-results/route-smoke/manifest.json
+```
+
+Screenshots and traces remain in the gitignored local `test-results/`
+directory; the final run produced 17 screenshots and 15 traces. The
+diagnostic network and console logs are also local-only. These artifacts are
+not committed because they contain runtime event metadata and are available
+by the manifest paths and hashes above.
