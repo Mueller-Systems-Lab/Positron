@@ -144,8 +144,8 @@ for (const task of TASKS) {
 	for (const arm of ['A', 'B', 'C']) {
 		const row = runOne(task, arm);
 		rows.push(row);
-		console.log(
-			`COMPLETED task=${task.id} arm=${arm} valid=${row.valid_runtime_attempt} verified=${row.verified_success} calls=${row.tool_calls_to_verified_success ?? 'UNKNOWN'}`,
+		process.stdout.write(
+			`COMPLETED task=${task.id} arm=${arm} valid=${row.valid_runtime_attempt} verified=${row.verified_success} calls=${row.tool_calls_to_verified_success ?? 'UNKNOWN'}\n`,
 		);
 	}
 }
@@ -168,4 +168,4 @@ const metrics = {
 	),
 };
 writeFileSync(join(root, 'metrics.json'), `${JSON.stringify(metrics, null, 2)}\n`);
-console.log(`RUNTIME_ROOT=${root}`);
+process.stdout.write(`RUNTIME_ROOT=${root}\n`);

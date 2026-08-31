@@ -128,12 +128,16 @@ No productization is authorized.
 - Harness focused tests: 6/6 PASS; JavaScript syntax checks PASS.
 - Post-merge main qualification: typecheck PASS; build PASS; full tests
   2708/2708 plus web 421/421 PASS; contracts 168/168; integration 20/20;
-  transfer/review regression PASS; format PASS; differential lint PASS with
-  zero new/worsened diagnostics. Full local lint remains a pre-existing Biome
-  configuration/backlog diagnostic and is not changed by this issue.
-- Post-merge visible Playwright smoke before this research: 15/15 PASS, no
-  console/page errors. Final development smoke is run after this evidence is
-  committed.
+  transfer/review regression PASS. The repository-wide lint and format checks
+  report the pre-existing Biome 2.5 configuration/backlog diagnostics; the
+  five changed research scripts pass an isolated Biome 2.5 format/lint check,
+  and the differential-lint test suite passes. No source lint regression was
+  introduced by this issue.
+- Final visible Playwright smoke after experiment, decision, reviews, and
+  documentation: `PLAYWRIGHT_MODE=HEADED_VISIBLE`, Chromium headed, 15/15
+  PASS; route manifest reports zero console errors, zero page errors, and zero
+  HTTP failures. The expected fake-mode worker log for a nonexistent demo
+  issue is not a browser error.
 - Acceptance: architecture reuse, frozen candidate/partitions, telemetry,
   negative canary, review evidence, and no productization are satisfied;
   minimum valid A/B/C evidence is explicitly not satisfied, hence AMBER.
