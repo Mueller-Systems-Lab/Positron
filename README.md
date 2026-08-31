@@ -9,7 +9,7 @@ Positron is for teams and maintainers who want LLM workers to move a GitHub Issu
 
 Developed by [Mueller-Systems-Lab](https://github.com/Mueller-Systems-Lab). Positron remains an independent product identity.
 
-> Pre-release / active development. Fake/demo mode is the safe way to explore Positron. The supervised Full Real Mode validation in [#308](https://github.com/Mueller-Systems-Lab/Positron/issues/308) is complete; unsupervised productive Real Mode remains gated and is not a release claim.
+> Release target `v0.1.0`; stable publication is established by the matching tag and GitHub Release. Active development continues for future work. Fake/demo mode is the safe way to explore Positron. The supervised Full Real Mode validation in [#308](https://github.com/Mueller-Systems-Lab/Positron/issues/308) is complete; unsupervised productive Real Mode remains gated and is not enabled by this release.
 
 ## Try it in one command
 
