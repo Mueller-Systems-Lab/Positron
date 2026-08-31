@@ -1,8 +1,8 @@
 # Current Capabilities
 
-**Status date:** 2026-08-30
-**Baseline:** `2b1b1c95244fdb947ee9c09ccd1626c19b51e5d0`
-**Product status:** pre-release / active development
+**Status date:** 2026-08-31
+**Baseline:** `d02f261a4df898f934400cb532127b9767872672`
+**Product status:** release target v0.1.0 / active development
 
 This is living documentation. Dated test totals and historical issue snapshots belong in `docs/evidence/` and are not repeated here as timeless claims.
 
