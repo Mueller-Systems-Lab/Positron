@@ -162,9 +162,11 @@ export function extractTelemetry(events, meta, verificationPassed, elapsedMs) {
 		context_admitted: tokenTotals.length ? Math.max(...tokenTotals) : null,
 		tokens_reported: tokenTotals.length ? Math.max(...tokenTotals) : null,
 		token_provenance: tokenTotals.length ? 'VERIFIED_PROVIDER_REPORTED' : 'UNKNOWN',
-		failed_search_or_read_calls:
-			tools.filter((tool) => ['glob', 'grep', 'search', 'read'].includes(tool)).length -
-			reads.length,
+		failed_search_or_read_calls: toolEvents.filter(
+			(event) =>
+				['glob', 'grep', 'search', 'read'].includes(event.part?.tool) &&
+				event.part?.state?.status !== 'completed',
+		).length,
 		error_count: errors.length,
 	};
 }

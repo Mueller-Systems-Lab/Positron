@@ -77,3 +77,20 @@ test('invalid provider runs remain visible in failure classifications', () => {
 	]);
 	assert.deepEqual(result.failure_classes, { PROVIDER_FAILURE: 1 });
 });
+
+test('failed search/read telemetry counts only non-completed tool events', async () => {
+	const { extractTelemetry } = await import('./harness.mjs');
+	const result = extractTelemetry(
+		[
+			{
+				type: 'tool_use',
+				part: { tool: 'read', state: { status: 'completed', input: { filePath: '/tmp/a.js' } } },
+			},
+			{ type: 'tool_use', part: { tool: 'grep', state: { status: 'error', input: {} } } },
+		],
+		{ cli_exit: 0 },
+		false,
+		1,
+	);
+	assert.equal(result.failed_search_or_read_calls, 1);
+});
