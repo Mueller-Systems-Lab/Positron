@@ -19,6 +19,9 @@ Final local validation after this change: focused contract tests and build
 PASS. Exact-head CI is still required after the final commit; no merge is
 authorized.
 
+The complete local Playwright suite subsequently passed 35/35 on the current
+candidate. SECRET_SCAN=PASS with zero matches in the changed #465 scope.
+
 Canonical `npm run lint` reports 2 errors and 1,740 warnings in the full
 repository. The errors are pre-existing `noNonNullAssertion`/configuration
 baseline diagnostics outside the new release code; changed-surface lint for
