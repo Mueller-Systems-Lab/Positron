@@ -1,6 +1,6 @@
 # Issue #476 — Repository Exploration & Context Efficiency Evidence
 
-Date: 2026-08-31  
+Date: 2026-08-31
 Classification: `AMBER_POSITRON_EXPLORATION_EVIDENCE_INSUFFICIENT`
 
 ## Hypothesis and predeclared gates
