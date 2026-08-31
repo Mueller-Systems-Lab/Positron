@@ -4,6 +4,20 @@ All notable project closeout changes are tracked here.
 
 ## Unreleased
 
+### Issue #465 release hardening
+
+- Durable control-plane state now has documented migration, online backup/
+  restore, restart-recovery, approval-consumption and decision-reconciliation
+  contracts.
+- External mutation uses persistent SQLite locking and fencing; stale owners
+  are rejected before a writer is invoked.
+- Local E2E is hermetic and supervised Real Mode remains the only validated
+  Real Mode. Unsupervised and production autonomous Real Mode remain disabled
+  and unproven.
+- The portfolio consolidation architecture remains under Positron's single
+  control plane; legacy source identities from #447/#464 are separate evidence
+  blockers, not a new #465 runtime dependency.
+
 ### Changed
 
 - **R3 Clean-Checkout Test Contract:** `npm test` is self-contained — `pretest` runs `npm run build`, then Root Vitest (84 files, 2173 tests) and Web Vitest (18 files, 399 tests) execute. Combined unique unit suite: 102 files, 2572 tests (provably disjoint).

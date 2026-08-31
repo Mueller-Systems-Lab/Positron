@@ -1,10 +1,10 @@
 # Issue #465 — Tasks
 
 - [x] Reality refresh and initial release scope
-- [ ] Hermetic local E2E lifecycle
-- [ ] Persistent external-mutation lock/lease
-- [ ] Migration and backup/restore validation
-- [ ] Restart/crash recovery validation
-- [ ] Version, CLI, API, config and upgrade contracts
-- [ ] Security review and release evidence
-- [ ] Full matrix and dedicated PR
+- [x] Hermetic local E2E lifecycle
+- [x] Persistent external-mutation lock/lease
+- [x] Migration and backup/restore validation
+- [x] Restart/crash recovery validation
+- [x] Version, CLI, API, config and upgrade contracts
+- [x] Security review and release evidence
+- [ ] Full matrix and exact-head CI after final changes
