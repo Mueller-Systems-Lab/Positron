@@ -167,6 +167,22 @@ export type { FailureSignal } from './failure.js';
 export { classifyFailure, failureSignatureFromChecks } from './failure.js';
 // ─── Fingerprints ───
 export { canonicalJson, fingerprint, semanticallyEqual } from './fingerprint.js';
+export type {
+	ExperimentBudget,
+	ExplorationTelemetry,
+	SkillCandidateProjection,
+	SkillExperimentArm,
+	SkillExperimentInput,
+	SkillQualityGateResult,
+	SkillValueGateResult,
+} from './skill-experiment.js';
+export {
+	evaluateSkillValueGate,
+	computeSkillCandidateFingerprint,
+	validateSkillCandidate,
+	MIN_SKILL_EXPERIMENT_SAMPLE_SIZE,
+	SKILL_EXPERIMENT_VERSION,
+} from './skill-experiment.js';
 export type { BuildCandidateInput, CandidateValidationResult } from './harness-evolution.js';
 // ─── P5.4 Harness Evolution Sandbox ───
 export {
