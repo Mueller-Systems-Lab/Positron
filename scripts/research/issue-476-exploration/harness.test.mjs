@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCandidate, buildPartition, evaluateValueGate, negativeCanary, sha256 } from './harness.mjs';
+import { aggregate, buildCandidate, buildPartition, evaluateValueGate, negativeCanary, sha256 } from './harness.mjs';
 
 test('candidate fingerprint is deterministic and excludes runtime state', () => {
 	const first = buildCandidate();
@@ -29,4 +29,12 @@ test('negative broad/repetitive strategy is rejected without mutation', () => {
 	const result = negativeCanary();
 	assert.equal(result.rejected, true);
 	assert.equal(result.workspace_mutated, false);
+});
+
+test('invalid provider runs remain visible in failure classifications', () => {
+	const result = aggregate([
+		{ valid_runtime_attempt: false, verified_success: true, failure_class: 'PROVIDER_FAILURE' },
+		{ valid_runtime_attempt: true, verified_success: true, failure_class: null, tool_calls_to_verified_success: 8, context_admitted: 100, time_to_verified_success_ms: 10, files_read: 1, regions_read: 1, search_calls: 0, read_calls: 1, tool_calls_before_first_patch: 1, repeated_reads: 0, token_provenance: 'VERIFIED_PROVIDER_REPORTED' },
+	]);
+	assert.deepEqual(result.failure_classes, { PROVIDER_FAILURE: 1 });
 });

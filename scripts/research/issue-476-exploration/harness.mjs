@@ -165,7 +165,7 @@ export function aggregate(rows) {
 		repeated_read_rate: valid.length ? valid.reduce((sum, row) => sum + row.repeated_reads, 0) / valid.length : null,
 		token_provenance: successful.length && successful.every((row) => row.token_provenance === 'VERIFIED_PROVIDER_REPORTED') ? 'VERIFIED_PROVIDER_REPORTED' : 'UNKNOWN',
 		cost_per_verified_success: 'NOT_AVAILABLE',
-		failure_classes: Object.fromEntries([...new Set(rows.filter((row) => !row.verified_success).map((row) => row.failure_class).filter(Boolean))].map((value) => [value, rows.filter((row) => row.failure_class === value).length])),
+		failure_classes: Object.fromEntries([...new Set(rows.filter((row) => !row.valid_runtime_attempt || !row.verified_success).map((row) => row.failure_class).filter(Boolean))].map((value) => [value, rows.filter((row) => row.failure_class === value).length])),
 	};
 }
 
