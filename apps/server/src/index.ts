@@ -116,6 +116,7 @@ import { startWatcher } from './github-watcher.js';
 import { createCancelHandler } from './handlers/cancel-run.js';
 import { handleEvolutionRoutes } from './handlers/evolution.js';
 import { createLogger } from './logger.js';
+import { checkReadiness } from './readiness.js';
 import {
 	activeRuns,
 	blockedMergesTotal,
@@ -1894,6 +1895,15 @@ export function createApp(options: ServerOptions = {}) {
 				error: String(err),
 			});
 		}
+	});
+
+	// Health means process alive. Readiness means durable state can accept work.
+	app.get('/api/readiness', (_req, res) => {
+		const readiness = checkReadiness(getDb());
+		res.status(readiness.ready ? 200 : 503).json({
+			status: readiness.ready ? 'ready' : 'not_ready',
+			...readiness,
+		});
 	});
 
 	// Prometheus Metrics Endpoint (QA-010, QA-011, QA-012)
