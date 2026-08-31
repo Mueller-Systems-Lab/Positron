@@ -69,3 +69,14 @@ partitions with immutable evidence.
   one promotion, explicit A/B/C matching, and train/holdout separation.
 
 Classification at this stage is `AMBER_POSITRON_SKILL_EVIDENCE_INSUFFICIENT`.
+
+## Continuation update — 2026-08-31
+
+The runtime evidence gap described above was subsequently closed in the
+bounded experiment documented by
+[`runtime-value-evidence.md`](./runtime-value-evidence.md). The corrected
+OpenCode series ran five independent holdout tasks in each A/B/C arm and
+verified `5/5` successes in every arm. The implemented value gate returned
+`AMBER_SKILL_NO_MARGINAL_UTILITY` because B did not exceed A or C. No
+productization was implemented or authorized. The final research
+classification is `GREEN_POSITRON_SKILL_SPECIALIZATION_REJECTED_NO_MARGINAL_UTILITY`.
