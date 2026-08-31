@@ -162,6 +162,18 @@ picking, candidate mutation, post-hoc gate/metric change, holdout leakage,
 provider-failure inconsistency, or paired-task violation
 (`CRITICAL=0`, `MAJOR=0`).
 
+### Final visible Playwright closure gate
+
+After the extension, decision, tests, reviews, documentation, commits, and PR
+update, the final code passed the visible headed Chromium suite `35/35` in
+`1.3m` with `DISPLAY=:0`, `WAYLAND_DISPLAY=UNKNOWN`, and no headless/Xvfb
+substitute. The generated route manifest reports `errors=0` and
+`failedRequests=5`; those five are expected `200 OK` Server-Sent-Events
+connections recorded as closed when the test page is torn down, not HTTP
+failures. Direct inspection therefore records `CONSOLE_ERRORS=0`,
+`PAGE_ERRORS=0`, and `UNEXPECTED_HTTP_FAILURES=0`. This run tested the final
+committed code before the final drift check.
+
 ## A/B/C runtime results
 
 All arms had five submitted cells. A and C each had one provider-invalid cell:
