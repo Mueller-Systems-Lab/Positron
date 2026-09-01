@@ -97,6 +97,11 @@ metrics/gates frozen; 18 cells and validity recorded; metadata-only evidence;
 negative control rejected; all three reviews zero critical/major; no
 productization; evidence and test status recorded. `PRODUCTIZATION_IMPLEMENTED=NO`.
 
+Final visible browser gate: `PLAYWRIGHT_MODE=HEADED_VISIBLE`, `DISPLAY=:0`,
+`WAYLAND_DISPLAY` empty, Chromium `35/35` passed in 1.4 minutes. Direct test
+assertions recorded `CONSOLE_ERRORS=0`, `PAGE_ERRORS=0`, and
+`UNEXPECTED_HTTP_FAILURES=0`; no headless/Xvfb substitute was used.
+
 ## Final decision
 
 ```text
