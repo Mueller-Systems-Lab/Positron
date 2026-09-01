@@ -1,6 +1,6 @@
 # Issue #486 — Docker first-build reliability evidence
 
-Status: fresh-environment proof complete; final headed browser gate pending.
+Status: complete for Issue #486; PR #485 remote qualification and landing remain gated.
 
 ## Environment and protocol
 
@@ -83,6 +83,15 @@ The first run pulled fresh Node base layers into the isolated builder, completed
 - No `.env`, npm token, Git credential, private host path, or build secret is copied into the builder context by the change.
 - Runtime services retain `cap_drop: ALL`, `no-new-privileges`, fake mode, disabled push/merge, and no host network mode.
 - The quickstart remains responsible for local secret generation; secrets are not passed to the Docker build.
+
+## Visible headed browser gate
+
+- `PLAYWRIGHT_MODE=HEADED_VISIBLE`
+- `DISPLAY=:0`; `WAYLAND_DISPLAY` unset.
+- Current suite: `37/37 PASS` in 1.8 minutes with one worker.
+- Operator-readiness journey included and passed.
+- `CONSOLE_ERRORS=0`, `PAGE_ERRORS=0`, `UNEXPECTED_HTTP_FAILURES=0` in the generated browser manifests.
+- Fixture worker stderr reported expected fake-adapter `Issue not found` messages for synthetic issues; no test failed and these were not browser console/page/HTTP errors.
 
 ## Acceptance mapping
 
