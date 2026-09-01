@@ -5,7 +5,6 @@ import { api } from '../../api.js';
 import { useDashboardSSE } from '../../hooks/useDashboardSSE.js';
 import type { ManagedTargetProject } from '../../types.js';
 import EmptyState from '../shared/EmptyState.js';
-import ErrorBanner from '../shared/ErrorBanner.js';
 import VoiceStatusIndicator from '../VoiceStatusIndicator.jsx';
 import AttentionQueue from './AttentionQueue.jsx';
 import BlueprintPanel from './BlueprintPanel.jsx';

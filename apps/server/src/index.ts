@@ -116,7 +116,6 @@ import { startWatcher } from './github-watcher.js';
 import { createCancelHandler } from './handlers/cancel-run.js';
 import { handleEvolutionRoutes } from './handlers/evolution.js';
 import { createLogger } from './logger.js';
-import { buildOperatorReadiness, checkReadiness } from './readiness.js';
 import {
 	activeRuns,
 	blockedMergesTotal,
@@ -145,6 +144,7 @@ import {
 	queueWorkerUp,
 	renderQueueMetrics,
 } from './observability/queue-metrics.js';
+import { buildOperatorReadiness, checkReadiness } from './readiness.js';
 import {
 	checkRunSignal,
 	clearRunSignal,
@@ -1868,7 +1868,7 @@ export function createApp(options: ServerOptions = {}) {
 	// Health (Issue #22 + HealthIndicator)
 	app.get('/api/health', async (_req, res) => {
 		try {
-			const healthWsPath = process.env['POSITRON_WORKSPACE_ROOT'] ?? '/tmp';
+			const healthWsPath = process.env.POSITRON_WORKSPACE_ROOT ?? '/tmp';
 			const speckitHealth = await activeSpecKitAdapter.healthCheck(healthWsPath);
 			const opencodeHealth = await instrumentedOpenCodeAdapter.healthCheck(healthWsPath);
 			const isFakeMode = githubMode === 'fake';
