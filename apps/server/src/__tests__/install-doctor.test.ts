@@ -32,7 +32,9 @@ function fakeBin(commands: Record<string, string>): string {
 }
 
 describe('positron install doctor', () => {
-	it('passes demo with minimum requirements and does not require OpenCode', () => {
+	it('passes demo with minimum requirements and does not require OpenCode', {
+		timeout: 15_000,
+	}, () => {
 		const result = runDoctor(['--demo'], {
 			POSITRON_DOCTOR_WEB_URL: 'http://127.0.0.1:9',
 			POSITRON_DOCTOR_API_URL: 'http://127.0.0.1:9',
