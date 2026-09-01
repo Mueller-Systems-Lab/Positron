@@ -256,7 +256,7 @@ const result = {
 };
 writeFileSync(join(root, 'result.json'), JSON.stringify(result, null, 2));
 process.stdout.write(
-	JSON.stringify(
+	`${JSON.stringify(
 		{
 			root,
 			calibration_partition_fingerprint: calibrationFp,
@@ -268,5 +268,5 @@ process.stdout.write(
 		},
 		null,
 		2,
-	) + '\n',
+	)}\n`,
 );

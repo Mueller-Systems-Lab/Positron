@@ -27,7 +27,7 @@ result.decision = !sufficient
 			: 'GREEN_POSITRON_EXPLORATION_EFFICIENCY_VALUE_PROVEN';
 writeFileSync(join(root, 'result.json'), `${JSON.stringify(result, null, 2)}\n`);
 process.stdout.write(
-	JSON.stringify(
+	`${JSON.stringify(
 		{
 			decision: result.decision,
 			quality_non_inferior: quality,
@@ -36,5 +36,5 @@ process.stdout.write(
 		},
 		null,
 		2,
-	) + '\n',
+	)}\n`,
 );
