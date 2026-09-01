@@ -11,7 +11,7 @@
 - Local baseline: root tests 2726/2726, Web tests 422/422, build PASS.
 - Existing `scripts/doctor.sh` was human-only and did not provide scoped
   status/reason/remediation output.
-- A fresh clone at `/tmp/positron-fresh1.PJFY2M` had no `.positron` state and
+- A fresh clone had no `.positron` state and
   passed `quickstart.sh --dry-run`. Its first full start reached the Docker
   image build but was stopped after the container `npm ci` made no progress;
   this is recorded as baseline environment friction, not hidden.
@@ -48,6 +48,10 @@ remains owned by `positron.operator-readiness.v1`.
 - Changed-file Biome lint/format: PASS.
 - Repo-wide Biome lint retains the pre-existing baseline diagnostics outside
   this slice.
+- Visible headed Playwright: 37/37 PASS with `DISPLAY=:0`, with no page or
+  console errors in the generated manifest and no unexpected HTTP failures
+  reported by the suite.
+- PR #485 CI: required checks PASS; deployment was skipped by policy.
 
 ## Security boundary
 
@@ -58,7 +62,10 @@ control-plane code was added.
 
 ## Remaining qualification
 
-Fresh final environment, complete quickstart stop/restart/health proof,
-architecture/security/product review comments, PR checks, visible headed
-Playwright, and post-merge qualification remain required before deciding the
-v0.2 release gate.
+The final fresh clone passed doctor and dry-run. A runtime-only disposable
+smoke from a clean clone proved health, UI, stop, and restart using cached
+images, but it did not prove the new branch's first Docker build; the cached
+server image also predated the operator-readiness route. The complete
+first-build quickstart remains the release decision blocker. Architecture,
+security, and product reviews are clean; post-merge qualification was not
+performed because the exact-head landing gate was not reached.
