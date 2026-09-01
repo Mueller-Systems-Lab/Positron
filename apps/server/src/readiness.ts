@@ -16,7 +16,7 @@ export function checkReadiness(db: Database.Database): ReadinessResult {
 		const migration = db.prepare("SELECT value FROM cp_kv WHERE key = 'migration_version'").get() as
 			| { value?: string }
 			| undefined;
-		const schema = hasRuns && migration?.value === '11';
+		const schema = hasRuns && migration?.value === '12';
 		const ready = integrity && schema;
 		return {
 			ready,

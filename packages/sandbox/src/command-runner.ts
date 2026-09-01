@@ -1,7 +1,12 @@
 // Positron — Command Runner für Sandbox-Operationen
 
 import { spawn } from 'node:child_process';
-import { EOL } from 'node:os';
+import type {
+	RuntimeBudgetSlice,
+	RuntimeTerminationAuthority,
+	RuntimeTerminationReason,
+} from '@positron/shared';
+import { runtimeBudgetClockNowMs } from '@positron/shared';
 
 /** Ergebnis eines ausgeführten Kommandos */
 export interface CommandResult {
@@ -12,6 +17,8 @@ export interface CommandResult {
 	command: string;
 	/** true, wenn der Prozess durch Timeout/Cancellation beendet wurde */
 	terminated: boolean;
+	terminationReason?: RuntimeTerminationReason;
+	terminationAuthority?: RuntimeTerminationAuthority;
 }
 
 /** Optionen für command-runner */
@@ -34,6 +41,27 @@ export interface RunCommandOptions {
 	killGraceMs?: number;
 	/** Tötet die gesamte Prozessgruppe (Enkel-Prozesse). Nur explizit setzen. */
 	killProcessGroup?: boolean;
+	/** Absolute deadline from the kernel's monotonic clock domain. */
+	runtimeBudget?: RuntimeBudgetSlice;
+}
+
+export class CommandTerminationError extends Error {
+	readonly terminationReason: RuntimeTerminationReason;
+	readonly terminationAuthority: RuntimeTerminationAuthority;
+	readonly elapsedMs: number;
+
+	constructor(
+		message: string,
+		reason: RuntimeTerminationReason,
+		authority: RuntimeTerminationAuthority,
+		elapsedMs: number,
+	) {
+		super(message);
+		this.name = 'CommandTerminationError';
+		this.terminationReason = reason;
+		this.terminationAuthority = authority;
+		this.elapsedMs = elapsedMs;
+	}
 }
 
 /**
@@ -50,9 +78,31 @@ export async function runCommand(
 	options: RunCommandOptions,
 ): Promise<CommandResult> {
 	return new Promise((resolve, reject) => {
-		const startTime = Date.now();
-		const timeoutMs = options.timeout ?? 120_000;
-		const graceMs = options.killGraceMs ?? 2000;
+		const startTime = monotonicNow();
+		const budgetRemaining = options.runtimeBudget
+			? Math.max(0, options.runtimeBudget.deadline_ms - runtimeBudgetClockNowMs())
+			: Number.POSITIVE_INFINITY;
+		const timeoutMs = Math.min(options.timeout ?? 120_000, budgetRemaining);
+		const graceMs = Math.min(
+			options.killGraceMs ?? options.runtimeBudget?.cancellation_grace_ms ?? 2000,
+			10_000,
+		);
+		let terminationReason: RuntimeTerminationReason =
+			options.runtimeBudget?.timeout_reason ?? 'ATTEMPT_DEADLINE_EXCEEDED';
+		let terminationAuthority: RuntimeTerminationAuthority =
+			options.runtimeBudget?.termination_authority ?? 'attempt';
+
+		if (options.runtimeBudget && budgetRemaining <= 0) {
+			reject(
+				new CommandTerminationError(
+					`Command deadline already expired: ${command} ${args.join(' ')}`,
+					'RUN_BUDGET_EXHAUSTED',
+					'run',
+					0,
+				),
+			);
+			return;
+		}
 
 		const child = spawn(command, args, {
 			cwd: options.cwd,
@@ -71,11 +121,10 @@ export async function runCommand(
 
 		let stdout = '';
 		let stderr = '';
-		let exitCode: number | null = null;
 		let terminated = false;
 		let timedOut = false;
 		let settled = false;
-		let timeoutTimer: ReturnType<typeof setTimeout>;
+		let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
 		let forceTimer: ReturnType<typeof setTimeout> | undefined;
 		let settleTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -119,30 +168,47 @@ export async function runCommand(
 				settleTimer = setTimeout(() => {
 					settle(
 						timedOut
-							? new Error(`Command timed out after ${timeoutMs}ms: ${command} ${args.join(' ')}`)
-							: new Error(`Command cancelled: ${command} ${args.join(' ')}`),
+							? new CommandTerminationError(
+									`Command timed out after ${timeoutMs}ms: ${command} ${args.join(' ')}`,
+									terminationReason,
+									terminationAuthority,
+									elapsed(startTime),
+								)
+							: new CommandTerminationError(
+									`Command cancelled: ${command} ${args.join(' ')}`,
+									'CANCELLED_BY_KERNEL',
+									'kernel',
+									elapsed(startTime),
+								),
 					);
 				}, 100);
 			}, graceMs);
 		};
 
-		const onExit = (code: number | null): void => {
-			exitCode = code;
+		const onExit = (_code: number | null): void => {
 			if (settled) return;
 			clearTimeout(timeoutTimer);
-			const durationMs = Date.now() - startTime;
 			if (terminated) {
 				settle(
 					timedOut
-						? new Error(`Command timed out after ${timeoutMs}ms: ${command} ${args.join(' ')}`)
-						: new Error(`Command cancelled: ${command} ${args.join(' ')}`),
+						? new CommandTerminationError(
+								`Command timed out after ${timeoutMs}ms: ${command} ${args.join(' ')}`,
+								terminationReason,
+								terminationAuthority,
+								elapsed(startTime),
+							)
+						: new CommandTerminationError(
+								`Command cancelled: ${command} ${args.join(' ')}`,
+								'CANCELLED_BY_KERNEL',
+								'kernel',
+								elapsed(startTime),
+							),
 				);
 				return;
 			}
 			// Review-Fix: erst auf 'close' finalisieren (alle stdio-Streams
 			// geleert), damit stdout/stderr vollständig erfasst werden.
 			// onExit merkt nur den Code; onClose settled.
-			exitCode = code;
 		};
 
 		const onError = (err: Error): void => {
@@ -152,15 +218,24 @@ export async function runCommand(
 		// 'close' feuert nach 'exit' UND nach dem Schließen aller Streams —
 		// vollständige stdout/stderr-Garantie (Review-Fix R1-MINOR).
 		const onClose = (code: number | null): void => {
-			exitCode = code;
 			if (settled) return;
 			clearTimeout(timeoutTimer);
-			const durationMs = Date.now() - startTime;
+			const durationMs = elapsed(startTime);
 			if (terminated) {
 				settle(
 					timedOut
-						? new Error(`Command timed out after ${timeoutMs}ms: ${command} ${args.join(' ')}`)
-						: new Error(`Command cancelled: ${command} ${args.join(' ')}`),
+						? new CommandTerminationError(
+								`Command timed out after ${timeoutMs}ms: ${command} ${args.join(' ')}`,
+								terminationReason,
+								terminationAuthority,
+								elapsed(startTime),
+							)
+						: new CommandTerminationError(
+								`Command cancelled: ${command} ${args.join(' ')}`,
+								'CANCELLED_BY_KERNEL',
+								'kernel',
+								elapsed(startTime),
+							),
 				);
 				return;
 			}
@@ -191,6 +266,8 @@ export async function runCommand(
 					'abort',
 					() => {
 						timedOut = false;
+						terminationReason = 'CANCELLED_BY_KERNEL';
+						terminationAuthority = 'kernel';
 						escalate();
 					},
 					{ once: true },
@@ -206,6 +283,14 @@ export async function runCommand(
 			stderr += data.toString();
 		});
 	});
+}
+
+function monotonicNow(): number {
+	return typeof performance !== 'undefined' ? performance.now() : Date.now();
+}
+
+function elapsed(startTime: number): number {
+	return Math.max(0, Math.round(monotonicNow() - startTime));
 }
 /**
  * Führt ein Kommando mit Timeout aus.

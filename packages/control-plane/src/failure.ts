@@ -6,6 +6,7 @@
 
 import type { FailureClass } from './contracts.js';
 import { isFailureClass } from './contracts.js';
+import type { RuntimeTerminationAuthority, RuntimeTerminationReason } from '@positron/shared';
 
 export interface FailureSignal {
 	/** Kurze, stabile Beschreibung (z. B. "test:sum.test.ts failed") */
@@ -70,6 +71,8 @@ export function classifyFailure(input: {
 	exitCode?: number | null;
 	explicit?: FailureClass;
 	timeout?: boolean;
+	terminationReason?: RuntimeTerminationReason;
+	terminationAuthority?: RuntimeTerminationAuthority;
 	contractError?: boolean;
 	contextMissing?: string[];
 }): FailureSignal {
@@ -77,6 +80,12 @@ export function classifyFailure(input: {
 		return {
 			signature: input.explicit,
 			evidence: input.explicit,
+		};
+	}
+	if (input.terminationReason) {
+		return {
+			signature: input.terminationReason,
+			evidence: `runtime termination authority: ${input.terminationAuthority ?? 'unknown'}`,
 		};
 	}
 

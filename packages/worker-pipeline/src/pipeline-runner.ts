@@ -82,15 +82,20 @@ import type {
 	OpenCodeCommandResult,
 	Phase,
 	RepositoryConfig,
+	RuntimeBudgetContract,
 	SpecKitAdapter,
 } from '@positron/shared';
 import {
+	MAX_RUNTIME_BUDGET_MS,
+	buildRuntimeBudgetContract,
 	buildRemoteUrl,
 	createRunId,
 	generateBranchName,
 	MAX_FIX_LOOPS,
 	parsePhase,
 	parseRunStatus,
+	remainingRuntimeBudgetMs,
+	runtimeBudgetSlice,
 } from '@positron/shared';
 import type { GatewayService } from '@positron/tool-gateway';
 import type Database from 'better-sqlite3';
@@ -318,6 +323,8 @@ interface JobAttemptTracking {
 	heartbeatStop: { stop: () => void } | null;
 	/** P4 (Review-Fix): run-scoped AbortSignal (Cancellation-Kontext) */
 	signal: AbortSignal | null;
+	runtimeBudgetContract: RuntimeBudgetContract;
+	runtimeBudget: import('@positron/shared').RuntimeBudgetSlice;
 }
 
 // ---------------------------------------------------------------------------
@@ -455,6 +462,18 @@ function failureClassOrCancelled(
 	return ctx.signal.aborted ? 'CANCELLED' : fallback;
 }
 
+function resolveRuntimeAttemptBudgetMs(env: NodeJS.ProcessEnv): number {
+	const raw = env.POSITRON_RUNTIME_ATTEMPT_BUDGET_MS;
+	if (raw === undefined || raw.trim() === '') return 300_000;
+	const value = Number(raw);
+	if (!Number.isInteger(value) || value <= 0 || value > MAX_RUNTIME_BUDGET_MS) {
+		throw new Error(
+			`INVALID_RUNTIME_ATTEMPT_BUDGET_MS: expected integer 1..${MAX_RUNTIME_BUDGET_MS}`,
+		);
+	}
+	return value;
+}
+
 /**
  * Erstellt (oder findet) den Job eines Typs für einen Run und öffnet einen
  * neuen Attempt. Idempotenz: Wurde der Dispatch bereits geclaimed, gilt der
@@ -542,9 +561,13 @@ function trackJobAttempt(
 		(r) => !inputFingerprint || r.input_fingerprint === inputFingerprint,
 	);
 	if (matchingSucceeded) {
+		const recoveredAttempt = mapAttemptRow(matchingSucceeded);
+		const recoveredRuntimeBudget = recoveredAttempt.runtime_budget_contract
+			? (JSON.parse(recoveredAttempt.runtime_budget_contract) as RuntimeBudgetContract)
+			: buildRuntimeBudgetContract({ provider, model });
 		return {
 			job: job as unknown as JobRecord,
-			attempt: mapAttemptRow(matchingSucceeded),
+			attempt: recoveredAttempt,
 			duplicate: true,
 			recovered: true,
 			registry,
@@ -554,6 +577,8 @@ function trackJobAttempt(
 			leaseTtlMs: 0,
 			heartbeatStop: null,
 			signal: runSignalFor(run.id),
+			runtimeBudgetContract: recoveredRuntimeBudget,
+			runtimeBudget: runtimeBudgetSlice(recoveredRuntimeBudget, 'attempt'),
 		};
 	}
 
@@ -614,6 +639,14 @@ function trackJobAttempt(
 		provider,
 		model,
 	});
+	const runtimeBudgetContract = buildRuntimeBudgetContract({
+		budget_id: `budget_${crypto.randomUUID()}`,
+		attempt_wall_clock_budget_ms: resolveRuntimeAttemptBudgetMs(process.env),
+		provider,
+		model,
+		effective_harness_fingerprint: effectiveHarness.fingerprint,
+		budget_provenance: { source: 'kernel-attempt-policy', run_id: run.id, job_type: jobType },
+	});
 
 	const attempt = createAttempt(db, run.id, String(job.job_id), {
 		status: 'pending',
@@ -635,6 +668,9 @@ function trackJobAttempt(
 		model_provenance_status: harnessRef.model_provenance_status,
 		effective_harness_config: JSON.stringify(effectiveHarness),
 		effective_harness_fingerprint: effectiveHarness.fingerprint,
+		runtime_budget_contract: JSON.stringify(runtimeBudgetContract),
+		runtime_budget_fingerprint: runtimeBudgetContract.budget_fingerprint,
+		remaining_budget_at_start_ms: runtimeBudgetContract.attempt_wall_clock_budget_ms,
 	});
 	const idemKey = idempotencyKey(run.id, String(job.job_id), attempt.attempt_id);
 	const duplicate = !registry.claim(idemKey);
@@ -704,6 +740,8 @@ function trackJobAttempt(
 			leaseTtlMs,
 			heartbeatStop,
 			signal: runSignalFor(run.id),
+			runtimeBudgetContract,
+			runtimeBudget: runtimeBudgetSlice(runtimeBudgetContract, 'attempt'),
 		};
 	}
 	return {
@@ -718,6 +756,8 @@ function trackJobAttempt(
 		leaseTtlMs,
 		heartbeatStop,
 		signal: runSignalFor(run.id),
+		runtimeBudgetContract,
+		runtimeBudget: runtimeBudgetSlice(runtimeBudgetContract, 'attempt'),
 	};
 }
 
@@ -739,12 +779,18 @@ function completeTrackedAttempt(
 		unregisterRunHeartbeat(tracking.attempt.run_id, heartbeat);
 	}
 	// P3.5 (C2): Fencing — stale/fremde Abschlüsse werden abgewiesen.
-	completeAttempt(getDb(deps), tracking.attempt.attempt_id, update, {
+	const durableUpdate: Partial<AttemptRecord> = {
+		...update,
+		remaining_budget_at_finish_ms:
+			update.remaining_budget_at_finish_ms ??
+			remainingRuntimeBudgetMs(tracking.runtimeBudgetContract),
+	};
+	completeAttempt(getDb(deps), tracking.attempt.attempt_id, durableUpdate, {
 		fencingOwnerId: tracking.ownerId,
 		fencingGeneration: tracking.generation,
 	});
 	if (!tracking.duplicate) {
-		tracking.registry.complete(tracking.idemKey, update.result_ref ?? null);
+		tracking.registry.complete(tracking.idemKey, durableUpdate.result_ref ?? null);
 	}
 }
 
@@ -780,7 +826,12 @@ export function openCodeFailureUpdate(
 		result.error?.name === 'UnknownError' && /unexpected server error/i.test(message);
 	const classified = isSessionBoundaryFailure
 		? { signature: 'CONTEXT_FAILURE' }
-		: classifyFailure({ stderr: message, exitCode: result.exitCode });
+		: classifyFailure({
+				stderr: message,
+				exitCode: result.exitCode,
+				terminationReason: result.terminationReason,
+				terminationAuthority: result.terminationAuthority,
+			});
 	const diagnosis = diagnoseFailureDomain({ failure_class: classified.signature });
 	const routing = decideRouting({
 		failure_class: classified.signature,
@@ -812,6 +863,9 @@ export function openCodeFailureUpdate(
 			reason: routing.reason_code,
 		}),
 		result_ref: `opencode:${phase}:${evidenceRef}`,
+		elapsed_ms: result.durationMs,
+		termination_reason: result.terminationReason ?? null,
+		termination_authority: result.terminationAuthority ?? null,
 	};
 }
 
@@ -1425,6 +1479,7 @@ async function executePhase(
 							model: process.env.POSITRON_OPENCODE_MODEL,
 							agent: process.env.POSITRON_OPENCODE_AGENT ?? 'build',
 							signal: ctx.signal,
+							runtimeBudget: runtimeBudgetSlice(tracking.runtimeBudgetContract, 'provider'),
 						});
 						if (specResult.status === 'success') {
 							saveArtifact(current.id, 'spec', specResult.summary, deps);
@@ -1575,6 +1630,7 @@ async function executePhase(
 						model: process.env.POSITRON_OPENCODE_MODEL,
 						agent: process.env.POSITRON_OPENCODE_AGENT ?? 'build',
 						signal: ctx.signal,
+						runtimeBudget: runtimeBudgetSlice(tracking.runtimeBudgetContract, 'provider'),
 					});
 					if (planResult.status === 'success') {
 						saveArtifact(current.id, 'plan', planResult.summary, deps);
@@ -1809,6 +1865,7 @@ async function executePhase(
 						model: process.env.POSITRON_OPENCODE_MODEL,
 						agent: process.env.POSITRON_OPENCODE_AGENT ?? 'build',
 						signal: ctx.signal,
+						runtimeBudget: runtimeBudgetSlice(tracking.runtimeBudgetContract, 'provider'),
 					});
 					if (tasksResult.status === 'success') {
 						saveArtifact(current.id, 'tasks', tasksResult.summary, deps);
@@ -2203,6 +2260,7 @@ async function executePhase(
 				} catch {
 					/* harness parsing is best-effort; adapter will fail-closed if missing */
 				}
+				input.runtimeBudget = runtimeBudgetSlice(tracking.runtimeBudgetContract, 'provider');
 				const ir = await deps.opencode.runImplement(input);
 
 				// Issue #385: Explicit outcome resolution — blocked/failed must NOT reach TEST
@@ -2242,7 +2300,15 @@ async function executePhase(
 					const classified = classifyFailure({
 						stderr: ir.summary,
 						exitCode: ir.exitCode ?? 1,
+						terminationReason: ir.terminationReason,
+						terminationAuthority: ir.terminationAuthority,
 					});
+					const terminationReason = ctx.signal.aborted
+						? 'CANCELLED_BY_KERNEL'
+						: (ir.terminationReason ?? null);
+					const terminationAuthority = ctx.signal.aborted
+						? 'kernel'
+						: (ir.terminationAuthority ?? null);
 					completeTrackedAttempt(tracking, deps, {
 						status: 'failed',
 						output_contract: 'positron.build-result.v1',
@@ -2255,6 +2321,9 @@ async function executePhase(
 						failure_signature: ctx.signal.aborted
 							? 'implement:cancelled'
 							: `implement:${classified.signature}`,
+						elapsed_ms: ir.durationMs,
+						termination_reason: terminationReason,
+						termination_authority: terminationAuthority,
 						new_evidence: ir.summary.slice(0, 500),
 						result_ref: `opencode:${ir.sessionId ?? 'none'}`,
 					});
