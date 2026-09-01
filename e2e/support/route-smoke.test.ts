@@ -39,13 +39,14 @@ describe('route smoke target contract', () => {
 });
 
 describe('route smoke manifest', () => {
-	test('covers the current nine named application routes', () => {
+	test('covers the current ten named application routes', () => {
 		expect(ROUTE_SMOKE_MANIFEST.map((entry) => entry.routePattern)).toEqual([
 			'/',
 			'/runs',
 			'/runs/:id',
 			'/evidence',
 			'/projects',
+			'/readiness',
 			'/repos',
 			'/evolution',
 			'/settings',
@@ -63,6 +64,7 @@ describe('route smoke manifest', () => {
 		expect(getRouteManifestDrift(source)).toEqual([
 			'Manifest route missing from App.tsx: /evidence',
 			'Manifest route missing from App.tsx: /projects',
+			'Manifest route missing from App.tsx: /readiness',
 			'Manifest route missing from App.tsx: /repos',
 			'Manifest route missing from App.tsx: /evolution',
 			'Manifest route missing from App.tsx: /settings',
