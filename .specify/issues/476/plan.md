@@ -17,3 +17,10 @@
 8. For closure capacity only, predeclare exactly two new independent paired
    holdouts, attempt all six A/B/C cells, combine them with the original
    evidence, and apply the frozen decision without optional stopping.
+9. For the final closure attempt, freeze and execute five neutral runtime
+   health canaries before any new holdout. The canaries are disposable,
+   candidate-independent, and do not contribute to value metrics. A gate of
+   at least 4/5 valid requests, no systematic timeout pattern, no auth
+   failure, and no harness failure is required before considering any further
+   action; a known inadequate timeout policy independently invalidates the
+   current experiment contract.

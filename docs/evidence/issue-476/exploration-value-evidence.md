@@ -285,3 +285,188 @@ No productization is authorized.
 
 Runtime root for reproducibility: `/tmp/positron-issue-476-runtime-LlUaCh/`.
 It contains provider event payloads and is intentionally not committed.
+
+## Runtime Capacity Failure Analysis
+
+This closure analysis preserves the experimental validity class
+`PROVIDER_FAILURE` for all six invalid extension rows. It adds the technical
+termination cause without silently rewriting historical value metrics.
+
+The runner invokes OpenCode with the frozen model and no provider-specific
+timeout override, but wraps the child process with
+`spawnSync(..., { timeout: TIMEOUT_MS + 10_000 })`. With
+`TIMEOUT_MS=180000`, every invalid extension cell reached the same effective
+190000-ms outer boundary. The persisted metadata normalizes the missing child
+status after timeout to `cli_exit=1`; the raw temporary logs have empty stderr,
+zero structured error events, and terminate during an unfinished OpenCode
+session. The external `npm test` verification did not run successfully after
+these child timeouts, so the rows remain invalid.
+
+| Cell | Provider / model | OpenCode | Effective elapsed | Technical termination source | Technical cause |
+|---|---|---|---:|---|---|
+| holdout-6 / A | OpenCode Zen / `opencode/mimo-v2.5-free` | `1.18.23` | 190000 ms | runner child timeout | `TIMEOUT_POLICY_INADEQUATE` |
+| holdout-6 / B | OpenCode Zen / `opencode/mimo-v2.5-free` | `1.18.23` | 190000 ms | runner child timeout | `TIMEOUT_POLICY_INADEQUATE` |
+| holdout-6 / C | OpenCode Zen / `opencode/mimo-v2.5-free` | `1.18.23` | 190000 ms | runner child timeout | `TIMEOUT_POLICY_INADEQUATE` |
+| holdout-7 / A | OpenCode Zen / `opencode/mimo-v2.5-free` | `1.18.23` | 190000 ms | runner child timeout | `TIMEOUT_POLICY_INADEQUATE` |
+| holdout-7 / B | OpenCode Zen / `opencode/mimo-v2.5-free` | `1.18.23` | 190000 ms | runner child timeout | `TIMEOUT_POLICY_INADEQUATE` |
+| holdout-7 / C | OpenCode Zen / `opencode/mimo-v2.5-free` | `1.18.23` | 190000 ms | runner child timeout | `TIMEOUT_POLICY_INADEQUATE` |
+
+Correlation is uniform across all six cells: same provider/model, OpenCode
+version, declared timeout, outer timeout boundary, empty stderr, and no
+structured provider/auth/HTTP error. The technical root cause is therefore
+the fixed experiment-runner timeout boundary, not a proven provider outage,
+rate limit, authentication failure, DNS failure, Positron harness failure, or
+model-unavailable response. `PROVIDER_FAILURE` remains the correct frozen
+experimental invalidity class; `PREVIOUS_CLASSIFICATION_CORRECTED=NO`.
+
+External context is kept separate from local proof. Local DNS resolution for
+`opencode.ai` succeeded, unauthenticated `GET /zen/v1/models` returned HTTP
+200 and included `mimo-v2.5-free`, and `opencode auth list` showed a configured
+OpenCode Zen credential without exposing its value. Official OpenCode
+documentation identifies MiMo-V2.5 Free as a Zen model and documents provider
+`timeout`/`chunkTimeout` options. The status-page URL did not provide a usable
+status document. These facts do not establish provider health for the failed
+historical requests; they only rule out the local DNS/catalog/auth-list
+symptoms observed at diagnosis time.
+
+```text
+LOCAL_RUNTIME_EVIDENCE=uniform runner-boundary termination at 190000 ms; empty stderr; no provider/auth/HTTP error event
+EXTERNAL_PROVIDER_STATUS=OpenCode model catalog reachable; no usable status-page document
+INFERENCE=TIMEOUT_POLICY_INADEQUATE=YES; EXPERIMENT_RUNNER_FAILURE=YES; external provider outage unproven
+```
+
+## Neutral Runtime Health Gate
+
+The health-gate plan was frozen before execution in the issue and in
+`run-health-canary.mjs`:
+
+```text
+HEALTH_CANARY_REQUESTS=5
+HEALTH_CANARY_TIMEOUT_MS=180000
+HEALTH_CANARY_CANDIDATE_EVALUATION=NO
+HEALTH_CANARY_HOLDOUT_TASKS=NONE
+```
+
+Five fresh disposable fixtures were run sequentially with the same
+OpenCode/model identity. Each request exercised the write tool inside its own
+fixture; the harness then ran the local test once. No candidate procedure,
+holdout task, value metric, retry, provider, model, permission, or experiment
+timeout was changed. The redacted summary was written under
+`/tmp/positron-issue-476-health-EQMuss/` and no raw provider payload was
+committed.
+
+| Canary requests | Valid | Time ms | OpenCode exit | Verification exit | Write tool | Error events |
+|---:|---:|---:|---:|---:|---|---:|
+| 1 | 1 | 22376 | 0 | 0 | yes | 0 |
+| 2 | 1 | 13128 | 0 | 0 | yes | 0 |
+| 3 | 1 | 11995 | 0 | 0 | yes | 0 |
+| 4 | 1 | 11902 | 0 | 0 | yes | 0 |
+| 5 | 1 | 10729 | 0 | 0 | yes | 0 |
+
+```text
+HEALTH_CANARY_PLANNED=5
+HEALTH_CANARY_EXECUTED=5
+HEALTH_CANARY_VALID=5/5
+NO_SYSTEMATIC_TIMEOUT_PATTERN=YES
+NO_AUTH_FAILURE=YES
+NO_HARNESS_FAILURE=YES
+RUNTIME_CAPACITY_GATE=PASS
+```
+
+The passing neutral gate shows that small OpenCode/Zen requests and the local
+tool/verification path were operational at the time of diagnosis. It does not
+repair the frozen experiment contract or make the six historical cells
+comparable under a different timeout.
+
+## Decision Whether Final Extension Is Authorized
+
+The health gate passed, but authorization still fails the independent
+comparability condition:
+
+```text
+TIMEOUT_POLICY_INADEQUATE=YES
+CURRENT_EXPERIMENT_COMPARABILITY_BROKEN_BY_TIMEOUT_POLICY=YES
+FINAL_EXTENSION_AUTHORIZED=NO
+```
+
+Increasing the timeout, changing retry behavior, changing provider/model, or
+mixing new settings with the original valid runs would create a new experiment
+contract. Therefore the requested final three-task extension is not run. No
+additional holdout sampling is authorized in this experiment.
+
+## Final Paired Extension
+
+```text
+FINAL_EXTENSION_TASKS=3
+FINAL_EXTENSION_CELLS=9
+FINAL_EXTENSION_EXECUTED_CELLS=0
+FINAL_NEW_A_VALID=0
+FINAL_NEW_B_VALID=0
+FINAL_NEW_C_VALID=0
+FINAL_HOLDOUT_FINGERPRINT=NOT_CREATED_BECAUSE_EXTENSION_NOT_AUTHORIZED
+```
+
+The three-task block was the frozen maximum that would have been used only if
+the current contract remained valid. It was not partially sampled, so there
+was no optional stopping, selective resampling, holdout reuse, or new value
+metric.
+
+## Combined Value Analysis
+
+The only valid combined sample remains the original series plus valid rows
+from the already completed two-task extension. No final-extension rows are
+added:
+
+| Metric | A | B | C |
+|---|---:|---:|---:|
+| Original valid | 4 | 5 | 4 |
+| Failed extension valid | 0 | 0 | 0 |
+| Final extension valid | 0 | 0 | 0 |
+| Combined valid | 4 | 5 | 4 |
+| Verified success | 4/4 | 5/5 | 4/4 |
+| Median tool calls | 9 | 8 | 8 |
+| Median context | 20468.5 | 20831 | 20439 |
+| Median time ms | 50312.5 | 48490 | 51797.5 |
+
+Gate 1 remains unsatisfied because A and C each have only four valid runtime
+attempts. Quality and efficiency promotion are not evaluated after the sample
+gate. The candidate fingerprint remains unchanged and matched; compute,
+provider variance, security, permission, and holdout leakage do not justify a
+positive value claim.
+
+```text
+ORIGINAL_A_VALID=4
+ORIGINAL_B_VALID=5
+ORIGINAL_C_VALID=4
+COMBINED_A_VALID=4
+COMBINED_B_VALID=5
+COMBINED_C_VALID=4
+QUALITY_NON_INFERIOR=NOT_PROMOTABLE_WITHOUT_MIN_VALID_SAMPLE
+B_BEATS_A_ABSOLUTE=NOT_EVALUATED_AFTER_SAMPLE_GATE
+B_BEATS_A_RELATIVE=NOT_EVALUATED_AFTER_SAMPLE_GATE
+B_BEATS_C_ABSOLUTE=NOT_EVALUATED_AFTER_SAMPLE_GATE
+B_BEATS_C_RELATIVE=NOT_EVALUATED_AFTER_SAMPLE_GATE
+COMPUTE_EXPLAINS_GAIN=NO
+PROVIDER_VARIANCE_EXPLAINS_GAIN=UNKNOWN_FOR_UNDERPOWERED_SAMPLE
+```
+
+## Final Research Decision
+
+This is the final closure decision under the current candidate and contract:
+
+```text
+FINAL_CLASSIFICATION=AMBER_POSITRON_EXPLORATION_VALUE_UNRESOLVED_RUNTIME_CAPACITY_BLOCKED
+EXPLORATION_VALUE_PROVEN=NO
+VALUE_NEGATIVELY_PROVEN=NO
+PRODUCTIZATION_IMPLEMENTED=NO
+CURRENT_EXPERIMENT_OPERATIONALLY_UNRESOLVABLE=YES
+OPTIONAL_STOPPING_OCCURRED=NO
+SELECTIVE_RESAMPLING_OCCURRED=NO
+HOLDOUT_REUSE_OCCURRED=NO
+METRIC_DRIFT_OCCURRED=NO
+CANDIDATE_DRIFT_OCCURRED=NO
+```
+
+The cycle ends here. A future evaluation would require a new research issue
+with a newly predeclared timeout and sampling contract; this run does not
+define or start one.
