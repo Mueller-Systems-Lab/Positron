@@ -1,6 +1,6 @@
 # Issue #486 — Docker first-build reliability evidence
 
-Status: implementation and fresh-environment proof in progress.
+Status: fresh-environment proof complete; final headed browser gate pending.
 
 ## Environment and protocol
 
@@ -61,7 +61,21 @@ The quickstart now invokes `docker compose --progress plain build` before detach
 
 ## Fresh-environment final proof
 
-Pending push and a new clone from the final PR head. The proof must start with no Positron state, no Positron images, and no Positron build cache, then run only the documented doctor, dry-run, quickstart, status, stop, restart, and health/readiness path.
+Final clone: disposable `/tmp` clone, checked out at `0dea933ff2cbd4f0337cd72a58075e74843881a8`.
+
+- `FINAL_FRESH_ENV_EXISTING_STATE=NO`
+- `FINAL_FRESH_ENV_POSITRON_CACHE=EMPTY_FOR_ISOLATED_BUILDER`
+- `FINAL_FRESH_CLONE=PASS`
+- `FINAL_DOCTOR_DEMO=PASS`
+- `FINAL_QUICKSTART_DRY_RUN=PASS`
+- `FINAL_QUICKSTART_FIRST_BUILD=PASS` (bounded, visible plain progress; one shared builder install)
+- `FINAL_HEALTH=PASS`
+- `FINAL_STATUS=PASS`
+- `FINAL_STOP=PASS` (volumes retained as documented)
+- `FINAL_RESTART=PASS`
+- `FINAL_OPERATOR_READINESS=PASS` (`/api/readiness` 200; `/api/operator-readiness` 200, `READY_DEMO`)
+
+The first run pulled fresh Node base layers into the isolated builder, completed the shared apt/npm/build stages, assembled both runtimes and the web image, and started the stack to health. A separate wall-clock wrapper was not placed around the already-running documented command; stage durations are preserved in the terminal evidence, so no fabricated total is reported.
 
 ## Security and hygiene review
 
@@ -77,5 +91,5 @@ Pending push and a new clone from the final PR head. The proof must start with n
 | Clean stall reproduced | Baseline server/worker builds reproduce the multi-minute silent `npm ci` phase. |
 | Root cause identified with high confidence | Controlled network/resource observations plus independent-vs-shared graph comparison. |
 | Minimal fix | Shared builder targets and explicit plain progress only. |
-| Fresh clone and full quickstart | Pending final remote-head proof. |
-| Stop/restart/status/readiness | Pending final remote-head proof. |
+| Fresh clone and full quickstart | Final isolated-builder clone passed doctor, dry-run, first build, health, and status. |
+| Stop/restart/status/readiness | Final clone passed stop, restart, status, `/api/readiness`, and `/api/operator-readiness`. |
