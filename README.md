@@ -13,6 +13,13 @@ Developed by [Mueller-Systems-Lab](https://github.com/Mueller-Systems-Lab). Posi
 
 ## Try it in one command
 
+Run the read-only install doctor first. It checks the safe demo prerequisites
+and explains any blocker without installing packages or changing credentials.
+
+```bash
+./scripts/doctor.sh --demo
+```
+
 Prerequisite: Docker Compose v2.
 
 ```bash
@@ -32,7 +39,9 @@ Useful commands:
 ```bash
 ./scripts/quickstart.sh --status
 ./scripts/quickstart.sh --stop
-./scripts/doctor.sh
+./scripts/doctor.sh --demo
+./scripts/doctor.sh --supervised
+./scripts/doctor.sh --demo --json
 ```
 
 See [Getting Started](docs/getting-started/README.md) for prerequisites, troubleshooting, local development, and the explicitly configured advanced integrations path.

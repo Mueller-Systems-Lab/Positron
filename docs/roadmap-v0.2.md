@@ -4,11 +4,11 @@
 
 - Operator-ready supervised workflow: readiness, safe next action, and clear
   demo versus real boundaries ([#482](https://github.com/Mueller-Systems-Lab/Positron/issues/482)).
+- Read-only install/setup doctor and fresh-environment onboarding closure
+  ([#484](https://github.com/Mueller-Systems-Lab/Positron/issues/484)).
 
 ## NEXT
 
-- Installation and onboarding polish based on fresh supported-environment
-  evidence.
 - Evidence and failure-diagnosis ergonomics for recovery and retry.
 
 ## LATER

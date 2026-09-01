@@ -1,7 +1,7 @@
 # Known Limitations
 
 **Status date:** 2026-09-01
-**Baseline:** `03febdb6f429bca713a49d4f19cc12453d091e60`
+**Baseline:** `4ec48b61da2b6545eff4bbd4c314f9c0c1dfcb8a`
 
 This page describes current limitations only. Historical counts and incident reports remain in dated evidence.
 
@@ -14,6 +14,7 @@ This page describes current limitations only. Historical counts and incident rep
 | Browser voice output depends on local Web Speech API support | DOCUMENTED | Voice is optional and browser-local |
 | Real GitHub/OpenCode/SpecKit operations can have external side effects | SAFETY GATE | Configure only in an isolated, supervised environment |
 | Real provider/model and repository readiness require explicit configuration and backend verification | GATED | Use the Operator Readiness view before attempting supervised work; demo readiness never implies real readiness |
+| Demo uses fixed host ports 3000/5173 | DOCUMENTED | Run the install doctor first; stop the conflicting service before starting the demo |
 
 ## Not current limitations
 

@@ -20,7 +20,8 @@ services:
   server:
     build:
       context: .
-      dockerfile: apps/server/Dockerfile
+      dockerfile: Dockerfile.quickstart
+      target: server-runtime
     ports:
       - "3000:3000"
     environment:
@@ -62,7 +63,8 @@ services:
   worker:
     build:
       context: .
-      dockerfile: apps/worker/Dockerfile
+      dockerfile: Dockerfile.quickstart
+      target: worker-runtime
     environment:
       NODE_ENV: production
       POSITRON_DB_PATH: /app/.positron/runs/positron.db
