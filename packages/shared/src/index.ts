@@ -19,6 +19,7 @@ export * from './opencode-errors.js';
 export * from './opencode-types.js';
 export * from './queue/types.js';
 export * from './repository-config.js';
+export * from './runtime-budget.js';
 export * from './safe-apply-plan.js';
 export * from './secret-manager.js';
 export * from './speckit-errors.js';

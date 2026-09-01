@@ -2,7 +2,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { runCommand } from '@positron/sandbox';
+import { CommandTerminationError, runCommand } from '@positron/sandbox';
 import type {
 	OpenCodeAdapter,
 	OpenCodeCommandResult,
@@ -131,7 +131,10 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 		try {
 			const result = await runCommand('opencode', args, {
 				cwd: input.workspacePath,
-				timeout: 300_000, // 5 Minuten für Agent-Kommandos
+				// OpenCode's provider request timeout is subordinate to the
+				// kernel-owned runtime slice when one is supplied.
+				timeout: input.effectiveHarness?.effective_timeout_ms ?? 300_000,
+				runtimeBudget: input.runtimeBudget,
 				// P4 (Slice B): AbortSignal → realer Child-Prozess wird bei
 				// Cancel terminiert (graceful SIGTERM → forced SIGKILL).
 				signal: input.signal,
@@ -204,6 +207,21 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 				error: errorEvidence,
 			};
 		} catch (err) {
+			if (err instanceof CommandTerminationError) {
+				return {
+					phase: this.mapPhase(phaseName),
+					status: 'failed',
+					command: `opencode ${args.join(' ')}`,
+					args,
+					cwd: input.workspacePath,
+					exitCode: null,
+					durationMs: Date.now() - startTime,
+					summary: `Command "${commandName}" terminated by ${err.terminationAuthority}: ${err.terminationReason}`,
+					blockedReason: err.terminationReason,
+					terminationReason: err.terminationReason,
+					terminationAuthority: err.terminationAuthority,
+				};
+			}
 			const errMsg = String(err);
 			const safeErrMsg = this.redact(errMsg)?.slice(0, 200) ?? 'unknown error';
 			return {
@@ -308,7 +326,7 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 					const prereqResult = await runCommand(
 						'bash',
 						[prereqScript, '--json', '--require-tasks', '--include-tasks'],
-						{ cwd: input.workspacePath, timeout: 15_000 },
+						{ cwd: input.workspacePath, timeout: 15_000, runtimeBudget: input.runtimeBudget },
 					);
 
 					if (prereqResult.exitCode === 0 && prereqResult.stdout) {

@@ -461,6 +461,31 @@ function applyV10(db: Database.Database): void {
 	}
 }
 
+/** V12 — additive durable runtime budget/deadline evidence on cp_attempts. */
+function applyV12(db: Database.Database): void {
+	const columns: Array<[string, string]> = [
+		['scheduled_at', 'TEXT'],
+		['elapsed_ms', 'INTEGER'],
+		['runtime_budget_contract', 'TEXT'],
+		['runtime_budget_fingerprint', 'TEXT'],
+		['remaining_budget_at_start_ms', 'INTEGER'],
+		['remaining_budget_at_finish_ms', 'INTEGER'],
+		['termination_reason', 'TEXT'],
+		['termination_authority', 'TEXT'],
+		['provider_latency_ms', 'INTEGER'],
+		['tool_latency_ms', 'INTEGER'],
+		['verification_latency_ms', 'INTEGER'],
+		['cancel_requested_at', 'TEXT'],
+		['cancel_completed_at', 'TEXT'],
+		['late_result_detected', 'INTEGER NOT NULL DEFAULT 0'],
+		['late_result_fenced', 'INTEGER NOT NULL DEFAULT 0'],
+	];
+	for (const [column, type] of columns) {
+		if (!columnExists(db, 'cp_attempts', column))
+			db.exec(`ALTER TABLE cp_attempts ADD COLUMN ${column} ${type}`);
+	}
+}
+
 export function applyControlPlaneMigrations(db: Database.Database): void {
 	// P5 migration production safety: wrap in transaction where safe (SQLite)
 	// For SQLite, DDL is transactional, so we can use a transaction for the whole migration
@@ -485,6 +510,7 @@ export function applyControlPlaneMigrations(db: Database.Database): void {
 		applyV10(db);
 		// P5.5: Durable decision reconciliation and approval authority (V11)
 		db.exec(CONTROL_PLANE_SCHEMA_V11);
+		applyV12(db);
 	});
 	try {
 		doMigrate();
@@ -503,12 +529,13 @@ export function applyControlPlaneMigrations(db: Database.Database): void {
 		applyV9(db);
 		applyV10(db);
 		db.exec(CONTROL_PLANE_SCHEMA_V11);
+		applyV12(db);
 	}
 	// Validate shape after migration
 	validateMigrationShape(db);
 	// The ledger is written only after every shape check succeeds. It is an
 	// informational compatibility marker, never a source of mutation authority.
-	setMigrationVersion(db, '11');
+	setMigrationVersion(db, '12');
 }
 
 /**
@@ -526,6 +553,12 @@ export function validateMigrationShape(db: Database.Database): void {
 			'harness_fingerprint',
 			'effective_harness_config',
 			'effective_harness_fingerprint',
+			'runtime_budget_contract',
+			'runtime_budget_fingerprint',
+			'termination_reason',
+			'termination_authority',
+			'late_result_detected',
+			'late_result_fenced',
 		],
 		cp_production_profile_pointer: [
 			'pointer_id',

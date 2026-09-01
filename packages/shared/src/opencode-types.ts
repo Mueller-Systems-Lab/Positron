@@ -1,5 +1,11 @@
 // Positron — OpenCode Typdefinitionen
 
+import type {
+	RuntimeBudgetSlice,
+	RuntimeTerminationAuthority,
+	RuntimeTerminationReason,
+} from './runtime-budget.js';
+
 /** OpenCode Adapter Phasen */
 export type OpenCodePhase =
 	| 'health'
@@ -70,6 +76,10 @@ export interface OpenCodeCommandResult {
 		ref?: string;
 		retryable?: boolean;
 	};
+	/** Kernel-owned runtime termination classification, when applicable. */
+	terminationReason?: RuntimeTerminationReason;
+	terminationAuthority?: RuntimeTerminationAuthority;
+	lateResultFenced?: boolean;
 }
 
 /** Input für OpenCode Adapter-Methoden */
@@ -106,6 +116,8 @@ export interface OpenCodeRunInput {
 	 * (graceful SIGTERM → forced SIGKILL) statt nur den Promise zu beenden.
 	 */
 	signal?: AbortSignal;
+	/** Bounded kernel-owned runtime slice; provider controls remain subordinate. */
+	runtimeBudget?: RuntimeBudgetSlice;
 	/**
 	 * P5.2: Effective harness config (compiled, persisted, enforced at adapter).
 	 * The adapter MUST enforce effective_permissions, effective_tools, etc.

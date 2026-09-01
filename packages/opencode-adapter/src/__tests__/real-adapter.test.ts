@@ -9,8 +9,14 @@ import { RealOpenCodeAdapter } from '../real-adapter.js';
 
 // Mock runCommand to avoid depending on real opencode CLI
 vi.mock('@positron/sandbox', () => {
+	class MockCommandTerminationError extends Error {
+		terminationReason = 'ATTEMPT_DEADLINE_EXCEEDED';
+		terminationAuthority = 'attempt';
+	}
+
 	return {
-		runCommand: vi.fn(async (cmd: string, args: string[], _opts: any) => {
+		CommandTerminationError: MockCommandTerminationError,
+		runCommand: vi.fn(async (cmd: string, args: string[], _opts: unknown) => {
 			if (args[0] === '--version') {
 				return {
 					exitCode: 0,

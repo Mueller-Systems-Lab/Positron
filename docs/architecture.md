@@ -321,3 +321,36 @@ CREATE TABLE command_results (
 - **Branch-Schutz**: Nur `positron/issue-<n>-<slug>` Branches
 - **GitHub Source of Truth**: Alle Entscheidungen sichtbar im Issue
 - **Harte Gates**: Kein Fortschritt ohne bestandene Checks
+
+## Runtime Budget Contract (Issue #478)
+
+Positron's existing run → job → attempt hierarchy remains the only execution authority. Runtime limits are represented by the shared, immutable `positron.runtime-budget.v1` contract and are persisted additively on `cp_attempts` (V12). The contract fingerprint covers bounded policy semantics; audit timestamps and clock readings do not change comparability.
+
+```mermaid
+flowchart TD
+    R[Run / Job budget] --> A[Attempt budget]
+    A --> P[Provider request slice]
+    A --> T[Tool execution slice]
+    A --> V[Verification slice]
+    R -->|remaining deadline| F[Kernel cancellation]
+    F --> C[AbortSignal]
+    C --> X[Owned process SIGTERM → SIGKILL]
+    A --> L[Terminal attempt + lease fencing]
+    L --> Z[Late result fenced]
+```
+
+Every child deadline is `min(requested child deadline, remaining parent deadline)`. Provider request/chunk timeouts from OpenCode are subordinate subsystem timeouts; they do not replace Positron's attempt or run deadline. The final termination record carries both a reason code and the authority (`provider`, `tool`, `verification`, `attempt`, `run`, `kernel`, or `fencing`).
+
+The canonical distinction is:
+
+| Runtime outcome | Authority | Product meaning |
+| --- | --- | --- |
+| `PROVIDER_FAILURE` / provider timeout | provider/model | provider evidence exists |
+| `ATTEMPT_DEADLINE_EXCEEDED` | attempt | workload exceeded its controlled attempt envelope |
+| `TOOL_EXECUTION_TIMEOUT` | tool | owned tool exceeded its child budget |
+| `VERIFICATION_DEADLINE_EXCEEDED` | verification | verification exceeded its child budget |
+| `RUN_BUDGET_EXHAUSTED` | run | parent budget prevented more work |
+| `CANCELLED_BY_KERNEL` | kernel | controller cancellation won the race |
+| `LATE_RESULT_FENCED` | fencing | terminal/superseded result was rejected |
+
+Calibration must derive a bounded runtime envelope before a holdout contract is frozen. A holdout timeout cannot be repaired by changing the budget and rerunning the same sample; that is an `EXPERIMENT_CONTRACT_CHANGED` boundary.

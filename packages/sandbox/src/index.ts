@@ -13,6 +13,7 @@ export type {
 } from './adapter.js';
 export type { CommandResult, RunCommandOptions } from './command-runner.js';
 export {
+	CommandTerminationError,
 	GitCommandError,
 	GitCommandFailedError,
 	GitCommandPolicyError,

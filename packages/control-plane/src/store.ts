@@ -7,6 +7,8 @@
 
 import crypto from 'node:crypto';
 import type Database from 'better-sqlite3';
+import { isRuntimeTerminationAuthority, isRuntimeTerminationReason } from '@positron/shared';
+import type { RuntimeTerminationAuthority, RuntimeTerminationReason } from '@positron/shared';
 
 // ---------------------------------------------------------------------------
 // Typen
@@ -134,6 +136,22 @@ export interface AttemptRecord {
 	routing_reason_code: string | null;
 	/** SHA-256 der Routing-Entscheidung */
 	routing_fingerprint: string | null;
+	// ── V12 Runtime Budget / Deadline Evidence ───────────────────────────
+	scheduled_at?: string | null;
+	elapsed_ms?: number | null;
+	runtime_budget_contract?: string | null;
+	runtime_budget_fingerprint?: string | null;
+	remaining_budget_at_start_ms?: number | null;
+	remaining_budget_at_finish_ms?: number | null;
+	termination_reason?: RuntimeTerminationReason | null;
+	termination_authority?: RuntimeTerminationAuthority | null;
+	provider_latency_ms?: number | null;
+	tool_latency_ms?: number | null;
+	verification_latency_ms?: number | null;
+	cancel_requested_at?: string | null;
+	cancel_completed_at?: string | null;
+	late_result_detected?: boolean;
+	late_result_fenced?: boolean;
 }
 
 export function createId(prefix: string): string {
@@ -256,6 +274,12 @@ function mapJobRow(row: Record<string, unknown>): JobRecord {
 // Attempts
 // ---------------------------------------------------------------------------
 
+function prepareAttemptInsert(db: Database.Database, sql: string) {
+	return db.prepare(
+		sql.replace(/VALUES \([^)]*\)/, `VALUES (${Array.from({ length: 58 }, () => '?').join(', ')})`),
+	);
+}
+
 export function createAttempt(
 	db: Database.Database,
 	runId: string,
@@ -311,8 +335,24 @@ export function createAttempt(
 		routing_action: initial.routing_action ?? null,
 		routing_reason_code: initial.routing_reason_code ?? null,
 		routing_fingerprint: initial.routing_fingerprint ?? null,
+		scheduled_at: initial.scheduled_at ?? null,
+		elapsed_ms: initial.elapsed_ms ?? null,
+		runtime_budget_contract: initial.runtime_budget_contract ?? null,
+		runtime_budget_fingerprint: initial.runtime_budget_fingerprint ?? null,
+		remaining_budget_at_start_ms: initial.remaining_budget_at_start_ms ?? null,
+		remaining_budget_at_finish_ms: initial.remaining_budget_at_finish_ms ?? null,
+		termination_reason: initial.termination_reason ?? null,
+		termination_authority: initial.termination_authority ?? null,
+		provider_latency_ms: initial.provider_latency_ms ?? null,
+		tool_latency_ms: initial.tool_latency_ms ?? null,
+		verification_latency_ms: initial.verification_latency_ms ?? null,
+		cancel_requested_at: initial.cancel_requested_at ?? null,
+		cancel_completed_at: initial.cancel_completed_at ?? null,
+		late_result_detected: initial.late_result_detected ?? false,
+		late_result_fenced: initial.late_result_fenced ?? false,
 	};
-	db.prepare(
+	prepareAttemptInsert(
+		db,
 		`INSERT INTO cp_attempts (attempt_id, run_id, job_id, status, input_contract, input_fingerprint,
 		   output_contract, output_fingerprint, output_json, worker_type, provider, model, started_at,
 		   ended_at, failure_class, failure_signature, new_evidence, strategy_delta, result_ref, tokens,
@@ -320,8 +360,12 @@ export function createAttempt(
 		   harness_profile_id, harness_profile_version, harness_fingerprint, harness_profile_ref,
 		   task_profile_id, task_profile_version, task_type, provider_adapter_id, provider_adapter_version,
 		   model_provenance_status, effective_harness_config, effective_harness_fingerprint,
-		   failure_domain, diagnosis_reason_code, diagnosis_fingerprint, routing_action, routing_reason_code, routing_fingerprint)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		   failure_domain, diagnosis_reason_code, diagnosis_fingerprint, routing_action, routing_reason_code, routing_fingerprint,
+		   scheduled_at, elapsed_ms, runtime_budget_contract, runtime_budget_fingerprint,
+		   remaining_budget_at_start_ms, remaining_budget_at_finish_ms, termination_reason, termination_authority,
+		   provider_latency_ms, tool_latency_ms, verification_latency_ms, cancel_requested_at, cancel_completed_at,
+		   late_result_detected, late_result_fenced)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 	).run(
 		attempt.attempt_id,
 		attempt.run_id,
@@ -366,6 +410,21 @@ export function createAttempt(
 		attempt.routing_action,
 		attempt.routing_reason_code,
 		attempt.routing_fingerprint,
+		attempt.scheduled_at,
+		attempt.elapsed_ms,
+		attempt.runtime_budget_contract,
+		attempt.runtime_budget_fingerprint,
+		attempt.remaining_budget_at_start_ms,
+		attempt.remaining_budget_at_finish_ms,
+		attempt.termination_reason,
+		attempt.termination_authority,
+		attempt.provider_latency_ms,
+		attempt.tool_latency_ms,
+		attempt.verification_latency_ms,
+		attempt.cancel_requested_at,
+		attempt.cancel_completed_at,
+		attempt.late_result_detected ? 1 : 0,
+		attempt.late_result_fenced ? 1 : 0,
 	);
 	return attempt;
 }
@@ -693,6 +752,10 @@ export function completeAttempt(
 			   result_ref = ?, tokens = ?, previous_attempt_id = ?,
 			   failure_domain = ?, diagnosis_reason_code = ?, diagnosis_fingerprint = ?,
 			   routing_action = ?, routing_reason_code = ?, routing_fingerprint = ?
+			   ,scheduled_at = ?, elapsed_ms = ?, runtime_budget_contract = ?, runtime_budget_fingerprint = ?,
+			   remaining_budget_at_start_ms = ?, remaining_budget_at_finish_ms = ?, termination_reason = ?, termination_authority = ?,
+			   provider_latency_ms = ?, tool_latency_ms = ?, verification_latency_ms = ?, cancel_requested_at = ?, cancel_completed_at = ?,
+			   late_result_detected = ?, late_result_fenced = ?
 			 WHERE attempt_id = ?`;
 		const fenced = fence ? ' AND lease_owner_id = ? AND lease_generation = ?' : '';
 		const res = db
@@ -716,6 +779,21 @@ export function completeAttempt(
 				update.routing_action ?? existing.routing_action,
 				update.routing_reason_code ?? existing.routing_reason_code,
 				update.routing_fingerprint ?? existing.routing_fingerprint,
+				update.scheduled_at ?? existing.scheduled_at,
+				update.elapsed_ms ?? existing.elapsed_ms,
+				update.runtime_budget_contract ?? existing.runtime_budget_contract,
+				update.runtime_budget_fingerprint ?? existing.runtime_budget_fingerprint,
+				update.remaining_budget_at_start_ms ?? existing.remaining_budget_at_start_ms,
+				update.remaining_budget_at_finish_ms ?? existing.remaining_budget_at_finish_ms,
+				update.termination_reason ?? existing.termination_reason,
+				update.termination_authority ?? existing.termination_authority,
+				update.provider_latency_ms ?? existing.provider_latency_ms,
+				update.tool_latency_ms ?? existing.tool_latency_ms,
+				update.verification_latency_ms ?? existing.verification_latency_ms,
+				update.cancel_requested_at ?? existing.cancel_requested_at,
+				update.cancel_completed_at ?? existing.cancel_completed_at,
+				(update.late_result_detected ?? existing.late_result_detected) ? 1 : 0,
+				(update.late_result_fenced ?? existing.late_result_fenced) ? 1 : 0,
 				attemptId,
 				...(fence ? [whereOwner, whereGen] : []),
 			);
@@ -785,6 +863,45 @@ export function mapAttemptRow(row: Record<string, unknown>): AttemptRecord {
 		routing_action: row.routing_action ? String(row.routing_action) : null,
 		routing_reason_code: row.routing_reason_code ? String(row.routing_reason_code) : null,
 		routing_fingerprint: row.routing_fingerprint ? String(row.routing_fingerprint) : null,
+		scheduled_at: row.scheduled_at ? String(row.scheduled_at) : null,
+		elapsed_ms:
+			row.elapsed_ms !== null && row.elapsed_ms !== undefined ? Number(row.elapsed_ms) : null,
+		runtime_budget_contract: row.runtime_budget_contract
+			? String(row.runtime_budget_contract)
+			: null,
+		runtime_budget_fingerprint: row.runtime_budget_fingerprint
+			? String(row.runtime_budget_fingerprint)
+			: null,
+		remaining_budget_at_start_ms:
+			row.remaining_budget_at_start_ms !== null && row.remaining_budget_at_start_ms !== undefined
+				? Number(row.remaining_budget_at_start_ms)
+				: null,
+		remaining_budget_at_finish_ms:
+			row.remaining_budget_at_finish_ms !== null && row.remaining_budget_at_finish_ms !== undefined
+				? Number(row.remaining_budget_at_finish_ms)
+				: null,
+		termination_reason: isRuntimeTerminationReason(row.termination_reason)
+			? row.termination_reason
+			: null,
+		termination_authority: isRuntimeTerminationAuthority(row.termination_authority)
+			? row.termination_authority
+			: null,
+		provider_latency_ms:
+			row.provider_latency_ms !== null && row.provider_latency_ms !== undefined
+				? Number(row.provider_latency_ms)
+				: null,
+		tool_latency_ms:
+			row.tool_latency_ms !== null && row.tool_latency_ms !== undefined
+				? Number(row.tool_latency_ms)
+				: null,
+		verification_latency_ms:
+			row.verification_latency_ms !== null && row.verification_latency_ms !== undefined
+				? Number(row.verification_latency_ms)
+				: null,
+		cancel_requested_at: row.cancel_requested_at ? String(row.cancel_requested_at) : null,
+		cancel_completed_at: row.cancel_completed_at ? String(row.cancel_completed_at) : null,
+		late_result_detected: Number(row.late_result_detected ?? 0) === 1,
+		late_result_fenced: Number(row.late_result_fenced ?? 0) === 1,
 	};
 }
 
