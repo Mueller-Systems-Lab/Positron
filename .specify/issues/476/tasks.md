@@ -20,7 +20,7 @@
 - [x] Predeclare the bounded two-task paired closure extension and disjoint
       partition fingerprints before running any new cell.
 - [x] Execute all six extension cells and combine the result with original
-  valid evidence under the unchanged gates.
+      valid evidence under the unchanged gates.
 - [x] Analyze the six uniform runtime failures without changing timeout,
   retry, provider, model, or candidate settings.
 - [x] Execute the predeclared five-request neutral runtime health gate.
