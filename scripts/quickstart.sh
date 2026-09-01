@@ -146,7 +146,10 @@ main() {
         return 0
       fi
       check_ports
-      compose up --build --detach --remove-orphans
+      printf '%s\n' 'Building Positron images for the first time...'
+      printf '%s\n' 'Docker will show the active build stage; dependency installation may take several minutes.'
+      compose --progress plain build
+      compose up --detach --remove-orphans
       wait_for_health
       printf 'Positron demo is ready: %s\n' "$WEB_URL"
       printf 'Health endpoint: %s\n' "$HEALTH_URL"
