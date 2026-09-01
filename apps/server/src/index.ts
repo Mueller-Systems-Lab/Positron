@@ -116,7 +116,7 @@ import { startWatcher } from './github-watcher.js';
 import { createCancelHandler } from './handlers/cancel-run.js';
 import { handleEvolutionRoutes } from './handlers/evolution.js';
 import { createLogger } from './logger.js';
-import { checkReadiness } from './readiness.js';
+import { buildOperatorReadiness, checkReadiness } from './readiness.js';
 import {
 	activeRuns,
 	blockedMergesTotal,
@@ -1904,6 +1904,35 @@ export function createApp(options: ServerOptions = {}) {
 			status: readiness.ready ? 'ready' : 'not_ready',
 			...readiness,
 		});
+	});
+
+	// Backend-owned operator journey projection. Read-only; it never changes
+	// credentials, permissions, safety flags, repositories, or run state.
+	app.get('/api/operator-readiness', async (_req, res) => {
+		try {
+			const healthWsPath = process.env['POSITRON_WORKSPACE_ROOT'] ?? '/tmp';
+			const opencode = await activeOpenCodeAdapter.healthCheck(healthWsPath);
+			const readiness = buildOperatorReadiness({
+				durable: checkReadiness(getDb()),
+				githubMode,
+				opencode,
+				repository,
+				safety: (() => {
+					const safety = getSafetyState();
+					return { killSwitch: safety.killSwitch === true, enablePush: safety.enablePush === true };
+				})(),
+			});
+			// Readiness is a report, not transport health: blocked states must be
+			// visible to the operator instead of becoming an opaque HTTP error.
+			res.status(200).json(readiness);
+		} catch {
+			res.status(503).json({
+				contract: 'positron.operator-readiness.v1',
+				overall_status: 'UNKNOWN',
+				next_action: { label: 'Review server configuration', href: '/settings' },
+				reason_code: 'READINESS_CHECK_FAILED',
+			});
+		}
 	});
 
 	// Prometheus Metrics Endpoint (QA-010, QA-011, QA-012)

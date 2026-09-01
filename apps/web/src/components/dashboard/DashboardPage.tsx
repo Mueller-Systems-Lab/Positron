@@ -55,6 +55,9 @@ export default function DashboardPage(): React.ReactElement {
 					</p>
 				</div>
 				<div className="flex items-center gap-3">
+					<Link to="/readiness" className="btn-secondary text-sm">
+						Check readiness
+					</Link>
 					<VoiceStatusIndicator />
 					<button type="button" onClick={() => setIsNewRunModalOpen(true)} className="btn-primary">
 						+ New Run

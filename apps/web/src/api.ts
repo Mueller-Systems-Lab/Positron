@@ -5,6 +5,7 @@ import type {
 	ApiError,
 	Artifact,
 	HealthStatus,
+	OperatorReadiness,
 	Issue,
 	ManagedTargetProject,
 	Metrics,
@@ -262,6 +263,10 @@ export const api = {
 	// Health
 	getHealth(): Promise<HealthStatus> {
 		return request<HealthStatus>('/health');
+	},
+
+	getOperatorReadiness(): Promise<OperatorReadiness> {
+		return request<OperatorReadiness>('/operator-readiness');
 	},
 
 	// Repositories

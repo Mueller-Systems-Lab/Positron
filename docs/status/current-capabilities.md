@@ -1,8 +1,8 @@
 # Current Capabilities
 
-**Status date:** 2026-08-31
-**Baseline:** `d02f261a4df898f934400cb532127b9767872672`
-**Product status:** release target v0.1.0 / active development
+**Status date:** 2026-09-01
+**Baseline:** `03febdb6f429bca713a49d4f19cc12453d091e60`
+**Product status:** stable v0.1.0 / v0.2 product work active
 
 This is living documentation. Dated test totals and historical issue snapshots belong in `docs/evidence/` and are not repeated here as timeless claims.
 
@@ -19,6 +19,7 @@ This is living documentation. Dated test totals and historical issue snapshots b
 | Supervised Full Real Mode validation | PROVEN / GATED | Issue #308 is closed; this does not authorize unsupervised Real Mode or deployment |
 | Heterogeneous worker control-plane boundary | PROVEN | [Issue #447 architecture](../architecture/architecture-after-consolidation.md) |
 | Static public landing page | PROVEN | Source is deployed at the verified GitHub Pages URL |
+| Operator readiness projection | PROVEN / GATED | Read-only `positron.operator-readiness.v1` endpoint and dashboard view; real execution remains safety-gated |
 
 ## Current quality contract
 
@@ -28,9 +29,10 @@ Use `npm test`, `npm run build`, `npm run typecheck`, and the relevant Playwrigh
 
 ## Current issue state relevant to this document
 
-- [#211](https://github.com/Mueller-Systems-Lab/Positron/issues/211) is the active repository polish/install/Pages track.
+- [#211](https://github.com/Mueller-Systems-Lab/Positron/issues/211) is historical repository polish/install/Pages work.
 - [#308](https://github.com/Mueller-Systems-Lab/Positron/issues/308) is closed after supervised validation; unsupervised Real Mode remains gated.
-- [#447](https://github.com/Mueller-Systems-Lab/Positron/issues/447) is the current portfolio-consolidation track.
+- [#447](https://github.com/Mueller-Systems-Lab/Positron/issues/447) and its validation remainder #464 are closed historical portfolio work.
+- [#482](https://github.com/Mueller-Systems-Lab/Positron/issues/482) is the active v0.2 operator-readiness slice.
 - #250, #340, #416, #421, and #402 are closed historical work; they are references to evidence, not current backlog.
 
 ## Related living docs
