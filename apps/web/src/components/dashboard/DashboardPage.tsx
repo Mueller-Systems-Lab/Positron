@@ -5,7 +5,6 @@ import { api } from '../../api.js';
 import { useDashboardSSE } from '../../hooks/useDashboardSSE.js';
 import type { ManagedTargetProject } from '../../types.js';
 import EmptyState from '../shared/EmptyState.js';
-import ErrorBanner from '../shared/ErrorBanner.js';
 import VoiceStatusIndicator from '../VoiceStatusIndicator.jsx';
 import AttentionQueue from './AttentionQueue.jsx';
 import BlueprintPanel from './BlueprintPanel.jsx';
@@ -55,6 +54,9 @@ export default function DashboardPage(): React.ReactElement {
 					</p>
 				</div>
 				<div className="flex items-center gap-3">
+					<Link to="/readiness" className="btn-secondary text-sm">
+						Check readiness
+					</Link>
 					<VoiceStatusIndicator />
 					<button type="button" onClick={() => setIsNewRunModalOpen(true)} className="btn-primary">
 						+ New Run

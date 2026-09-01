@@ -1,7 +1,7 @@
 # Known Limitations
 
-**Status date:** 2026-08-26
-**Baseline:** `a7a33596d45343eb0bf4a429ac6d487fc9fd8b61`
+**Status date:** 2026-09-01
+**Baseline:** `03febdb6f429bca713a49d4f19cc12453d091e60`
 
 This page describes current limitations only. Historical counts and incident reports remain in dated evidence.
 
@@ -13,6 +13,7 @@ This page describes current limitations only. Historical counts and incident rep
 | Admin routes require an admin token when enabled | DOCUMENTED | Quickstart generates a local ignored token |
 | Browser voice output depends on local Web Speech API support | DOCUMENTED | Voice is optional and browser-local |
 | Real GitHub/OpenCode/SpecKit operations can have external side effects | SAFETY GATE | Configure only in an isolated, supervised environment |
+| Real provider/model and repository readiness require explicit configuration and backend verification | GATED | Use the Operator Readiness view before attempting supervised work; demo readiness never implies real readiness |
 
 ## Not current limitations
 

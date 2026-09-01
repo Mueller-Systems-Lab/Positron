@@ -116,6 +116,41 @@ export interface HealthStatus {
 	runs?: number;
 }
 
+export type OperatorReadinessStatus =
+	| 'READY_DEMO'
+	| 'READY_SUPERVISED'
+	| 'BLOCKED'
+	| 'NEEDS_CONFIGURATION'
+	| 'UNAVAILABLE'
+	| 'UNKNOWN';
+
+export interface OperatorReadinessCheck {
+	status: OperatorReadinessStatus;
+	reason_code: string;
+	human_message: string;
+	remediation_hint: string;
+	evidence_ref: string;
+	last_checked_at: string;
+}
+
+export interface OperatorReadiness {
+	contract: 'positron.operator-readiness.v1';
+	overall_status: OperatorReadinessStatus;
+	next_action: { label: string; href: string };
+	server: OperatorReadinessCheck;
+	database: OperatorReadinessCheck;
+	workspace: OperatorReadinessCheck;
+	git: OperatorReadinessCheck;
+	github: OperatorReadinessCheck;
+	opencode: OperatorReadinessCheck;
+	provider: OperatorReadinessCheck;
+	model: OperatorReadinessCheck;
+	repository: OperatorReadinessCheck;
+	security_policy: OperatorReadinessCheck;
+	runtime_budget: OperatorReadinessCheck;
+	approval_system: OperatorReadinessCheck;
+}
+
 export interface ApiError {
 	error: string;
 	code?: string;

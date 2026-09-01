@@ -17,6 +17,7 @@ const NAV_SECTIONS: Array<{ label: string; items: NavItem[] }> = [
 	{
 		label: 'Overview',
 		items: [
+			{ to: '/readiness', label: 'Readiness', icon: <span aria-hidden="true">✓</span> },
 			{
 				to: '/',
 				label: 'Dashboard',
