@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import {
@@ -7,10 +7,8 @@ import {
 	TASKS,
 	EXPERIMENT_ID,
 	MODEL,
-	OPENCODE_VERSION,
 	MAX_STEPS,
 	RETRIES,
-	MIN_VALID,
 	partition,
 	sha256,
 	telemetry,
@@ -38,7 +36,7 @@ function fixture(task, dir, calibration = false) {
 	writeFileSync(join(dir, 'src', calibration ? 'task.js' : `${task.name}.js`), body);
 	writeFileSync(join(dir, 'test/task.test.js'), test);
 }
-function prompt(arm, task) {
+function prompt(arm, _task) {
 	const c = `Repair the failing JavaScript task in this disposable fixture only. Preserve the API, make the smallest correct repair, run npm test exactly once, and stop. No network, secrets, git, or files outside the fixture. Fixed provider/model ${MODEL}, max steps ${MAX_STEPS}, retries ${RETRIES}, and frozen runtime contract. `;
 	return arm === 'B'
 		? c +
@@ -46,7 +44,7 @@ function prompt(arm, task) {
 		: arm === 'C'
 			? c +
 				'Compute-matched no-candidate control: use the same resource envelope without any reusable candidate procedure.'
-			: c + 'Current validated baseline: use normal repository exploration behavior.';
+		: `${c}Current validated baseline: use normal repository exploration behavior.`;
 }
 function run(task, arm) {
 	const dir = join(runs, task.id, arm);
@@ -257,7 +255,7 @@ const result = {
 			: 'EXPERIMENT_INVALID',
 };
 writeFileSync(join(root, 'result.json'), JSON.stringify(result, null, 2));
-console.log(
+process.stdout.write(
 	JSON.stringify(
 		{
 			root,
@@ -270,5 +268,5 @@ console.log(
 		},
 		null,
 		2,
-	),
+	) + '\n',
 );

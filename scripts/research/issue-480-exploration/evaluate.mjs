@@ -26,7 +26,7 @@ result.decision = !sufficient
 			? 'GREEN_POSITRON_EXPLORATION_OPTIMIZATION_REJECTED_NO_MARGINAL_VALUE'
 			: 'GREEN_POSITRON_EXPLORATION_EFFICIENCY_VALUE_PROVEN';
 writeFileSync(join(root, 'result.json'), `${JSON.stringify(result, null, 2)}\n`);
-console.log(
+process.stdout.write(
 	JSON.stringify(
 		{
 			decision: result.decision,
@@ -36,5 +36,5 @@ console.log(
 		},
 		null,
 		2,
-	),
+	) + '\n',
 );
