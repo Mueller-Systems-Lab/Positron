@@ -44,7 +44,7 @@ function prompt(arm, _task) {
 		: arm === 'C'
 			? c +
 				'Compute-matched no-candidate control: use the same resource envelope without any reusable candidate procedure.'
-		: `${c}Current validated baseline: use normal repository exploration behavior.`;
+			: `${c}Current validated baseline: use normal repository exploration behavior.`;
 }
 function run(task, arm) {
 	const dir = join(runs, task.id, arm);
