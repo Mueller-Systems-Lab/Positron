@@ -1,7 +1,7 @@
 # Current Capabilities
 
 **Status date:** 2026-09-01
-**Baseline:** `03febdb6f429bca713a49d4f19cc12453d091e60`
+**Baseline:** `4ec48b61da2b6545eff4bbd4c314f9c0c1dfcb8a`
 **Product status:** stable v0.1.0 / v0.2 product work active
 
 This is living documentation. Dated test totals and historical issue snapshots belong in `docs/evidence/` and are not repeated here as timeless claims.
@@ -20,6 +20,7 @@ This is living documentation. Dated test totals and historical issue snapshots b
 | Heterogeneous worker control-plane boundary | PROVEN | [Issue #447 architecture](../architecture/architecture-after-consolidation.md) |
 | Static public landing page | PROVEN | Source is deployed at the verified GitHub Pages URL |
 | Operator readiness projection | PROVEN / GATED | Read-only `positron.operator-readiness.v1` endpoint and dashboard view; real execution remains safety-gated |
+| Install/setup doctor | PROVEN / GATED | Read-only `scripts/doctor.sh --demo|--supervised [--json]`; demo and supervised prerequisites remain separate |
 
 ## Current quality contract
 
@@ -32,7 +33,8 @@ Use `npm test`, `npm run build`, `npm run typecheck`, and the relevant Playwrigh
 - [#211](https://github.com/Mueller-Systems-Lab/Positron/issues/211) is historical repository polish/install/Pages work.
 - [#308](https://github.com/Mueller-Systems-Lab/Positron/issues/308) is closed after supervised validation; unsupervised Real Mode remains gated.
 - [#447](https://github.com/Mueller-Systems-Lab/Positron/issues/447) and its validation remainder #464 are closed historical portfolio work.
-- [#482](https://github.com/Mueller-Systems-Lab/Positron/issues/482) is the active v0.2 operator-readiness slice.
+- [#482](https://github.com/Mueller-Systems-Lab/Positron/issues/482) delivered the operator-readiness slice.
+- [#484](https://github.com/Mueller-Systems-Lab/Positron/issues/484) is the active v0.2 installation/onboarding closure slice.
 - #250, #340, #416, #421, and #402 are closed historical work; they are references to evidence, not current backlog.
 
 ## Related living docs
