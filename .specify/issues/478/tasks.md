@@ -22,7 +22,7 @@
 
 - [x] T010 Update architecture/evidence docs with hierarchy, ownership, timeout taxonomy, cancellation, fencing, and calibration/holdout contract.
 - [x] T011 Run architecture/security/runtime reviews; record CRITICAL/MAJOR findings and resolve task-caused findings (maximum three fix loops).
-- [ ] T012 Run all focused and full local gates; create/update PR with evidence and exact acceptance mapping.
+- [x] T012 Run all focused and full local gates; create/update PR with evidence and exact acceptance mapping.
 - [ ] T013 Run visible headed Playwright last, observe remote gates, exact-head-gated land if permitted, and freshly qualify post-merge main.
 
 ## Explicit non-goals
