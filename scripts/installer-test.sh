@@ -9,6 +9,8 @@ for file in scripts/doctor.sh scripts/quickstart.sh docker-compose.quickstart.ym
 	mkdir -p "$FIXTURE/Positron-v0.2.0/$(dirname "$file")"
 	cp "$ROOT_DIR/$file" "$FIXTURE/Positron-v0.2.0/$file"
 done
+mkdir -p "$FIXTURE/Positron-v0.2.0/.positron/quickstart"
+printf '%s\n' 'legacy-credential-state' >"$FIXTURE/Positron-v0.2.0/.positron/quickstart/demo.env"
 tar -czf "$TMP/release.tar.gz" -C "$FIXTURE" Positron-v0.2.0
 cat >"$TMP/bin/docker" <<'FAKE'
 #!/usr/bin/env bash
@@ -44,13 +46,14 @@ run_install "$home" "$TMP/release.tar.gz" >/dev/null
 test -L "$home/data/positron/current"
 test -x "$home/.local/bin/positron"
 test -L "$home/data/positron/releases/v0.2.0/.positron"
-mkdir -p "$home/state/quickstart"
-printf '%s\n' 'credential-state' >"$home/state/quickstart/demo.env"
+test -f "$home/state/positron/quickstart/demo.env"
+grep -q legacy-credential-state "$home/state/positron/quickstart/demo.env"
+printf '%s\n' 'credential-state' >"$home/state/positron/quickstart/demo.env"
 grep -q 'Installed Positron: v0.2.0' <(HOME="$home" "$home/.local/bin/positron" version)
 HOME="$home" "$home/.local/bin/positron" uninstall >/dev/null
 test ! -e "$home/data/positron/current"
-test -f "$home/state/quickstart/demo.env"
-grep -q credential-state "$home/state/quickstart/demo.env"
+test -f "$home/state/positron/quickstart/demo.env"
+grep -q credential-state "$home/state/positron/quickstart/demo.env"
 run_install "$home" "$TMP/release.tar.gz" >/dev/null
 before="$(readlink "$home/data/positron/current")"
 printf '%s\n' 'existing-release-sentinel' >"$home/data/positron/releases/v0.2.0/sentinel"
