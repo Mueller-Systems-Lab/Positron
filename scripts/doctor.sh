@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-ROOT_DIR="$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="${POSITRON_QUICKSTART_ROOT:-$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}"
 COMPOSE_FILE="$ROOT_DIR/docker-compose.quickstart.yml"
 WEB_URL="${POSITRON_DOCTOR_WEB_URL:-http://localhost:5173}"
 API_URL="${POSITRON_DOCTOR_API_URL:-http://localhost:3000}"

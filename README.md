@@ -11,7 +11,35 @@ Developed by [Mueller-Systems-Lab](https://github.com/Mueller-Systems-Lab). Posi
 
 > Release candidate `v0.2.0` is prepared from the v0.1.0 stable baseline; stable publication is pending the controlled release gates. Fake/demo mode is the safe way to explore Positron. Use the Operator Readiness view before supervised work. The supervised Full Real Mode validation in [#308](https://github.com/Mueller-Systems-Lab/Positron/issues/308) is complete; unsupervised productive Real Mode remains gated and is not enabled by this release.
 
-## Try it in one command
+## Install Positron on Linux
+
+The supported end-user path needs Docker Engine with Docker Compose v2. Git, Node.js, npm, and root privileges are not required. The installer downloads the latest published stable GitHub release and keeps application files, configuration, persistent state, and cache in separate user-owned XDG locations.
+
+Download, inspect, then run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Mueller-Systems-Lab/Positron/main/install.sh -o positron-install.sh
+less positron-install.sh
+bash positron-install.sh
+```
+
+If `$HOME/.local/bin` is not on `PATH`, invoke the launcher as `$HOME/.local/bin/positron` or add that directory to your shell configuration yourself. The installer never edits shell profiles and never runs sudo.
+
+Useful commands after installation:
+
+```bash
+positron start
+positron status
+positron doctor
+positron open
+positron stop
+positron version
+positron uninstall
+```
+
+Installation requires a network connection. The current release publishes no checksum asset, so installer integrity is explicitly HTTPS/GitHub-only; no checksum verification is claimed. Docker volumes, configuration, state, and cache are preserved by default on uninstall. Desktop integration is optional and skipped on headless systems. The manual repository quickstart below remains available for developers.
+
+## Try the developer quickstart
 
 Run the read-only install doctor first. It checks the safe demo prerequisites
 and explains any blocker without installing packages or changing credentials.
