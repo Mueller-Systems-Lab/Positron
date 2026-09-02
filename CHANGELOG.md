@@ -4,6 +4,25 @@ All notable project closeout changes are tracked here.
 
 ## Unreleased
 
+## 0.2.0
+
+### Added
+
+- Operator readiness v1 with backend-backed, actionable blocked states and a clear demo versus supervised distinction.
+- Installation doctor v1 with `--demo`, `--supervised`, `--json`, stable reason codes, and remediation guidance.
+- Reliable Quickstart first-build flow using one shared server/worker dependency and workspace build path with visible Docker progress.
+- Runtime budget v1 with hierarchical budgets/deadlines, precise termination reasons, provider-health separation, and late-result fencing.
+
+### Changed
+
+- The v0.2.0 product version is aligned across all current workspace manifests, runtime version surface, and lockfile metadata.
+- Progressive localization v1 was evaluated and rejected; no exploration specialization or skill specialization is activated.
+
+### Safety
+
+- Fake/demo remains the default; push and merge remain disabled by default, with the merge kill switch active.
+- Unsupervised productive Real Mode remains gated and is not claimed by this release. No deployment or package publication is included.
+
 ### Issue #465 release hardening
 
 - Durable control-plane state now has documented migration, online backup/

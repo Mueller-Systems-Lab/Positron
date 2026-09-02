@@ -3,7 +3,7 @@
 	"files": ["dist"],
 	"main": "./dist/index.js",
 	"name": "@positron/server",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"type": "module",
 	"bin": {
 		"positron": "./dist/cli.js"
@@ -25,18 +25,18 @@
 		"positron": "node dist/cli.js"
 	},
 	"dependencies": {
-		"@positron/github-adapter": "^0.1.0",
-		"@positron/opencode-adapter": "^0.1.0",
-		"@positron/run-state": "^0.1.0",
-		"@positron/sandbox": "^0.1.0",
-		"@positron/shared": "^0.1.0",
-		"@positron/speckit-adapter": "^0.1.0",
-		"@positron/tool-gateway": "^0.1.0",
+		"@positron/github-adapter": "^0.2.0",
+		"@positron/opencode-adapter": "^0.2.0",
+		"@positron/run-state": "^0.2.0",
+		"@positron/sandbox": "^0.2.0",
+		"@positron/shared": "^0.2.0",
+		"@positron/speckit-adapter": "^0.2.0",
+		"@positron/tool-gateway": "^0.2.0",
 		"better-sqlite3": "^11.0.0",
 		"bullmq": "^5.0.0",
 		"express": "^5.1.0",
 		"ioredis": "^5.4.0",
-		"@positron/worker-pipeline": "^0.1.0"
+		"@positron/worker-pipeline": "^0.2.0"
 	},
 	"devDependencies": {
 		"@types/better-sqlite3": "^7.6.0",

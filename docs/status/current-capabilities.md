@@ -2,7 +2,7 @@
 
 **Status date:** 2026-09-01
 **Baseline:** `4ec48b61da2b6545eff4bbd4c314f9c0c1dfcb8a`
-**Product status:** stable v0.1.0 / v0.2 product work active
+**Product status:** v0.2.0 release candidate; stable publication pending controlled release gates
 
 This is living documentation. Dated test totals and historical issue snapshots belong in `docs/evidence/` and are not repeated here as timeless claims.
 

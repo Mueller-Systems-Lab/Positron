@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Positron v0.1.0 Starter
+# Positron v0.2.0 Starter
 set -e
 
-echo "🚀 Starting Positron v0.1.0..."
+echo "🚀 Starting Positron v0.2.0..."
 echo ""
 
 # Start Server
