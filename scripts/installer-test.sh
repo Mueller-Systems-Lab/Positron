@@ -36,17 +36,21 @@ FAKE
 chmod 755 "$TMP/bin/docker" "$TMP/bin/curl"
 run_install() {
   local home="$1" archive="$2"
-  TEST_ARCHIVE="$archive" HOME="$home" XDG_DATA_HOME="$home/data" XDG_CONFIG_HOME="$home/config" XDG_STATE_HOME="$home/state" XDG_CACHE_HOME="$home/cache" PATH="$TMP/bin:/usr/bin:/bin" bash "$ROOT_DIR/install.sh" --version v0.2.0
+  TEST_ARCHIVE="$archive" HOME="$home" XDG_DATA_HOME="$home/data" XDG_CONFIG_HOME="$home/config" XDG_STATE_HOME="$home/state" XDG_CACHE_HOME="$home/cache" PATH="$TMP/bin:/usr/bin:/bin" bash "$ROOT_DIR/install.sh" --version v0.2.0 --no-start
 }
 home="$TMP/home with spaces"
 mkdir -p "$home"
 run_install "$home" "$TMP/release.tar.gz" >/dev/null
 test -L "$home/data/positron/current"
 test -x "$home/.local/bin/positron"
+test -L "$home/data/positron/releases/v0.2.0/.positron"
+mkdir -p "$home/state/quickstart"
+printf '%s\n' 'credential-state' >"$home/state/quickstart/demo.env"
 grep -q 'Installed Positron: v0.2.0' <(HOME="$home" "$home/.local/bin/positron" version)
 HOME="$home" "$home/.local/bin/positron" uninstall >/dev/null
 test ! -e "$home/data/positron/current"
-test -d "$home/state"
+test -f "$home/state/quickstart/demo.env"
+grep -q credential-state "$home/state/quickstart/demo.env"
 run_install "$home" "$TMP/release.tar.gz" >/dev/null
 before="$(readlink "$home/data/positron/current")"
 printf '%s\n' 'existing-release-sentinel' >"$home/data/positron/releases/v0.2.0/sentinel"

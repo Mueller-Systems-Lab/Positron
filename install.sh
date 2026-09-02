@@ -7,6 +7,7 @@ REPO="Mueller-Systems-Lab/Positron"
 API_BASE="https://api.github.com/repos/$REPO/releases"
 TAG=""
 TMP_DIR=""
+START_AFTER_INSTALL=true
 
 die() {
 	local code="$1"; shift
@@ -21,11 +22,13 @@ usage() {
 	cat <<'HELP'
 Positron installer v1
 
-Usage: bash install.sh [--version vX.Y.Z]
+Usage: bash install.sh [--version vX.Y.Z] [--no-start]
 
 Downloads the latest stable Positron GitHub release and installs it in
 user-owned XDG directories. Review this file before running it.
 Integrity: HTTPS_GITHUB_ONLY (the current release has no published digest).
+By default the installer runs the doctor, starts the demo, waits for readiness,
+and opens the local UI. Use --no-start for installation-only automation.
 HELP
 }
 
@@ -132,6 +135,19 @@ install_files() {
 	else
 		mv -- "$staging" "$final" || die INSTALL_ACTIVATION_FAILED "release could not be activated" "existing current target was not changed" "check the user-owned data directory and retry"
 	fi
+	# v0.2.0 stores Quickstart state below the release root. Link that legacy
+	# location to the persistent XDG state root so uninstall never removes
+	# credentials, and so the same installer contract works across releases.
+	local legacy_state="$final/.positron/quickstart" persistent_state="$state_root/quickstart"
+	if [[ -d "$legacy_state" && ! -L "$final/.positron" && ! -e "$persistent_state" ]]; then
+		mkdir -p "$state_root"
+		mv -- "$legacy_state" "$persistent_state" || die STATE_MIGRATION_FAILED "existing Quickstart state could not be preserved" "installation was not activated" "restore writable XDG state paths and retry"
+		rmdir -- "$final/.positron" 2>/dev/null || true
+	fi
+	if [[ ! -e "$final/.positron" ]]; then
+		mkdir -p "$state_root"
+		ln -s "$state_root" "$final/.positron" || die STATE_LINK_FAILED "persistent Quickstart state could not be linked" "installation was not activated" "restore writable XDG state paths and retry"
+	fi
 	ln -sfn "$final" "$data_root/current.tmp"
 	mv -Tf -- "$data_root/current.tmp" "$data_root/current"
 	cat >"$cli" <<EOF
@@ -179,7 +195,7 @@ EOF
 	printf 'Positron Installer v%s\nVersion: %s\nRelease integrity: HTTPS_GITHUB_ONLY\nApplication files: %s\nLauncher: %s\nDesktop integration: %s\n' "$INSTALLER_VERSION" "$TAG" "$final" "$cli" "$DESKTOP_STATUS"
 }
 
-while (($#)); do case "$1" in --version) (($# >= 2)) || die INVALID_VERSION "--version requires a value" "installation stopped before download" "use --version vX.Y.Z"; TAG="$2"; validate_tag "$TAG"; shift 2 ;; --help|-h) usage; exit 0 ;; *) die INVALID_ARGUMENT "unknown argument: $1" "installation stopped before download" "run bash install.sh --help" ;; esac; done
+while (($#)); do case "$1" in --version) (($# >= 2)) || die INVALID_VERSION "--version requires a value" "installation stopped before download" "use --version vX.Y.Z"; TAG="$2"; validate_tag "$TAG"; shift 2 ;; --no-start|--install-only) START_AFTER_INSTALL=false; shift ;; --help|-h) usage; exit 0 ;; *) die INVALID_ARGUMENT "unknown argument: $1" "installation stopped before download" "run bash install.sh --help" ;; esac; done
 if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then die DOWNLOAD_TOOL_MISSING 'curl or wget is required' 'no files were installed' 'install curl or wget using your distribution method, then retry'; fi
 require_command tar ARCHIVE_TOOL_MISSING
 [[ -n "${HOME:-}" && -d "$HOME" && -w "$HOME" ]] || die INSTALL_DIR_NOT_WRITABLE 'HOME is missing or not writable' 'no files were installed' 'use a writable user home directory'
@@ -190,4 +206,12 @@ check_runtime
 resolve_release
 download_release
 install_files
-printf '%s\n' "Next: add $HOME/.local/bin to PATH if needed, then run: positron start"
+if [[ "$START_AFTER_INSTALL" == true ]]; then
+	printf '%s\n' 'Running the one-command readiness journey: doctor, first build, health, operator readiness, and open.'
+	PATH="$HOME/.local/bin:$PATH" "$HOME/.local/bin/positron" doctor
+	PATH="$HOME/.local/bin:$PATH" "$HOME/.local/bin/positron" start
+	PATH="$HOME/.local/bin:$PATH" "$HOME/.local/bin/positron" open
+	printf '%s\n' "Positron is ready. Add $HOME/.local/bin to PATH permanently if needed."
+else
+	printf '%s\n' "Positron installed. Add $HOME/.local/bin to PATH permanently if needed, then run: positron start"
+fi

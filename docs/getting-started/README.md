@@ -10,7 +10,13 @@ less positron-install.sh
 bash positron-install.sh
 ```
 
-Then use `positron start`, `positron status`, `positron doctor`, `positron open`, and `positron stop`. `positron uninstall` removes application files while preserving user data and Docker volumes by default. Installation is online-only and currently qualified for Linux x86_64.
+The default installer already runs `doctor`, the first Docker build, health and
+operator-readiness checks, and opens the UI. For later lifecycle operations use
+`positron start`, `positron status`, `positron doctor`, `positron open`, and
+`positron stop`. `positron uninstall` removes application files while
+preserving user data and Docker volumes by default. Installation is online-only
+and currently qualified for Linux x86_64. Use `--no-start` for an
+installation-only run.
 
 ## Safe demo — developer/manual path
 
