@@ -1,6 +1,6 @@
 {
 	"name": "@positron/opencode-adapter",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"private": true,
 	"type": "module",
 	"files": ["dist"],
@@ -19,8 +19,8 @@
 		"typecheck": "tsc -b --pretty false"
 	},
 	"dependencies": {
-		"@positron/sandbox": "^0.1.0",
-		"@positron/shared": "^0.1.0",
+		"@positron/sandbox": "^0.2.0",
+		"@positron/shared": "^0.2.0",
 		"better-sqlite3": "^11.0.0"
 	},
 	"devDependencies": {

@@ -40,7 +40,7 @@ export const CLI_TIMEOUT_MS = 120_000;
 export const CLI_MAX_RETRIES = 2;
 
 /** Aktuelle Positron-Version */
-export const POSITRON_VERSION = '0.1.0';
+export const POSITRON_VERSION = '0.2.0';
 
 /** Prefix für Positron-Branches */
 export const BRANCH_PREFIX = 'positron/issue' as const;

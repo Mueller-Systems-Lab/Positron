@@ -46,7 +46,7 @@ if (-not (Test-Path "package.json")) {
 # ------------------------------------------------------------------
 # Gather metadata
 # ------------------------------------------------------------------
-$version = "0.1.0"
+$version = "0.2.0"
 try {
     $pkg = Get-Content "package.json" -Raw | ConvertFrom-Json
     $version = $pkg.version

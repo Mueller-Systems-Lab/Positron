@@ -1,6 +1,6 @@
 {
 	"name": "@positron/sandbox",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"private": true,
 	"type": "module",
 	"files": ["dist"],
@@ -19,7 +19,7 @@
 		"typecheck": "tsc -b --pretty false"
 	},
 	"dependencies": {
-		"@positron/shared": "^0.1.0",
+		"@positron/shared": "^0.2.0",
 		"better-sqlite3": "^11.0.0"
 	},
 	"devDependencies": {

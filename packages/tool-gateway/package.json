@@ -1,6 +1,6 @@
 {
 	"name": "@positron/tool-gateway",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"private": true,
 	"type": "module",
 	"files": ["dist"],
@@ -19,10 +19,10 @@
 		"typecheck": "tsc -b --pretty false"
 	},
 	"dependencies": {
-		"@positron/shared": "^0.1.0",
-		"@positron/sandbox": "^0.1.0",
-		"@positron/run-state": "^0.1.0",
-		"@positron/github-adapter": "^0.1.0"
+		"@positron/shared": "^0.2.0",
+		"@positron/sandbox": "^0.2.0",
+		"@positron/run-state": "^0.2.0",
+		"@positron/github-adapter": "^0.2.0"
 	},
 	"devDependencies": {
 		"typescript": "^5.4.0",
