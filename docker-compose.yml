@@ -54,10 +54,10 @@ services:
       - "3000:3000"
     volumes:
       - positron-data:/app/.positron
-      - ${HOME}/.opencode/bin/opencode:/usr/local/bin/opencode:ro
-      - ${HOME}/.local/share/uv/tools/specify-cli:${HOME}/.local/share/uv/tools/specify-cli:ro
-      - ${HOME}/.config/opencode:/root/.config/opencode:ro
-      - ${HOME}/.opencode:/root/.opencode
+      - ${POSITRON_OPENCODE_HOST_PATH:-${HOME}/.opencode/bin/opencode}:/usr/local/bin/opencode:ro
+      - ${POSITRON_SPECKIT_HOST_PATH:-${HOME}/.local/share/uv/tools/specify-cli}:${POSITRON_SPECKIT_HOST_PATH:-${HOME}/.local/share/uv/tools/specify-cli}:ro
+      - ${POSITRON_OPENCODE_CONFIG_PATH:-${HOME}/.config/opencode}:/root/.config/opencode:ro
+      - ${POSITRON_OPENCODE_HOME_PATH:-${HOME}/.opencode}:/root/.opencode
     environment:
       - PORT=3000
       - NODE_ENV=production
@@ -100,10 +100,10 @@ services:
       dockerfile: apps/worker/Dockerfile
     volumes:
       - positron-data:/app/.positron
-      - ${HOME}/.opencode/bin/opencode:/usr/local/bin/opencode:ro
-      - ${HOME}/.local/share/uv/tools/specify-cli:${HOME}/.local/share/uv/tools/specify-cli:ro
-      - ${HOME}/.config/opencode:/root/.config/opencode:ro
-      - ${HOME}/.opencode:/root/.opencode
+      - ${POSITRON_OPENCODE_HOST_PATH:-${HOME}/.opencode/bin/opencode}:/usr/local/bin/opencode:ro
+      - ${POSITRON_SPECKIT_HOST_PATH:-${HOME}/.local/share/uv/tools/specify-cli}:${POSITRON_SPECKIT_HOST_PATH:-${HOME}/.local/share/uv/tools/specify-cli}:ro
+      - ${POSITRON_OPENCODE_CONFIG_PATH:-${HOME}/.config/opencode}:/root/.config/opencode:ro
+      - ${POSITRON_OPENCODE_HOME_PATH:-${HOME}/.opencode}:/root/.opencode
     environment:
       - NODE_ENV=production
       - POSITRON_DB_PATH=/app/.positron/runs/positron.db

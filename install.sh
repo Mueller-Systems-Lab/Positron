@@ -123,7 +123,7 @@ install_files() {
 	mkdir -p "$releases" "$config_root" "$state_root" "$cache_root" "$HOME/.local/bin" || die INSTALL_DIR_NOT_WRITABLE "required user-owned installation directories are not writable" "existing installation was left unchanged" "choose writable XDG paths and retry"
 	mkdir -p "$staging"
 	tar -xzf "$TMP_DIR/release.tar.gz" --strip-components=1 -C "$staging" || die ARCHIVE_INVALID "release extraction failed" "existing installation was left unchanged" "retry the download"
-	for required in scripts/doctor.sh scripts/quickstart.sh docker-compose.quickstart.yml Dockerfile.quickstart nginx.conf; do
+	for required in scripts/doctor.sh scripts/quickstart.sh docker-compose.yml docker-compose.quickstart.yml Dockerfile.quickstart nginx.conf; do
 		[[ -f "$staging/$required" ]] || die REQUIRED_CONTENT_MISSING "release is missing required file: $required" "existing installation was left unchanged" "select a complete stable release"
 	done
 	[[ -x "$staging/scripts/quickstart.sh" || -f "$staging/scripts/quickstart.sh" ]] || die REQUIRED_CONTENT_MISSING "quickstart script is unavailable" "existing installation was left unchanged" "select a complete stable release"
@@ -163,16 +163,18 @@ POSITRON_CONFIG='$config_root'
 POSITRON_CACHE='$cache_root'
 quickstart() { POSITRON_QUICKSTART_ROOT="\$POSITRON_ROOT" POSITRON_QUICKSTART_STATE_DIR="\$POSITRON_STATE/quickstart" "\$POSITRON_ROOT/scripts/quickstart.sh" "\$@"; }
 doctor() { POSITRON_QUICKSTART_ROOT="\$POSITRON_ROOT" "\$POSITRON_ROOT/scripts/doctor.sh" "\$@"; }
+supervised() { [[ -x "\$POSITRON_ROOT/scripts/supervised.sh" ]] || die_cli SUPERVISED_RELEASE_REQUIRED 'the installed stable release does not contain supervised onboarding' 'the safe demo remains available; supervised commands are unavailable' 'install a supervised-onboarding compatible stable release'; POSITRON_SUPERVISED_ROOT="\$POSITRON_ROOT" POSITRON_CONFIG="\$POSITRON_CONFIG" POSITRON_STATE="\$POSITRON_STATE" "\$POSITRON_ROOT/scripts/supervised.sh" "\$@"; }
 http_get() { if command -v curl >/dev/null 2>&1; then curl --fail --silent --show-error --max-time 5 "\$1"; else wget --timeout=5 --tries=1 -qO- "\$1"; fi; }
 readiness() { http_get http://localhost:5173/api/operator-readiness; }
 die_cli() { printf 'ERROR_CODE=%s\nWHAT_FAILED=%s\nIMPACT=%s\nNEXT_ACTION=%s\n' "\$1" "\$2" "\$3" "\$4" >&2; exit 1; }
 case "\${1:-help}" in
-  help|-h|--help) printf '%s\n' 'Usage: positron {start|stop|status|doctor|open|version|uninstall|help}' ;;
+  help|-h|--help) printf '%s\n' 'Usage: positron {start|stop|status|doctor|configure supervised|open|version|uninstall|help}' ;;
   version) printf 'Installed Positron: %s\nRelease commit: %s\nInstaller schema: positron.installer.v1\n' "\$POSITRON_VERSION" "\$POSITRON_RELEASE_COMMIT" ;;
-  start) quickstart; readiness >/dev/null || die_cli READINESS_BLOCKED 'operator readiness is unavailable' 'the UI may be unhealthy or blocked' 'run positron doctor and positron status' ;;
-  stop) quickstart --stop ;;
-  status) quickstart --status; if http_get http://localhost:5173/api/operator-readiness >/dev/null 2>&1; then printf '%s\n' 'Operator readiness: PASS'; else printf '%s\n' 'Operator readiness: not ready'; fi ;;
-  doctor) shift; doctor "\${@:---demo}" ;;
+  start) if [[ "\${2:-}" == --supervised ]]; then shift; supervised start; else quickstart; readiness >/dev/null || die_cli READINESS_BLOCKED 'operator readiness is unavailable' 'the UI may be unhealthy or blocked' 'run positron doctor and positron status'; fi ;;
+  stop) if [[ "\${2:-}" == --supervised ]]; then shift; supervised stop; else quickstart --stop; fi ;;
+  status) if [[ "\${2:-}" == --supervised ]]; then shift; supervised status; else quickstart --status; if http_get http://localhost:5173/api/operator-readiness >/dev/null 2>&1; then printf '%s\n' 'Operator readiness: PASS'; else printf '%s\n' 'Operator readiness: not ready'; fi; fi ;;
+  doctor) if [[ "\${2:-}" == --supervised ]]; then shift; supervised doctor; else shift; doctor "\${@:---demo}"; fi ;;
+  configure) if [[ "\${2:-}" == supervised ]]; then shift; supervised configure "\$@"; else die_cli INVALID_COMMAND 'expected configure supervised' 'no action was taken' 'run positron configure supervised --help'; fi ;;
   open) http_get http://localhost:5173/api/health >/dev/null || die_cli HEALTH_FAILED 'Positron is not healthy' 'browser was not opened' 'run positron start'; if command -v xdg-open >/dev/null 2>&1; then xdg-open http://localhost:5173 >/dev/null 2>&1 & else printf '%s\n' 'Open Positron at http://localhost:5173'; fi ;;
   uninstall) [[ "\${2:-}" != --purge ]] || die_cli PURGE_NOT_IMPLEMENTED 'purge is not implemented' 'persistent data is protected' 'remove application files with plain positron uninstall'; rm -rf -- "\$POSITRON_APP_ROOT/releases"; rm -f -- "\$POSITRON_APP_ROOT/current" "\$HOME/.local/bin/positron"; if [[ -f '${XDG_DATA_HOME:-$HOME/.local/share}/applications/positron.desktop' ]]; then rm -f -- '${XDG_DATA_HOME:-$HOME/.local/share}/applications/positron.desktop'; fi; printf '%s\n' 'Positron application removed; configuration, state, cache, and Docker volumes were preserved.' ;;
   *) die_cli UNKNOWN_COMMAND "unknown command: \$1" 'no action was taken' 'run positron help' ;;

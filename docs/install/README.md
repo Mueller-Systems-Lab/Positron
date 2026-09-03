@@ -19,6 +19,28 @@ The installer uses `~/.local/share/positron` for application releases, `~/.confi
 
 Commands are `positron start`, `stop`, `status`, `doctor`, `open`, `version`, and `uninstall`. `uninstall` removes application files, the launcher, and an installed desktop entry; config, state, cache, and Docker volumes remain by default. Headless systems remain supported and skip desktop integration. The installer also supports the published `v0.2.0` contract: its legacy release-local `.positron` state path is linked into the persistent XDG state directory before activation.
 
+After installation, the safe default remains unchanged. For an explicitly
+supervised setup, use `positron configure supervised --repo OWNER/REPO`; add
+`--github-token-file PATH` (mode 0600), or provide `GITHUB_TOKEN`/`GH_TOKEN`
+from a protected environment. Provider and model can be supplied with
+`--provider` and `--model`. `--allow-push` is an explicit opt-in; merge remains
+disabled. Then run:
+
+```bash
+positron doctor --supervised
+positron start --supervised
+positron status --supervised
+positron stop --supervised
+```
+
+The supervised contract is stored at
+`~/.config/positron/supervised.env`, with the token at
+`~/.config/positron/secrets/github-token`; both are protected with mode 0600
+and their parent directories with mode 0700. `positron configure supervised`
+does not start a run or change GitHub. The v0.2.0 stable archive predates this
+launcher surface, so a new compatible stable release must be qualified before
+the public installer can provide these commands.
+
 Release integrity is currently `HTTPS_GITHUB_ONLY`: v0.2.0 has no published checksum asset or manifest. The installer does not invent or imply checksum verification. Offline installation and update are not implemented in v1.
 
 | Tier | Use when | Requirements | Mode |

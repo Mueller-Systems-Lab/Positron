@@ -9,7 +9,7 @@ Positron is for teams and maintainers who want LLM workers to move a GitHub Issu
 
 Developed by [Mueller-Systems-Lab](https://github.com/Mueller-Systems-Lab). Positron remains an independent product identity.
 
-> Release candidate `v0.2.0` is prepared from the v0.1.0 stable baseline; stable publication is pending the controlled release gates. Fake/demo mode is the safe way to explore Positron. Use the Operator Readiness view before supervised work. The supervised Full Real Mode validation in [#308](https://github.com/Mueller-Systems-Lab/Positron/issues/308) is complete; unsupervised productive Real Mode remains gated and is not enabled by this release.
+> Stable release `v0.2.0` is published. Fake/demo mode is the safe way to explore Positron. Use the Operator Readiness view before supervised work. The supervised Full Real Mode validation in [#308](https://github.com/Mueller-Systems-Lab/Positron/issues/308) is complete; unsupervised productive Real Mode remains gated and is not enabled by this release.
 
 ## Install Positron on Linux
 
@@ -61,6 +61,23 @@ powershell -ExecutionPolicy Bypass -File .\scripts\quickstart.ps1
 ```
 
 The demo path generates local ignored credentials, starts fake adapters and an isolated local stack, waits for `/api/health`, and prints the local UI URL. It does not require a GitHub token, OpenCode, SpecKit, manual Redis setup, or editing an environment file.
+
+### Installed supervised setup
+
+The installed launcher keeps `positron start` as the safe demo. An operator
+who intentionally needs the existing supervised stack can configure it without
+editing Positron internals:
+
+```bash
+positron configure supervised --repo OWNER/REPO --provider PROVIDER --model MODEL --github-token-file ~/.config/positron/incoming-token --allow-push
+positron doctor --supervised
+positron start --supervised
+```
+
+The token file must already be mode 0600 and is never printed. The supervised
+profile uses project `positron-supervised`, keeps merge disabled, and does not
+start work automatically. Stop it with `positron stop --supervised`; switch
+back to the demo only after stopping the supervised profile.
 
 Useful commands:
 

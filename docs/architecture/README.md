@@ -28,6 +28,33 @@ Positron is an evidence-gated GitHub issue execution system: the web UI requests
 
 ## Architecture diagram
 
+### Installed operator profiles
+
+```text
+Operator
+   │
+   ├── positron start
+   │       ↓
+   │   Demo Quickstart (positron-quickstart, fake adapters)
+   │
+   └── positron configure/start --supervised
+           ↓
+      Supervised Config (user-local, protected)
+           ↓
+      Existing Advanced Compose (positron-supervised)
+           ↓
+      Server / Worker
+           ↓
+      Real Adapters
+           ↓
+      Durable Control Plane
+           ↓
+      Sandbox Repository
+```
+
+The supervised launcher is only configuration and profile delegation; it does
+not create a second server, worker, readiness engine, adapter, or database.
+
 ```text
 +----------------------+       REST / SSE       +----------------------+
 |       Web UI         | <--------------------> |        Server        |
