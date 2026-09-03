@@ -2,20 +2,17 @@
 FROM node:22-alpine AS builder
 
 WORKDIR /app
-ENV NODE_ENV=production
 
 # Root workspace config (npm needs this for workspace resolution)
 COPY package.json ./
+COPY package-lock.json ./
 COPY tsconfig.json ./tsconfig.json
-COPY packages/shared/package.json ./packages/shared/
-COPY packages/shared/tsconfig.json ./packages/shared/tsconfig.json
-COPY packages/shared/src ./packages/shared/src
-
-# Web package dependencies
+COPY apps ./apps
+COPY packages ./packages
 COPY apps/web/package.json ./apps/web/
 
-# Install dependencies including dev (needed for vite build)
-RUN npm install --include=dev
+# Install the canonical lockfile graph including dev dependencies needed for Vite.
+RUN npm ci --include=dev
 RUN npx tsc -b packages/shared
 
 # Copy web source
