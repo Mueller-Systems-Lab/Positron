@@ -1,6 +1,6 @@
 {
 	"name": "@positron/github-adapter",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"private": true,
 	"type": "module",
 	"files": ["dist"],
@@ -21,8 +21,8 @@
 	"dependencies": {
 		"@octokit/rest": "^22.0.0",
 		"@octokit/request-error": "^6.0.0",
-		"@positron/sandbox": "^0.2.0",
-		"@positron/shared": "^0.2.0"
+		"@positron/sandbox": "^0.3.0",
+		"@positron/shared": "^0.3.0"
 	},
 	"devDependencies": {
 		"typescript": "^5.4.0",
