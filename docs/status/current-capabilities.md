@@ -1,8 +1,8 @@
 # Current Capabilities
 
 **Status date:** 2026-09-01
-**Baseline:** `4ec48b61da2b6545eff4bbd4c314f9c0c1dfcb8a`
-**Product status:** v0.2.0 release candidate; stable publication pending controlled release gates
+**Baseline:** `519daf5e955740429bd21c1ba9aab4db9bf84ec0`
+**Product status:** v0.2.0 stable; installed supervised onboarding is implemented on the next product branch and requires release qualification
 
 This is living documentation. Dated test totals and historical issue snapshots belong in `docs/evidence/` and are not repeated here as timeless claims.
 
@@ -21,6 +21,7 @@ This is living documentation. Dated test totals and historical issue snapshots b
 | Static public landing page | PROVEN | Source is deployed at the verified GitHub Pages URL |
 | Operator readiness projection | PROVEN / GATED | Read-only `positron.operator-readiness.v1` endpoint and dashboard view; real execution remains safety-gated |
 | Install/setup doctor | PROVEN / GATED | Read-only `scripts/doctor.sh --demo|--supervised [--json]`; demo and supervised prerequisites remain separate |
+| Installed supervised configuration | IMPLEMENTED / RELEASE-GATED | `positron configure supervised` stores `positron.supervised-config.v1`; explicit `--supervised` lifecycle delegates to the existing advanced Compose |
 
 ## Current quality contract
 
@@ -34,7 +35,8 @@ Use `npm test`, `npm run build`, `npm run typecheck`, and the relevant Playwrigh
 - [#308](https://github.com/Mueller-Systems-Lab/Positron/issues/308) is closed after supervised validation; unsupervised Real Mode remains gated.
 - [#447](https://github.com/Mueller-Systems-Lab/Positron/issues/447) and its validation remainder #464 are closed historical portfolio work.
 - [#482](https://github.com/Mueller-Systems-Lab/Positron/issues/482) delivered the operator-readiness slice.
-- [#484](https://github.com/Mueller-Systems-Lab/Positron/issues/484) is the active v0.2 installation/onboarding closure slice.
+- [#490](https://github.com/Mueller-Systems-Lab/Positron/issues/490) delivered the v0.2 stable one-command installer.
+- [#491](https://github.com/Mueller-Systems-Lab/Positron/issues/491) tracks installed supervised onboarding and release qualification.
 - #250, #340, #416, #421, and #402 are closed historical work; they are references to evidence, not current backlog.
 
 ## Related living docs

@@ -5,7 +5,7 @@ TMP="$(mktemp -d "${TMPDIR:-/tmp}/positron-installer-test.XXXXXX")"
 trap 'rm -rf -- "$TMP"' EXIT
 FIXTURE="$TMP/fixture"
 mkdir -p "$FIXTURE/Positron-v0.2.0/scripts" "$TMP/bin"
-for file in scripts/doctor.sh scripts/quickstart.sh docker-compose.quickstart.yml Dockerfile.quickstart nginx.conf; do
+for file in scripts/doctor.sh scripts/quickstart.sh scripts/supervised.sh docker-compose.yml docker-compose.quickstart.yml Dockerfile.quickstart nginx.conf; do
 	mkdir -p "$FIXTURE/Positron-v0.2.0/$(dirname "$file")"
 	cp "$ROOT_DIR/$file" "$FIXTURE/Positron-v0.2.0/$file"
 done
@@ -36,6 +36,10 @@ else
 fi
 FAKE
 chmod 755 "$TMP/bin/docker" "$TMP/bin/curl"
+printf '#!/usr/bin/env bash\nexit 0\n' >"$TMP/bin/opencode"
+printf '#!/usr/bin/env bash\nexit 0\n' >"$TMP/bin/specify"
+printf '#!/usr/bin/env bash\nexit 0\n' >"$TMP/bin/gh"
+chmod 755 "$TMP/bin/opencode" "$TMP/bin/specify" "$TMP/bin/gh"
 run_install() {
   local home="$1" archive="$2"
   TEST_ARCHIVE="$archive" HOME="$home" XDG_DATA_HOME="$home/data" XDG_CONFIG_HOME="$home/config" XDG_STATE_HOME="$home/state" XDG_CACHE_HOME="$home/cache" PATH="$TMP/bin:/usr/bin:/bin" bash "$ROOT_DIR/install.sh" --version v0.2.0 --no-start
@@ -45,6 +49,18 @@ mkdir -p "$home"
 run_install "$home" "$TMP/release.tar.gz" >/dev/null
 test -L "$home/data/positron/current"
 test -x "$home/.local/bin/positron"
+test -x "$home/data/positron/releases/v0.2.0/scripts/supervised.sh"
+GITHUB_TOKEN=ghp-test-token HOME="$home" XDG_CONFIG_HOME="$home/config" XDG_STATE_HOME="$home/state" PATH="$TMP/bin:/usr/bin:/bin" \
+  "$home/.local/bin/positron" configure supervised --repo owner/sandbox --provider local --model free-model --allow-push >"$TMP/configure.out"
+grep -q 'Configuration saved securely' "$TMP/configure.out"
+test "$(stat -c '%a' "$home/config/positron/supervised.env")" = 600
+test "$(stat -c '%a' "$home/config/positron/secrets/github-token")" = 600
+! grep -q 'ghp-test-token' "$TMP/configure.out"
+! grep -q 'ghp-test-token' "$home/config/positron/supervised.env"
+GITHUB_TOKEN=ignored HOME="$home" XDG_CONFIG_HOME="$home/config" XDG_STATE_HOME="$home/state" PATH="$TMP/bin:/usr/bin:/bin" \
+  "$home/.local/bin/positron" doctor --supervised >"$TMP/doctor.out"
+grep -q 'GitHub auth: PASS' "$TMP/doctor.out"
+! grep -q 'ghp-test-token' "$TMP/doctor.out"
 test -L "$home/data/positron/releases/v0.2.0/.positron"
 test -f "$home/state/positron/quickstart/demo.env"
 grep -q legacy-credential-state "$home/state/positron/quickstart/demo.env"

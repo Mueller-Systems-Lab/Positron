@@ -46,6 +46,10 @@ The demo uses fake adapters and generates local ignored credentials. It does not
 - `./scripts/quickstart.sh --stop` stops it without deleting volumes.
 - `./scripts/doctor.sh --supervised` reports OpenCode, SpecKit, provider,
   GitHub, repository, and safety prerequisites with remediation hints.
+- Installed users configure the supervised profile with
+  `positron configure supervised --repo OWNER/REPO --provider PROVIDER --model MODEL`
+  and then use `positron doctor --supervised` and `positron start --supervised`.
+  The plain `positron start` command always remains the fake/demo profile.
 - [Installation tiers](../install/README.md) explain local Node development and advanced integrations.
 - [Security](../../SECURITY.md) explains why real mode is not the default.
 
