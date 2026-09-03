@@ -4,6 +4,25 @@ All notable project closeout changes are tracked here.
 
 ## Unreleased
 
+## 0.3.0
+
+### Added
+
+- Installed supervised onboarding through `positron configure supervised` and
+  explicit supervised lifecycle commands.
+- Versioned `positron.supervised-config.v1` user configuration with protected
+  secret handling and automatic OpenCode/SpecKit discovery.
+
+### Safety
+
+- Plain `positron start` remains the fake/demo default.
+- Supervised startup reuses the existing advanced Compose/runtime path;
+  repository-scoped push is opt-in, merge remains disabled, and the merge
+  kill switch remains active.
+
+See [v0.3.0 release notes](docs/release/v0.3.0.md). Stable publication is
+pending final release qualification.
+
 ## 0.2.0
 
 ### Added

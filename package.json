@@ -1,6 +1,6 @@
 {
 	"name": "positron",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"private": true,
 	"description": "Evidence-Gated GitHub Issue Execution System",
 	"workspaces": ["apps/*", "packages/*"],
