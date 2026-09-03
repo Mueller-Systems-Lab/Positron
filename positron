@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Positron CLI v0.2.0
+# Positron CLI v0.3.0
 set -e
 BASE="${POSITRON_URL:-http://localhost:3000}"
 TOKEN="${POSITRON_ADMIN_TOKEN:-}"
@@ -42,7 +42,7 @@ case "$cmd" in
     echo ""
     ;;
   *)
-    echo "Positron CLI v0.2.0"
+    echo "Positron CLI v0.3.0"
     echo ""
     echo "Usage: positron <command> [args]"
     echo ""
