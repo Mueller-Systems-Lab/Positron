@@ -8,4 +8,4 @@
       architecture documentation.
 - [x] Run focused and repository checks; classify external real acceptance.
 - [x] Perform architecture, security, and product review.
-- [ ] Create one product PR with evidence; do not release or merge sandbox PR.
+- [x] Create one product PR with evidence; do not release or merge sandbox PR.
