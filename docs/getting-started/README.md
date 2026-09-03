@@ -1,6 +1,24 @@
 # Getting Started
 
-## Safe demo
+## End-user Linux installation
+
+For a normal Linux desktop, use the [one-command installer](../install/README.md#one-command-linux-installation). It requires Docker Engine and Compose v2, but not Git, Node.js, npm, or sudo:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Mueller-Systems-Lab/Positron/main/install.sh -o positron-install.sh
+less positron-install.sh
+bash positron-install.sh
+```
+
+The default installer already runs `doctor`, the first Docker build, health and
+operator-readiness checks, and opens the UI. For later lifecycle operations use
+`positron start`, `positron status`, `positron doctor`, `positron open`, and
+`positron stop`. `positron uninstall` removes application files while
+preserving user data and Docker volumes by default. Installation is online-only
+and currently qualified for Linux x86_64. Use `--no-start` for an
+installation-only run.
+
+## Safe demo — developer/manual path
 
 From a fresh clone with Docker Compose v2 installed:
 

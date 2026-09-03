@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="${POSITRON_QUICKSTART_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}"
 COMPOSE_FILE="$ROOT_DIR/docker-compose.quickstart.yml"
-STATE_DIR="$ROOT_DIR/.positron/quickstart"
+STATE_DIR="${POSITRON_QUICKSTART_STATE_DIR:-$ROOT_DIR/.positron/quickstart}"
 ENV_FILE="$STATE_DIR/demo.env"
 PROJECT_NAME="positron-quickstart"
 WEB_URL="http://localhost:5173"
