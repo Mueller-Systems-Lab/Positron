@@ -46,6 +46,7 @@
 		"verify:issues": "node scripts/verify-issues.mjs all",
 		"test:transfer-references": "node scripts/verify-transfer-references.mjs",
 		"test:review-execution": "node scripts/verify-review-execution.mjs",
+		"test:nginx-security": "bash scripts/nginx-security-regression.sh",
 		"verify:issue": "node scripts/verify-issues.mjs",
 		"observability:drill": "node scripts/observability-drill.mjs",
 		"observability:validate": "node scripts/observability-validate.mjs",
