@@ -111,6 +111,7 @@ services:
 
   nginx:
     image: nginx:alpine
+    user: "101:101"
     ports:
       - "5173:5173"
     volumes:
@@ -123,10 +124,12 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
     read_only: true
     tmpfs:
-      - /var/cache/nginx
-      - /var/run
+      - /var/cache/nginx:uid=101,gid=101,mode=755
+      - /run:uid=101,gid=101,mode=755
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:5173/api/health"]
       interval: 5s
