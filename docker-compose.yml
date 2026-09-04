@@ -25,6 +25,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    user: redis
     # RED_HOLD remediation: Redis is internal-only — no host port exposure.
     # Access via Docker network: redis:6379 only.
     expose:
