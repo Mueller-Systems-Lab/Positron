@@ -6,10 +6,11 @@ import EvidencePage from './components/evidence/EvidencePage.jsx';
 import EvolutionPanel from './components/evolution/EvolutionPanel.jsx';
 import AppShell from './components/layout/AppShell.jsx';
 import NotFound from './components/NotFound.jsx';
+import ProjectEntryPage from './components/onboarding/ProjectEntryPage.jsx';
 import ProjectsPage from './components/projects/ProjectsPage.jsx';
-import ReadinessPage from './components/readiness/ReadinessPage.jsx';
 import Repositories from './components/Repositories.jsx';
 import RunDetail from './components/RunDetail.jsx';
+import ReadinessPage from './components/readiness/ReadinessPage.jsx';
 import RunsPage from './components/runs/RunsPage.jsx';
 import SettingsPage from './components/settings/SettingsPage.jsx';
 
@@ -22,6 +23,7 @@ export default function App(): React.ReactElement {
 				<Route path="/runs/:id" element={<RunDetail />} />
 				<Route path="/evidence" element={<EvidencePage />} />
 				<Route path="/projects" element={<ProjectsPage />} />
+				<Route path="/onboarding" element={<ProjectEntryPage />} />
 				<Route path="/readiness" element={<ReadinessPage />} />
 				<Route path="/repos" element={<Repositories />} />
 				<Route path="/evolution" element={<EvolutionPanel />} />

@@ -1,0 +1,21 @@
+flowchart TD
+  Entry[Project Entry] --> Existing[Existing GitHub Repository]
+  Entry --> Blueprint[Validated Blueprint\npositron.project-blueprint.v1]
+  Existing --> Baseline[Project Baseline]
+  Blueprint --> Baseline
+  Baseline --> GitHub[GitHub Repository / Issue]
+  Baseline --> SpecKit[SpecKit Detection / Initialization]
+  GitHub --> CP[Positron Control Plane]
+  SpecKit --> CP
+  CP --> Run[Run / Job / Attempt]
+  CP --> Router[Worker Router]
+  Router --> Provider[Provider Layer]
+  Provider --> Cred[Credential Boundary\ncredential_ref only]
+  Provider --> Model[Requested / Selected / Executed Model]
+  Router --> Tools[Tool Boundary]
+  Run --> Verify[Verification]
+  Verify --> Evidence[Evidence Store / Provenance]
+  Evidence --> PR[Pull Request Gate]
+  PR --> Operator[Operator Gate]
+  CP --> Observability[Decision-relevant Observability]
+  Observability -. advanced detail .-> Run

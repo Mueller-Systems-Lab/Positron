@@ -1,7 +1,7 @@
 # Known Limitations
 
 **Status date:** 2026-09-01
-**Baseline:** `519daf5e955740429bd21c1ba9aab4db9bf84ec0`
+**Baseline:** `cd6ab5a945864549b8ccdadb79cea0b63f6583d0`
 
 This page describes current limitations only. Historical counts and incident reports remain in dated evidence.
 
@@ -15,6 +15,8 @@ This page describes current limitations only. Historical counts and incident rep
 | Real GitHub/OpenCode/SpecKit operations can have external side effects | SAFETY GATE | Configure only in an isolated, supervised environment; `positron start` remains demo and merge remains disabled |
 | Real provider/model and repository readiness require explicit configuration and backend verification | GATED | Use the Operator Readiness view before attempting supervised work; demo readiness never implies real readiness |
 | Demo and supervised profiles use fixed host ports 3000/5173 | DOCUMENTED | Stop the active Positron profile before switching; supervised start never silently kills the demo |
+| Provider/model discovery and qualification are not yet automatic | OPEN | Project Entry accepts explicit provider/model references; catalog and qualification probes remain future work |
+| OS keychain-backed credential storage is not yet available | OPEN | Credential fields are reference-only; tokens remain in protected runtime sources |
 
 ## Not current limitations
 

@@ -132,6 +132,13 @@ export interface GitHubRepositorySummary {
 	defaultBranch: string;
 }
 
+export interface CreateRepositoryOptions {
+	owner: string;
+	name: string;
+	description?: string;
+	private?: boolean;
+}
+
 export interface ClaimOptions {
 	runId: string;
 	claimLabel: string;
@@ -217,6 +224,27 @@ export interface RequestReviewersResult {
 	requested: boolean;
 	reviewers?: string[];
 	teamReviewers?: string[];
+}
+
+export type ProjectEntryType = 'existing_repository' | 'blueprint';
+export type ProjectEntryStatus = 'validated' | 'registered' | 'initialization_pending' | 'blocked';
+
+export interface ProjectEntry {
+	id: string;
+	entryType: ProjectEntryType;
+	name: string;
+	owner: string | null;
+	repository: string | null;
+	repositoryUrl: string | null;
+	defaultBranch: string | null;
+	blueprint: string | null;
+	provider: string | null;
+	model: string | null;
+	credentialRef: string | null;
+	specKitStatus: 'not_started' | 'initialized' | 'blocked';
+	status: ProjectEntryStatus;
+	createdAt: string;
+	updatedAt: string;
 }
 
 // Git Workspace Adapter Interfaces

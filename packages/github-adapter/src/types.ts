@@ -3,6 +3,7 @@
 export type {
 	ClaimOptions,
 	CreatePROptions,
+	CreateRepositoryOptions,
 	GitHubCommentResult,
 	GitHubIssueClaimResult,
 	GitHubIssueComment,

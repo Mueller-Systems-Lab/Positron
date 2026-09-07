@@ -4,6 +4,7 @@ import type { GitHubAdapter } from './adapter.js';
 import type {
 	ClaimOptions,
 	CreatePROptions,
+	CreateRepositoryOptions,
 	GitHubCommentResult,
 	GitHubIssueClaimResult,
 	GitHubIssueComment,
@@ -30,6 +31,18 @@ export class FakeGitHubAdapter implements GitHubAdapter {
 
 	addRepo(repo: GitHubRepositorySummary): void {
 		this.repos.set(`${repo.owner}/${repo.name}`, repo);
+	}
+
+	async createRepository(options: CreateRepositoryOptions): Promise<GitHubRepositorySummary> {
+		const repo: GitHubRepositorySummary = {
+			id: this.repos.size + 1,
+			owner: options.owner,
+			name: options.name,
+			fullName: `${options.owner}/${options.name}`,
+			defaultBranch: 'main',
+		};
+		this.addRepo(repo);
+		return repo;
 	}
 
 	addIssue(issue: GitHubIssueSummary): void {

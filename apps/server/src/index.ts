@@ -41,9 +41,9 @@ import {
 	enqueueItem,
 	getQueueItem,
 	isRunLeaseAlive,
+	listDecisionReconciliations,
 	listQueueItems,
 	listSchedulerEvents,
-	listDecisionReconciliations,
 	markRunFinished,
 	markRunStarted,
 	persistSchedulerEvent,
@@ -90,6 +90,8 @@ import type {
 	OpenCodeAdapter,
 	OpenCodeRunInput,
 	Phase,
+	ProjectEntry,
+	ProjectEntryType,
 	RepositoryConfig,
 	RunStatus,
 	SpecKitAdapter,
@@ -1087,6 +1089,101 @@ function validateRepoRegistration(body: unknown): {
 	return { owner, name };
 }
 
+export function validateProjectEntry(body: unknown): {
+	entryType: ProjectEntryType;
+	name: string;
+	owner?: string;
+	repository?: string;
+	blueprint?: string;
+	provider?: string;
+	model?: string;
+	credentialRef?: string;
+} {
+	if (!body || typeof body !== 'object') throw new Error('Request body required');
+	const raw = body as Record<string, unknown>;
+	const entryType = raw.entryType;
+	if (entryType !== 'existing_repository' && entryType !== 'blueprint') {
+		throw new Error('entryType must be existing_repository or blueprint');
+	}
+	const name = String(raw.name ?? '').trim();
+	if (!name || name.length > 120)
+		throw new Error('name is required and must be at most 120 characters');
+	const atom = (value: unknown, label: string): string | undefined => {
+		if (value === undefined || value === null || String(value).trim() === '') return undefined;
+		const result = String(value).trim();
+		if (
+			result.length > 120 ||
+			!/^[A-Za-z0-9._/@:+,-]+$/.test(result) ||
+			result.includes('..') ||
+			result.startsWith('/')
+		) {
+			throw new Error(`${label} contains unsafe characters`);
+		}
+		return result;
+	};
+	const provider = atom(raw.provider, 'provider');
+	const model = atom(raw.model, 'model');
+	const credentialRef = atom(raw.credentialRef, 'credentialRef');
+	if (credentialRef && /^(gh[pob]|github_pat_|sk-|AIza|xox|AKIA|Bearer\b)/i.test(credentialRef)) {
+		throw new Error('credentialRef must be a reference name, never a credential value');
+	}
+	if (entryType === 'existing_repository') {
+		const owner = String(raw.owner ?? '').trim();
+		const repository = String(raw.repository ?? '').trim();
+		validateRepoRegistration({ owner, name: repository });
+		return { entryType, name, owner, repository, provider, model, credentialRef };
+	}
+	const blueprint = String(raw.blueprint ?? '').trim();
+	if (blueprint.length < 20 || blueprint.length > 100_000) {
+		throw new Error('blueprint must contain between 20 and 100000 characters');
+	}
+	if (!/^\s*#/m.test(blueprint)) throw new Error('blueprint must contain a markdown heading');
+	const owner = atom(raw.owner, 'owner');
+	if (!owner || !/^[A-Za-z0-9-]{1,39}$/.test(owner)) {
+		throw new Error('owner is required for blueprint entries');
+	}
+	return { entryType, name, owner, blueprint, provider, model, credentialRef };
+}
+
+function projectEntryFromRow(row: Record<string, unknown>): ProjectEntry {
+	return {
+		id: String(row.id),
+		entryType: row.entry_type as ProjectEntry['entryType'],
+		name: String(row.name),
+		owner: row.owner ? String(row.owner) : null,
+		repository: row.repository ? String(row.repository) : null,
+		repositoryUrl: row.repository_url ? String(row.repository_url) : null,
+		defaultBranch: row.default_branch ? String(row.default_branch) : null,
+		blueprint: row.blueprint ? String(row.blueprint) : null,
+		provider: row.provider ? String(row.provider) : null,
+		model: row.model ? String(row.model) : null,
+		credentialRef: row.credential_ref ? String(row.credential_ref) : null,
+		specKitStatus: row.speckit_status as ProjectEntry['specKitStatus'],
+		status: row.status as ProjectEntry['status'],
+		createdAt: String(row.created_at),
+		updatedAt: String(row.updated_at),
+	};
+}
+
+function configuredProviderModels(): Record<string, string[]> {
+	const raw = process.env.POSITRON_PROVIDER_MODELS;
+	if (!raw) return {};
+	try {
+		const parsed = JSON.parse(raw) as unknown;
+		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+		return Object.fromEntries(
+			Object.entries(parsed as Record<string, unknown>)
+				.filter(([, models]) => Array.isArray(models))
+				.map(([provider, models]) => [
+					provider,
+					(models as unknown[]).filter((model): model is string => typeof model === 'string'),
+				]),
+		);
+	} catch {
+		return {};
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Secret Manager (centralized secret resolution)
 // ---------------------------------------------------------------------------
@@ -1383,8 +1480,8 @@ export function createApp(options: ServerOptions = {}) {
 	// Repository registrieren (write endpoint — requires admin auth)
 	app.post('/api/repos', requireAdmin, (req, res) => {
 		try {
-			validateRepoRegistration(req.body ?? {});
-			const repoId = `${repository.owner}/${repository.repo}`;
+			const registered = validateRepoRegistration(req.body ?? {});
+			const repoId = `${registered.owner}/${registered.name}`;
 			// In DB speichern falls noch nicht vorhanden
 			const existing = getDb().prepare('SELECT id FROM repositories WHERE id = ?').get(repoId) as
 				| { id: string }
@@ -1397,10 +1494,10 @@ export function createApp(options: ServerOptions = {}) {
         `)
 					.run(
 						repoId,
-						repository.owner,
-						repository.repo,
-						`https://github.com/${repository.owner}/${repository.repo}`,
-						repository.defaultBranch,
+						registered.owner,
+						registered.name,
+						`https://github.com/${registered.owner}/${registered.name}`,
+						'main',
 					);
 			}
 			res.json({ id: repoId, status: 'registered', mode: githubMode });
@@ -1438,10 +1535,262 @@ export function createApp(options: ServerOptions = {}) {
 		}
 	});
 
+	// Project Entry: the canonical front door for Existing Repository and Blueprint.
+	app.get('/api/project-entries', (_req, res) => {
+		const rows = getDb()
+			.prepare('SELECT * FROM project_entries ORDER BY created_at DESC')
+			.all() as Array<Record<string, unknown>>;
+		res.json({ entries: rows.map(projectEntryFromRow), total: rows.length });
+	});
+
+	app.post('/api/project-entries/validate', requireAdmin, async (req, res) => {
+		try {
+			const input = validateProjectEntry(req.body ?? {});
+			let repository: Awaited<ReturnType<GitHubAdapter['getRepository']>> | null = null;
+			if (input.entryType === 'existing_repository') {
+				if (!input.owner || !input.repository)
+					throw new Error('Repository owner and name are required');
+				repository = await github.getRepository(input.owner, input.repository);
+			}
+			res.json({
+				valid: true,
+				entryType: input.entryType,
+				repository,
+				credential: {
+					configured: Boolean(input.credentialRef && secretManager.hasSecret(input.credentialRef)),
+					referenceOnly: true,
+				},
+			});
+		} catch (err) {
+			res.status(400).json({
+				valid: false,
+				error: 'PROJECT_ENTRY_INVALID',
+				message: err instanceof Error ? err.message : 'Invalid project entry',
+			});
+		}
+	});
+
+	app.get('/api/provider-catalog', (_req, res) => {
+		const catalog = configuredProviderModels();
+		res.json({
+			providers: Object.entries(catalog).map(([id, models]) => ({ id, models })),
+			configuredProvider: process.env.POSITRON_OPENCODE_PROVIDER ?? null,
+			configuredModel: process.env.POSITRON_OPENCODE_MODEL ?? null,
+			credentialValuesExposed: false,
+		});
+	});
+
+	app.post('/api/project-entries/:id/provider/qualify', requireAdmin, async (req, res) => {
+		try {
+			const id = String(req.params.id);
+			const row = getDb().prepare('SELECT * FROM project_entries WHERE id = ?').get(id) as
+				| Record<string, unknown>
+				| undefined;
+			if (!row) {
+				res.status(404).json({ error: 'PROJECT_ENTRY_NOT_FOUND' });
+				return;
+			}
+			const workspacePath = String(
+				(req.body as Record<string, unknown> | undefined)?.workspacePath ?? '',
+			).trim();
+			if (!workspacePath) {
+				res.status(400).json({ error: 'WORKSPACE_PATH_REQUIRED' });
+				return;
+			}
+			await activeWorkspaceAdapter.validateWorkspacePath(workspacePath);
+			const provider = row.provider
+				? String(row.provider)
+				: (process.env.POSITRON_OPENCODE_PROVIDER ?? null);
+			const model = row.model ? String(row.model) : (process.env.POSITRON_OPENCODE_MODEL ?? null);
+			const credentialRef = row.credential_ref ? String(row.credential_ref) : null;
+			const catalog = configuredProviderModels();
+			const knownModels = provider ? (catalog[provider] ?? []) : [];
+			const opencode = await activeOpenCodeAdapter.healthCheck(workspacePath);
+			const speckit = await activeSpecKitAdapter.healthCheck(workspacePath);
+			const qualification = {
+				provider: { id: provider, configured: Boolean(provider) },
+				model: {
+					id: model,
+					configured: Boolean(model),
+					discovered: Boolean(model && knownModels.includes(model)),
+					catalogAvailable: knownModels.length > 0,
+				},
+				credential: {
+					reference: credentialRef,
+					configured: Boolean(credentialRef && secretManager.hasSecret(credentialRef)),
+					referenceOnly: true,
+				},
+				opencode,
+				speckit,
+				status:
+					provider && model && opencode.available && speckit.available ? 'qualified' : 'blocked',
+				limitations:
+					knownModels.length === 0
+						? [
+								'No provider model catalog configured; model identity was checked only for presence.',
+							]
+						: [],
+			};
+			res.status(qualification.status === 'qualified' ? 200 : 409).json(qualification);
+		} catch (err) {
+			res.status(400).json({
+				error: 'PROVIDER_QUALIFICATION_FAILED',
+				message: err instanceof Error ? err.message : 'Provider qualification failed',
+			});
+		}
+	});
+
+	app.post('/api/project-entries', requireAdmin, async (req, res) => {
+		try {
+			const input = validateProjectEntry(req.body ?? {});
+			let owner = input.owner ?? null;
+			let repoName = input.repository ?? null;
+			let defaultBranch: string | null = null;
+			let repositoryUrl: string | null = null;
+
+			if (input.entryType === 'existing_repository') {
+				if (!owner || !repoName) throw new Error('Repository owner and name are required');
+				const remote = await github.getRepository(owner, repoName);
+				defaultBranch = remote.defaultBranch;
+				repositoryUrl = `https://github.com/${remote.fullName}.git`;
+			} else {
+				if (!input.owner) throw new Error('Blueprint owner is required');
+				const requestedRepo = String(
+					(req.body as Record<string, unknown>).repository ?? input.name,
+				).trim();
+				validateRepoRegistration({ owner: input.owner, name: requestedRepo });
+				const created = await github.createRepository({
+					owner: input.owner,
+					name: requestedRepo,
+					description: `Positron project: ${input.name}`,
+					private: true,
+				});
+				owner = created.owner;
+				repoName = created.name;
+				defaultBranch = created.defaultBranch;
+				repositoryUrl = `https://github.com/${created.fullName}.git`;
+			}
+
+			const id = `project-${crypto.randomUUID()}`;
+			getDb()
+				.prepare(`INSERT INTO project_entries
+					(id, entry_type, name, owner, repository, repository_url, default_branch, blueprint, provider, model, credential_ref, status)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+				.run(
+					id,
+					input.entryType,
+					input.name,
+					owner,
+					repoName,
+					repositoryUrl,
+					defaultBranch,
+					input.blueprint ?? null,
+					input.provider ?? null,
+					input.model ?? null,
+					input.credentialRef ?? null,
+					input.entryType === 'blueprint' ? 'initialization_pending' : 'registered',
+				);
+
+			if (owner && repoName) {
+				getDb()
+					.prepare(`INSERT OR IGNORE INTO repositories
+					(id, owner, name, url, default_branch, enabled) VALUES (?, ?, ?, ?, ?, 1)`)
+					.run(
+						`${owner}/${repoName}`,
+						owner,
+						repoName,
+						repositoryUrl ?? `https://github.com/${owner}/${repoName}.git`,
+						defaultBranch ?? 'main',
+					);
+			}
+			const row = getDb().prepare('SELECT * FROM project_entries WHERE id = ?').get(id) as Record<
+				string,
+				unknown
+			>;
+			res.status(201).json({ entry: projectEntryFromRow(row) });
+		} catch (err) {
+			res.status(400).json({
+				error: 'PROJECT_ENTRY_CREATE_FAILED',
+				message: err instanceof Error ? err.message : 'Could not create project entry',
+			});
+		}
+	});
+
+	app.post('/api/project-entries/:id/spec-kit/initialize', requireAdmin, async (req, res) => {
+		try {
+			const id = String(req.params.id);
+			const row = getDb().prepare('SELECT * FROM project_entries WHERE id = ?').get(id) as
+				| Record<string, unknown>
+				| undefined;
+			if (!row) {
+				res.status(404).json({ error: 'PROJECT_ENTRY_NOT_FOUND' });
+				return;
+			}
+			const workspacePath = String(
+				(req.body as Record<string, unknown> | undefined)?.workspacePath ?? '',
+			).trim();
+			if (!workspacePath) {
+				res.status(400).json({ error: 'WORKSPACE_PATH_REQUIRED' });
+				return;
+			}
+			await activeWorkspaceAdapter.validateWorkspacePath(workspacePath);
+			const blueprint = row.blueprint ? String(row.blueprint) : null;
+			let blueprintPath: string | null = row.blueprint_path ? String(row.blueprint_path) : null;
+			if (blueprint) {
+				const relativeBlueprintPath = path.join('.positron', 'blueprint.md');
+				const target = path.resolve(workspacePath, relativeBlueprintPath);
+				if (!target.startsWith(path.resolve(workspacePath) + path.sep)) {
+					throw new Error('Blueprint path escaped workspace');
+				}
+				fs.mkdirSync(path.dirname(target), { recursive: true });
+				if (fs.existsSync(target)) {
+					const existing = fs.readFileSync(target, 'utf8');
+					if (existing !== blueprint)
+						throw new Error('Existing workspace blueprint differs; refusing overwrite');
+				} else {
+					fs.writeFileSync(target, blueprint, { encoding: 'utf8', flag: 'wx' });
+				}
+				blueprintPath = relativeBlueprintPath;
+			}
+			const result = await activeSpecKitAdapter.initialize({
+				runId: id,
+				workspacePath,
+				issueTitle: String(row.name),
+				mode: 'safe-cli',
+				aiAgent: 'opencode',
+			});
+			const status = result.status === 'success' ? 'initialized' : 'blocked';
+			getDb()
+				.prepare(`UPDATE project_entries
+				SET speckit_status = ?, status = ?, blueprint_path = ?, speckit_artifacts_json = ?, updated_at = datetime('now')
+				WHERE id = ?`)
+				.run(
+					status,
+					status === 'initialized' ? 'registered' : 'blocked',
+					blueprintPath,
+					JSON.stringify(result.artifacts ?? []),
+					id,
+				);
+			res.status(result.status === 'success' ? 200 : 409).json({ result, status });
+		} catch (err) {
+			res.status(400).json({
+				error: 'SPECKIT_INITIALIZATION_FAILED',
+				message: err instanceof Error ? err.message : 'SpecKit initialization failed',
+			});
+		}
+	});
+
 	// Issues abrufen (echt via Adapter)
 	app.get('/api/repos/:id/issues', async (req, _res, next) => {
 		try {
-			const issues = await github.listOpenIssues(repository.owner, repository.repo);
+			const configured = getDb()
+				.prepare('SELECT owner, name FROM repositories WHERE id = ?')
+				.get(req.params.id) as { owner: string; name: string } | undefined;
+			if (!configured) {
+				_res.status(404).json({ error: 'Repository not found' });
+				return;
+			}
+			const issues = await github.listOpenIssues(configured.owner, configured.name);
 			_res.json({ issues });
 		} catch (err) {
 			next(err);

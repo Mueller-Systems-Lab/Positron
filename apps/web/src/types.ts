@@ -157,6 +157,24 @@ export interface ApiError {
 	details?: unknown;
 }
 
+export interface ProjectEntry {
+	id: string;
+	entryType: 'existing_repository' | 'blueprint';
+	name: string;
+	owner: string | null;
+	repository: string | null;
+	repositoryUrl: string | null;
+	defaultBranch: string | null;
+	blueprint: string | null;
+	provider: string | null;
+	model: string | null;
+	credentialRef: string | null;
+	specKitStatus: 'not_started' | 'initialized' | 'blocked';
+	status: 'validated' | 'registered' | 'initialization_pending' | 'blocked';
+	createdAt: string;
+	updatedAt: string;
+}
+
 // ── Managed Target Projects (Issue: Target Project Registry) ──────
 
 export interface SafetyCheck {
