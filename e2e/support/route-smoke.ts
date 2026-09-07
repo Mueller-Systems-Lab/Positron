@@ -67,6 +67,14 @@ export const ROUTE_SMOKE_MANIFEST: readonly RouteSmokeManifestEntry[] = [
 		specialSetup: 'none',
 	},
 	{
+		routePattern: '/onboarding',
+		smokeURL: '/onboarding',
+		requiresFixture: false,
+		expectedPageSignal: { role: 'heading', name: 'Project Entry' },
+		screenshotName: 'project-entry.png',
+		specialSetup: 'none',
+	},
+	{
 		routePattern: '/readiness',
 		smokeURL: '/readiness',
 		requiresFixture: false,
