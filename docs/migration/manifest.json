@@ -1,0 +1,176 @@
+{
+	"schema": "positron.migration-manifest.v1",
+	"source": {
+		"repository": "https://github.com/Mueller-Systems-Lab/Positron",
+		"observedMain": "cd6ab5a945864549b8ccdadb79cea0b63f6583d0",
+		"mutated": false
+	},
+	"subsystems": [
+		{
+			"sourcePath": "apps/server",
+			"classification": "KEEP",
+			"targetPath": "apps/server",
+			"migrationAction": "retain and add canonical entry contracts",
+			"reason": "controller API",
+			"validation": "npm run build"
+		},
+		{
+			"sourcePath": "apps/web",
+			"classification": "KEEP",
+			"targetPath": "apps/web",
+			"migrationAction": "retain and add onboarding UI",
+			"reason": "operator cockpit",
+			"validation": "npm run typecheck"
+		},
+		{
+			"sourcePath": "packages/control-plane",
+			"classification": "KEEP",
+			"targetPath": "packages/control-plane",
+			"migrationAction": "retain durable authority",
+			"reason": "single lifecycle controller",
+			"validation": "control-plane tests"
+		},
+		{
+			"sourcePath": "packages/github-adapter",
+			"classification": "KEEP",
+			"targetPath": "packages/github-adapter",
+			"migrationAction": "retain bounded GitHub adapter",
+			"reason": "repository and PR capability",
+			"validation": "adapter tests"
+		},
+		{
+			"sourcePath": "packages/speckit-adapter",
+			"classification": "KEEP",
+			"targetPath": "packages/speckit-adapter",
+			"migrationAction": "retain detection and initialization",
+			"reason": "specification lifecycle",
+			"validation": "adapter tests"
+		},
+		{
+			"sourcePath": "packages/opencode-adapter",
+			"classification": "KEEP",
+			"targetPath": "packages/opencode-adapter",
+			"migrationAction": "retain behind controller",
+			"reason": "worker execution adapter",
+			"validation": "adapter tests"
+		},
+		{
+			"sourcePath": "packages/run-state",
+			"classification": "KEEP",
+			"targetPath": "packages/run-state",
+			"migrationAction": "retain and add project entries",
+			"reason": "durable state",
+			"validation": "build and schema tests"
+		},
+		{
+			"sourcePath": "packages/sandbox",
+			"classification": "KEEP",
+			"targetPath": "packages/sandbox",
+			"migrationAction": "retain bounded workspace policy",
+			"reason": "execution safety",
+			"validation": "sandbox tests"
+		},
+		{
+			"sourcePath": "packages/shared",
+			"classification": "KEEP",
+			"targetPath": "packages/shared",
+			"migrationAction": "retain contracts and redaction",
+			"reason": "cross-boundary invariants",
+			"validation": "shared tests"
+		},
+		{
+			"sourcePath": "packages/tool-gateway",
+			"classification": "KEEP",
+			"targetPath": "packages/tool-gateway",
+			"migrationAction": "retain capability boundary",
+			"reason": "bounded tools",
+			"validation": "gateway tests"
+		},
+		{
+			"sourcePath": "packages/worker-pipeline",
+			"classification": "KEEP",
+			"targetPath": "packages/worker-pipeline",
+			"migrationAction": "retain gated stage execution",
+			"reason": "lifecycle stages",
+			"validation": "pipeline tests"
+		},
+		{
+			"sourcePath": "packages/benchmark-rudolph",
+			"classification": "EXTERNALIZE",
+			"targetPath": null,
+			"migrationAction": "retain as support only",
+			"reason": "not a lifecycle authority",
+			"validation": "inventory"
+		},
+		{
+			"sourcePath": "docs and scripts",
+			"classification": "KEEP",
+			"targetPath": "docs and scripts",
+			"migrationAction": "retain canonical contracts, evidence, and local gates",
+			"reason": "reproducible governance",
+			"validation": "boundary gate"
+		},
+		{
+			"sourcePath": "provider configuration",
+			"classification": "REWORK",
+			"targetPath": "apps/server and packages/*-adapter",
+			"migrationAction": "keep discovery and qualification controller-owned",
+			"reason": "provider onboarding is a lifecycle capability",
+			"validation": "provider contract tests"
+		},
+		{
+			"sourcePath": "observability dashboards",
+			"classification": "REWORK",
+			"targetPath": "apps/web",
+			"migrationAction": "keep decision-relevant default surface and advanced drill-down",
+			"reason": "observability supports lifecycle decisions",
+			"validation": "route and UI inventory"
+		},
+		{
+			"sourcePath": "site and landing assets",
+			"classification": "HISTORICAL",
+			"targetPath": "site",
+			"migrationAction": "retain as presentation only",
+			"reason": "not lifecycle authority",
+			"validation": "inventory"
+		},
+		{
+			"sourcePath": "generic skill and learning experiments",
+			"classification": "EXTERNALIZE",
+			"targetPath": null,
+			"migrationAction": "retain only bounded evidence-based harness candidates",
+			"reason": "no second skill platform",
+			"validation": "P5 tests"
+		},
+		{
+			"sourcePath": "voice/UI experiments",
+			"classification": "DROP",
+			"targetPath": null,
+			"migrationAction": "do not extend",
+			"reason": "no material lifecycle mapping",
+			"validation": "product contract"
+		}
+	],
+	"openPullRequests": [
+		{
+			"number": 499,
+			"headSha": "3a2832da2d3353472ff33f71e9633b8986eaaab4",
+			"classification": "SUPERSEDED"
+		},
+		{
+			"number": 500,
+			"headSha": "8aec5f69b972be634b622c57f3077aeb3968bfcb",
+			"classification": "HISTORICAL"
+		},
+		{
+			"number": 503,
+			"headSha": "670ce93199cee0e004f9c8e1388f1fc30c6ee7",
+			"classification": "KEEP"
+		},
+		{
+			"number": 504,
+			"headSha": "416d052efe52de17bc6e972d69503eae662d4bca",
+			"classification": "KEEP"
+		}
+	]
+}

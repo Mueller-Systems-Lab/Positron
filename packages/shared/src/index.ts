@@ -18,6 +18,7 @@ export * from './local-gate-runner.js';
 export * from './opencode-errors.js';
 export * from './opencode-types.js';
 export * from './queue/types.js';
+export * from './rehydration.js';
 export * from './repository-config.js';
 export * from './runtime-budget.js';
 export * from './safe-apply-plan.js';

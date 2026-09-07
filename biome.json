@@ -107,9 +107,9 @@
 			"!**/test-results",
 			"!**/playwright-report",
 			"!apps/web/index.html",
-			"!**/.positron/**",
-			"!**/.hermes/enforcement/**",
-			"!**/docs/evidence/e2e-playwright-mcp/**"
+			"!**/.positron",
+			"!**/.hermes/enforcement",
+			"!**/docs/evidence/e2e-playwright-mcp"
 		]
 	}
 }

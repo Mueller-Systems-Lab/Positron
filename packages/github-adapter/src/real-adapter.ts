@@ -24,6 +24,7 @@ import { renderAccepted } from './templates.js';
 import type {
 	ClaimOptions,
 	CreatePROptions,
+	CreateRepositoryOptions,
 	GitHubCommentResult,
 	GitHubIssueClaimResult,
 	GitHubIssueComment,
@@ -89,6 +90,33 @@ export class RealGitHubAdapter implements GitHubAdapter {
 
 	constructor(octokit?: Octokit) {
 		this.octokit = octokit ?? createGitHubClient();
+	}
+
+	async createRepository(options: CreateRepositoryOptions): Promise<GitHubRepositorySummary> {
+		try {
+			const { data } = await this.octokit.rest.repos.createForAuthenticatedUser({
+				name: options.name,
+				description: options.description,
+				private: options.private ?? true,
+				auto_init: true,
+			});
+			if (data.owner.login !== options.owner) {
+				throw new GitHubPermissionError(
+					`Authenticated owner is ${data.owner.login}, not ${options.owner}`,
+				);
+			}
+			return {
+				id: data.id,
+				owner: data.owner.login,
+				name: data.name,
+				fullName: data.full_name,
+				defaultBranch: data.default_branch ?? 'main',
+			};
+		} catch (err) {
+			if (err instanceof RequestError) throw mapRequestError(err);
+			if (err instanceof GitHubPermissionError) throw err;
+			throw new GitHubNetworkError(String(err));
+		}
 	}
 
 	async getRepository(owner: string, repo: string): Promise<GitHubRepositorySummary> {

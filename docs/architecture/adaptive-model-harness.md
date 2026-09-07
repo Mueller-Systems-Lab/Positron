@@ -4,16 +4,17 @@
 >
 > **LLM schlägt vor, Evaluation beweist, Positron befördert.**
 
-Status: **Vision** (Issue #422) — die Architektur-Grenze ist definiert;
+Status: **Vision plus backend slices** (Issue #422) — die Architektur-Grenze ist definiert;
 umgesetzt sind aktuell **P5.1** (Issue #423) und **P5.2** (Issue #424,
 siehe [`durable-control-plane.md`](durable-control-plane.md), Abschnitte
 P5.1 — Harness Profile Identity, Provenance & Metrics Foundation und
 P5.2 — Static Model Profiles, Task Profiles & Safe Runtime Compilation).
 
 Dieses Dokument beschreibt die P5-Vision der adaptiven Modell-Harness und
-die Architektur-Grenze zwischen den Phasen. Es ist KEIN Implementierungs-
-Nachweis — P5.3 und P5.4 sind bewusst noch NICHT umgesetzt (P5.1 und P5.2
-sind implementiert; Details siehe Status oben und
+die Architektur-Grenze zwischen den Phasen. Es ist KEIN vollständiger
+Betriebsnachweis — P5.1 und P5.2 sowie die Backend-Vertragsflächen von
+P5.3/P5.4 sind im Code vorhanden; automatische Promotion bleibt weiterhin
+qualifiziert/gated (Details siehe Status oben und
 [`durable-control-plane.md`](durable-control-plane.md)).
 
 ## Vision (Issue #422)
@@ -149,8 +150,9 @@ Versionen, invalide Contracts und nicht unterstützte Tools/Reasoning-Modi
 werden fail-closed mit Reason Code abgelehnt (kein silent downgrade, kein
 Freiform-Passthrough an OpenCode).
 
-**P5.3 (Evidence-Based Routing) und P5.4 (Controlled Evolution) sind
-weiterhin NICHT umgesetzt** — siehe Scope-Grenze oben. Details zu P5.2:
+**P5.3 (Evidence-Based Routing) und P5.4 (Controlled Evolution) sind als
+Backend-Vertragsflächen vorhanden, aber nicht als unüberwachter produktiver
+Automatikpfad freigeschaltet** — siehe Scope-Grenze oben. Details zu P5.2:
 [`durable-control-plane.md`](durable-control-plane.md), Abschnitt
 P5.2 — Static Model Profiles, Task Profiles & Safe Runtime Compilation.
 

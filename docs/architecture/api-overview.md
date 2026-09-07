@@ -8,7 +8,17 @@ author: Positron Team
 
 > **Note:** This document catalogs the current API endpoints as of the latest sync. Full expansion of Issue #229 and #243 endpoints is tracked separately in [Issue #251](https://github.com/Mueller-Systems-Lab/Positron/issues/251).
 
-All routes are served by the Express server under `/api`. The current implementation does not enforce application-level authentication; access is expected to be protected by deployment controls.
+All routes are served by the Express server under `/api`. Read-only routes are public; mutating routes require `POSITRON_ADMIN_TOKEN` via `Authorization: Bearer` or `X-Admin-Token`.
+
+## Project Entry onboarding
+
+The canonical onboarding front door is exposed through `/api/project-entries`:
+
+- `GET /api/project-entries` lists durable entries.
+- `POST /api/project-entries/validate` validates an Existing Repository or Blueprint without persisting it.
+- `POST /api/project-entries` registers an existing repository or creates a private GitHub repository from a Blueprint. Provider/model/credential values are stored only as non-secret references.
+- `GET /api/provider-catalog` exposes only configured provider/model identifiers; `POST /api/project-entries/:id/provider/qualify` performs an admin-gated runtime qualification without returning credential values.
+- `POST /api/project-entries/:id/spec-kit/initialize` writes a Blueprint baseline idempotently to `.positron/blueprint.md`, initializes SpecKit, and persists the returned artifact inventory.
 
 ## Common response notes
 

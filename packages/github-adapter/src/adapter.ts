@@ -3,6 +3,7 @@
 import type {
 	ClaimOptions,
 	CreatePROptions,
+	CreateRepositoryOptions,
 	GitHubCommentResult,
 	GitHubIssueClaimResult,
 	GitHubIssueComment,
@@ -46,6 +47,7 @@ export interface ReadOnlyGitHubAdapter {
 
 /** Full GitHub adapter with write capability. Extends the read-only interface. */
 export interface GitHubAdapter extends ReadOnlyGitHubAdapter {
+	createRepository(options: CreateRepositoryOptions): Promise<GitHubRepositorySummary>;
 	createIssueComment(ref: GitHubIssueRef, body: string): Promise<GitHubCommentResult>;
 
 	addIssueLabels(ref: GitHubIssueRef, labels: string[]): Promise<void>;

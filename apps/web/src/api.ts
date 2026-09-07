@@ -5,11 +5,12 @@ import type {
 	ApiError,
 	Artifact,
 	HealthStatus,
-	OperatorReadiness,
 	Issue,
 	ManagedTargetProject,
 	Metrics,
+	OperatorReadiness,
 	Phase,
+	ProjectEntry,
 	Repository,
 	Run,
 	RunEvent,
@@ -279,6 +280,44 @@ export const api = {
 			method: 'POST',
 			body: JSON.stringify({ owner, name }),
 		});
+	},
+
+	getProjectEntries(): Promise<{ entries: ProjectEntry[]; total: number }> {
+		return request<{ entries: ProjectEntry[]; total: number }>('/project-entries');
+	},
+
+	validateProjectEntry(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+		return adminRequest<Record<string, unknown>>('/project-entries/validate', {
+			method: 'POST',
+			body: JSON.stringify(body),
+		});
+	},
+
+	createProjectEntry(body: Record<string, unknown>): Promise<{ entry: ProjectEntry }> {
+		return adminRequest<{ entry: ProjectEntry }>('/project-entries', {
+			method: 'POST',
+			body: JSON.stringify(body),
+		});
+	},
+
+	initializeProjectSpecKit(id: string, workspacePath: string): Promise<Record<string, unknown>> {
+		return adminRequest<Record<string, unknown>>(
+			`/project-entries/${encodeURIComponent(id)}/spec-kit/initialize`,
+			{
+				method: 'POST',
+				body: JSON.stringify({ workspacePath }),
+			},
+		);
+	},
+
+	qualifyProjectProvider(id: string, workspacePath: string): Promise<Record<string, unknown>> {
+		return adminRequest<Record<string, unknown>>(
+			`/project-entries/${encodeURIComponent(id)}/provider/qualify`,
+			{
+				method: 'POST',
+				body: JSON.stringify({ workspacePath }),
+			},
+		);
 	},
 
 	// Managed Target Projects (generische Registry externer Zielprojekte)

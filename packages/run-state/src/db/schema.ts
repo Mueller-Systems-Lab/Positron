@@ -100,6 +100,28 @@ CREATE TABLE IF NOT EXISTS settings (
 
 CREATE INDEX IF NOT EXISTS idx_run_signals_run_id ON run_signals(run_id);
 CREATE INDEX IF NOT EXISTS idx_repositories_owner_name ON repositories(owner, name);
+
+CREATE TABLE IF NOT EXISTS project_entries (
+  id TEXT PRIMARY KEY,
+  entry_type TEXT NOT NULL CHECK (entry_type IN ('existing_repository', 'blueprint')),
+  name TEXT NOT NULL,
+  owner TEXT,
+  repository TEXT,
+  repository_url TEXT,
+  default_branch TEXT,
+  blueprint TEXT,
+  provider TEXT,
+  model TEXT,
+  credential_ref TEXT,
+  blueprint_path TEXT,
+  speckit_artifacts_json TEXT,
+  speckit_status TEXT NOT NULL DEFAULT 'not_started',
+  status TEXT NOT NULL DEFAULT 'validated',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_entries_status ON project_entries(status);
 `;
 
 /**
@@ -107,4 +129,14 @@ CREATE INDEX IF NOT EXISTS idx_repositories_owner_name ON repositories(owner, na
  */
 export function applyMigrations(db: Database.Database): void {
 	db.exec(SCHEMA_V1);
+	const columns = new Set(
+		(db.pragma('table_info(project_entries)') as Array<{ name: string }>).map(
+			(column) => column.name,
+		),
+	);
+	if (!columns.has('blueprint_path'))
+		db.exec('ALTER TABLE project_entries ADD COLUMN blueprint_path TEXT');
+	if (!columns.has('speckit_artifacts_json')) {
+		db.exec('ALTER TABLE project_entries ADD COLUMN speckit_artifacts_json TEXT');
+	}
 }

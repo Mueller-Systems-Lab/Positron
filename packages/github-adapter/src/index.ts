@@ -72,31 +72,6 @@ export {
 	validateApprovalBinding,
 } from './stage3-approval-binding.js';
 export type {
-	RunBoundApprovalValidationResult,
-	RunBoundStage3Approval,
-	Stage3ApprovalConsumptionInput,
-	Stage3ExecutionIdentity,
-	Stage3ExecutionAuthorityProvider,
-} from './stage3-run-bound-approval.js';
-export {
-	computeRunBoundApprovalFingerprint,
-	createRunBoundStage3Approval,
-	validateRunBoundStage3Approval,
-} from './stage3-run-bound-approval.js';
-export type {
-	Stage3CanonicalLiveExecutor,
-	Stage3RunBoundApprovalProvider,
-} from './stage3-canonical-executor.js';
-export {
-	createStage3CanonicalLiveExecutor,
-	createStage3CanonicalLiveExecutorFactory,
-} from './stage3-canonical-executor.js';
-export {
-	assembleStage3Pilot,
-	STAGE3_SANDBOX_CREDENTIAL_MISSING,
-} from './stage3-pilot-bootstrap.js';
-export type { Stage3PilotBootstrapOptions } from './stage3-pilot-bootstrap.js';
-export type {
 	Stage3BaseDriftResult,
 	Stage3BaseResolver,
 	Stage3ResolvedBase,
@@ -107,6 +82,14 @@ export {
 	createFakeBaseResolver,
 	Stage3BaseShaDriftError,
 } from './stage3-base-resolver.js';
+export type {
+	Stage3CanonicalLiveExecutor,
+	Stage3RunBoundApprovalProvider,
+} from './stage3-canonical-executor.js';
+export {
+	createStage3CanonicalLiveExecutor,
+	createStage3CanonicalLiveExecutorFactory,
+} from './stage3-canonical-executor.js';
 // --- Stage 3 Canonical Manifest ---
 export {
 	computeManifestSha256,
@@ -114,6 +97,11 @@ export {
 	sha256Utf8,
 	utf8ByteLength,
 } from './stage3-canonical-manifest.js';
+export type { Stage3PilotBootstrapOptions } from './stage3-pilot-bootstrap.js';
+export {
+	assembleStage3Pilot,
+	STAGE3_SANDBOX_CREDENTIAL_MISSING,
+} from './stage3-pilot-bootstrap.js';
 export type {
 	PostWriteVerificationInput,
 	PostWriteVerificationResult,
@@ -143,6 +131,18 @@ export {
 	STAGE3_FORBIDDEN_CAPABILITIES,
 	verifyBridgeCapabilities,
 } from './stage3-real-github-bridge.js';
+export type {
+	RunBoundApprovalValidationResult,
+	RunBoundStage3Approval,
+	Stage3ApprovalConsumptionInput,
+	Stage3ExecutionAuthorityProvider,
+	Stage3ExecutionIdentity,
+} from './stage3-run-bound-approval.js';
+export {
+	computeRunBoundApprovalFingerprint,
+	createRunBoundStage3Approval,
+	validateRunBoundStage3Approval,
+} from './stage3-run-bound-approval.js';
 export type {
 	Stage3AuditSink,
 	Stage3BranchWriter,
@@ -212,6 +212,7 @@ export { renderAccepted, renderBlocked, renderDone, renderStatusUpdate } from '.
 export type {
 	ClaimOptions,
 	CreatePROptions,
+	CreateRepositoryOptions,
 	GitHubCommentResult,
 	GitHubIssueClaimResult,
 	GitHubIssueComment,
