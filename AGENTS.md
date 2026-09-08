@@ -1,134 +1,52 @@
 # Positron — Project Navigator
 
-Repository: `Positron-Control/positron` · Default branch: `main` · Source of
-truth: observed repository reality, then versioned contracts and GitHub when
-available.  The controller owns progression; agents are workers.
+Repository: `Positron-Control/positron` · default branch: `main`.
+Source of truth: observed repository reality, then versioned contracts/specs,
+then live GitHub when available. The controller owns progression; agents are
+workers.
 
-## Workflow index
+## Workflow
 
-Rehydrate → reality → local preflight → scoped mutation → targeted tests →
-full validation → evidence → commit → GitHub readiness → visible GitHub
-control plane → final read-back.  Start with `.gates/run-gate.sh G10`.
+Rehydrate → reality → completion matrix → local preflight → scoped mutation →
+targeted tests → full local validation → product E2E → evidence validation →
+content seal → commit equivalence → visible Playwright GitHub control plane →
+remote read-back → G100 → `.gates/finalize.sh`.
 
-## File index
+## Files
 
+- Contracts: `PRODUCT_CONTRACT.md`, `MIGRATION_MANIFEST.md`
 - Architecture: `docs/architecture.md`, `docs/architecture/`
-- Product contract: `PRODUCT_CONTRACT.md`, `MIGRATION_MANIFEST.md`
-- Specs/plan/tasks: `.specify/issues/<n>/`
-- Evidence: `docs/evidence/`
-- Gates: `.gates/`
-- Tests: root `package.json`, `e2e/`, package `src/__tests__/`
+- Active specs: `.specify/issues/<number>/spec.md`, `plan.md`, `tasks.md`
+- Evidence/policy: `docs/evidence/`, `docs/policies/`
+- Completion state: `.run/<run-id>/completion-matrix.json`
+- Gates: `.gates/run-gate.sh`, `.gates/commit.sh`, `.gates/finalize.sh`
 
-## Tool index
+## Gate entrypoints
 
-| Capability | Authority |
-| --- | --- |
-| Repository and Git reality | local filesystem / local Git |
-| Tests and builds | local shell |
-| GitHub read/write and verification | visible Playwright browser only |
-| Local changes | admitted only after G30 |
+- Start with `.gates/run-gate.sh G10`.
+- Required order and state are enforced by the runner; G70 is read-only.
+- Use `.gates/self-test.sh` to qualify the gate implementation.
+- Use `.gates/admit-blocker.sh` only for the narrowly permitted owner/external
+  terminal boundaries.
 
-The detailed repository constraints below remain mandatory.
+## Tools and protected operations
 
-## Nicht verhandelbarer Workflow
+- Local Git/filesystem/shell: repository reality, tests, builds, evidence.
+- GitHub control plane: visible Playwright browser only; no REST/GraphQL,
+  `curl` mutation, or `gh` mutation.
+- Never write/push `main` or `master`; use `positron/issue-<number>-<slug>`.
+- Preserve user work, avoid secrets, avoid broad destructive commands, and do
+  not create sibling clones; approved worktrees belong under `.agent-worktrees/`.
+- Detailed governance: `docs/policies/agent-governance.md`.
+- Constitution: `.specify/memory/constitution.md`.
 
-1. Lies zuerst diese Datei.
-2. Lies `.specify/memory/constitution.md`.
-3. Lies den aktiven Issue-Kontext.
-4. Implementiere nicht vor Spec, Plan und Tasks.
-5. Überspringe keine Tests.
-6. Pushe nicht auf main/master.
-7. Lege keine Secrets offen.
-8. Dokumentiere jede Phase in GitHub.
-9. Stoppe nach 3 erfolglosen Fix-Schleifen.
-10. Hole Genehmigung für gefährliche Befehle ein.
+## Test entrypoints
 
-## Workspace Root Rule
+Root: `npm test`, `npm run format:check`, `npm run lint`,
+`npm run typecheck`, `npm run build`.
 
-```text
-C:\Positron ist der einzige normale Projektarbeitsort.
+Contracts/integration: `npm run test:contracts`, `npm run test:integration`,
+`npm run test:transfer-references`, `npm run test:review-execution`,
+`npm run verify:issues all`.
 
-Keine neuen Schwesterordner neben C:\Positron:
-- kein C:\Positron-clean-*
-- kein C:\Positron-main-ci-*
-- kein ..\Positron-*
-
-Worktree-Isolation nur nach expliziter Human Approval und ausschließlich
-unter C:\Positron\.agent-worktrees\.
-```
-
-## GitHub Source of Truth
-
-Jede relevante Entscheidung, jeder Fehler, jedes Testergebnis und jeder Auslieferungsschritt muss im aktiven GitHub-Issue oder PR zusammengefasst werden.
-
-## Scope Control
-
-Löse nur das aktive Issue. Führe keine opportunistischen Refactorings durch, außer sie sind explizit in der Spec gefordert oder für Tests notwendig.
-
-## Evidence Requirement
-
-Eine Lösung ist erst vollständig, wenn Tests, Build-Status, Diff-Zusammenfassung und Akzeptanzkriterien-Mapping dokumentiert sind.
-
-## Branch-Regel
-
-```
-positron/issue-<number>-<slug>
-```
-
-## Commit-Regel
-
-```
-fix(issue-<n>): <Beschreibung>
-test(issue-<n>): <Beschreibung>
-docs(issue-<n>): <Beschreibung>
-```
-
-## Module
-
-- `apps/web/` — React/Vite/Tailwind Frontend
-- `apps/server/` — Node.js/Express/TypeScript Backend
-- `packages/github-adapter/` — GitHub API
-- `packages/speckit-adapter/` — Spec Kit CLI
-- `packages/opencode-adapter/` — OpenCode CLI
-- `packages/run-state/` — State Machine
-- `packages/sandbox/` — Git Worktrees
-- `packages/shared/` — Typen, Utilities
-
-## Agent Isolation
-
-### Trust-Tier-System
-
-| Tier | Zugriff | Beispiele |
-|------|---------|-----------|
-| **Tier 0 (Readonly)** | GitHub MCP (search/read), Brave Search, Context7 | Kein Schreibzugriff |
-| **Tier 1 (Sandboxed)** | Playwright, Docker, SQLite (project-local) | Isolierte Ausführung |
-| **Tier 2 (Human-Gate)** | FileSystem (external), PostgreSQL (readonly) | Nur mit Genehmigung |
-
-### Externe Skills
-
-- **🔴 Forbidden:** Paperclip (3), OpenClaw (3) — nicht installieren/nutzen
-- **🟡 Quarantined:** Researcher, Deep Research, PARA, MCP — deaktiviert bis manuelle Freigabe
-- **✅ Allowed:** 11 Positron-eigene Skills — vollständig geprüft
-
-### Isolations-Level
-
-| Level | Beschreibung | Gilt für |
-|-------|-------------|----------|
-| **L0 Unrestricted** | Keine Isolation | Kernsystem (Server, DB) |
-| **L1 Workspace** | Workspace-beschränkt | Positron-Subagenten |
-| **L2 Quarantined** | Sandbox + manuelles Gate | Externe Skills |
-| **L3 Forbidden** | Vollständig blockiert | Paperclip, OpenClaw |
-
-### Durchsetzung
-
-1. Policy Gates: `speckit-policy.ts`, `opencode-policy.ts` blockieren nicht erlaubte Kommandos
-2. Fake/Real Mode: Default `fake` — kein echter externer Zugriff ohne explizite Konfiguration
-3. Kill-Switches: Merge (`POSITRON_MERGE_KILL_SWITCH`), Push (`POSITRON_ENABLE_PUSH`)
-4. Evidence Gates: Keine Phase ohne prüfbare Artefakte
-5. Max Fix Loops: Automatischer Stopp nach 3 Fehlschlägen
-
-## Tests
-
-- `npm test` in jedem Package
-- `npx vitest run` für Unit/Integration
-- `npx playwright test` für E2E
+Product: `npm run test:installer`, `npm run test:e2e`.

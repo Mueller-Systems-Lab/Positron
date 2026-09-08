@@ -1,0 +1,44 @@
+{
+	"transport": "visible-playwright",
+	"mode": "headed",
+	"status": "PASS",
+	"repository": "Mueller-Systems-Lab/Positron",
+	"issue_491": {
+		"status": "CLOSED"
+	},
+	"issue_493": {
+		"status": "OPEN"
+	},
+	"pages": {
+		"repository": {
+			"url": "https://github.com/Mueller-Systems-Lab/Positron",
+			"title": "GitHub - Mueller-Systems-Lab/Positron: Evidence-gated GitHub issue-to-PR orchestrator for supervised autonomous coding workflows · GitHub",
+			"readable": true,
+			"excerpt": "Skip to content\nNavigation Menu\nPlatform\nSolutions\nResources\nOpen Source\nEnterprise\nPricing\nSign in\nSign up\nMueller-Systems-Lab\n/\nPositron\nPublic\nNotifications\nFork 0\n Star 0\nCode\nIssues\n5\nPull requests\n4\nActions\nProjects\nSecurity and quality\nInsights\nmain\nBranches\nTags\nCode\nLatest commit\n \nHistory\n647 Commits\nFolders and files\nName\tLast commit message\tLast commit date\n\n.github\n\t\n \n\t\n \n\n\n.opencode\n\t\n \n\t\n \n\n\n.specify\n\t\n \n\t\n \n\n\napps\n\t\n \n\t\n \n\n\ndocker\n\t\n \n\t\n \n\n\ndocs\n\t\n \n\t\n \n\n\ne2e\n\t\n \n\t\n \n\n\nobservabi"
+		},
+		"issue_491": {
+			"url": "https://github.com/Mueller-Systems-Lab/Positron/issues/491",
+			"title": "[v0.3] Installed supervised configuration and onboarding · Issue #491 · Mueller-Systems-Lab/Positron · GitHub",
+			"readable": true,
+			"excerpt": "Skip to content\nNavigation Menu\nPlatform\nSolutions\nResources\nOpen Source\nEnterprise\nPricing\nSign in\nSign up\nMueller-Systems-Lab\n/\nPositron\nPublic\nNotifications\nFork 0\n Star 0\nCode\nIssues\n5\nPull requests\n4\nActions\nProjects\nSecurity and quality\nInsights\n[v0.3] Installed supervised configuration and onboarding\n #491\nNew issue\nClosed\n#492\nDescription\nxxammaxx\nopened \nNo description provided.\nActivity\nSign up for free\n to join this conversation on GitHub. Already have an account? Sign in to comment\nM"
+		},
+		"issue_493": {
+			"url": "https://github.com/Mueller-Systems-Lab/Positron/issues/493",
+			"title": "[RELEASE] Qualify supervised-onboarding compatible Positron release · Issue #493 · Mueller-Systems-Lab/Positron · GitHub",
+			"readable": true,
+			"excerpt": "Skip to content\nNavigation Menu\nPlatform\nSolutions\nResources\nOpen Source\nEnterprise\nPricing\nSign in\nSign up\nMueller-Systems-Lab\n/\nPositron\nPublic\nNotifications\nFork 0\n Star 0\nCode\nIssues\n5\nPull requests\n4\nActions\nProjects\nSecurity and quality\nInsights\n[RELEASE] Qualify supervised-onboarding compatible Positron release\n #493\nNew issue\nOpen\nDescription\nxxammaxx\nopened \nTarget Release\n\nv0.3.0 (v0.3.0)\n\nRelease rationale\n\nNew backward-compatible user-facing capability: installed supervised onboardin"
+		},
+		"pull_requests": {
+			"url": "https://github.com/Mueller-Systems-Lab/Positron/pulls",
+			"title": "Pull requests · Mueller-Systems-Lab/Positron · GitHub",
+			"readable": true,
+			"excerpt": "Skip to content\nNavigation Menu\nPlatform\nSolutions\nResources\nOpen Source\nEnterprise\nPricing\nSign in\nSign up\nMueller-Systems-Lab\n/\nPositron\nPublic\nNotifications\nFork 0\n Star 0\nCode\nIssues\n5\nPull requests\n4\nActions\nProjects\nSecurity and quality\nInsights\nPull requests: Mueller-Systems-Lab/Positron\n Labels 72\n Milestones 3\nNew pull request\n 4 Open  267 Closed\nAuthor \nLabel \nProjects  Milestones  Reviews \nAssignee \nSort \nPull requests list\nfix: run supervised Redis as non-root\n#504 opened  by xxammax"
+		},
+		"releases": {
+			"url": "https://github.com/Mueller-Systems-Lab/Positron/releases",
+			"title": "Releases · Mueller-Systems-Lab/Positron",
+			"readable": true,
+			"excerpt": "Skip to content\nNavigation Menu\nPlatform\nSolutions\nResources\nOpen Source\nEnterprise\nPricing\nSign in\nSign up\nMueller-Systems-Lab\n/\nPositron\nPublic\nNotifications\nFork 0\n Star 0\nCode\nIssues\n5\nPull requests\n4\nActions\nProjects\nSecurity and quality\nInsights\nReleases: Mueller-Systems-Lab/Positron\nReleases\nTags\nRelease list\nPositron v0.3.0\nPositron v0.2.0\nPositron v0.1.0\nPositron v0.3.0\nPositron v0.3.0 Latest\nCompare\n xxammaxx released this \n v0.3.0\n 6b15789 \nPositron v0.3.0\n\nStatus: release candidate, "
+		}
+	}
+}

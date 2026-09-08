@@ -1,0 +1,240 @@
+{
+	"run_id": "20260908T225128Z",
+	"repository": "Mueller-Systems-Lab/Positron",
+	"source_head": "84626c1561f8e5282a5fa9478122d5ed3515731b",
+	"branch": "positron/issue-491-hard-gates",
+	"scope": {
+		"governance": "Issue 0 bootstrap is a supporting governance scope; it must not replace the product scope.",
+		"product": "Issue 491 installed supervised configuration and launcher qualification.",
+		"release_boundary": "Current repository contracts, Issue 491 artifacts, applicable tests/builds/E2E, and live GitHub reconciliation. Live Issue #493 release publication is a separate follow-on control-plane scope and is explicitly not claimed by this run."
+	},
+	"status_values": ["OPEN", "IN_PROGRESS", "PASS", "NOT_APPLICABLE_WITH_REASON"],
+	"requirements": [
+		{
+			"id": "GOV-001",
+			"source": [".specify/issues/0/spec.md", "user-run-contract"],
+			"requirement": "Implement and qualify deterministic gates G10 through G100 in the required order.",
+			"status": "PASS",
+			"evidence": [
+				".gates/run-gate.sh",
+				".gates/lib/gate-lib.sh",
+				"docs/evidence/hard-gate-bootstrap/gate-implementation.md"
+			],
+			"test": [".gates/self-test.sh T01-T19"],
+			"blocking": true
+		},
+		{
+			"id": "GOV-002",
+			"source": ["user-run-contract"],
+			"requirement": "Use a deterministic candidate-content fingerprint independent of staging and commit state.",
+			"status": "PASS",
+			"evidence": [
+				".gates/lib/gate-lib.sh",
+				"docs/evidence/hard-gate-bootstrap/content-fingerprint.md"
+			],
+			"test": ["negative controls T08-T13"],
+			"blocking": true
+		},
+		{
+			"id": "GOV-003",
+			"source": ["user-run-contract"],
+			"requirement": "G40 protects pre-existing user work, scope, protected paths, deletions, dependencies, generated artifacts, and secrets.",
+			"status": "PASS",
+			"evidence": [
+				".gates/lib/gate-lib.sh",
+				"docs/evidence/hard-gate-bootstrap/scope-and-user-work.md"
+			],
+			"test": ["negative controls T01-T04"],
+			"blocking": true
+		},
+		{
+			"id": "GOV-004",
+			"source": ["user-run-contract"],
+			"requirement": "G35 is based on an executable visible headed Playwright probe and is recoverable when the first browser surface fails.",
+			"status": "PASS",
+			"evidence": [
+				".gates/playwright-probe.mjs",
+				"docs/evidence/hard-gate-bootstrap/playwright.md"
+			],
+			"test": ["negative control T14-T15", "Playwright headed probe"],
+			"blocking": true
+		},
+		{
+			"id": "GOV-005",
+			"source": ["user-run-contract"],
+			"requirement": "G70 is read-only after validation and G75/G80/G85 prove tested-content-to-commit equivalence.",
+			"status": "PASS",
+			"evidence": [
+				".gates/commit.sh",
+				".gates/finalize.sh",
+				"docs/evidence/hard-gate-bootstrap/content-fingerprint.md"
+			],
+			"test": ["negative controls T11-T13"],
+			"blocking": true
+		},
+		{
+			"id": "GOV-006",
+			"source": ["user-run-contract"],
+			"requirement": "Finalizer and blocker admission reject recoverable technical failures as terminal outcomes.",
+			"status": "PASS",
+			"evidence": [".gates/admit-blocker.sh", "docs/evidence/hard-gate-bootstrap/self-test.md"],
+			"test": ["admit-blocker.sh tests"],
+			"blocking": true
+		},
+		{
+			"id": "491-001",
+			"source": [".specify/issues/491/spec.md", ".specify/issues/491/plan.md"],
+			"requirement": "Installed launcher exposes configure supervised, doctor --supervised, and profile-aware start/stop/status using the versioned supervised contract.",
+			"status": "PASS",
+			"evidence": [
+				"scripts/supervised.sh",
+				"scripts/installer-test.sh",
+				"docs/evidence/issue-491/qualification.md"
+			],
+			"test": ["launcher/helper focused tests", "installer fixture"],
+			"blocking": true
+		},
+		{
+			"id": "491-002",
+			"source": [".specify/issues/491/spec.md"],
+			"requirement": "Configuration and secret storage enforce permissions, safe paths, input validation, redaction, and generated local secrets.",
+			"status": "PASS",
+			"evidence": [
+				"scripts/supervised.sh",
+				"scripts/installer-test.sh",
+				"docs/evidence/issue-491/acceptance-matrix.md"
+			],
+			"test": ["parser", "permissions", "path-safety", "secret-redaction tests"],
+			"blocking": true
+		},
+		{
+			"id": "491-003",
+			"source": [".specify/issues/491/spec.md"],
+			"requirement": "Default start remains safe Quickstart; supervised commands use the existing advanced Compose profile, real adapters, explicit repository coordinates, and merge kill switch.",
+			"status": "PASS",
+			"evidence": [
+				"scripts/quickstart.sh",
+				"scripts/supervised.sh",
+				"docs/evidence/issue-491/acceptance-matrix.md"
+			],
+			"test": ["profile isolation", "launcher delegation tests"],
+			"blocking": true
+		},
+		{
+			"id": "491-004",
+			"source": [".specify/issues/491/spec.md"],
+			"requirement": "Supervised doctor is read-only and validates the installed contract, Docker/host tools, safe flags, and readiness compatibility without mutation.",
+			"status": "PASS",
+			"evidence": [
+				"scripts/supervised.sh",
+				"apps/server/src/__tests__/install-doctor.test.ts",
+				"docs/evidence/issue-491/acceptance-matrix.md"
+			],
+			"test": ["doctor/readiness tests"],
+			"blocking": true
+		},
+		{
+			"id": "491-005",
+			"source": [".specify/issues/491/spec.md"],
+			"requirement": "Installed user path needs no clone, internal environment variables, Compose knowledge, or manual configuration edits.",
+			"status": "PASS",
+			"evidence": [
+				"install.sh",
+				"scripts/installer-test.sh",
+				"docs/evidence/issue-491/qualification.md"
+			],
+			"test": ["installer fixture smoke"],
+			"blocking": true
+		},
+		{
+			"id": "491-006",
+			"source": [".specify/issues/491/spec.md"],
+			"requirement": "Missing or invalid token, repository, OpenCode, SpecKit, provider, and model produce actionable blocked results without secret disclosure.",
+			"status": "PASS",
+			"evidence": [
+				"scripts/supervised.sh",
+				"scripts/installer-test.sh",
+				"docs/evidence/issue-491/acceptance-matrix.md"
+			],
+			"test": ["negative configuration tests"],
+			"blocking": true
+		},
+		{
+			"id": "491-007",
+			"source": [".specify/issues/491/spec.md"],
+			"requirement": "Demo behavior remains unchanged and isolated from supervised state and volumes; no second runtime/readiness engine is introduced.",
+			"status": "PASS",
+			"evidence": [
+				"scripts/quickstart.sh",
+				"scripts/supervised.sh",
+				"docs/evidence/issue-491/acceptance-matrix.md"
+			],
+			"test": ["profile isolation tests", "product smoke"],
+			"blocking": true
+		},
+		{
+			"id": "491-008",
+			"source": [".specify/issues/491/spec.md"],
+			"requirement": "Tests cover parser, permissions, path safety, secret redaction, profile isolation, and launcher delegation; docs and architecture map are current.",
+			"status": "PASS",
+			"evidence": [
+				"scripts/installer-test.sh",
+				"docs/evidence/issue-491/qualification.md",
+				"docs/architecture/README.md"
+			],
+			"test": ["full required local validation", "architecture/evidence validation"],
+			"blocking": true
+		},
+		{
+			"id": "VAL-001",
+			"source": ["package.json", "repository test/build contracts", "user-run-contract"],
+			"requirement": "Inventory and pass all applicable local format, lint, typecheck, unit, contract, integration, migration, build, security/policy, and package suites.",
+			"status": "PASS",
+			"evidence": ["docs/evidence/hard-gate-bootstrap/local-validation.md"],
+			"test": [],
+			"blocking": true
+		},
+		{
+			"id": "VAL-002",
+			"source": ["package.json", "playwright.config.ts", "user-run-contract"],
+			"requirement": "Pass applicable product E2E, route smoke, runtime/startup, and critical user journey checks before final content seal.",
+			"status": "PASS",
+			"evidence": ["docs/evidence/hard-gate-bootstrap/product-e2e.md", "playwright.config.ts"],
+			"test": [],
+			"blocking": true
+		},
+		{
+			"id": "GOV-007",
+			"source": ["AGENTS.md", ".specify/memory/constitution.md", "user-run-contract"],
+			"requirement": "Compact AGENTS.md to a navigator while preserving unique valid rules in canonical policy locations.",
+			"status": "PASS",
+			"evidence": ["AGENTS.md", "docs/policies/agent-governance.md"],
+			"test": ["navigator/policy audit"],
+			"blocking": true
+		},
+		{
+			"id": "GH-001",
+			"source": [".specify/memory/constitution.md", "user-run-contract"],
+			"requirement": "Reconcile live repository, Issue #491, PRs, reviews, checks, and release state through the visible Playwright GitHub control plane.",
+			"status": "PASS",
+			"evidence": [
+				".run/20260908T225128Z/github-readback.json",
+				"docs/evidence/hard-gate-bootstrap/github-readback.md"
+			],
+			"test": ["G35/G90/G95 browser evidence"],
+			"blocking": true
+		},
+		{
+			"id": "GH-002",
+			"source": ["live GitHub Issue #493", "live GitHub release v0.3.0"],
+			"requirement": "Reconcile the open release-qualification follow-on and record its boundary without claiming release PR landing, tag publication, or independent public-install acceptance in the Issue-491 run.",
+			"status": "NOT_APPLICABLE_WITH_REASON",
+			"evidence": [
+				".run/20260908T225128Z/github-readback.json",
+				"docs/evidence/hard-gate-bootstrap/github-readback.md"
+			],
+			"test": ["visible Playwright issue/release readback"],
+			"blocking": false
+		}
+	]
+}

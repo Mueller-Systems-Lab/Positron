@@ -61,6 +61,14 @@ GITHUB_TOKEN=ignored HOME="$home" XDG_CONFIG_HOME="$home/config" XDG_STATE_HOME=
   "$home/.local/bin/positron" doctor --supervised >"$TMP/doctor.out"
 grep -q 'GitHub auth: PASS' "$TMP/doctor.out"
 ! grep -q 'ghp-test-token' "$TMP/doctor.out"
+test "$(find "$home/state/positron/supervised" -type f 2>/dev/null | wc -l)" = 0
+if GITHUB_TOKEN=ghp-test-token HOME="$home" XDG_CONFIG_HOME="$home/config" XDG_STATE_HOME="$home/state" PATH="$TMP/bin:/usr/bin:/bin" \
+  "$home/.local/bin/positron" configure supervised --repo 'owner/../../escape' --provider local --model free-model >/dev/null 2>&1; then exit 1; fi
+if GITHUB_TOKEN=ghp-test-token HOME="$home" XDG_CONFIG_HOME="$home/config" XDG_STATE_HOME="$home/state" PATH="$TMP/bin:/usr/bin:/bin" \
+  "$home/.local/bin/positron" configure supervised --repo owner/sandbox --provider 'bad;provider' --model free-model >/dev/null 2>&1; then exit 1; fi
+ln -s /etc/passwd "$TMP/token-symlink"
+if GITHUB_TOKEN= HOME="$home" XDG_CONFIG_HOME="$home/config" XDG_STATE_HOME="$home/state" PATH="$TMP/bin:/usr/bin:/bin" \
+  "$home/.local/bin/positron" configure supervised --repo owner/sandbox --provider local --model free-model --github-token-file "$TMP/token-symlink" >/dev/null 2>&1; then exit 1; fi
 test -L "$home/data/positron/releases/v0.2.0/.positron"
 test -f "$home/state/positron/quickstart/demo.env"
 grep -q legacy-credential-state "$home/state/positron/quickstart/demo.env"

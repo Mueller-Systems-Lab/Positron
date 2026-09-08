@@ -16,6 +16,7 @@
 			"!**/.positron",
 			"!**/coverage",
 			"!**/.stryker-tmp",
+			"!**/reports",
 			"!**/test-results",
 			"!**/playwright-report"
 		]
@@ -83,6 +84,7 @@
 			"!**/.positron",
 			"!**/coverage",
 			"!**/.stryker-tmp",
+			"!**/reports",
 			"!**/test-results",
 			"!**/playwright-report",
 			"!**/*.d.ts"
@@ -104,6 +106,7 @@
 			"!**/dist",
 			"!**/coverage",
 			"!**/.stryker-tmp",
+			"!**/reports",
 			"!**/test-results",
 			"!**/playwright-report",
 			"!apps/web/index.html",
