@@ -1,4 +1,34 @@
-# AGENTS.md — Positron-Regeln
+# Positron — Project Navigator
+
+Repository: `Positron-Control/positron` · Default branch: `main` · Source of
+truth: observed repository reality, then versioned contracts and GitHub when
+available.  The controller owns progression; agents are workers.
+
+## Workflow index
+
+Rehydrate → reality → local preflight → scoped mutation → targeted tests →
+full validation → evidence → commit → GitHub readiness → visible GitHub
+control plane → final read-back.  Start with `.gates/run-gate.sh G10`.
+
+## File index
+
+- Architecture: `docs/architecture.md`, `docs/architecture/`
+- Product contract: `PRODUCT_CONTRACT.md`, `MIGRATION_MANIFEST.md`
+- Specs/plan/tasks: `.specify/issues/<n>/`
+- Evidence: `docs/evidence/`
+- Gates: `.gates/`
+- Tests: root `package.json`, `e2e/`, package `src/__tests__/`
+
+## Tool index
+
+| Capability | Authority |
+| --- | --- |
+| Repository and Git reality | local filesystem / local Git |
+| Tests and builds | local shell |
+| GitHub read/write and verification | visible Playwright browser only |
+| Local changes | admitted only after G30 |
+
+The detailed repository constraints below remain mandatory.
 
 ## Nicht verhandelbarer Workflow
 

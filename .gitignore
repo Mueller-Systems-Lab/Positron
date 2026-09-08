@@ -93,5 +93,8 @@ e2e/**/*.d.ts.map
 # docs/evidence/ is versioned documentation — this only affects root evidence/
 /evidence/
 
+# Ephemeral local hard-gate state; durable evidence is versioned separately.
+.gates/.state/
+
 # Prevent re-addition of generated raw evidence that exceeds Biome file size limit
 /docs/evidence/issue-340/track-a-biome-check-before.json
