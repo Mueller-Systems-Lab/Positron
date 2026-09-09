@@ -1,6 +1,7 @@
 services:
   redis:
     image: redis:7-alpine
+    user: redis
     expose:
       - "6379"
     environment:
@@ -11,6 +12,8 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
     healthcheck:
       test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
       interval: 5s
