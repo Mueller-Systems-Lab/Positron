@@ -46,8 +46,13 @@
 		"verify:issues": "node scripts/verify-issues.mjs all",
 		"test:transfer-references": "node scripts/verify-transfer-references.mjs",
 		"test:review-execution": "node scripts/verify-review-execution.mjs",
+<<<<<<< HEAD
 		"verify:canonical-boundary": "node scripts/verify-canonical-boundary.mjs",
 		"test:redis-security": "bash scripts/redis-security-regression.sh",
+		"test:nginx-security": "bash scripts/nginx-security-regression.sh",
+=======
+		"test:nginx-security": "bash scripts/nginx-security-regression.sh",
+>>>>>>> refs/pull/503/head
 		"verify:issue": "node scripts/verify-issues.mjs",
 		"observability:drill": "node scripts/observability-drill.mjs",
 		"observability:validate": "node scripts/observability-validate.mjs",
