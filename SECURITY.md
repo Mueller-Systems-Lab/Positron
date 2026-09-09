@@ -6,6 +6,8 @@ Do not post secrets, tokens, `.env` contents or private credentials in public is
 
 For now, report security-sensitive findings through a private maintainer channel or a minimal GitHub issue that contains no secret values.
 
+A supported distribution requires a defined private vulnerability-intake and update process; see [CRA readiness](docs/compliance/cra-readiness.md).
+
 ## Security Model
 
 Positron treats tool execution and write-capable automation as sensitive.
@@ -29,16 +31,23 @@ See [docs/security/admin-auth.md](docs/security/admin-auth.md).
 
 ## Docker Security (RED_HOLD remediated)
 
-All services run with `security_opt: no-new-privileges:true` and `cap_drop: ALL`.
-Nginx and web use `read_only: true` root filesystem with tmpfs for required writable paths.
-Redis is internal-only (no host port exposure) with requirepass authentication.
-No hardcoded admin tokens or default passwords.
+Services are configured with hardened container boundaries including `security_opt: no-new-privileges:true` and capability dropping where defined by the current Compose configuration. Nginx and web use read-only root filesystems with tmpfs for required writable paths. Redis is internal-only with authentication and no intended public host exposure. No hardcoded admin tokens or default passwords are allowed.
+
+The current supervised Redis startup issue is tracked separately and must be resolved without weakening the intended security boundary.
 
 See [docs/security/docker-hardening.md](docs/security/docker-hardening.md).
+
+## Release Integrity
+
+A supported distribution must bind release artifacts to an exact source commit and retain cryptographic digests plus an SBOM. The current installer documents its existing HTTPS-only integrity boundary; stronger release provenance is a required distribution gate rather than an already-completed claim.
+
+See [docs/security/release-integrity.md](docs/security/release-integrity.md) and [distribution readiness](docs/status/distribution-readiness.md).
 
 ## Production Deployment
 
 Refer to the [production security checklist](docs/security/production-security-checklist.md) before deploying.
+
+Production deployment is not implied by a successful demo or supervised validation run.
 
 ## MCP/OpenCode Security
 
@@ -47,9 +56,22 @@ All external skills follow a trust-tier system: Tier 0 (Readonly), Tier 1 (Sandb
 
 See [docs/security/opencode-mcp-security-policy.md](docs/security/opencode-mcp-security-policy.md).
 
+## Supervised and Unsupervised Boundaries
+
+Supervised Full Real Mode validation in Issue #308 is complete. That evidence does **not** authorize unsupervised productive Real Mode, production deployment, or automatic merge authority.
+
+Current intended external-evaluation posture remains:
+
+- explicitly configured repository;
+- least-privilege credentials;
+- supervised execution;
+- push only through explicit opt-in;
+- merge disabled by default;
+- operator-visible evidence and hold states.
+
 ## Known Limitations
 
 See [`docs/status/known-limitations.md`](docs/status/known-limitations.md).
 
-Full Real Mode (#308) remains blocked pending separate validation pre-flight.
-GDPR/DSGVO full governance remains an open item documented in [docs/compliance/README.md](docs/compliance/README.md).
+Unsupervised productive Real Mode remains gated and is not a supported deployment claim.
+GDPR/DSGVO governance and final EU regulatory classification remain open product/legal work documented in [docs/compliance/README.md](docs/compliance/README.md) and [docs/compliance/cra-readiness.md](docs/compliance/cra-readiness.md).
