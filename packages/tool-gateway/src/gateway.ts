@@ -2,6 +2,7 @@
 // Issue #219
 
 import path from 'node:path';
+import fs from 'node:fs';
 import { redactSecrets } from '@positron/shared';
 import type { ToolRegistry } from './registry.js';
 import type { BlockReason, GatewayConfig, ToolCall, ToolDefinition, ToolResult } from './types.js';
@@ -325,9 +326,7 @@ export class GatewayService {
 			const resolvedRoot = path.resolve(call.workspaceRoot);
 			const isAllowed = def.allowedWorkspaceRoots.some((allowedRoot) => {
 				const resolvedAllowed = path.resolve(allowedRoot);
-				return (
-					resolvedRoot === resolvedAllowed || resolvedRoot.startsWith(resolvedAllowed + path.sep)
-				);
+				return this.isRealPathWithinRoot(resolvedRoot, resolvedAllowed);
 			});
 			if (!isAllowed) {
 				return {
@@ -342,7 +341,10 @@ export class GatewayService {
 			const normalizedWorkspace = path.resolve(call.workspaceRoot);
 			const normalizedTarget = path.resolve(targetPath);
 
-			if (!normalizedTarget.startsWith(normalizedWorkspace)) {
+			if (
+				!this.isWithinRoot(normalizedTarget, normalizedWorkspace) ||
+				!this.isRealPathWithinRoot(normalizedTarget, normalizedWorkspace)
+			) {
 				return {
 					ok: false,
 					error: `Absolute path "${targetPath}" is outside workspace root`,
@@ -356,7 +358,10 @@ export class GatewayService {
 		const normalizedRoot = path.resolve(call.workspaceRoot);
 
 		// Block if resolved path is outside workspace root
-		if (!resolved.startsWith(normalizedRoot)) {
+		if (
+			!this.isWithinRoot(resolved, normalizedRoot) ||
+			!this.isRealPathWithinRoot(resolved, normalizedRoot)
+		) {
 			return {
 				ok: false,
 				error: `Path "${targetPath}" resolves outside workspace root`,
@@ -395,6 +400,29 @@ export class GatewayService {
 		}
 
 		return { ok: true };
+	}
+
+	private isWithinRoot(candidate: string, root: string): boolean {
+		return candidate === root || candidate.startsWith(`${root}${path.sep}`);
+	}
+
+	private isRealPathWithinRoot(candidate: string, root: string): boolean {
+		try {
+			if (!fs.existsSync(root))
+				return this.isWithinRoot(path.resolve(candidate), path.resolve(root));
+			const realRoot = fs.realpathSync.native(root);
+			let existingAncestor = candidate;
+			while (!fs.existsSync(existingAncestor)) {
+				const parent = path.dirname(existingAncestor);
+				if (parent === existingAncestor) return false;
+				existingAncestor = parent;
+			}
+			const realAncestor = fs.realpathSync.native(existingAncestor);
+			const realCandidate = path.resolve(realAncestor, path.relative(existingAncestor, candidate));
+			return this.isWithinRoot(realCandidate, realRoot);
+		} catch {
+			return false;
+		}
 	}
 
 	/**

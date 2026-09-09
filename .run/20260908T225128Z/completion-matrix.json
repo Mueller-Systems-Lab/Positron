@@ -1,7 +1,8 @@
 {
 	"run_id": "20260908T225128Z",
 	"repository": "Mueller-Systems-Lab/Positron",
-	"source_head": "84626c1561f8e5282a5fa9478122d5ed3515731b",
+	"source_head": "fbea11f2682d023d54693444f46b6432735c061f",
+	"audit_start_head": "fbea11f2682d023d54693444f46b6432735c061f",
 	"branch": "positron/issue-491-hard-gates",
 	"scope": {
 		"governance": "Issue 0 bootstrap is a supporting governance scope; it must not replace the product scope.",
@@ -12,7 +13,7 @@
 	"requirements": [
 		{
 			"id": "GOV-001",
-			"source": [".specify/issues/0/spec.md", "user-run-contract"],
+			"source": ["docs/evidence/hard-gate-bootstrap/spec.md", "user-run-contract"],
 			"requirement": "Implement and qualify deterministic gates G10 through G100 in the required order.",
 			"status": "PASS",
 			"evidence": [
@@ -128,6 +129,7 @@
 			"evidence": [
 				"scripts/supervised.sh",
 				"apps/server/src/__tests__/install-doctor.test.ts",
+				"scripts/installer-test.sh",
 				"docs/evidence/issue-491/acceptance-matrix.md"
 			],
 			"test": ["doctor/readiness tests"],
@@ -156,7 +158,13 @@
 				"scripts/installer-test.sh",
 				"docs/evidence/issue-491/acceptance-matrix.md"
 			],
-			"test": ["negative configuration tests"],
+			"test": [
+				"missing token",
+				"invalid repository/provider/model",
+				"missing OpenCode/SpecKit",
+				"corrupt configuration",
+				"symlink/path-safety tests"
+			],
 			"blocking": true
 		},
 		{
@@ -187,11 +195,18 @@
 		},
 		{
 			"id": "VAL-001",
-			"source": ["package.json", "repository test/build contracts", "user-run-contract"],
+			"source": [
+				"package.json",
+				"AGENTS.md",
+				"docs/policies/agent-governance.md",
+				"user-run-contract"
+			],
 			"requirement": "Inventory and pass all applicable local format, lint, typecheck, unit, contract, integration, migration, build, security/policy, and package suites.",
 			"status": "PASS",
 			"evidence": ["docs/evidence/hard-gate-bootstrap/local-validation.md"],
-			"test": [],
+			"test": [
+				"G60 format/lint/typecheck/build/unit/contract/integration/transfer/review/issue verification"
+			],
 			"blocking": true
 		},
 		{
@@ -200,7 +215,7 @@
 			"requirement": "Pass applicable product E2E, route smoke, runtime/startup, and critical user journey checks before final content seal.",
 			"status": "PASS",
 			"evidence": ["docs/evidence/hard-gate-bootstrap/product-e2e.md", "playwright.config.ts"],
-			"test": [],
+			"test": ["G65 npm run test:e2e and product smoke evidence"],
 			"blocking": true
 		},
 		{
@@ -218,23 +233,162 @@
 			"requirement": "Reconcile live repository, Issue #491, PRs, reviews, checks, and release state through the visible Playwright GitHub control plane.",
 			"status": "PASS",
 			"evidence": [
-				".run/20260908T225128Z/github-readback.json",
-				"docs/evidence/hard-gate-bootstrap/github-readback.md"
+				"docs/evidence/hard-gate-bootstrap/github-readback.md",
+				"docs/evidence/post-green-audit/report.json"
 			],
 			"test": ["G35/G90/G95 browser evidence"],
 			"blocking": true
 		},
 		{
 			"id": "GH-002",
-			"source": ["live GitHub Issue #493", "live GitHub release v0.3.0"],
+			"source": [
+				"https://github.com/Mueller-Systems-Lab/Positron/issues/493",
+				"https://github.com/Mueller-Systems-Lab/Positron/releases/tag/v0.3.0"
+			],
 			"requirement": "Reconcile the open release-qualification follow-on and record its boundary without claiming release PR landing, tag publication, or independent public-install acceptance in the Issue-491 run.",
 			"status": "NOT_APPLICABLE_WITH_REASON",
+			"reason": "Issue #493 and release publication are a separate follow-on scope; this run records the boundary and does not claim release landing or public-install acceptance.",
 			"evidence": [
-				".run/20260908T225128Z/github-readback.json",
-				"docs/evidence/hard-gate-bootstrap/github-readback.md"
+				"docs/evidence/hard-gate-bootstrap/github-readback.md",
+				"docs/evidence/post-green-audit/report.json"
 			],
 			"test": ["visible Playwright issue/release readback"],
 			"blocking": false
+		},
+		{
+			"id": "CONTRACT-001",
+			"source": ["PRODUCT_CONTRACT.md"],
+			"requirement": "Existing Repository and Blueprint are the canonical validated project-entry contracts.",
+			"status": "PASS",
+			"evidence": ["PRODUCT_CONTRACT.md", "docs/evidence/issue-491/qualification.md"],
+			"test": ["project-entry contract tests"],
+			"blocking": true
+		},
+		{
+			"id": "CONTRACT-002",
+			"source": ["PRODUCT_CONTRACT.md"],
+			"requirement": "Positron remains the lifecycle authority; workers and adapters cannot self-approve, bypass gates, or merge without operator authorization.",
+			"status": "PASS",
+			"evidence": ["PRODUCT_CONTRACT.md", "docs/policies/agent-governance.md"],
+			"test": ["gate and policy validation"],
+			"blocking": true
+		},
+		{
+			"id": "CONTRACT-003",
+			"source": ["PRODUCT_CONTRACT.md"],
+			"requirement": "Credentials cross the application only by reference and secret values do not persist in Git, databases, evidence, logs, screenshots, telemetry, or PR comments.",
+			"status": "PASS",
+			"evidence": ["PRODUCT_CONTRACT.md", "docs/evidence/issue-491/qualification.md"],
+			"test": ["secret redaction and installer security suites"],
+			"blocking": true
+		},
+		{
+			"id": "CONTRACT-004",
+			"source": ["PRODUCT_CONTRACT.md"],
+			"requirement": "Requested, selected, and executed provider/model identities remain separate evidence fields.",
+			"status": "PASS",
+			"evidence": ["PRODUCT_CONTRACT.md", "docs/architecture/README.md"],
+			"test": ["adapter and evidence contract tests"],
+			"blocking": true
+		},
+		{
+			"id": "MIGRATION-001",
+			"source": ["MIGRATION_MANIFEST.md", "docs/migration/manifest.json"],
+			"requirement": "Keep, rework, externalize, drop, and historical subsystem decisions are reconciled with their documented validation surfaces.",
+			"status": "PASS",
+			"evidence": [
+				"MIGRATION_MANIFEST.md",
+				"docs/migration/manifest.json",
+				"docs/evidence/hard-gate-bootstrap/local-validation.md"
+			],
+			"test": ["migration and canonical-boundary validation"],
+			"blocking": true
+		},
+		{
+			"id": "CONSTITUTION-001",
+			"source": [".specify/memory/constitution.md"],
+			"requirement": "Constitutional obligations for durable evidence, no silent failure, resume-by-state, GitHub traceability, and human override remain enforced.",
+			"status": "PASS",
+			"evidence": [".specify/memory/constitution.md", "docs/policies/agent-governance.md"],
+			"test": ["governance and gate self-test"],
+			"blocking": true
+		},
+		{
+			"id": "491-009",
+			"source": [".specify/issues/491/review-gate.md", "install.sh"],
+			"requirement": "The installed release contains the supervised launcher required for configure, doctor, and lifecycle commands.",
+			"status": "PASS",
+			"evidence": ["install.sh", "scripts/installer-test.sh"],
+			"test": ["installer fixture release-content check"],
+			"blocking": true
+		},
+		{
+			"id": "491-010",
+			"source": [".specify/issues/491/review-gate.md", "scripts/supervised.sh"],
+			"requirement": "Supervised safety flags fail closed under configuration tampering and token values are single-line protected secrets.",
+			"status": "PASS",
+			"evidence": ["scripts/supervised.sh", "scripts/installer-test.sh"],
+			"test": ["flag-tampering and token validation tests"],
+			"blocking": true
+		},
+		{
+			"id": "491-011",
+			"source": [".specify/issues/491/review-gate.md", "apps/server/src/readiness.ts"],
+			"requirement": "Supervised doctor validates the installed operator-readiness contract in addition to host, tool, and repository prerequisites.",
+			"status": "PASS",
+			"evidence": [
+				"scripts/supervised.sh",
+				"apps/server/src/readiness.ts",
+				"scripts/installer-test.sh"
+			],
+			"test": ["doctor readiness contract test"],
+			"blocking": true
+		},
+		{
+			"id": "491-012",
+			"source": [".specify/issues/491/review-gate.md", "scripts/supervised.sh"],
+			"requirement": "Missing or malformed supervised configuration fields produce structured actionable diagnostics instead of shell errors.",
+			"status": "PASS",
+			"evidence": ["scripts/supervised.sh", "scripts/installer-test.sh"],
+			"test": ["missing-field and invalid-config tests"],
+			"blocking": true
+		},
+		{
+			"id": "VAL-003",
+			"source": ["AGENTS.md", "package.json", "e2e/route-smoke.spec.ts"],
+			"requirement": "The documented route-smoke suite is executed separately and is not hidden by optional fixture skips.",
+			"status": "PASS",
+			"evidence": [
+				"AGENTS.md",
+				"e2e/route-smoke.spec.ts",
+				"docs/evidence/hard-gate-bootstrap/product-e2e.md"
+			],
+			"test": ["npm run test:route-smoke"],
+			"blocking": true
+		},
+		{
+			"id": "GH-003",
+			"source": [".specify/memory/constitution.md", "user-run-contract"],
+			"requirement": "Record the final GitHub repository, issue/PR, review, check, diff, risk, and release-boundary readback through the approved visible browser control plane.",
+			"status": "PASS",
+			"evidence": [
+				"docs/evidence/hard-gate-bootstrap/github-readback.md",
+				"docs/evidence/post-green-audit/report.json"
+			],
+			"test": ["fresh headed Playwright readback"],
+			"blocking": true
+		},
+		{
+			"id": "AUDIT-001",
+			"source": ["user-run-contract"],
+			"requirement": "Complete an independent post-Green multi-agent audit across matrix, gates, code, tests, clean state, E2E, architecture, security, and GitHub reality with no unresolved critical or major findings.",
+			"status": "PASS",
+			"evidence": [
+				"docs/evidence/post-green-audit/report.json",
+				"docs/evidence/post-green-audit/reviewer-findings.md"
+			],
+			"test": ["independent reviewer reruns", "finalizer audit check"],
+			"blocking": true
 		}
 	]
 }

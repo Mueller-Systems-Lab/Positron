@@ -102,4 +102,15 @@ describe('tests.run_selected', () => {
 		const result = await testsRunSelectedHandler(call);
 		expect(result.success).toBe(false);
 	});
+
+	it('should reject an absolute test path outside the workspace', async () => {
+		const call = makeCall({
+			toolId: 'tests.run_selected',
+			arguments: { command: 'node --test /etc/hostname' },
+		});
+
+		const result = await testsRunSelectedHandler(call);
+		expect(result.success).toBe(false);
+		expect(result.blockedReason).toContain('not in allowed test prefixes');
+	});
 });

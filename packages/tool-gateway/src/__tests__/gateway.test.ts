@@ -2,6 +2,9 @@
 // Issue #219 — T-006
 
 import { beforeEach, describe, expect, it } from 'vitest';
+import { mkdtempSync, mkdirSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { GatewayService } from '../gateway.js';
 import { ToolRegistry } from '../registry.js';
 import type { ToolCall, ToolDefinition, ToolHandler, ToolResult } from '../types.js';
@@ -347,6 +350,7 @@ describe('GatewayService', () => {
 		});
 
 		it('should allow valid path within workspace', async () => {
+			const fixture = mkdtempSync(join(tmpdir(), 'positron-gateway-valid-root-'));
 			const def = makeDefinition({
 				id: 'test.read_file',
 				inputSchema: {
@@ -370,7 +374,7 @@ describe('GatewayService', () => {
 			const call = makeCall({
 				toolId: 'test.read_file',
 				arguments: { path: 'src/index.ts' },
-				workspaceRoot: '/tmp/workspace',
+				workspaceRoot: fixture,
 			});
 
 			const result = await gateway.execute(call);
@@ -409,6 +413,59 @@ describe('GatewayService', () => {
 
 			const result = await gateway.execute(call);
 
+			expect(result.success).toBe(false);
+			expect(result.blockedReason).toContain(BLOCK_REASONS.PATH_TRAVERSAL);
+		});
+
+		it('should reject a workspace root symlink that escapes an allowed root', async () => {
+			const fixture = mkdtempSync(join(tmpdir(), 'positron-gateway-root-'));
+			const allowed = join(fixture, 'allowed');
+			const outside = join(fixture, 'outside');
+			const link = join(allowed, 'linked-workspace');
+			mkdirSync(allowed);
+			mkdirSync(outside);
+			symlinkSync(outside, link, 'dir');
+			const def = makeDefinition({
+				id: 'test.read_file',
+				allowedWorkspaceRoots: [allowed],
+				inputSchema: {
+					type: 'object',
+					properties: { path: { type: 'string' } },
+					required: ['path'],
+				},
+			});
+			registry.register(def, async () => ({ success: true, output: 'ok' }));
+			const result = await gateway.execute(
+				makeCall({
+					toolId: 'test.read_file',
+					workspaceRoot: link,
+					arguments: { path: 'data.txt' },
+				}),
+			);
+			expect(result.success).toBe(false);
+			expect(result.blockedReason).toContain(BLOCK_REASONS.PATH_TRAVERSAL);
+		});
+
+		it('should reject an allowed workspace root that does not exist', async () => {
+			const fixture = mkdtempSync(join(tmpdir(), 'positron-gateway-missing-root-'));
+			const missingRoot = join(fixture, 'missing');
+			const def = makeDefinition({
+				id: 'test.read_file',
+				allowedWorkspaceRoots: [missingRoot],
+				inputSchema: {
+					type: 'object',
+					properties: { path: { type: 'string' } },
+					required: ['path'],
+				},
+			});
+			registry.register(def, async () => ({ success: true, output: 'ok' }));
+			const result = await gateway.execute(
+				makeCall({
+					toolId: 'test.read_file',
+					workspaceRoot: fixture,
+					arguments: { path: 'data.txt' },
+				}),
+			);
 			expect(result.success).toBe(false);
 			expect(result.blockedReason).toContain(BLOCK_REASONS.PATH_TRAVERSAL);
 		});

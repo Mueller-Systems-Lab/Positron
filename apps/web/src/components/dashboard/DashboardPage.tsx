@@ -43,7 +43,7 @@ export default function DashboardPage(): React.ReactElement {
 	return (
 		<div>
 			{/* Header */}
-			<div className="flex items-center justify-between mb-6">
+			<div className="mb-6 flex flex-wrap items-center justify-between gap-4">
 				<div>
 					<h1>Dashboard</h1>
 					<p className="text-sm text-slate-400 mt-1">
@@ -53,7 +53,7 @@ export default function DashboardPage(): React.ReactElement {
 						)}
 					</p>
 				</div>
-				<div className="flex items-center gap-3">
+				<div className="flex w-full flex-wrap items-center justify-start gap-3 sm:w-auto sm:flex-nowrap sm:justify-end">
 					<Link to="/readiness" className="btn-secondary text-sm">
 						Check readiness
 					</Link>

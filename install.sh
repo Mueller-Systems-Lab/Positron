@@ -123,7 +123,7 @@ install_files() {
 	mkdir -p "$releases" "$config_root" "$state_root" "$cache_root" "$HOME/.local/bin" || die INSTALL_DIR_NOT_WRITABLE "required user-owned installation directories are not writable" "existing installation was left unchanged" "choose writable XDG paths and retry"
 	mkdir -p "$staging"
 	tar -xzf "$TMP_DIR/release.tar.gz" --strip-components=1 -C "$staging" || die ARCHIVE_INVALID "release extraction failed" "existing installation was left unchanged" "retry the download"
-	for required in scripts/doctor.sh scripts/quickstart.sh docker-compose.yml docker-compose.quickstart.yml Dockerfile.quickstart nginx.conf; do
+	for required in scripts/doctor.sh scripts/quickstart.sh scripts/supervised.sh docker-compose.yml docker-compose.quickstart.yml Dockerfile.quickstart nginx.conf; do
 		[[ -f "$staging/$required" ]] || die REQUIRED_CONTENT_MISSING "release is missing required file: $required" "existing installation was left unchanged" "select a complete stable release"
 	done
 	[[ -x "$staging/scripts/quickstart.sh" || -f "$staging/scripts/quickstart.sh" ]] || die REQUIRED_CONTENT_MISSING "quickstart script is unavailable" "existing installation was left unchanged" "select a complete stable release"
@@ -150,17 +150,25 @@ install_files() {
 	fi
 	ln -sfn "$final" "$data_root/current.tmp"
 	mv -Tf -- "$data_root/current.tmp" "$data_root/current"
+	launcher_quote() { printf '%q' "$1"; }
+	launcher_installer_version="$(launcher_quote "$INSTALLER_VERSION")"
+	launcher_tag="$(launcher_quote "$TAG")"
+	launcher_final="$(launcher_quote "$final")"
+	launcher_data_root="$(launcher_quote "$data_root")"
+	launcher_state_root="$(launcher_quote "$state_root")"
+	launcher_config_root="$(launcher_quote "$config_root")"
+	launcher_cache_root="$(launcher_quote "$cache_root")"
 	cat >"$cli" <<EOF
 #!/usr/bin/env bash
 set -Eeuo pipefail
-INSTALLER_VERSION=$INSTALLER_VERSION
-POSITRON_VERSION='$TAG'
-	POSITRON_RELEASE_COMMIT='unavailable from GitHub source-archive metadata'
-POSITRON_ROOT='$final'
-POSITRON_APP_ROOT='$data_root'
-POSITRON_STATE='$state_root'
-POSITRON_CONFIG='$config_root'
-POSITRON_CACHE='$cache_root'
+INSTALLER_VERSION=$launcher_installer_version
+POSITRON_VERSION=$launcher_tag
+POSITRON_RELEASE_COMMIT='unavailable from GitHub source-archive metadata'
+POSITRON_ROOT=$launcher_final
+POSITRON_APP_ROOT=$launcher_data_root
+POSITRON_STATE=$launcher_state_root
+POSITRON_CONFIG=$launcher_config_root
+POSITRON_CACHE=$launcher_cache_root
 quickstart() { POSITRON_QUICKSTART_ROOT="\$POSITRON_ROOT" POSITRON_QUICKSTART_STATE_DIR="\$POSITRON_STATE/quickstart" "\$POSITRON_ROOT/scripts/quickstart.sh" "\$@"; }
 doctor() { POSITRON_QUICKSTART_ROOT="\$POSITRON_ROOT" "\$POSITRON_ROOT/scripts/doctor.sh" "\$@"; }
 supervised() { [[ -x "\$POSITRON_ROOT/scripts/supervised.sh" ]] || die_cli SUPERVISED_RELEASE_REQUIRED 'the installed stable release does not contain supervised onboarding' 'the safe demo remains available; supervised commands are unavailable' 'install a supervised-onboarding compatible stable release'; POSITRON_SUPERVISED_ROOT="\$POSITRON_ROOT" POSITRON_CONFIG="\$POSITRON_CONFIG" POSITRON_STATE="\$POSITRON_STATE" "\$POSITRON_ROOT/scripts/supervised.sh" "\$@"; }

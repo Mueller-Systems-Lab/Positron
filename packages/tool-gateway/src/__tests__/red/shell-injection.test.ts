@@ -45,6 +45,30 @@ describe('Red Test: Shell Injection', () => {
 		expect(result.success).toBe(false);
 	});
 
+	it('BLOCKS: command with a single ampersand', async () => {
+		const result = await testsRunSelectedHandler({
+			toolId: 'tests.run_selected',
+			arguments: { command: 'npm test & touch /tmp/positron-shell-canary' },
+			runId: 'run-001',
+			phase: 'IMPLEMENT',
+			autonomyLevel: 2,
+			workspaceRoot: '/tmp/workspace',
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('BLOCKS: command containing a newline', async () => {
+		const result = await testsRunSelectedHandler({
+			toolId: 'tests.run_selected',
+			arguments: { command: 'npm test\ntouch /tmp/positron-shell-canary' },
+			runId: 'run-001',
+			phase: 'IMPLEMENT',
+			autonomyLevel: 2,
+			workspaceRoot: '/tmp/workspace',
+		});
+		expect(result.success).toBe(false);
+	});
+
 	it("BLOCKS: command with '||' chain", async () => {
 		const call: ToolCall = {
 			toolId: 'tests.run_selected',

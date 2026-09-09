@@ -6,12 +6,19 @@ STATE_DIR="$ROOT/.gates/.state"
 mkdir -p "$STATE_DIR"
 
 matrix_path() {
-	find "$ROOT/.run" -type f -name completion-matrix.json -print 2>/dev/null | LC_ALL=C sort | tail -n 1
+	find "$ROOT/.run" -type f -name completion-matrix.json -printf '%T@ %p\n' 2>/dev/null | LC_ALL=C sort -nr | sed -n '1{s/^[^ ]* //;p;}'
+}
+
+current_run_id() {
+	local matrix
+	matrix="$(matrix_path)"
+	[[ -n "$matrix" ]] || return 1
+	basename "$(dirname "$matrix")"
 }
 
 excluded_candidate() {
 	case "$1" in
-		node_modules|node_modules/*|*/node_modules|*/node_modules/*|dist|dist/*|*/dist|*/dist/*|.gates/.state|.gates/.state/*|.run/*/runtime|.run/*/runtime/*|*.tsbuildinfo|coverage|coverage/*|test-results|test-results/*|playwright-report|playwright-report/*|reports|reports/*)
+			node_modules|node_modules/*|*/node_modules|*/node_modules/*|dist|dist/*|*/dist|*/dist/*|.gates/.state|.gates/.state/*|.run/*/runtime|.run/*/runtime/*|.positron/runs|.positron/runs/*|.positron/quickstart|.positron/quickstart/*|.positron/evidence|.positron/evidence/*|*.tsbuildinfo|coverage|coverage/*|test-results|test-results/*|playwright-report|playwright-report/*|reports|reports/*|*.log|*.db|*.db-shm|*.db-wal|*.sqlite|*.sqlite-*|*.sqlite3|*.sqlite3-*)
 			return 0
 			;;
 		*) return 1 ;;
@@ -23,7 +30,8 @@ candidate_paths() {
 	git ls-files -z HEAD
 	git ls-files --cached -z
 	git ls-files --others --exclude-standard -z
-} | LC_ALL=C sort -zu
+	git ls-files --others --ignored --exclude-standard -z
+	} | LC_ALL=C sort -zu
 }
 
 untracked_candidate_paths() {
@@ -32,6 +40,18 @@ untracked_candidate_paths() {
 		excluded_candidate "$path" && continue
 		printf '%s\n' "$path"
 	done < <(git ls-files --others --exclude-standard)
+}
+
+ignored_user_paths() {
+	local path
+	while IFS= read -r path; do
+		excluded_candidate "$path" && continue
+		printf '%s\n' "$path"
+	done < <(git ls-files --others --ignored --exclude-standard -- \
+		':!node_modules' ':!**/node_modules' ':!dist' ':!**/dist' \
+		':!.gates/.state' ':!.gates/.state/**' ':!.run' ':!.run/**' \
+		':!reports' ':!reports/**' ':!coverage' ':!coverage/**' \
+		':!test-results' ':!test-results/**' ':!playwright-report' ':!playwright-report/**')
 }
 
 file_record() {
@@ -71,34 +91,61 @@ candidate_fingerprint() {
 	sha256sum "$manifest" | awk '{print $1}'
 }
 
+STATE_DIR="$ROOT/.gates/.state/$(current_run_id 2>/dev/null || printf 'unbound')"
+mkdir -p "$STATE_DIR"
+[[ ! -L "$STATE_DIR" ]] || { printf 'gate state directory must not be a symlink\n' >&2; exit 1; }
+chmod 700 "$STATE_DIR"
+[[ "$(stat -c '%a' "$STATE_DIR")" == 700 ]] || { printf 'gate state directory must be mode 0700\n' >&2; exit 1; }
 head_sha() { git rev-parse HEAD; }
-state_value() { [[ -f "$STATE_DIR/$1" ]] && cat "$STATE_DIR/$1"; }
+branch_name() { git branch --show-current; }
+state_value() { [[ -f "$STATE_DIR/$1" && ! -L "$STATE_DIR/$1" ]] && cat "$STATE_DIR/$1"; }
 state_field() { state_value "$1" | awk -F'|' -v n="$2" '{print $n; exit}'; }
-record() { printf '%s\n' "$2" >"$STATE_DIR/$1"; }
+record() { [[ ! -L "$STATE_DIR/$1" ]] || { printf 'gate state file must not be a symlink\n' >&2; exit 1; }; umask 077; printf '%s\n' "$2" >"$STATE_DIR/$1"; chmod 600 "$STATE_DIR/$1"; }
 pass() {
 	local gate="$1" fp
 	fp="$(candidate_fingerprint)"
-	record "$gate" "PASS|$(head_sha)|$fp|$(date -Is)"
+	record "$gate" "PASS|$(current_run_id)|$(branch_name)|$(head_sha)|$fp|$(date -Is)"
 	printf '%s=PASS\n' "$gate"
 }
 fail() { printf '%s=FAIL: %s\n' "$1" "$2" >&2; exit 1; }
-defer() { record "$1" "DEFERRED|$(head_sha)|$(candidate_fingerprint)|$(date -Is)|$2"; printf '%s=DEFERRED: %s\n' "$1" "$2"; }
-require_pass() { [[ "$(state_field "$1" 1)" == PASS ]] || fail "$2" "missing prerequisite $1"; }
-require_current_tree() { [[ "$(state_field "$1" 3)" == "$(candidate_fingerprint)" ]] || fail "$2" "validated candidate content changed"; }
+defer() { record "$1" "DEFERRED|$(current_run_id)|$(branch_name)|$(head_sha)|$(candidate_fingerprint)|$(date -Is)|$2"; printf '%s=DEFERRED: %s\n' "$1" "$2"; }
+require_pass() {
+	local state="$1" gate="$2" current_head
+	current_head="$(head_sha)"
+	[[ "$(state_field "$state" 1)" == PASS && "$(state_field "$state" 2)" == "$(current_run_id)" && "$(state_field "$state" 3)" == "$(branch_name)" ]] || fail "$gate" "missing current-run prerequisite $state"
+	if [[ "$(state_field "$state" 4)" != "$current_head" ]]; then
+		[[ "$(state_field G85 1)" == PASS && "$(state_field G85 4)" == "$current_head" && "$(state_field G85 5)" == "$(candidate_fingerprint)" ]] || fail "$gate" "stale prerequisite $state after HEAD changed"
+	fi
+}
+require_current_tree() { [[ "$(state_field "$1" 5)" == "$(candidate_fingerprint)" ]] || fail "$2" "validated candidate content changed"; }
 
 baseline_manifest_path="$STATE_DIR/baseline-manifest"
 baseline_user_paths="$STATE_DIR/baseline-user-work.paths"
+baseline_user_manifest_path="$STATE_DIR/baseline-user-work.manifest"
 
 record_baseline() {
 	candidate_manifest >"$baseline_manifest_path"
 	{
 		git diff --name-only HEAD
 		untracked_candidate_paths
+		ignored_user_paths
 	} | LC_ALL=C sort -u >"$baseline_user_paths"
+	: >"$baseline_user_manifest_path"
+	while IFS= read -r path; do
+		[[ -n "$path" ]] || continue
+		file_record "$path" >>"$baseline_user_manifest_path"
+	done <"$baseline_user_paths"
+	record BASELINE_HEAD "$(head_sha)"
+	record BASELINE_BRANCH "$(branch_name)"
+	record BASELINE_MATRIX "$(matrix_path)"
 }
 
 baseline_record() {
 	awk -F'\t' -v p="$1" '$1 == p { print; found=1; exit } END { if (!found) print p "\tDELETED\t-\t-" }' "$baseline_manifest_path"
+}
+
+baseline_user_record() {
+	awk -F'\t' -v p="$1" '$1 == p { print; found=1; exit } END { if (!found) print p "\tDELETED\t-\t-" }' "$baseline_user_manifest_path"
 }
 
 path_allowed() {
@@ -115,16 +162,19 @@ changed_paths() {
 	{
 		git diff --name-only HEAD
 		untracked_candidate_paths
-	} | LC_ALL=C sort -u
+		ignored_user_paths
+	} | LC_ALL=C sort -u | while IFS= read -r path; do
+		grep -Fxq "$path" "$baseline_user_paths" 2>/dev/null || printf '%s\n' "$path"
+	done
 }
 
 scope_check() {
 	local path current baseline
-	[[ -f "$baseline_manifest_path" && -f "$baseline_user_paths" ]] || fail G40 "G30 baseline is missing"
+	[[ -f "$baseline_manifest_path" && -f "$baseline_user_paths" && -f "$baseline_user_manifest_path" ]] || fail G40 "G30 baseline is missing"
 	while IFS= read -r path; do
 		[[ -n "$path" ]] || continue
 		current="$(file_record "$path")"
-		baseline="$(baseline_record "$path")"
+		baseline="$(baseline_user_record "$path")"
 		[[ "$current" == "$baseline" ]] || fail G40 "pre-existing user work changed: $path"
 	done <"$baseline_user_paths"
 	while IFS= read -r path; do
@@ -148,8 +198,9 @@ const fs = require('node:fs');
 const matrix = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
 const allowed = new Set(['OPEN', 'IN_PROGRESS', 'PASS', 'NOT_APPLICABLE_WITH_REASON']);
 if (!matrix.run_id || !matrix.scope?.product || !Array.isArray(matrix.requirements) || matrix.requirements.length === 0) process.exit(1);
-for (const row of matrix.requirements) {
+	for (const row of matrix.requirements) {
   if (!row.id || !row.requirement || !allowed.has(row.status) || !Array.isArray(row.source) || !Array.isArray(row.evidence) || !Array.isArray(row.test) || typeof row.blocking !== 'boolean') process.exit(1);
+  if (row.status === 'NOT_APPLICABLE_WITH_REASON' && !(row.reason || '').trim()) process.exit(1);
 }
 if (!matrix.requirements.some((row) => row.id === '491-001')) process.exit(1);
 NODE

@@ -188,7 +188,8 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 			}
 
 			const isSuccess = result.exitCode === 0 && !hasJsonError;
-			const safeFailure = this.redact(errorMessage ?? result.stderr.slice(0, 200));
+			const safeFailure =
+				this.redact(errorMessage ?? result.stderr.slice(0, 200)) || 'unknown error';
 
 			return {
 				phase: this.mapPhase(phaseName),
@@ -200,7 +201,7 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 				durationMs: Date.now() - startTime,
 				summary: isSuccess
 					? `Command "${commandName}" phase "${phaseName}" completed (${extractedText ? `${extractedText.length} chars` : 'no text output'})`
-					: `Command "${commandName}" phase "${phaseName}" failed: ${safeFailure ?? 'unknown error'}`,
+					: `Command "${commandName}" phase "${phaseName}" failed: ${safeFailure}`,
 				stdoutPath: evidencePaths.stdoutPath,
 				stderrPath: evidencePaths.stderrPath,
 				blockedReason: !isSuccess ? safeFailure : undefined,
@@ -223,7 +224,7 @@ export class RealOpenCodeAdapter implements OpenCodeAdapter {
 				};
 			}
 			const errMsg = String(err);
-			const safeErrMsg = this.redact(errMsg)?.slice(0, 200) ?? 'unknown error';
+			const safeErrMsg = this.redact(errMsg)!.slice(0, 200);
 			return {
 				phase: this.mapPhase(phaseName),
 				status: 'failed',

@@ -6,13 +6,53 @@ import type { RunEventData } from '../state-machine.js';
 import {
 	canTransition,
 	createRun,
+	getWorkspaceCleanupFn,
 	isFailurePhase,
 	isTerminalPhase,
 	markFailed,
+	registerWorkspaceCleanup,
 	resumeFromEvents,
 	retry,
+	runCleanup,
 	transition,
 } from '../state-machine.js';
+
+describe('workspace cleanup', () => {
+	test('empty workspace is already clean', async () => {
+		const result = await runCleanup({ id: 'run', workspacePath: '', phase: 'CLEANUP' } as any);
+		expect(result).toEqual({ cleaned: true, reason: 'No workspace path to clean up' });
+	});
+
+	test('missing cleanup handler fails closed', async () => {
+		registerWorkspaceCleanup(null as any);
+		expect(getWorkspaceCleanupFn()).toBeNull();
+		const result = await runCleanup({
+			id: 'run',
+			workspacePath: '/tmp/workspace',
+			phase: 'CLEANUP',
+		} as any);
+		expect(result).toEqual({ cleaned: false, reason: 'No workspace cleanup function registered' });
+	});
+
+	test('cleanup handler result and exception are reported', async () => {
+		registerWorkspaceCleanup(async () => ({ cleaned: true, reason: 'done' }));
+		expect(
+			await runCleanup({ id: 'run', workspacePath: '/tmp/workspace', phase: 'CLEANUP' } as any),
+		).toEqual({ cleaned: true, reason: 'done' });
+		registerWorkspaceCleanup(async () => {
+			throw 'cleanup exploded';
+		});
+		expect(
+			await runCleanup({ id: 'run', workspacePath: '/tmp/workspace', phase: 'CLEANUP' } as any),
+		).toEqual({ cleaned: false, reason: 'Cleanup failed: cleanup exploded' });
+		registerWorkspaceCleanup(async () => {
+			throw new Error('cleanup exploded again');
+		});
+		expect(
+			await runCleanup({ id: 'run', workspacePath: '/tmp/workspace', phase: 'CLEANUP' } as any),
+		).toEqual({ cleaned: false, reason: 'Cleanup failed: cleanup exploded again' });
+	});
+});
 
 // ---------------------------------------------------------------------------
 // transition()

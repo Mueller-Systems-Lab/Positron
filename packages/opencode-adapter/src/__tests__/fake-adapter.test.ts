@@ -205,4 +205,81 @@ describe('runImplement', () => {
 		expect(result.status).toBe('blocked');
 		expect(result.summary).toBe('Custom implement blocked result');
 	});
+
+	test('blocks mutation denied by the effective harness', async () => {
+		const adapter = new FakeOpenCodeAdapter();
+		const result = await adapter.runImplement(
+			makeInput({
+				effectiveHarness: {
+					fingerprint: 'harness',
+					effective_permissions: {
+						mutation: false,
+						push: false,
+						merge: false,
+						deploy: false,
+						secret_access: false,
+					},
+					effective_tools: ['filesystem.read'],
+					effective_reasoning_mode: 'standard',
+					effective_timeout_ms: 1000,
+					effective_max_steps: 1,
+					model_profile_ref: { id: 'model', version: '1', fingerprint: 'model' },
+					task_profile_ref: { id: 'task', version: '1', fingerprint: 'task' },
+				},
+			}),
+		);
+		expect(result.status).toBe('blocked');
+		expect(result.blockedReason).toContain('mutation=false');
+	});
+
+	test('blocks when the effective harness exposes no tools', async () => {
+		const adapter = new FakeOpenCodeAdapter();
+		const result = await adapter.runImplement(
+			makeInput({
+				effectiveHarness: {
+					fingerprint: 'harness',
+					effective_permissions: {
+						mutation: true,
+						push: false,
+						merge: false,
+						deploy: false,
+						secret_access: false,
+					},
+					effective_tools: [],
+					effective_reasoning_mode: 'standard',
+					effective_timeout_ms: 1000,
+					effective_max_steps: 1,
+					model_profile_ref: { id: 'model', version: '1', fingerprint: 'model' },
+					task_profile_ref: { id: 'task', version: '1', fingerprint: 'task' },
+				},
+			}),
+		);
+		expect(result.status).toBe('blocked');
+		expect(result.blockedReason).toContain('no tools');
+	});
+
+	test('allows an effective harness with mutation and tools', async () => {
+		const adapter = new FakeOpenCodeAdapter();
+		const result = await adapter.runImplement(
+			makeInput({
+				effectiveHarness: {
+					fingerprint: 'harness',
+					effective_permissions: {
+						mutation: true,
+						push: false,
+						merge: false,
+						deploy: false,
+						secret_access: false,
+					},
+					effective_tools: ['filesystem.write'],
+					effective_reasoning_mode: 'standard',
+					effective_timeout_ms: 1000,
+					effective_max_steps: 1,
+					model_profile_ref: { id: 'model', version: '1', fingerprint: 'model' },
+					task_profile_ref: { id: 'task', version: '1', fingerprint: 'task' },
+				},
+			}),
+		);
+		expect(result.status).toBe('success');
+	});
 });

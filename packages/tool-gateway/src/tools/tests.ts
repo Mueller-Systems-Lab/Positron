@@ -2,7 +2,7 @@
 // Issue #219
 // tests.detect, tests.run_selected
 
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import type { ToolDefinition, ToolHandler, ToolResult } from '../types.js';
 
 // ─── Tool Definitions ────────────────────────────────────────────────
@@ -100,6 +100,7 @@ const ALLOWED_TEST_PREFIXES = [
  */
 function validateTestCommand(command: string): boolean {
 	const trimmed = command.trim().toLowerCase();
+	if (!trimmed || /[;&|`$<>()[\]{}\\\r\n]/.test(command)) return false;
 
 	for (const prefix of ALLOWED_TEST_PREFIXES) {
 		if (trimmed === prefix || trimmed.startsWith(`${prefix} `)) {
@@ -108,6 +109,24 @@ function validateTestCommand(command: string): boolean {
 	}
 
 	return false;
+}
+
+function parseTestCommand(command: string): { executable: string; args: string[] } | null {
+	if (!validateTestCommand(command)) return null;
+	const tokens = command.trim().split(/\s+/);
+	if (tokens.length === 0 || tokens.some((token) => !/^[A-Za-z0-9_./:@+,-]+$/.test(token)))
+		return null;
+	const [executable, ...args] = tokens;
+	const containsAbsoluteOrTraversalPath = args.some(
+		(token) =>
+			/^\//.test(token) ||
+			/^~(?:\/|$)/.test(token) ||
+			/^[A-Za-z]:[\\/]/.test(token) ||
+			/(^|[\\/])\.\.(?:[\\/]|$)/.test(token) ||
+			/(^|=)(?:\/|~(?:\/|$)|[A-Za-z]:[\\/])/.test(token),
+	);
+	if (containsAbsoluteOrTraversalPath) return null;
+	return executable ? { executable, args } : null;
 }
 
 // ─── Tool Handlers ───────────────────────────────────────────────────
@@ -175,7 +194,8 @@ export const testsRunSelectedHandler: ToolHandler = async (call): Promise<ToolRe
 
 	try {
 		// Security: validate command against allowed prefixes
-		if (!validateTestCommand(command)) {
+		const parsed = parseTestCommand(command);
+		if (!parsed) {
 			return {
 				success: false,
 				output: null,
@@ -184,20 +204,7 @@ export const testsRunSelectedHandler: ToolHandler = async (call): Promise<ToolRe
 			};
 		}
 
-		// Block shell metacharacters for additional safety
-		const dangerousChars = [';', '&&', '||', '`', '$(', '>', '<', '|'];
-		for (const char of dangerousChars) {
-			if (command.includes(char)) {
-				return {
-					success: false,
-					output: null,
-					error: `Test command contains dangerous character: "${char}"`,
-					blockedReason: 'SCHEMA_VALIDATION_FAILED: shell metacharacters not allowed',
-				};
-			}
-		}
-
-		const result = execSync(command, {
+		const result = execFileSync(parsed.executable, parsed.args, {
 			cwd: call.workspaceRoot,
 			encoding: 'utf-8',
 			timeout: 120000,

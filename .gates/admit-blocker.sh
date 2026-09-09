@@ -3,6 +3,8 @@ set -Eeuo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
+source .gates/policy.env
+source .gates/lib/gate-lib.sh
 category="${1:?usage: .gates/admit-blocker.sh CATEGORY EVIDENCE_FILE}"
 evidence="${2:?usage: .gates/admit-blocker.sh CATEGORY EVIDENCE_FILE}"
 
@@ -19,4 +21,9 @@ esac
 for required in 'root cause' 'recovery' 'minimum owner action'; do
 	grep -qi "$required" "$evidence" || { printf 'BLOCKER_REJECTED=EVIDENCE_INCOMPLETE\n' >&2; exit 1; }
 done
+marker="$STATE_DIR/OWNER_ACTION_REQUIRED"
+{
+	printf 'FINAL_CLASSIFICATION=OWNER_ACTION_REQUIRED\nPROJECT_COMPLETE=NO\n'
+	printf 'BLOCKER_ADMITTED=%s\nEVIDENCE=%s\n' "$category" "$evidence"
+} >"$marker"
 printf 'BLOCKER_ADMITTED=%s\nEVIDENCE=%s\n' "$category" "$evidence"

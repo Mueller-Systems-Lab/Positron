@@ -36,6 +36,21 @@ describe('EnvSecretProvider', () => {
 	});
 });
 
+describe('SecretManager default env path', () => {
+	test('prefers a project .env when it exists', () => {
+		const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'secret-manager-cwd-'));
+		fs.writeFileSync(path.join(temp, '.env'), 'DEFAULT_PATH_SECRET=from-cwd\n');
+		const cwd = vi.spyOn(process, 'cwd').mockReturnValue(temp);
+		try {
+			const manager = new SecretManager();
+			expect(manager.getSecret('DEFAULT_PATH_SECRET')).toBe('from-cwd');
+		} finally {
+			cwd.mockRestore();
+			fs.rmSync(temp, { recursive: true, force: true });
+		}
+	});
+});
+
 // ---------------------------------------------------------------------------
 // DockerSecretProvider
 // ---------------------------------------------------------------------------

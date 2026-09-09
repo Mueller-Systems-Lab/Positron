@@ -39,6 +39,27 @@ valid_branch() { [[ "$1" =~ ^[A-Za-z0-9._/-]+$ && "$1" != /* && "$1" != *..* ]];
 valid_repo() { [[ "$1" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; }
 secure_dir() { [[ ! -L "$1" ]] || return 1; mkdir -p -- "$1" && [[ ! -L "$1" ]] && chmod 700 -- "$1"; [[ "$(stat -c '%a' "$1")" == 700 ]]; }
 secure_file() { chmod 600 -- "$1"; [[ "$(stat -c '%a' "$1")" == 600 ]]; }
+ensure_runtime_secret() {
+  local target="$1" label="$2"
+  if [[ ! -e "$target" ]]; then
+    write_secret_file "$target" "$(generate_secret)" || die SECRET_TARGET_INVALID "$label target is not safe" 'supervised runtime is blocked' "remove the $label symlink or unsafe target and retry"
+  fi
+  [[ -f "$target" && ! -L "$target" ]] || die SECRET_TARGET_INVALID "$label target is not a regular file" 'supervised runtime is blocked' "replace the $label secret and retry"
+  [[ "$(stat -c '%a' "$target")" == 600 ]] || die SECRET_FILE_PERMISSIONS "$label secret must be mode 0600" 'supervised runtime is blocked' "repair permissions on the $label secret and retry"
+}
+write_secret_file() {
+  local target="$1" value="$2" tmp
+  [[ ! -L "$target" ]] || return 1
+  [[ ! -e "$target" || -f "$target" ]] || return 1
+  tmp="$(mktemp -- "${target}.tmp.XXXXXX")" || return 1
+  trap 'rm -f -- "$tmp"' RETURN
+  umask 077
+  printf '%s\n' "$value" >"$tmp"
+  secure_file "$tmp" || { rm -f -- "$tmp"; return 1; }
+  mv -f -- "$tmp" "$target"
+  trap - RETURN
+  [[ ! -L "$target" && "$(stat -c '%a' "$target")" == 600 ]]
+}
 generate_secret() { if command_exists openssl; then openssl rand -hex 32; else node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"; fi; }
 
 discover_opencode() {
@@ -53,7 +74,7 @@ write_config() {
   secure_dir "$CONFIG_DIR" || die CONFIG_PERMISSION_DENIED 'configuration directory must be mode 0700' 'supervised configuration was not written' 'repair the XDG config directory and retry'
   secure_dir "$SECRET_DIR" || die CONFIG_PERMISSION_DENIED 'secret directory must be mode 0700' 'supervised configuration was not written' 'repair the secret directory and retry'
   secure_dir "$RUNTIME_DIR" || die CONFIG_PERMISSION_DENIED 'runtime secret directory must be mode 0700' 'supervised configuration was not written' 'repair the state directory and retry'
-  local tmp="$CONFIG_FILE.tmp.$$"
+  local tmp; tmp="$(mktemp -- "${CONFIG_FILE}.tmp.XXXXXX")" || die CONFIG_WRITE_FAILED 'temporary configuration file could not be created' 'configuration was not written' 'repair the protected config directory and retry'
   umask 077
   {
     printf 'POSITRON_SUPERVISED_CONFIG_VERSION=positron.supervised-config.v1\n'
@@ -98,6 +119,9 @@ load_config() {
       *) die SUPERVISED_CONFIG_INVALID 'unknown supervised configuration field' 'the profile is blocked' 'rerun supervised configuration' ;;
     esac
   done <"$CONFIG_FILE"
+  [[ -n "${POSITRON_REPO_OWNER:-}" && -n "${POSITRON_REPO_NAME:-}" && -n "${POSITRON_REPO_DEFAULT_BRANCH:-}" && -n "${POSITRON_OPENCODE_PROVIDER:-}" && -n "${POSITRON_OPENCODE_MODEL:-}" && -n "${POSITRON_ENABLE_PUSH:-}" && -n "${POSITRON_ENABLE_MERGE:-}" && -n "${POSITRON_MERGE_DRY_RUN:-}" && -n "${POSITRON_MERGE_KILL_SWITCH:-}" && -n "${POSITRON_SECRET_GITHUB_TOKEN_FILE:-}" ]] || die SUPERVISED_CONFIG_INVALID 'required supervised configuration fields are missing' 'the profile is blocked' 'rerun supervised configuration'
+  [[ "$POSITRON_ENABLE_PUSH" == true || "$POSITRON_ENABLE_PUSH" == false ]] || die SUPERVISED_CONFIG_INVALID 'push safety flag must be true or false' 'the profile is blocked' 'rerun supervised configuration'
+  [[ "$POSITRON_ENABLE_MERGE" == false && "$POSITRON_MERGE_DRY_RUN" == true && "$POSITRON_MERGE_KILL_SWITCH" == true ]] || die SUPERVISED_SAFETY_INVALID 'merge safety flags were tampered with' 'supervised merge remains blocked' 'rerun supervised configuration and keep merge disabled'
   [[ "$POSITRON_SECRET_GITHUB_TOKEN_FILE" == "$TOKEN_FILE" ]] || die SECRET_PATH_INVALID 'secret path is outside the protected Positron secret store' 'the profile is blocked' 'rerun supervised configuration'
   valid_atom "$POSITRON_REPO_OWNER" || die INVALID_REPOSITORY 'configured repository owner contains unsafe characters' 'the profile is blocked' 'rerun supervised configuration'
   valid_atom "$POSITRON_REPO_NAME" || die INVALID_REPOSITORY 'configured repository name contains unsafe characters' 'the profile is blocked' 'rerun supervised configuration'
@@ -147,9 +171,10 @@ configure_profile() {
   opencode_version="$(opencode --version 2>/dev/null || true)"
   specify_version="$(specify --version 2>/dev/null || specify-cli --version 2>/dev/null || true)"
   opencode_config="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"; opencode_home="${HOME}/.opencode"
-  local token; token="$(read_token "$token_source")"; [[ -n "$token" ]] || die GITHUB_TOKEN_MISSING 'GitHub token is empty' 'configuration was not written' 'provide a non-empty token'
-  secure_dir "$SECRET_DIR" || die CONFIG_PERMISSION_DENIED 'secret directory could not be protected' 'configuration was not written' 'repair the XDG config directory'
-  umask 077; printf '%s\n' "$token" >"$TOKEN_FILE"; secure_file "$TOKEN_FILE"
+	local token; token="$(read_token "$token_source")"; [[ -n "$token" ]] || die GITHUB_TOKEN_MISSING 'GitHub token is empty' 'configuration was not written' 'provide a non-empty token'
+	[[ "$token" != *$'\n'* && "$token" != *$'\r'* ]] || die SECRET_VALUE_INVALID 'GitHub token contains a newline' 'configuration was not written' 'provide a single-line token value'
+	secure_dir "$SECRET_DIR" || die CONFIG_PERMISSION_DENIED 'secret directory could not be protected' 'configuration was not written' 'repair the XDG config directory'
+	write_secret_file "$TOKEN_FILE" "$token" || die SECRET_TARGET_INVALID 'the configured token target is not a safe regular file' 'configuration was not written' 'remove the token symlink or unsafe target and retry'
   IFS=/ read -r owner repo <<<"$repo"
   write_config "$owner" "$repo" "$branch" "$provider" "$model" "$allow_push" "$opencode_path" "$specify_path" "$opencode_config" "$opencode_home"
   printf '%s\n' 'Positron supervised setup' '  GitHub token: configured (value hidden)' "  Repository: $owner/$repo" "  OpenCode: ${opencode_version:-available} ($opencode_path)" "  SpecKit: ${specify_version:-available} ($specify_path)" "  Provider: $provider" "  Model: $model" "  Push: $allow_push" '  Merge: disabled (kill switch active)' "Configuration saved securely: $CONFIG_FILE" 'Next: positron doctor --supervised'
@@ -157,15 +182,15 @@ configure_profile() {
 
 build_runtime_env() {
   load_config; validate_tools
-  [[ -f "$RUNTIME_DIR/redis-password" ]] || { umask 077; printf '%s\n' "$(generate_secret)" >"$RUNTIME_DIR/redis-password"; secure_file "$RUNTIME_DIR/redis-password"; }
-  [[ -f "$RUNTIME_DIR/admin-token" ]] || { umask 077; printf '%s\n' "$(generate_secret)" >"$RUNTIME_DIR/admin-token"; secure_file "$RUNTIME_DIR/admin-token"; }
-  local tmp="$RUNTIME_ENV.tmp.$$"; umask 077
+	ensure_runtime_secret "$RUNTIME_DIR/redis-password" 'Redis secret'
+	ensure_runtime_secret "$RUNTIME_DIR/admin-token" 'admin secret'
+  local tmp; tmp="$(mktemp -- "${RUNTIME_ENV}.XXXXXX")" || die RUNTIME_ENV_WRITE_FAILED 'temporary runtime environment file could not be created' 'supervised runtime is blocked' 'repair the protected state directory and retry'; trap 'rm -f -- "$tmp"' RETURN; umask 077
   {
     printf 'HOME=%s\nREDIS_PASSWORD=%s\nPOSITRON_ADMIN_TOKEN=%s\n' "$HOME" "$(tr -d '\r\n' <"$RUNTIME_DIR/redis-password")" "$(tr -d '\r\n' <"$RUNTIME_DIR/admin-token")"
     printf 'GITHUB_TOKEN=%s\nPOSITRON_GITHUB_MODE=real\nPOSITRON_SPECKIT_MODE=real\nPOSITRON_OPENCODE_MODE=real\n' "$GITHUB_TOKEN"
     grep -E '^(POSITRON_REPO_|POSITRON_OPENCODE_PROVIDER=|POSITRON_OPENCODE_MODEL=|POSITRON_ENABLE_PUSH=|POSITRON_ENABLE_MERGE=|POSITRON_MERGE_DRY_RUN=|POSITRON_MERGE_KILL_SWITCH=|POSITRON_OPENCODE_HOST_PATH=|POSITRON_SPECKIT_HOST_PATH=|POSITRON_OPENCODE_CONFIG_PATH=|POSITRON_OPENCODE_HOME_PATH=)' "$CONFIG_FILE"
   } >"$tmp"
-  secure_file "$tmp"; mv -f -- "$tmp" "$RUNTIME_ENV"
+  secure_file "$tmp"; mv -f -- "$tmp" "$RUNTIME_ENV"; trap - RETURN
 }
 compose() { docker compose --project-name "$PROJECT_NAME" --env-file "$RUNTIME_ENV" --file "$COMPOSE_FILE" "$@"; }
 check_port_conflict() { if docker ps --filter 'label=com.docker.compose.project=positron-quickstart' --filter status=running --format '{{.Names}}' 2>/dev/null | grep -q .; then die PROFILE_PORT_CONFLICT 'the safe demo currently owns Positron ports' 'supervised start did not stop or modify the demo' 'run positron stop, then positron start --supervised'; fi; }
@@ -180,10 +205,48 @@ doctor() {
   else
     die GITHUB_CLIENT_NOT_FOUND 'GitHub CLI is required to validate supervised access' 'supervised readiness is blocked' 'install gh and retry'
   fi
+	if [[ -f "$RUNTIME_ENV" ]]; then
+	  command_exists curl || die CURL_NOT_FOUND 'curl is required to validate operator readiness' 'supervised readiness is blocked' 'install curl and retry'
+	  readiness="$(curl --silent --show-error --fail --max-time 3 "$WEB_URL/api/operator-readiness" 2>/dev/null || true)"
+	  [[ "$readiness" == *'positron.operator-readiness.v1'* && "$readiness" == *'READY'* ]] || die OPERATOR_READINESS_UNAVAILABLE 'the operator-readiness contract is unavailable or not ready' 'supervised readiness is blocked' 'start the supervised runtime and rerun doctor'
+  printf '%s\n' 'Operator readiness: PASS'
+else
+  printf '%s\n' 'Operator readiness: deferred until supervised runtime start'
+fi
   printf '%s\n' 'Supervised configuration: PASS' 'Docker: PASS' 'GitHub auth: PASS (value hidden)' 'GitHub repository access: PASS' "Repository: ${POSITRON_REPO_OWNER}/${POSITRON_REPO_NAME}" 'Provider/model: configured (values hidden)' 'Push: explicitly configured' 'Merge: disabled; kill switch active'
 }
-start() { build_runtime_env; check_port_conflict; compose config --quiet; compose up --detach --remove-orphans; printf 'Positron supervised runtime started: %s\n' "$WEB_URL"; }
-stop() { [[ -f "$RUNTIME_ENV" ]] || die SUPERVISED_NOT_RUNNING 'supervised runtime is not configured or running' 'nothing was stopped' 'run positron configure supervised'; compose down; printf '%s\n' 'Positron supervised runtime stopped.'; }
+handle_start_signal() {
+  trap - INT TERM
+  [[ -f "$RUNTIME_ENV" ]] && compose down >/dev/null 2>&1 || true
+  rm -f -- "$RUNTIME_ENV"
+  exit 130
+}
+start() {
+  trap handle_start_signal INT TERM
+	check_port_conflict
+	build_runtime_env
+	if ! compose config --quiet; then
+	  rm -f -- "$RUNTIME_ENV"
+  die COMPOSE_CONFIG_INVALID 'supervised Compose configuration is invalid' 'runtime secrets were removed and supervised start was blocked' 'repair the configuration and rerun doctor'
+	fi
+	if ! compose up --detach --remove-orphans; then
+	  rm -f -- "$RUNTIME_ENV"
+  die COMPOSE_START_FAILED 'supervised runtime could not start' 'runtime secrets were removed; no supervised start was admitted' 'inspect Docker logs and retry'
+	fi
+  trap - INT TERM
+  printf 'Positron supervised runtime started: %s\n' "$WEB_URL"
+}
+stop() {
+  [[ -f "$RUNTIME_ENV" ]] || die SUPERVISED_NOT_RUNNING 'supervised runtime is not configured or running' 'nothing was stopped' 'run positron configure supervised'
+  if compose down; then
+    rm -f -- "$RUNTIME_ENV"
+    printf '%s\n' 'Positron supervised runtime stopped.'
+  else
+    status=$?
+    rm -f -- "$RUNTIME_ENV"
+    die COMPOSE_DOWN_FAILED 'supervised runtime shutdown failed' 'runtime secrets were removed but containers may require manual cleanup' 'rerun docker compose down for the supervised project'
+  fi
+}
 status() { build_runtime_env; compose ps; if command_exists curl && curl --silent --show-error --fail --max-time 3 "$WEB_URL/api/operator-readiness" >/dev/null 2>&1; then printf '%s\n' 'Operator readiness: PASS'; else printf '%s\n' 'Operator readiness: not ready'; return 1; fi; }
 
 case "${1:-help}" in

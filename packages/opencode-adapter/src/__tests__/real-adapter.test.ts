@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { runCommand } from '@positron/sandbox';
+import { CommandTerminationError, runCommand } from '@positron/sandbox';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { RealOpenCodeAdapter } from '../real-adapter.js';
 
@@ -239,6 +239,522 @@ describe('RealOpenCodeAdapter', () => {
 		expect(r1.stdoutPath).toBeTruthy();
 		expect(r2.stdoutPath).toBeTruthy();
 		expect(path.dirname(r1.stdoutPath)).not.toBe(path.dirname(r2.stdoutPath));
+	});
+});
+
+describe('RealOpenCodeAdapter safety branches', () => {
+	beforeEach(() => vi.clearAllMocks());
+	const harness = {
+		fingerprint: 'harness',
+		effective_permissions: {
+			mutation: false,
+			push: false,
+			merge: false,
+			deploy: false,
+			secret_access: false,
+		},
+		effective_tools: ['filesystem.read'],
+		effective_reasoning_mode: 'standard',
+		effective_timeout_ms: 1000,
+		effective_max_steps: 1,
+		model_profile_ref: { id: 'model', version: '1', fingerprint: 'model' },
+		task_profile_ref: { id: 'task', version: '1', fingerprint: 'task' },
+	};
+
+	test('includes repository context in the command input', async () => {
+		const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-repo-'));
+		try {
+			const adapter = new RealOpenCodeAdapter(path.join(workspace, 'evidence'));
+			vi.mocked(runCommand)
+				.mockResolvedValueOnce({
+					exitCode: 0,
+					stdout: '1.15.5\n',
+					stderr: '',
+					durationMs: 1,
+					command: 'version',
+				} as any)
+				.mockResolvedValueOnce({
+					exitCode: 0,
+					stdout: '{"type":"text","part":{"text":"done"}}\n',
+					stderr: '',
+					durationMs: 1,
+					command: 'run',
+				} as any);
+			await adapter.runSlashCommand('spec-driven-development', {
+				runId: 'repo',
+				workspacePath: workspace,
+				issueTitle: 'Test',
+				issueNumber: 1,
+				repoOwner: 'owner',
+				repoName: 'repo',
+				model: 'model',
+			});
+			expect(vi.mocked(runCommand).mock.calls[1]?.[1]?.join(' ')).toContain(
+				'Target repository: owner/repo',
+			);
+		} finally {
+			fs.rmSync(workspace, { recursive: true, force: true });
+		}
+	});
+
+	test('reports stderr when the CLI version command fails', async () => {
+		const adapter = new RealOpenCodeAdapter('/tmp/evidence');
+		vi.mocked(runCommand).mockResolvedValueOnce({
+			exitCode: 2,
+			stdout: '',
+			stderr: 'permission denied',
+			durationMs: 1,
+			command: 'version',
+		} as any);
+		const health = await adapter.healthCheck('/tmp/workspace');
+		expect(health.reason).toContain('permission denied');
+	});
+
+	test('reports a version failure without stderr', async () => {
+		const adapter = new RealOpenCodeAdapter('/tmp/evidence');
+		vi.mocked(runCommand).mockResolvedValueOnce({
+			exitCode: 2,
+			stdout: '',
+			stderr: '',
+			durationMs: 1,
+			command: 'version',
+		} as any);
+		const health = await adapter.healthCheck('/tmp/workspace');
+		expect(health.reason).toContain('code 2');
+	});
+
+	test('handles JSON errors without optional fields', async () => {
+		const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-json-'));
+		try {
+			const adapter = new RealOpenCodeAdapter(path.join(workspace, 'evidence'));
+			vi.mocked(runCommand)
+				.mockResolvedValueOnce({
+					exitCode: 0,
+					stdout: '1.15.5\n',
+					stderr: '',
+					durationMs: 1,
+					command: 'version',
+				} as any)
+				.mockResolvedValueOnce({
+					exitCode: 1,
+					stdout: '{"type":"error","error":{"name":42}}\n',
+					stderr: '',
+					durationMs: 1,
+					command: 'run',
+				} as any);
+			const result = await adapter.runSlashCommand('test', {
+				runId: 'json',
+				workspacePath: workspace,
+				issueTitle: 'Test',
+				model: 'model',
+			});
+			expect(result.status).toBe('failed');
+			expect(result.error?.message).toBeUndefined();
+		} finally {
+			fs.rmSync(workspace, { recursive: true, force: true });
+		}
+	});
+
+	test('preserves boolean retryable and reference error fields', async () => {
+		const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-json-fields-'));
+		try {
+			const adapter = new RealOpenCodeAdapter(path.join(workspace, 'evidence'));
+			vi.mocked(runCommand)
+				.mockResolvedValueOnce({
+					exitCode: 0,
+					stdout: '1.15.5\n',
+					stderr: '',
+					durationMs: 1,
+					command: 'version',
+				} as any)
+				.mockResolvedValueOnce({
+					exitCode: 1,
+					stdout:
+						'{"type":"error","error":{"name":"Boundary","data":{"message":"failed","ref":"ref","retryable":false}}}\n',
+					stderr: '',
+					durationMs: 1,
+					command: 'run',
+				} as any);
+			const result = await adapter.runSlashCommand('test', {
+				runId: 'fields',
+				workspacePath: workspace,
+				issueTitle: 'Test',
+				model: 'model',
+			});
+			expect(result.error).toEqual({
+				name: 'Boundary',
+				message: 'failed',
+				ref: 'ref',
+				retryable: false,
+			});
+		} finally {
+			fs.rmSync(workspace, { recursive: true, force: true });
+		}
+	});
+
+	test('uses an unknown failure fallback when stderr and JSON are empty', async () => {
+		const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-empty-'));
+		try {
+			const adapter = new RealOpenCodeAdapter(path.join(workspace, 'evidence'));
+			vi.mocked(runCommand)
+				.mockResolvedValueOnce({
+					exitCode: 0,
+					stdout: '1.15.5\n',
+					stderr: '',
+					durationMs: 1,
+					command: 'version',
+				} as any)
+				.mockResolvedValueOnce({
+					exitCode: 1,
+					stdout: '',
+					stderr: '',
+					durationMs: 1,
+					command: 'run',
+				} as any);
+			const result = await adapter.runSlashCommand('test', {
+				runId: 'empty',
+				workspacePath: workspace,
+				issueTitle: 'Test',
+				model: 'model',
+			});
+			expect(result.status).toBe('failed');
+			expect(result.summary).toContain('unknown error');
+		} finally {
+			fs.rmSync(workspace, { recursive: true, force: true });
+		}
+	});
+
+	test('returns structured termination evidence', async () => {
+		const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-term-'));
+		try {
+			const adapter = new RealOpenCodeAdapter(path.join(workspace, 'evidence'));
+			const termination = new CommandTerminationError(
+				'stopped',
+				'ATTEMPT_DEADLINE_EXCEEDED',
+				'attempt',
+				1,
+			);
+			vi.mocked(runCommand)
+				.mockResolvedValueOnce({
+					exitCode: 0,
+					stdout: '1.15.5\n',
+					stderr: '',
+					durationMs: 1,
+					command: 'version',
+				} as any)
+				.mockRejectedValueOnce(termination);
+			const result = await adapter.runSlashCommand('spec-driven-development', {
+				runId: 'term',
+				workspacePath: workspace,
+				issueTitle: 'Test',
+				model: 'model',
+			});
+			expect(result.terminationReason).toBe('ATTEMPT_DEADLINE_EXCEEDED');
+		} finally {
+			fs.rmSync(workspace, { recursive: true, force: true });
+		}
+	});
+
+	test('blocks missing native implement command and harness violations', async () => {
+		const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-impl-'));
+		try {
+			const adapter = new RealOpenCodeAdapter(path.join(workspace, 'evidence'));
+			const missing = await adapter.runImplement({
+				runId: 'missing',
+				workspacePath: workspace,
+				issueTitle: 'Test',
+				model: 'model',
+			});
+			expect(missing.blockedReason).toContain('IMPLEMENT_COMMAND_UNAVAILABLE');
+			const denied = await adapter.runImplement({
+				runId: 'denied',
+				workspacePath: workspace,
+				issueTitle: 'Test',
+				effectiveHarness: harness,
+			});
+			expect(denied.blockedReason).toContain('mutation=false');
+			const noTools = await adapter.runImplement({
+				runId: 'tools',
+				workspacePath: workspace,
+				issueTitle: 'Test',
+				effectiveHarness: {
+					...harness,
+					effective_permissions: { ...harness.effective_permissions, mutation: true },
+					effective_tools: [],
+				},
+			});
+			expect(noTools.blockedReason).toContain('no tools');
+		} finally {
+			fs.rmSync(workspace, { recursive: true, force: true });
+		}
+	});
+
+	test('allows an effective harness with tools for implement', async () => {
+		const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-allow-'));
+		try {
+			fs.mkdirSync(path.join(workspace, '.opencode', 'commands'), { recursive: true });
+			fs.writeFileSync(
+				path.join(workspace, '.opencode', 'commands', 'speckit.implement.md'),
+				'# implement',
+			);
+			const adapter = new RealOpenCodeAdapter(path.join(workspace, 'evidence'));
+			vi.mocked(runCommand)
+				.mockResolvedValueOnce({
+					exitCode: 0,
+					stdout: '1.15.5\n',
+					stderr: '',
+					durationMs: 1,
+					command: 'version',
+				} as any)
+				.mockResolvedValueOnce({
+					exitCode: 0,
+					stdout: '{"type":"text","part":{"text":"done"}}\n',
+					stderr: '',
+					durationMs: 1,
+					command: 'run',
+				} as any);
+			const result = await adapter.runImplement({
+				runId: 'allow',
+				workspacePath: workspace,
+				issueTitle: 'Test',
+				model: 'model',
+				effectiveHarness: {
+					...harness,
+					effective_permissions: { ...harness.effective_permissions, mutation: true },
+				},
+			});
+			expect(result.status).toBe('success');
+		} finally {
+			fs.rmSync(workspace, { recursive: true, force: true });
+		}
+	});
+
+	test('injects FEATURE_DIR from prerequisite output', async () => {
+		const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-feature-'));
+		try {
+			fs.mkdirSync(path.join(workspace, '.opencode', 'commands'), { recursive: true });
+			fs.mkdirSync(path.join(workspace, '.specify', 'scripts', 'bash'), { recursive: true });
+			fs.writeFileSync(
+				path.join(workspace, '.opencode', 'commands', 'speckit.implement.md'),
+				'# implement',
+			);
+			fs.writeFileSync(
+				path.join(workspace, '.specify', 'scripts', 'bash', 'check-prerequisites.sh'),
+				'#!/bin/sh',
+			);
+			const adapter = new RealOpenCodeAdapter(path.join(workspace, 'evidence'));
+			vi.mocked(runCommand)
+				.mockResolvedValueOnce({
+					exitCode: 0,
+					stdout: JSON.stringify({ FEATURE_DIR: 'feature-dir' }),
+					stderr: '',
+					durationMs: 1,
+					command: 'bash',
+				} as any)
+				.mockResolvedValueOnce({
+					exitCode: 0,
+					stdout: '1.15.5\n',
+					stderr: '',
+					durationMs: 1,
+					command: 'version',
+				} as any)
+				.mockResolvedValueOnce({
+					exitCode: 0,
+					stdout: '{"type":"text","part":{"text":"done"}}\n',
+					stderr: '',
+					durationMs: 1,
+					command: 'run',
+				} as any);
+			const result = await adapter.runImplement({
+				runId: 'feature',
+				workspacePath: workspace,
+				issueTitle: 'Test',
+				issueBody: 'body',
+				model: 'model',
+			});
+			expect(result.status).toBe('success');
+			expect(vi.mocked(runCommand).mock.calls[2]?.[1]?.join(' ')).toContain(
+				'FEATURE_DIR=feature-dir',
+			);
+		} finally {
+			fs.rmSync(workspace, { recursive: true, force: true });
+		}
+	});
+
+	test('continues when prerequisite output is empty or lacks FEATURE_DIR', async () => {
+		const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-prereq-'));
+		try {
+			fs.mkdirSync(path.join(workspace, '.opencode', 'commands'), { recursive: true });
+			fs.mkdirSync(path.join(workspace, '.specify', 'scripts', 'bash'), { recursive: true });
+			fs.writeFileSync(
+				path.join(workspace, '.opencode', 'commands', 'speckit.implement.md'),
+				'# implement',
+			);
+			fs.writeFileSync(
+				path.join(workspace, '.specify', 'scripts', 'bash', 'check-prerequisites.sh'),
+				'#!/bin/sh',
+			);
+			const adapter = new RealOpenCodeAdapter(path.join(workspace, 'evidence'));
+			vi.mocked(runCommand)
+				.mockResolvedValueOnce({
+					exitCode: 0,
+					stdout: '{}',
+					stderr: '',
+					durationMs: 1,
+					command: 'bash',
+				} as any)
+				.mockResolvedValueOnce({
+					exitCode: 0,
+					stdout: '1.15.5\n',
+					stderr: '',
+					durationMs: 1,
+					command: 'version',
+				} as any)
+				.mockResolvedValueOnce({
+					exitCode: 0,
+					stdout: '{"type":"text","part":{"text":"done"}}\n',
+					stderr: '',
+					durationMs: 1,
+					command: 'run',
+				} as any);
+			const result = await adapter.runImplement({
+				runId: 'prereq',
+				workspacePath: workspace,
+				issueTitle: 'Test',
+				model: 'model',
+			});
+			expect(result.status).toBe('success');
+		} finally {
+			fs.rmSync(workspace, { recursive: true, force: true });
+		}
+	});
+
+	test('continues when the prerequisite command fails', async () => {
+		const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-prereq-fail-'));
+		try {
+			fs.mkdirSync(path.join(workspace, '.opencode', 'commands'), { recursive: true });
+			fs.mkdirSync(path.join(workspace, '.specify', 'scripts', 'bash'), { recursive: true });
+			fs.writeFileSync(
+				path.join(workspace, '.opencode', 'commands', 'speckit.implement.md'),
+				'# implement',
+			);
+			fs.writeFileSync(
+				path.join(workspace, '.specify', 'scripts', 'bash', 'check-prerequisites.sh'),
+				'#!/bin/sh',
+			);
+			const adapter = new RealOpenCodeAdapter(path.join(workspace, 'evidence'));
+			vi.mocked(runCommand)
+				.mockResolvedValueOnce({
+					exitCode: 1,
+					stdout: '',
+					stderr: 'failed',
+					durationMs: 1,
+					command: 'bash',
+				} as any)
+				.mockResolvedValueOnce({
+					exitCode: 0,
+					stdout: '1.15.5\n',
+					stderr: '',
+					durationMs: 1,
+					command: 'version',
+				} as any)
+				.mockResolvedValueOnce({
+					exitCode: 0,
+					stdout: '{"type":"text","part":{"text":"done"}}\n',
+					stderr: '',
+					durationMs: 1,
+					command: 'run',
+				} as any);
+			expect(
+				(
+					await adapter.runImplement({
+						runId: 'prereq-fail',
+						workspacePath: workspace,
+						issueTitle: 'Test',
+						model: 'model',
+					})
+				).status,
+			).toBe('success');
+		} finally {
+			fs.rmSync(workspace, { recursive: true, force: true });
+		}
+	});
+
+	test('supports FEATURE_DIR when no issue body is supplied', async () => {
+		const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-feature-empty-'));
+		try {
+			fs.mkdirSync(path.join(workspace, '.opencode', 'commands'), { recursive: true });
+			fs.mkdirSync(path.join(workspace, '.specify', 'scripts', 'bash'), { recursive: true });
+			fs.writeFileSync(
+				path.join(workspace, '.opencode', 'commands', 'speckit.implement.md'),
+				'# implement',
+			);
+			fs.writeFileSync(
+				path.join(workspace, '.specify', 'scripts', 'bash', 'check-prerequisites.sh'),
+				'#!/bin/sh',
+			);
+			const adapter = new RealOpenCodeAdapter(path.join(workspace, 'evidence'));
+			vi.mocked(runCommand)
+				.mockResolvedValueOnce({
+					exitCode: 0,
+					stdout: JSON.stringify({ FEATURE_DIR: 'feature-dir' }),
+					stderr: '',
+					durationMs: 1,
+					command: 'bash',
+				} as any)
+				.mockResolvedValueOnce({
+					exitCode: 0,
+					stdout: '1.15.5\n',
+					stderr: '',
+					durationMs: 1,
+					command: 'version',
+				} as any)
+				.mockResolvedValueOnce({
+					exitCode: 0,
+					stdout: '{"type":"text","part":{"text":"done"}}\n',
+					stderr: '',
+					durationMs: 1,
+					command: 'run',
+				} as any);
+			expect(
+				(
+					await adapter.runImplement({
+						runId: 'feature-empty',
+						workspacePath: workspace,
+						issueTitle: 'Test',
+						model: 'model',
+					})
+				).status,
+			).toBe('success');
+		} finally {
+			fs.rmSync(workspace, { recursive: true, force: true });
+		}
+	});
+
+	test('uses slash-command fallback for an empty workspace path', async () => {
+		const adapter = new RealOpenCodeAdapter('/tmp/evidence');
+		vi.mocked(runCommand)
+			.mockResolvedValueOnce({
+				exitCode: 0,
+				stdout: '1.15.5\n',
+				stderr: '',
+				durationMs: 1,
+				command: 'version',
+			} as any)
+			.mockResolvedValueOnce({
+				exitCode: 0,
+				stdout: '{"type":"text","part":{"text":"done"}}\n',
+				stderr: '',
+				durationMs: 1,
+				command: 'run',
+			} as any);
+		const result = await adapter.runImplement({
+			runId: 'empty',
+			workspacePath: '',
+			issueTitle: 'Test',
+			model: 'model',
+		});
+		expect(result.status).toBe('success');
 	});
 });
 
