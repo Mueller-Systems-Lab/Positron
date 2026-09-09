@@ -1,7 +1,7 @@
 {
 	"run_id": "20260908T225128Z",
 	"repository": "Mueller-Systems-Lab/Positron",
-	"source_head": "fbea11f2682d023d54693444f46b6432735c061f",
+	"source_head": "0f809d2e25bb01061a032306c60b9cbd19ab6700",
 	"audit_start_head": "fbea11f2682d023d54693444f46b6432735c061f",
 	"branch": "positron/issue-491-hard-gates",
 	"scope": {

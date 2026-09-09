@@ -14,6 +14,8 @@
 			"!**/node_modules",
 			"!**/dist",
 			"!**/.positron",
+			"!**/.gates/.state",
+			"!**/.opencode/package.json",
 			"!**/coverage",
 			"!**/.stryker-tmp",
 			"!**/reports",
@@ -82,6 +84,8 @@
 			"!**/node_modules",
 			"!**/dist",
 			"!**/.positron",
+			"!**/.gates/.state",
+			"!**/.opencode/package.json",
 			"!**/coverage",
 			"!**/.stryker-tmp",
 			"!**/reports",
@@ -111,6 +115,8 @@
 			"!**/playwright-report",
 			"!apps/web/index.html",
 			"!**/.positron",
+			"!**/.gates/.state",
+			"!**/.opencode/package.json",
 			"!**/.hermes/enforcement",
 			"!**/docs/evidence/e2e-playwright-mcp"
 		]
