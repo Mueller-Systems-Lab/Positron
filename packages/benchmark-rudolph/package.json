@@ -18,6 +18,10 @@
 		"test": "vitest run",
 		"typecheck": "tsc -b --pretty false"
 	},
+	"dependencies": {
+		"@positron/opencode-adapter": "^0.3.0",
+		"@positron/shared": "^0.3.0"
+	},
 	"devDependencies": {
 		"typescript": "^5.4.0",
 		"vitest": "^4.0.0"

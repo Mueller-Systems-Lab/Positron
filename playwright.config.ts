@@ -76,7 +76,7 @@ export default defineConfig({
 		routeSmokeTarget.mode === 'local'
 			? [
 					{
-						command: `npx tsx src/index.ts --port ${testServerPort}`,
+						command: `../../node_modules/.bin/tsx src/index.ts --port ${testServerPort}`,
 						cwd: './apps/server',
 						url: `http://localhost:${testServerPort}/api/health`,
 						reuseExistingServer: false,
@@ -88,7 +88,7 @@ export default defineConfig({
 						},
 					},
 					{
-						command: `npx vite --port ${testWebPort}`,
+						command: `../../node_modules/.bin/vite --port ${testWebPort}`,
 						cwd: './apps/web',
 						url: `http://localhost:${testWebPort}`,
 						reuseExistingServer: false,

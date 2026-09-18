@@ -21,6 +21,7 @@
 		"dev": "tsx watch src/index.ts"
 	},
 	"dependencies": {
+		"@positron/control-plane": "^0.3.0",
 		"@positron/github-adapter": "^0.3.0",
 		"@positron/opencode-adapter": "^0.3.0",
 		"@positron/run-state": "^0.3.0",

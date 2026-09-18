@@ -15,7 +15,7 @@ author: Positron Team
 ## Installation
 
 ```bash
-npm install
+npm ci
 ```
 
 ## Configuration
@@ -103,6 +103,15 @@ npm run clean && npm run build
 - **Server fails with missing repository config**: set `POSITRON_REPO_OWNER` and `POSITRON_REPO_NAME` in `apps/server/.env`.
 - **Database errors**: ensure the process can write to the SQLite path; the default is `~/.positron/positron.db`.
 - **Real GitHub mode is rate-limited**: set `GITHUB_TOKEN` when using `POSITRON_GITHUB_MODE=real` (or the legacy `GITHUB_MODE=real`).
-- **Merge never happens**: check `POSITRON_ENABLE_MERGE`, `POSITRON_MERGE_KILL_SWITCH`, and `POSITRON_ENABLE_PUSH`.
+- **Local application merge status is blocked**: check `POSITRON_ENABLE_MERGE`, `POSITRON_MERGE_KILL_SWITCH`, and `POSITRON_ENABLE_PUSH`. These runtime safety controls are separate from the repository PR lifecycle.
 - **Frontend cannot reach the API**: confirm the server is running and listening on the expected port.
-- **TypeScript build errors after a clean**: rerun `npm install`, then `npm run build`.
+- **TypeScript build errors after a clean**: rerun `npm ci`, then `npm run clean && npm run build`.
+
+## Canonical PR merge policy
+
+`MERGE_POLICY=PLAYWRIGHT_GATED` applies to repository pull requests. After all
+required acceptance gates pass, the canonical merge action is allowed only
+through the visible, Playwright-controlled GitHub web interface. CLI, REST,
+GraphQL, bot, direct-main-push, and local-merge merge actuators are not valid
+substitutes. The runtime safety controls above remain intentionally fail-closed
+for Positron's in-application merge operation.

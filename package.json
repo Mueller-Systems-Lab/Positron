@@ -5,7 +5,7 @@
 	"description": "Evidence-Gated GitHub Issue Execution System",
 	"workspaces": ["apps/*", "packages/*"],
 	"scripts": {
-		"build": "tsc -b packages/shared packages/sandbox packages/github-adapter packages/run-state packages/speckit-adapter packages/opencode-adapter packages/benchmark-rudolph packages/tool-gateway apps/server apps/worker",
+		"build": "tsc -b packages/shared packages/sandbox packages/github-adapter packages/run-state packages/speckit-adapter packages/opencode-adapter packages/benchmark-rudolph packages/control-plane packages/tool-gateway packages/worker-pipeline apps/server apps/worker",
 		"build:watch": "tsc --build --watch",
 		"dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
 		"dev:server": "npm run build && node apps/server/dist/index.js",
@@ -13,7 +13,7 @@
 		"coverage": "vitest run --coverage",
 		"coverage:safety": "vitest run --config vitest.safety.config.ts --coverage",
 		"pretest": "npm run build",
-		"test": "vitest run && cd apps/web && npx vitest run",
+		"test": "node --test scripts/ci/workspace-graph.test.mjs && vitest run && cd apps/web && vitest run",
 		"test:benchmark:rudolph": "vitest run packages/benchmark-rudolph/src",
 		"test:benchmark:rudolph:coverage": "vitest run packages/benchmark-rudolph/src --coverage",
 		"test:watch": "vitest",
@@ -55,7 +55,7 @@
 		"lint": "biome lint .",
 		"format": "biome format --write .",
 		"format:check": "biome format .",
-		"clean": "find . -name dist -not -path '*/node_modules/*' -exec rm -rf {} +",
+		"clean": "find . -name dist -not -path '*/node_modules/*' -exec rm -rf {} + && find . -name '*.tsbuildinfo' -not -path '*/node_modules/*' -delete",
 		"typecheck": "tsc -b --dry"
 	},
 	"devDependencies": {
