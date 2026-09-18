@@ -107,7 +107,8 @@ export default function BlueprintPanel(): React.ReactElement {
 
 			{showHelpMessage && (
 				<div className="mb-3 bg-slate-500/10 border border-slate-700 rounded-lg p-3 text-xs text-slate-400 font-['IBM_Plex_Sans']">
-					💡 Wähle einen Lauf oder gib oben Repository und Issue-Nummer ein, um einen Blueprint zu erzeugen.
+					💡 Wähle einen Lauf oder gib oben Repository und Issue-Nummer ein, um einen Blueprint zu
+					erzeugen.
 				</div>
 			)}
 
@@ -121,7 +122,8 @@ export default function BlueprintPanel(): React.ReactElement {
 
 			{/* Demo Warning */}
 			<div className="mt-3 bg-amber-500/10 border border-amber-800 rounded-lg p-3 text-xs text-amber-400 font-['IBM_Plex_Sans']">
-				⚠️ Demo-Läufe pushen, mergen oder verwenden keine externen Werkzeuge, sofern dies nicht ausdrücklich aktiviert ist.
+				⚠️ Demo-Läufe pushen, mergen oder verwenden keine externen Werkzeuge, sofern dies nicht
+				ausdrücklich aktiviert ist.
 			</div>
 
 			{error && (
@@ -138,7 +140,8 @@ export default function BlueprintPanel(): React.ReactElement {
 					className="mt-3 bg-sky-500/10 border border-sky-800 rounded-lg p-3 text-xs text-sky-400 font-['IBM_Plex_Sans']"
 					role="status"
 				>
-					✅ Demo-Lauf gestartet: <code className="font-['IBM_Plex_Mono']">{runId}</code> — Weiterleitung zur Laufansicht …
+					✅ Demo-Lauf gestartet: <code className="font-['IBM_Plex_Mono']">{runId}</code> —
+					Weiterleitung zur Laufansicht …
 				</div>
 			)}
 

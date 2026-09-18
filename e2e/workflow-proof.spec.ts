@@ -180,7 +180,7 @@ test.describe
 			// Generate blueprint first (updated for new UI flow)
 			await page.getByLabel('Repository (Eigentümer/Repository)').fill('test-owner/test-repo');
 			await page.getByLabel('Issue-Nummer').fill('1');
-				await page.getByRole('button', { name: /Blueprint erzeugen/i }).click();
+			await page.getByRole('button', { name: /Blueprint erzeugen/i }).click();
 			await expect
 				.poll(() => page.locator('textarea').inputValue(), {
 					timeout: 15_000,

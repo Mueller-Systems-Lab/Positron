@@ -17,7 +17,9 @@ if (process.env.POSITRON_DISABLE_QUEUE === 'true') {
 }
 
 if (process.env.POSITRON_OPENCODE_AUTO !== 'true') {
-	throw new Error('REAL_E2E_FAIL_CLOSED: POSITRON_OPENCODE_AUTO must be true for the mutating real-product path');
+	throw new Error(
+		'REAL_E2E_FAIL_CLOSED: POSITRON_OPENCODE_AUTO must be true for the mutating real-product path',
+	);
 }
 
 for (const name of [

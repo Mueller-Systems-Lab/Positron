@@ -1,6 +1,6 @@
-import { DEFAULT_LOCALE, UI_LANGUAGE, messages, type TranslationKey } from './de-DE.js';
+import { DEFAULT_LOCALE, messages, type TranslationKey, UI_LANGUAGE } from './de-DE.js';
 
-export { DEFAULT_LOCALE, UI_LANGUAGE, messages };
+export { DEFAULT_LOCALE, messages, UI_LANGUAGE };
 
 /** Translate a product-owned UI message. External content must not pass here. */
 export function t(key: TranslationKey | string): string {
@@ -54,9 +54,10 @@ export function formatDate(value: string | number | Date): string {
 }
 
 export function formatDateTime(value: string | number | Date): string {
-	return new Intl.DateTimeFormat(DEFAULT_LOCALE, { dateStyle: 'medium', timeStyle: 'short' }).format(
-		new Date(value),
-	);
+	return new Intl.DateTimeFormat(DEFAULT_LOCALE, {
+		dateStyle: 'medium',
+		timeStyle: 'short',
+	}).format(new Date(value));
 }
 
 export function formatNumber(value: number): string {

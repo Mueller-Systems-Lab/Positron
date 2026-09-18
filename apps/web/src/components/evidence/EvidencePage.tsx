@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api.js';
+import { t } from '../../i18n/index.js';
 import EmptyState from '../shared/EmptyState.js';
 import ErrorBanner from '../shared/ErrorBanner.js';
 import LoadingSkeleton from '../shared/LoadingSkeleton.js';
-import { t } from '../../i18n/index.js';
 
 interface EvidenceItem {
 	id: string;
@@ -214,7 +214,9 @@ export default function EvidencePage(): React.ReactElement {
 					<p className="text-sm text-slate-800 dark:text-slate-300 font-medium mb-1">
 						Keine passenden Nachweise
 					</p>
-					<p className="text-xs text-slate-500 dark:text-slate-500">{t('Try adjusting your filters.')}</p>
+					<p className="text-xs text-slate-500 dark:text-slate-500">
+						{t('Try adjusting your filters.')}
+					</p>
 				</div>
 			)}
 
@@ -234,20 +236,20 @@ export default function EvidencePage(): React.ReactElement {
 							onChange={(e) => setStatusFilter(e.target.value)}
 							className="input max-w-[130px]"
 						>
-					<option value="all">{t('All Status')}</option>
-					<option value="pass">{t('Pass')}</option>
-					<option value="fail">{t('Fail')}</option>
-					<option value="partial">{t('Partial')}</option>
+							<option value="all">{t('All Status')}</option>
+							<option value="pass">{t('Pass')}</option>
+							<option value="fail">{t('Fail')}</option>
+							<option value="partial">{t('Partial')}</option>
 						</select>
 						<select
 							value={typeFilter}
 							onChange={(e) => setTypeFilter(e.target.value)}
 							className="input max-w-[130px]"
 						>
-						{types.map((kind) => (
-							<option key={kind} value={kind}>
-								{kind === 'all' ? t('All Types') : KIND_LABELS[kind] ?? kind}
-							</option>
+							{types.map((kind) => (
+								<option key={kind} value={kind}>
+									{kind === 'all' ? t('All Types') : (KIND_LABELS[kind] ?? kind)}
+								</option>
 							))}
 						</select>
 						<select
@@ -255,7 +257,7 @@ export default function EvidencePage(): React.ReactElement {
 							onChange={(e) => setRunFilter(e.target.value)}
 							className="input max-w-[180px]"
 						>
-					<option value="all">{t('All Runs')}</option>
+							<option value="all">{t('All Runs')}</option>
 							{runOptions
 								.filter((r) => r !== 'all')
 								.map((r) => (
@@ -275,7 +277,7 @@ export default function EvidencePage(): React.ReactElement {
 								<thead>
 									<tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] text-slate-500 uppercase tracking-wider">
 										<th scope="col" className="w-10 px-2 py-2 font-medium">
-										<span className="sr-only">{t('Evidence details')}</span>
+											<span className="sr-only">{t('Evidence details')}</span>
 										</th>
 										<th scope="col" className="text-left px-4 py-2 font-medium">
 											{t('Kind')}
@@ -307,7 +309,7 @@ export default function EvidencePage(): React.ReactElement {
 															type="button"
 															aria-expanded={expanded}
 															aria-controls={detailId}
-										aria-label={`${expanded ? t('Collapse') : t('Expand')} ${t('Evidence')} ${item.id}`}
+															aria-label={`${expanded ? t('Collapse') : t('Expand')} ${t('Evidence')} ${item.id}`}
 															onClick={() => setExpandedId(expanded ? null : item.id)}
 															className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
 														>

@@ -576,7 +576,7 @@ export default function MissionControlPanel({
 													</span>
 												}
 											/>
-							<KeyValue label={t('attempts')} value={buildAttempts.length} />
+											<KeyValue label={t('attempts')} value={buildAttempts.length} />
 											<div className="flex flex-wrap gap-3 mt-1">
 												<FingerprintValue label={t('Input')} value={last.input_fingerprint} />
 												<FingerprintValue label={t('Output')} value={last.output_fingerprint} />
