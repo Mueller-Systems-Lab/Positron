@@ -1,5 +1,56 @@
 # Positron QA Tooling Guide
 
+## Reality levels — completion gate
+
+The browser test layers are intentionally separate. A passing browser run is only
+evidence for the mode printed by its runner:
+
+| Evidence | Browser/runtime | Integrations | Queue path | Meaning |
+|---|---|---|---|---|
+| `FAKE_BROWSER_E2E` | Real Chromium + real local React/HTTP | GitHub, OpenCode and SpecKit are fake adapters | Inline test bypass | Deterministic UI, route, accessibility and localization regression; no external writes |
+| `REAL_PRODUCT_E2E` | Real headed Chromium + real server/web | Real GitHub sandbox, SpecKit and OpenCode | Real Redis + BullMQ worker | Product journey with independently verified external effects |
+
+`FAKE_BROWSER_E2E=PASS` must never be promoted to `REAL_PRODUCT_E2E=PASS`,
+`WORLD_TRUTH=PASS`, or `APPLICATION_COMPLETE=YES`. The ordinary `npm run
+test:e2e` command is the deterministic layer and is explicitly configured with
+`BROWSER_E2E_MODE=FAKE_ADAPTER`.
+
+The real path is fail-closed and requires all of
+`POSITRON_GITHUB_MODE=real`, `POSITRON_OPENCODE_MODE=real`,
+`POSITRON_SPECKIT_MODE=real`, `POSITRON_DISABLE_QUEUE=false`, a configured
+workspace/repository/Issue, Redis and an OpenCode model:
+
+```bash
+npm run build
+REAL_E2E_ISSUE_URL=https://github.com/<owner>/<sandbox>/issues/<n> \
+POSITRON_REPO_OWNER=<owner> POSITRON_REPO_NAME=<sandbox> \
+POSITRON_WORKSPACE_ROOT=/tmp/positron-real-e2e-workspaces \
+POSITRON_OPENCODE_MODEL=opencode/big-pickle \
+npm run test:e2e:real
+```
+
+The real runner records health, intake and correlation evidence under
+`reports/ci/real-product-e2e/`. Its acceptance requires independent GitHub and
+filesystem observations; UI badges alone are not proof.
+
+### Corrected interpretation of the historical green result
+
+The earlier `37/37 headed Playwright PASS` result used the ordinary fake-mode
+configuration (`POSITRON_*_MODE=fake`, `POSITRON_DISABLE_QUEUE=true`). It was a
+valid deterministic browser regression result, but it was over-interpreted as
+product E2E. The root cause was evidence labeling and an acceptance mapping that
+did not carry the adapter/queue reality level. The explicit fake/real runners,
+mode banner, fail-closed guard and separate evidence names prevent that false
+green from recurring.
+
+## Product-language and instruction boundary
+
+The rendered Positron UI defaults to `de-DE` and all new product-owned strings
+must use `apps/web/src/i18n/`. Internal LLM/agent instructions, tool commands,
+API fields and machine status values remain English/unchanged. External Issue,
+Pull Request, repository, branch, commit, terminal and raw agent content keeps
+its source language; only the surrounding Positron presentation is localized.
+
 ## Overview
 
 Positron uses multiple layers of testing and validation:
@@ -10,13 +61,16 @@ Positron uses multiple layers of testing and validation:
 | **Property-Based Tests** | `npm test` (included) | State machine invariants (37 props, ~18k runs) | ~2s | Blockierend |
 | **Contract Tests** | `npm run test:contracts` | Public API contracts between packages | ~0.4s | Blockierend |
 | **Mutation Fast** | `npm run test:mutation:fast` | Selected high-risk modules | ~25s | Optional |
-| **E2E Tests** | `npm run test:e2e` | Full browser workflow (25 tests) | ~60s | Optional (QA-030, non-blocking) |
+| **Fake browser E2E** | `npm run test:e2e:fake` | Deterministic rendered UI (37 tests) | ~60s | Regression layer |
+| **Real product E2E** | `npm run test:e2e:real` | Sandbox Issue→PR with real adapters/worker | minutes | Explicit sandbox gate |
 
 ## E2E Tests (QA-028 / QA-031)
 
-### Test Suite Overview
+### Deterministic browser regression suite
 
-The E2E suite consists of 4 test files, 25 tests total, all passing green (QA-031):
+The fake-adapter suite consists of 37 headed Chromium tests. It is intentionally
+separate from the real-product sandbox suite and must be reported as
+`FAKE_BROWSER_E2E`, never as real-world product proof:
 
 | File | Tests | Purpose |
 |------|-------|---------|
@@ -209,10 +263,10 @@ The E2E job is intentionally **non-blocking** (`continue-on-error: true`). It wi
 ### Known Limits
 
 - **SSE in Playwright**: `EventSource` behavior differs in headless Chromium. Tests rely on HTTP polling fallback for status updates.
-- **Real-Adapter E2E missing**: Only fake adapter E2E testing exists. Real adapter E2E requires controlled GitHub test repos and is planned separately.
+- **Real-adapter E2E**: The dedicated `npm run test:e2e:real` path now exercises a controlled GitHub sandbox, real SpecKit/OpenCode, Redis and BullMQ. Its evidence is valid only when the fail-closed mode banner, correlation record and independent external checks all pass.
 - **Browser flakiness possible**: Vite hot-reload and React component mounting timing may cause occasional failures. Rerun `npm run test:e2e` if a test flakes. The CI retries up to 2 times.
-- **Worker processing not in UI E2E**: The actual BullMQ worker processing path is not validated through the UI E2E test (covered by integration tests).
-- **Inline-only in test**: E2E and integration tests use inline pipeline execution (`POSITRON_DISABLE_QUEUE=true`). The BullMQ queuing path is validated separately via unit tests and contract tests.
+- **Worker processing in fake UI E2E**: The deterministic suite intentionally bypasses BullMQ; this is not real-product evidence.
+- **Real queue path**: Only the dedicated real suite may claim BullMQ worker processing, and it must run with `POSITRON_DISABLE_QUEUE=false`.
 - **Rate limiter bypass in test**: The production rate limiter (100 req/min) is bypassed during E2E tests via `VITEST=true`. Production rate limiting remains active at all times.
 
 ### Troubleshooting

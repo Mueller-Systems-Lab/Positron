@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../api.js';
 import type { ManagedTargetProject, SafetyCheck } from '../../types.jsx';
 import ErrorBanner from '../shared/ErrorBanner.js';
+import { t } from '../../i18n/index.js';
 
 // ── Duplicate-safe stable text keys ─────────────────────────────────
 
@@ -47,16 +48,16 @@ const STATUS_STYLE: Record<string, string> = {
 
 const STATUS_LABEL: Record<string, string> = {
 	LOCAL_GATES_REPRODUCIBLE: 'Gates OK',
-	LOCAL_GATES_BLOCKED: 'Gates Blocked',
-	NOT_YET_EVALUATED: 'Not Evaluated',
-	DEPLOYED: 'Deployed',
-	ARCHIVED: 'Archived',
+	LOCAL_GATES_BLOCKED: 'Gates blockiert',
+	NOT_YET_EVALUATED: 'Nicht bewertet',
+	DEPLOYED: 'Bereitgestellt',
+	ARCHIVED: 'Archiviert',
 };
 
 const ROLE_LABEL: Record<string, string> = {
-	external_target_project: 'Target Project',
-	proof_project: 'Proof Project',
-	candidate_project: 'Candidate',
+	external_target_project: t('Target Project'),
+	proof_project: t('Proof Project'),
+	candidate_project: t('Candidate'),
 };
 
 // ── Safety Check Icon ──────────────────────────────────────────────
@@ -109,7 +110,7 @@ function ProjectCard({ project }: { project: ManagedTargetProject }): React.Reac
 			{/* Meta */}
 			<div className="flex flex-wrap gap-4 text-xs text-slate-400 dark:text-slate-500 mb-3">
 				<span>
-					Repo:{' '}
+					{t('Repo')}:{' '}
 					<a
 						href={project.repoUrl}
 						target="_blank"
@@ -119,9 +120,19 @@ function ProjectCard({ project }: { project: ManagedTargetProject }): React.Reac
 						{project.id}
 					</a>
 				</span>
-				<span>Branch: {project.defaultBranch}</span>
-				{project.lastEvidence && <span>Last Evidence: {project.lastEvidence}</span>}
-				{project.lastSecurityScan && <span>Last Security Scan: {project.lastSecurityScan}</span>}
+				<span>
+					{t('Branch')}: {project.defaultBranch}
+				</span>
+				{project.lastEvidence && (
+					<span>
+						{t('Last Evidence')}: {project.lastEvidence}
+					</span>
+				)}
+				{project.lastSecurityScan && (
+					<span>
+						{t('Last Security Scan')}: {project.lastSecurityScan}
+					</span>
+				)}
 			</div>
 
 			{/* Tech Stack Tags */}
@@ -141,7 +152,7 @@ function ProjectCard({ project }: { project: ManagedTargetProject }): React.Reac
 			{/* Blockers (if any) */}
 			{project.blockers.length > 0 && (
 				<div className="mb-3 p-3 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-800">
-					<p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-1">Blockers</p>
+					<p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-1">Blockaden</p>
 					<ul className="list-disc list-inside text-xs text-red-600 dark:text-red-400">
 						{createStableTextItems(project.blockers).map((item) => (
 							<li key={item.key}>{item.value}</li>
@@ -157,7 +168,7 @@ function ProjectCard({ project }: { project: ManagedTargetProject }): React.Reac
 				className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline mb-2"
 				aria-expanded={expanded}
 			>
-				{expanded ? '\u25b2 Hide Details' : '\u25bc Show Details'}
+				{expanded ? `\u25b2 ${t('Hide Details')}` : `\u25bc ${t('Show Details')}`}
 			</button>
 
 			{/* Expanded Content */}
@@ -167,7 +178,7 @@ function ProjectCard({ project }: { project: ManagedTargetProject }): React.Reac
 					{project.safetyChecks.length > 0 && (
 						<div>
 							<p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">
-								Safety Checks
+								{t('Safety Checks')}
 							</p>
 							<ul className="space-y-0.5">
 								{project.safetyChecks.map((check) => (
@@ -181,7 +192,7 @@ function ProjectCard({ project }: { project: ManagedTargetProject }): React.Reac
 					{project.nextRecommendedRuns.length > 0 && (
 						<div>
 							<p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">
-								Next Recommended Positron Runs
+								{t('Next Recommended Positron Runs')}
 							</p>
 							<ul className="list-disc list-inside text-sm text-slate-600 dark:text-slate-400 space-y-0.5">
 								{createStableTextItems(project.nextRecommendedRuns).map((item) => (
@@ -194,11 +205,11 @@ function ProjectCard({ project }: { project: ManagedTargetProject }): React.Reac
 					{/* Security Status */}
 					<div>
 						<p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">
-							Security
+							{t('Security')}
 						</p>
 						<span className="text-sm text-slate-600 dark:text-slate-400">
-							Status: <span className="font-medium">{project.securityStatus}</span>
-							{project.lastSecurityScan && ` (last scan: ${project.lastSecurityScan})`}
+							{t('Status')}: <span className="font-medium">{project.securityStatus}</span>
+							{project.lastSecurityScan && ` (${t('last scan')}: ${project.lastSecurityScan})`}
 						</span>
 					</div>
 				</div>
@@ -239,11 +250,11 @@ export default function ProjectsPage(): React.ReactElement {
 		<div>
 			{/* Header */}
 			<div className="mb-6">
-				<h1>Managed Target Projects</h1>
+				<h1>{t('Managed Target Projects')}</h1>
 				<p className="text-sm text-slate-400 mt-1">
-					Positron tracks external target projects. Each project below is a data entry in the
-					registry — Positron orchestrates runs against their repositories. Target project code and
-					business logic live in their own repositories, not in Positron.
+					{t(
+						'Positron tracks external target projects. Each project below is a data entry in the registry — Positron orchestrates runs against their repositories. Target project code and business logic live in their own repositories, not in Positron.',
+					)}
 				</p>
 			</div>
 
@@ -254,7 +265,7 @@ export default function ProjectsPage(): React.ReactElement {
 			{loading && (
 				<div className="flex items-center justify-center py-16">
 					<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-					<span className="ml-3 text-slate-400">Loading target projects&hellip;</span>
+					<span className="ml-3 text-slate-400">{t('Loading')} Zielprojekte …</span>
 				</div>
 			)}
 
@@ -263,10 +274,10 @@ export default function ProjectsPage(): React.ReactElement {
 				<div className="text-center py-16">
 					<p className="text-4xl mb-3">{'\u{1f4e6}'}</p>
 					<p className="text-slate-500 dark:text-slate-400">
-						No managed target projects registered yet.
+						{t('No managed target projects registered yet.')}
 					</p>
 					<p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
-						Add target projects to the registry in{' '}
+						{t('Add target projects to the registry in')}{' '}
 						<code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">
 							apps/server/src/data/managed-target-projects.ts
 						</code>
@@ -286,8 +297,9 @@ export default function ProjectsPage(): React.ReactElement {
 			{/* Footer Note */}
 			{!loading && projects.length > 0 && (
 				<p className="text-xs text-slate-400 dark:text-slate-500 mt-6 border-t border-slate-100 dark:border-slate-800 pt-4">
-					Positron is a build/agent/evidence orchestrator. Target projects are external repositories
-					tracked in this registry. No target project business logic is embedded in Positron.
+					{t(
+						'Positron is a build/agent/evidence orchestrator. Target projects are external repositories tracked in this registry. No target project business logic is embedded in Positron.',
+					)}
 				</p>
 			)}
 		</div>

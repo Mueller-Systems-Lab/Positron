@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Run, RunEvent, RunStatus } from '../types.js';
 import { speakEvent } from '../voice/voice-output.js';
+import { t } from '../i18n/index.js';
 
 interface EvidenceItem {
 	id: string;
@@ -243,7 +244,9 @@ export function useSSE(runId: string | null): UseSSEResult {
 				const delay = Math.min(RECONNECT_BASE_MS * 2 ** retryCountRef.current, RECONNECT_MAX_MS);
 				retryCountRef.current += 1;
 
-				setError(`Connection lost. Reconnecting in ${Math.round(delay / 1000)}s...`);
+				setError(
+					`${t('Connection lost. Reconnecting in')} ${Math.round(delay / 1000)} ${t('seconds')}.`,
+				);
 
 				reconnectTimer = setTimeout(connect, delay);
 			};

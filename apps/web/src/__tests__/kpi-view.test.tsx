@@ -49,7 +49,7 @@ describe('KPI_VIEW', () => {
 		render(<KpiPanel />);
 		const panel = await screen.findByTestId('kpi-panel');
 		await waitFor(() => {
-			expect(within(panel).getByText('Runtime KPIs')).toBeInTheDocument();
+			expect(within(panel).getByText('Laufzeit-KPIs')).toBeInTheDocument();
 		});
 		// First-Pass Success: 0.6667 → 66.7 %
 		expect(within(panel).getByText('66.7 %')).toBeInTheDocument();
@@ -62,27 +62,27 @@ describe('KPI_VIEW', () => {
 		// p50/p95 (formatierte Dauern)
 		expect(within(panel).getByText('2s')).toBeInTheDocument();
 		expect(within(panel).getByText('9s')).toBeInTheDocument();
-		// Runs-Zähler
-		expect(within(panel).getByText('12 runs')).toBeInTheDocument();
+		// Läufe-Zähler
+		expect(within(panel).getByText('12 Läufe')).toBeInTheDocument();
 	});
 
 	test('Invarianten sind sichtbar als „= 0“-Hinweise wenn sie gelten', async () => {
 		render(<KpiPanel />);
 		const panel = await screen.findByTestId('kpi-panel');
 		await waitFor(() => {
-			expect(within(panel).getAllByText(/invariant: = 0/)).toHaveLength(2);
+			expect(within(panel).getAllByText(/Invariant: = 0/)).toHaveLength(2);
 		});
-		expect(within(panel).getByText(/invariant: = 100 %/)).toBeInTheDocument();
+		expect(within(panel).getByText(/Invariant: = 100 %/)).toBeInTheDocument();
 	});
 
 	test('Invarianten sind sichtbar als „= 0“-Hinweise wenn sie gelten', async () => {
 		render(<KpiPanel />);
 		const panel = await screen.findByTestId('kpi-panel');
 		await waitFor(() => {
-			expect(within(panel).getAllByText(/invariant: = 0/)).toHaveLength(2);
+			expect(within(panel).getAllByText(/Invariant: = 0/)).toHaveLength(2);
 		});
-		expect(within(panel).getByText(/invariant: = 100 %/)).toBeInTheDocument();
-		expect(within(panel).getByText(/invariant: = 100 %/)).toBeInTheDocument();
+		expect(within(panel).getByText(/Invariant: = 100 %/)).toBeInTheDocument();
+		expect(within(panel).getByText(/Invariant: = 100 %/)).toBeInTheDocument();
 	});
 });
 
@@ -119,22 +119,22 @@ describe('KPI_INVARIANTS', () => {
 		const panel = await screen.findByTestId('kpi-panel');
 		const violationBox = await screen.findByTestId('kpi-invariant-violation');
 		expect(violationBox).toBeInTheDocument();
-		expect(within(violationBox).getByText('INVARIANT VIOLATION')).toBeInTheDocument();
+		expect(within(violationBox).getByText('INVARIANTE VERLETZT')).toBeInTheDocument();
 		expect(
 			within(violationBox).getByText('blind_retry_rate expected 0, got 0.25'),
 		).toBeInTheDocument();
 		// Betroffene Zellen sind nicht grün, sondern als verletzt markiert
-		const blindRetryCell = within(panel).getByText('Blind Retry Rate').closest('div')!;
-		expect(within(blindRetryCell).getByText('INVARIANT VIOLATED')).toBeInTheDocument();
-		const dupCell = within(panel).getByText('Duplicate Mutation Rate').closest('div')!;
-		expect(within(dupCell).getByText('INVARIANT VIOLATED')).toBeInTheDocument();
-		const secCell = within(panel).getByText('Security Enforcement').closest('div')!;
-		expect(within(secCell).getByText('INVARIANT VIOLATED')).toBeInTheDocument();
+		const blindRetryCell = within(panel).getByText('Rate blinder Wiederholungen').closest('div')!;
+		expect(within(blindRetryCell).getByText('INVARIANTE VERLETZT')).toBeInTheDocument();
+		const dupCell = within(panel).getByText('Rate doppelter Änderungen').closest('div')!;
+		expect(within(dupCell).getByText('INVARIANTE VERLETZT')).toBeInTheDocument();
+		const secCell = within(panel).getByText('Sicherheitsdurchsetzung').closest('div')!;
+		expect(within(secCell).getByText('INVARIANTE VERLETZT')).toBeInTheDocument();
 	});
 
 	test('Backend nicht erreichbar: kontrollierter Fehlerzustand', async () => {
 		vi.mocked(api.getKpis).mockRejectedValue(new Error('ECONNREFUSED'));
 		render(<KpiPanel />);
-		expect(await screen.findByText(/Backend temporarily unavailable/)).toBeInTheDocument();
+		expect(await screen.findByText(/Backend vorübergehend nicht verfügbar/)).toBeInTheDocument();
 	});
 });

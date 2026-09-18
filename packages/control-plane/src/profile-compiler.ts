@@ -384,7 +384,10 @@ export const PLAN_TASK_PROFILE: TaskProfileContract = buildTaskProfile({
 	context_strategy: 'full',
 	reasoning_policy: 'deep',
 	max_steps: 1,
-	timeout_ms: 300_000,
+	// Real provider-backed planning may require more than the short
+	// deterministic-test budget. The runtime kernel still enforces the
+	// bounded parent budget and cancellation authority.
+	timeout_ms: 600_000,
 	permissions: { mutation: false, push: false, merge: false, deploy: false, secret_access: false },
 });
 
@@ -397,7 +400,11 @@ export const BUILD_TASK_PROFILE: TaskProfileContract = buildTaskProfile({
 	context_strategy: 'compact',
 	reasoning_policy: 'fast',
 	max_steps: 5,
-	timeout_ms: 600_000,
+	// Real mutation runs may need several tool turns before the provider
+	// returns its structured result. Keep this bounded, but give the real
+	// sandbox path a 20-minute provider slice instead of terminating after
+	// the shorter read-only budget.
+	timeout_ms: 1_200_000,
 	permissions: { mutation: true, push: false, merge: false, deploy: false, secret_access: false },
 });
 
@@ -454,7 +461,10 @@ export const READONLY_TASK_PROFILE: TaskProfileContract = buildTaskProfile({
 	context_strategy: 'full',
 	reasoning_policy: 'deep',
 	max_steps: 1,
-	timeout_ms: 300_000,
+	// Read-only SpecKit phases still make provider-backed requests. Keep the
+	// permissions read-only while allowing the same bounded runtime budget as
+	// the productive planning/task profiles.
+	timeout_ms: 600_000,
 	permissions: { mutation: false, push: false, merge: false, deploy: false, secret_access: false },
 });
 

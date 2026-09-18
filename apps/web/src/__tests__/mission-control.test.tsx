@@ -421,7 +421,7 @@ describe('ACTIVE_RUN_LOADS_REAL_BACKEND_DATA', () => {
 			expect(api.getControlPlane).toHaveBeenCalledWith('run_mission');
 		});
 		const panel = await screen.findByTestId('mission-control');
-		expect(within(panel).getByText('Mission Control')).toBeInTheDocument();
+		expect(within(panel).getByText('Missionssteuerung')).toBeInTheDocument();
 		// run_id aus Backend-Daten (kein clientseitiger Default)
 		expect(within(panel).getAllByText('run_mission').length).toBeGreaterThan(0);
 	});
@@ -432,7 +432,7 @@ describe('ACTIVE_RUN_STATE', () => {
 		render(<MissionControlPanel runId="run_mission" />);
 		const panel = await screen.findByTestId('mission-control');
 		// Run-Section isolieren (Backend-Projection: current job = review, 3 Attempts)
-		const runSection = within(panel).getByText('Run').closest('div')!;
+		const runSection = within(panel).getByText('Lauf').closest('div')!;
 		await waitFor(() => {
 			expect(within(runSection).getByText('review')).toBeInTheDocument();
 		});
@@ -442,10 +442,10 @@ describe('ACTIVE_RUN_STATE', () => {
 });
 
 describe('ACTIVE_RUN_TIMELINE', () => {
-	test('rendert die persistierte Run Timeline (Transitions)', async () => {
+	test('rendert die persistierte Lauf-Zeitachse (Transitions)', async () => {
 		render(<MissionControlPanel runId="run_mission" />);
 		const panel = await screen.findByTestId('mission-control');
-		const timeline = within(panel).getByText('Run Timeline').closest('div')!;
+		const timeline = within(panel).getByText('Lauf-Zeitachse').closest('div')!;
 		await waitFor(() => {
 			expect(within(timeline).getByText('RESEARCH_JOIN')).toBeInTheDocument();
 		});
@@ -460,7 +460,7 @@ describe('ACTIVE_RUN_ATTEMPTS', () => {
 		render(<MissionControlPanel runId="run_mission" />);
 		const panel = await screen.findByTestId('mission-control');
 		// Build-Attempt-Historie isolieren (alte Attempts verschwinden nicht)
-		const buildHistory = within(panel).getByText('Attempt History (Build)').closest('div')!;
+		const buildHistory = within(panel).getByText('Versuchshistorie (Build)').closest('div')!;
 		await waitFor(() => {
 			expect(within(buildHistory).getByText('Attempt 1')).toBeInTheDocument();
 		});
@@ -477,7 +477,7 @@ describe('ACTIVE_RUN_PLAN_GATE', () => {
 	test('zeigt Plan-Gate-Verdict aus der persistierten Transition', async () => {
 		render(<MissionControlPanel runId="run_mission" />);
 		const panel = await screen.findByTestId('mission-control');
-		const gateSection = within(panel).getByText('Plan Gate').closest('div')!;
+		const gateSection = within(panel).getByText('Plan-Gate').closest('div')!;
 		await waitFor(() => {
 			expect(within(gateSection).getByText('PLAN_GATE_APPROVED')).toBeInTheDocument();
 		});
@@ -489,7 +489,7 @@ describe('ACTIVE_RUN_RESEARCH', () => {
 	test('zeigt Research-Worker-Status (code/docs/tests) und Parallelismus-Verdict', async () => {
 		render(<MissionControlPanel runId="run_mission" />);
 		const panel = await screen.findByTestId('mission-control');
-		const researchSection = within(panel).getByText('Research').closest('div')!;
+		const researchSection = within(panel).getByText('Recherche').closest('div')!;
 		await waitFor(() => {
 			expect(within(researchSection).getByText('code')).toBeInTheDocument();
 		});
@@ -519,7 +519,7 @@ describe('ACTIVE_RUN_VERIFY', () => {
 	test('zeigt strukturierte Verify-Gate-Checks aus dem Backend-Feld checks', async () => {
 		render(<MissionControlPanel runId="run_mission" />);
 		const panel = await screen.findByTestId('mission-control');
-		const verifySection = within(panel).getByText('Verify').closest('div')!;
+		const verifySection = within(panel).getByText('Verifizieren').closest('div')!;
 		await waitFor(() => {
 			expect(within(verifySection).getByText('npm test')).toBeInTheDocument();
 		});
@@ -531,7 +531,7 @@ describe('ACTIVE_RUN_DECISION', () => {
 	test('zeigt deterministische Decision mit reason_code', async () => {
 		render(<MissionControlPanel runId="run_mission" />);
 		const panel = await screen.findByTestId('mission-control');
-		const decisionSection = within(panel).getByText('Decision').closest('div')!;
+		const decisionSection = within(panel).getAllByText('Entscheidung')[0].closest('div')!;
 		await waitFor(() => {
 			expect(within(decisionSection).getByText('DONE')).toBeInTheDocument();
 		});
@@ -579,23 +579,23 @@ describe('OLD_RUN_COMPATIBILITY', () => {
 		const panel = await screen.findByTestId('mission-control');
 		expect(within(panel).getAllByText('run_old').length).toBeGreaterThan(0);
 		// Keine erfundenen Zustände — ehrliche Leerhinweise
-		expect(within(panel).getByText('No decision recorded yet.')).toBeInTheDocument();
-		expect(within(panel).getByText('No research job recorded.')).toBeInTheDocument();
-		expect(within(panel).getByText('No persisted transitions yet.')).toBeInTheDocument();
+		expect(within(panel).getByText('Noch keine Entscheidung erfasst.')).toBeInTheDocument();
+		expect(within(panel).getByText('Noch kein Rechercheauftrag erfasst.')).toBeInTheDocument();
+		expect(within(panel).getByText('Noch keine gespeicherten Übergänge.')).toBeInTheDocument();
 	});
 
 	test('nicht gefundener Run: kontrollierter Hinweis statt Absturz', async () => {
 		vi.mocked(api.getControlPlane).mockRejectedValue(new Error('not found'));
 		render(<MissionControlPanel runId="run_missing" />);
 		expect(
-			await screen.findByText(/Control-plane state unavailable for this run/),
+			await screen.findByText(/Steuerungsebenenstatus für diesen Lauf nicht verfügbar/),
 		).toBeInTheDocument();
 	});
 
 	test('Backend nicht erreichbar: kontrollierte Fehlermeldung', async () => {
 		vi.mocked(api.getControlPlane).mockRejectedValue(new Error('ECONNREFUSED'));
 		render(<MissionControlPanel runId="run_down" />);
-		expect(await screen.findByText(/Backend temporarily unavailable/)).toBeInTheDocument();
+		expect(await screen.findByText(/Backend vorübergehend nicht verfügbar/)).toBeInTheDocument();
 	});
 });
 

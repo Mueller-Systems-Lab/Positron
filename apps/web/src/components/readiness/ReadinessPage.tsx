@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api.js';
 import type { OperatorReadiness, OperatorReadinessCheck } from '../../types.js';
+import { statusLabel, t } from '../../i18n/index.js';
 
 const COMPONENTS = [
 	'server',
@@ -20,9 +21,9 @@ const COMPONENTS = [
 ] as const;
 const labels: Record<string, string> = {
 	opencode: 'OpenCode',
-	security_policy: 'Safety policy',
-	runtime_budget: 'Runtime budget',
-	approval_system: 'Approval system',
+	security_policy: 'Sicherheitsrichtlinie',
+	runtime_budget: 'Laufzeitbudget',
+	approval_system: 'Genehmigungssystem',
 };
 
 function tone(status: string): string {
@@ -43,7 +44,7 @@ export default function ReadinessPage(): React.ReactElement {
 			setData(await api.getOperatorReadiness());
 			setError(null);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Readiness unavailable');
+			setError(err instanceof Error ? err.message : t('Readiness unavailable'));
 		}
 	}, []);
 	useEffect(() => {
@@ -54,13 +55,13 @@ export default function ReadinessPage(): React.ReactElement {
 		<div>
 			<div className="mb-6 flex items-start justify-between gap-4">
 				<div>
-					<h1>Operator Readiness</h1>
+					<h1>{t('Operator Readiness')}</h1>
 					<p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-						Understand what Positron can safely do before starting a run.
+						Prüfe, was Positron vor dem Start eines Laufs sicher ausführen kann.
 					</p>
 				</div>
 				<button type="button" className="btn-secondary" onClick={load}>
-					Refresh checks
+					{t('Refresh checks')}
 				</button>
 			</div>
 			{error && (
@@ -75,12 +76,12 @@ export default function ReadinessPage(): React.ReactElement {
 				<>
 					<div className="card mb-5 flex flex-wrap items-center justify-between gap-4">
 						<div>
-							<p className="text-xs uppercase tracking-widest text-slate-500">Overall status</p>
+							<p className="text-xs uppercase tracking-widest text-slate-500">{t('Overall status')}</p>
 							<p
 								data-testid="readiness-overall"
 								className={`mt-1 text-2xl font-semibold ${tone(data.overall_status)}`}
 							>
-								{data.overall_status}
+								{statusLabel(data.overall_status)}
 							</p>
 						</div>
 						<Link className="btn-primary" to={data.next_action.href}>
@@ -97,17 +98,17 @@ export default function ReadinessPage(): React.ReactElement {
 										<h2 className="text-sm font-semibold">
 											{labels[key] ?? key.replaceAll('_', ' ')}
 										</h2>
-										<span className={`text-xs font-bold ${tone(item.status)}`}>{item.status}</span>
+										<span className={`text-xs font-bold ${tone(item.status)}`}>{statusLabel(item.status)}</span>
 									</div>
 									<p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
 										{item.human_message}
 									</p>
 									<p className="mt-2 text-xs text-slate-500">
-										Reason: <code>{item.reason_code}</code>
+										{t('Reason')}: <code>{item.reason_code}</code>
 									</p>
-									<p className="mt-1 text-xs text-slate-500">Next: {item.remediation_hint}</p>
+									<p className="mt-1 text-xs text-slate-500">{t('Next')}: {item.remediation_hint}</p>
 									<p className="mt-2 text-[11px] text-slate-400">
-										Evidence: {item.evidence_ref} · checked {item.last_checked_at}
+										{t('Evidence')}: {item.evidence_ref} · {t('checked')} {item.last_checked_at}
 									</p>
 								</section>
 							);

@@ -101,14 +101,19 @@ import {
 	normalizeRepositoryConfig,
 	parsePhase,
 	parseRunStatus,
+	PIPELINE_QUEUE,
+	resolveRedisUrl,
 	SecretManager,
 	safeJsonParse,
+	type PipelineJobData,
+	type PipelineJobResult,
 } from '@positron/shared';
 import { FakeSpecKitAdapter, RealSpecKitAdapter } from '@positron/speckit-adapter';
 import { createAuditSink, GatewayService, ToolRegistry } from '@positron/tool-gateway';
 import type { PipelineDeps } from '@positron/worker-pipeline';
 import { createStage3ExecutionAuthorityProvider, runPipeline } from '@positron/worker-pipeline';
 import type Database from 'better-sqlite3';
+import { Queue } from 'bullmq';
 import express from 'express';
 import { getManagedTargetProjects } from './data/managed-target-projects.js';
 import { createDemoLiveRunHandler } from './demo/live-run-handler.js';
@@ -1197,6 +1202,12 @@ export function createApp(options: ServerOptions = {}) {
 		emitEvent: undefined,
 	};
 	let schedulerLoopTick: () => Promise<void> = async () => {};
+	const productiveQueue =
+		process.env.POSITRON_DISABLE_QUEUE === 'true'
+			? null
+			: new Queue<PipelineJobData, PipelineJobResult>(PIPELINE_QUEUE, {
+					connection: { url: resolveRedisUrl() },
+				});
 
 	// ── QA-011: Metrics-decorated OpenCode adapter ──
 	// Wraps the adapter to record telemetry without modifying adapter code.
@@ -1882,6 +1893,13 @@ export function createApp(options: ServerOptions = {}) {
 			res.json({
 				status: allOk ? 'ok' : 'degraded',
 				adapters,
+				integrationModes: {
+					github: githubMode,
+					specKit: activeSpecKitAdapter instanceof FakeSpecKitAdapter ? 'fake' : 'real',
+					openCode: activeOpenCodeAdapter instanceof FakeOpenCodeAdapter ? 'fake' : 'real',
+					queue: process.env.POSITRON_DISABLE_QUEUE === 'true' ? 'inline' : 'bullmq',
+					environment: process.env.NODE_ENV ?? 'development',
+				},
 				uptime: Math.floor((Date.now() - serverStartTime) / 1000),
 				runs: countRunsInDb(),
 				mode: isFakeMode ? 'fake' : 'real',
@@ -2730,6 +2748,28 @@ export function createApp(options: ServerOptions = {}) {
 			//    die Dispatches laufen parallel; der Tick wartet nicht seriell
 			//    auf die Pipeline (kein `for { await runPipeline }`).
 			for (const { item, run } of admitted) {
+				if (productiveQueue) {
+					// Productive runs cross the real BullMQ boundary. The worker owns
+					// pipeline execution and terminal queue finalization.
+					try {
+						await productiveQueue.add(
+							'pipeline',
+							{
+								runId: run.id,
+								repoId: run.repoId,
+								issueNumber: run.issueNumber,
+								autonomyLevel: run.autonomyLevel,
+							},
+							{ jobId: run.id, removeOnComplete: false, removeOnFail: false },
+						);
+					} catch (err) {
+						markRunFinished(getDb(), item.queue_item_id, 'FAILED', run.id, 'READY', schedulerCfg);
+						console.error(
+							`[Scheduler] BullMQ enqueue failed for run ${run.id}: ${err instanceof Error ? err.message : String(err)}`,
+						);
+					}
+					continue;
+				}
 				const promise = dispatchRun(item, run);
 				inFlightDispatches.add(promise);
 				promise

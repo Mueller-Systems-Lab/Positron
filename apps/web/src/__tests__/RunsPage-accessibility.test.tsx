@@ -63,7 +63,7 @@ describe('RunsPage — E18 Native Run-ID Link', () => {
 		});
 
 		const link = screen.getByRole('link', {
-			name: /open run a1b2c3d4e5f6-7890-abcd-ef01-234567890abc/i,
+			name: /lauf öffnen a1b2c3d4e5f6-7890-abcd-ef01-234567890abc/i,
 		});
 		expect(link.tagName).toBe('A');
 		expect(link.getAttribute('href')).toBe('/runs/a1b2c3d4e5f6-7890-abcd-ef01-234567890abc');
@@ -83,12 +83,12 @@ describe('RunsPage — E18 Native Run-ID Link', () => {
 
 		expect(
 			screen.getByRole('link', {
-				name: /open run a1b2c3d4e5f6-7890-abcd-ef01-234567890abc/i,
+				name: /lauf öffnen a1b2c3d4e5f6-7890-abcd-ef01-234567890abc/i,
 			}),
 		).toBeDefined();
 		expect(
 			screen.getByRole('link', {
-				name: /open run f6e5d4c3b2a1-0123-fedc-ba98-765432109876/i,
+				name: /lauf öffnen f6e5d4c3b2a1-0123-fedc-ba98-765432109876/i,
 			}),
 		).toBeDefined();
 	});
@@ -117,7 +117,7 @@ describe('RunsPage — E18 Native Run-ID Link', () => {
 		});
 
 		const link = screen.getByRole('link', {
-			name: /open run a1b2c3d4e5f6-7890-abcd-ef01-234567890abc/i,
+			name: /lauf öffnen a1b2c3d4e5f6-7890-abcd-ef01-234567890abc/i,
 		});
 		fireEvent.click(link);
 
@@ -167,14 +167,14 @@ describe('RunsPage — E18 Native Run-ID Link', () => {
 		});
 
 		// Click on phase cell (in table only — use getAllByText and pick the table one)
-		const phaseCells = screen.getAllByText('done');
+		const phaseCells = screen.getAllByText('Abgeschlossen');
 		const tablePhaseCell = phaseCells.find((el) => el.closest('td') !== null);
 		expect(tablePhaseCell).toBeDefined();
 		fireEvent.click(tablePhaseCell ?? phaseCells[0]);
 		expect(capturedPathname).toBe('/runs');
 
 		// Click on status cell
-		const statusCells = screen.getAllByText('DONE');
+		const statusCells = screen.getAllByText('Abgeschlossen');
 		const tableStatusCell = statusCells.find((el) => el.closest('td') !== null) as
 			| Element
 			| undefined;

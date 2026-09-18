@@ -2,6 +2,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../api.js';
+import { t } from '../../i18n/index.js';
 import { useDashboardSSE } from '../../hooks/useDashboardSSE.js';
 import type { ManagedTargetProject } from '../../types.js';
 import EmptyState from '../shared/EmptyState.js';
@@ -45,21 +46,21 @@ export default function DashboardPage(): React.ReactElement {
 			{/* Header */}
 			<div className="flex items-center justify-between mb-6">
 				<div>
-					<h1>Dashboard</h1>
+					<h1>{t('Dashboard')}</h1>
 					<p className="text-sm text-slate-400 mt-1">
-						Evidence-Gated Agent Execution Overview
+						Übersicht der nachweisgesteuerten Agentenausführung
 						{!isConnected && runs.length > 0 && (
-							<span className="ml-2 text-amber-400">(polling fallback)</span>
+							<span className="ml-2 text-amber-400">({t('polling fallback')})</span>
 						)}
 					</p>
 				</div>
 				<div className="flex items-center gap-3">
 					<Link to="/readiness" className="btn-secondary text-sm">
-						Check readiness
+						Bereitschaft prüfen
 					</Link>
 					<VoiceStatusIndicator />
 					<button type="button" onClick={() => setIsNewRunModalOpen(true)} className="btn-primary">
-						+ New Run
+						+ {t('New Run')}
 					</button>
 				</div>
 			</div>
@@ -69,10 +70,10 @@ export default function DashboardPage(): React.ReactElement {
 				<>
 					<EmptyState
 						icon="🚀"
-						title="Welcome to Positron"
-						description="Positron is your evidence-gated agent execution platform."
-						action={{ label: 'Create Your First Run', onClick: () => setIsNewRunModalOpen(true) }}
-						secondaryAction={{ label: 'Add Repository', onClick: () => navigate('/repos') }}
+						title={t('Welcome to Positron')}
+						description="Positron ist deine nachweisgesteuerte Plattform für Agentenausführung."
+						action={{ label: 'Ersten Lauf erstellen', onClick: () => setIsNewRunModalOpen(true) }}
+						secondaryAction={{ label: t('Add Repository'), onClick: () => navigate('/repos') }}
 					/>
 					<div className="mt-5">
 						<BlueprintPanel />
@@ -105,24 +106,24 @@ export default function DashboardPage(): React.ReactElement {
 										<line x1="8" y1="21" x2="16" y2="21" />
 										<line x1="12" y1="17" x2="12" y2="21" />
 									</svg>
-									Managed External Projects
+									Verwaltete externe Projekte
 								</h3>
 								<button
 									type="button"
 									onClick={() => navigate('/projects')}
 									className="btn-ghost text-xs"
 								>
-									View All →
+									{t('View All')} →
 								</button>
 							</div>
 							{managedProjects.map((project) => {
-								const statusLabel =
+								const projectStatusLabel =
 									{
 										LOCAL_GATES_REPRODUCIBLE: 'Gates OK',
-										LOCAL_GATES_BLOCKED: 'Gates Blocked',
-										NOT_YET_EVALUATED: 'Not Evaluated',
-										DEPLOYED: 'Deployed',
-										ARCHIVED: 'Archived',
+										LOCAL_GATES_BLOCKED: t('Gates blocked'),
+										NOT_YET_EVALUATED: t('Not evaluated'),
+										DEPLOYED: t('Deployed'),
+										ARCHIVED: t('Archived'),
 									}[project.status] ?? project.status;
 								const firstRun = project.nextRecommendedRuns[0];
 								return (
@@ -136,12 +137,12 @@ export default function DashboardPage(): React.ReactElement {
 													<Link
 														to="/projects"
 														className="font-semibold text-slate-800 dark:text-slate-100 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-500"
-														aria-label={`Open ${project.name} in managed projects`}
+														aria-label={`${t('Open project')}: ${project.name}`}
 													>
 														{project.name}
 													</Link>
 													<span className="badge border-emerald-400/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[10px]">
-														{statusLabel}
+														{projectStatusLabel}
 													</span>
 												</div>
 												<div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -153,7 +154,7 @@ export default function DashboardPage(): React.ReactElement {
 												target="_blank"
 												rel="noopener noreferrer"
 												className="btn-ghost text-xs shrink-0"
-												aria-label={`Open ${project.name} repository in a new tab`}
+												aria-label={`${t('Open repository in a new tab')}: ${project.name}`}
 											>
 												Repo ↗
 											</a>
@@ -170,15 +171,13 @@ export default function DashboardPage(): React.ReactElement {
 												</>
 											)}
 											<span className="text-slate-400">
-												{project.nextRecommendedRuns.length} step
-												{project.nextRecommendedRuns.length !== 1 ? 's' : ''} planned
+												{project.nextRecommendedRuns.length} {t('steps planned')}
 											</span>
 											{project.blockers.length > 0 && (
 												<>
 													<span className="text-slate-300">·</span>
 													<span className="text-amber-600 dark:text-amber-400 font-medium">
-														{project.blockers.length} blocker
-														{project.blockers.length > 1 ? 's' : ''}
+														{project.blockers.length} {t('blockers')}
 													</span>
 												</>
 											)}
@@ -197,11 +196,11 @@ export default function DashboardPage(): React.ReactElement {
 													className="text-sky-500"
 													aria-hidden="true"
 												>
-													<title>Next run</title>
+													<title>{t('Next run')}</title>
 													<polyline points="9 18 15 12 9 6" />
 												</svg>
 												<span className="text-xs text-slate-500 dark:text-slate-400">
-													Next: {firstRun}
+													{t('Next step')}: {firstRun}
 												</span>
 											</div>
 										)}

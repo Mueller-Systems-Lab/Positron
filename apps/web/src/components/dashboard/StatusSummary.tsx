@@ -1,5 +1,6 @@
 import type React from 'react';
 import type { Metrics } from '../../types.js';
+import { t } from '../../i18n/index.js';
 
 /** Fixed-size skeleton slot keys — stateless visual placeholders only. */
 const STATUS_SUMMARY_SKELETON_SLOTS = [
@@ -34,25 +35,25 @@ export default function StatusSummary({
 	const byStatus = metrics?.runsByStatus ?? {};
 	const items = [
 		{
-			label: 'Active Runs',
+			label: t('Active Runs'),
 			value: byStatus.active ?? 0,
 			color: 'text-sky-600 dark:text-sky-400',
 			border: 'border-l-sky-400',
 		},
 		{
-			label: 'Completed',
+			label: t('Completed'),
 			value: byStatus.done ?? 0,
 			color: 'text-green-600 dark:text-green-400',
 			border: 'border-l-green-400',
 		},
 		{
-			label: 'Failed',
+			label: t('Failed'),
 			value: byStatus.failed ?? 0,
 			color: 'text-red-600 dark:text-red-400',
 			border: 'border-l-red-400',
 		},
 		{
-			label: 'Total Runs',
+			label: t('Total Runs'),
 			value: metrics?.totalRuns ?? 0,
 			color: 'text-slate-600 dark:text-slate-400',
 			border: 'border-l-slate-400',

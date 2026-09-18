@@ -1,6 +1,7 @@
 import { ALL_PHASES } from '@positron/shared';
 import React from 'react';
 import type { Phase } from '../types.js';
+import { statusLabel, t } from '../i18n/index.js';
 
 interface PhasePipelineProps {
 	currentPhase?: Phase;
@@ -91,11 +92,11 @@ function PhaseNode({
         hover:scale-105 hover:border-sky-400 focus-visible:ring-2 focus-visible:ring-sky-400
         ${status === 'current' ? 'ring-1 ring-sky-400/50' : ''}
       `}
-			aria-label={`Phase ${phase}: ${status}`}
+			aria-label={`${t('Phase')} ${phase}: ${statusLabel(status)}`}
 			aria-current={status === 'current' ? 'step' : undefined}
 		>
 			<span className="text-xs font-mono font-bold leading-none">{short}</span>
-			<span className="text-[10px] font-medium mt-0.5 leading-none opacity-70">{status}</span>
+			<span className="text-[10px] font-medium mt-0.5 leading-none opacity-70">{statusLabel(status)}</span>
 		</button>
 	);
 }
@@ -136,16 +137,20 @@ export default function PhasePipeline({
 			<h3 className="text-sm font-medium text-slate-300 mb-4 font-['Space_Grotesk']">
 				28-Phase Pipeline
 				<span className="text-xs text-slate-500 font-['IBM_Plex_Sans'] ml-2">
-					{currentPhase ? `Current: ${currentPhase}` : hasRunStarted ? 'Completed' : 'Not started'}
+					{currentPhase
+						? `${t('Current')}: ${currentPhase}`
+						: hasRunStarted
+							? t('Completed')
+							: t('Not started')}
 				</span>
 			</h3>
 
 			{/* Main Pipeline */}
 			<div className="overflow-x-auto pb-2 -mx-2 px-2">
-				<ol className="flex items-start gap-1 min-w-max" aria-label="Pipeline phases">
+				<ol className="flex items-start gap-1 min-w-max" aria-label={t('Pipeline phases')}>
 					{mainPhases.map((phase, i) => (
 						<React.Fragment key={phase}>
-							<li aria-label={`Phase ${phase}: ${getStatus(phase)}`}>
+							<li aria-label={`${t('Phase')} ${phase}: ${statusLabel(getStatus(phase))}`}>
 								<PhaseNode phase={phase} status={getStatus(phase)} onClick={onPhaseClick} />
 							</li>
 							{/* Connector zwischen Phasen */}
@@ -163,7 +168,7 @@ export default function PhasePipeline({
 			{hasErrorActivity && (
 				<div className="mt-4 pt-4 border-t border-slate-800">
 					<h4 className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-2 font-['IBM_Plex_Sans']">
-						State / Recovery Phases
+						{t('State / Recovery Phases')}
 					</h4>
 					<div className="flex items-start gap-1 flex-wrap">
 						{errorPhases.map((phase) => {
@@ -178,22 +183,22 @@ export default function PhasePipeline({
 			{/* Phase Status Legend */}
 			<div className="mt-4 flex flex-wrap items-center gap-3 text-[10px] text-slate-500 font-['IBM_Plex_Sans']">
 				<span className="flex items-center gap-1">
-					<span className="w-2 h-2 rounded-full bg-slate-600" /> Pending
+					<span className="w-2 h-2 rounded-full bg-slate-600" /> {t('Pending')}
 				</span>
 				<span className="flex items-center gap-1">
-					<span className="w-2 h-2 rounded-full bg-sky-400" /> Current
+					<span className="w-2 h-2 rounded-full bg-sky-400" /> {t('Current')}
 				</span>
 				<span className="flex items-center gap-1">
-					<span className="w-2 h-2 rounded-full bg-green-400" /> Completed
+					<span className="w-2 h-2 rounded-full bg-green-400" /> {t('Completed')}
 				</span>
 				<span className="flex items-center gap-1">
-					<span className="w-2 h-2 rounded-full bg-red-400" /> Failed
+					<span className="w-2 h-2 rounded-full bg-red-400" /> {t('Failed')}
 				</span>
 				<span className="flex items-center gap-1">
-					<span className="w-2 h-2 rounded-full bg-amber-400" /> Blocked
+					<span className="w-2 h-2 rounded-full bg-amber-400" /> {t('Blocked')}
 				</span>
 				<span className="flex items-center gap-1">
-					<span className="w-2 h-2 rounded-full bg-purple-400" /> Human
+					<span className="w-2 h-2 rounded-full bg-purple-400" /> {t('Human')}
 				</span>
 			</div>
 		</div>

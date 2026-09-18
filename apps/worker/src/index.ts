@@ -10,6 +10,7 @@ import {
 	admitNext,
 	enqueueItem,
 	getQueueItem,
+	markRunFinished,
 	markRunStarted,
 	resolveAttemptLeaseTtlMs,
 } from '@positron/control-plane';
@@ -52,6 +53,7 @@ import {
 	runPipeline,
 } from '@positron/worker-pipeline';
 import { type Job, Worker } from 'bullmq';
+import { registerRealGates } from './real-gates.js';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -141,6 +143,7 @@ const gateRuntimeMode = resolveGateRuntimeMode({
 	opencodeMode: opencode instanceof FakeOpenCodeAdapter ? 'fake' : 'real',
 });
 assembleGateEvaluators(gateRuntimeMode);
+if (gateRuntimeMode === 'real' || gateRuntimeMode === 'supervised') registerRealGates(db);
 
 // ── Issue #322: Wire ToolGateway onAudit into worker runtime ──
 const workerToolRegistry = new ToolRegistry();
@@ -295,6 +298,30 @@ const worker = new Worker<PipelineJobData, PipelineJobResult>(
 		// Run the pipeline (now scheduler-owned: admission already done)
 		try {
 			const completed = await runPipeline(run, deps);
+			db.prepare(`
+				UPDATE runs SET branch = ?, phase = ?, status = ?, attempt = ?,
+					started_at = ?, finished_at = ?, last_error = ?, workspace_path = ?
+				WHERE id = ?
+			`).run(
+				completed.branch,
+				completed.phase,
+				completed.status,
+				completed.attempt,
+				completed.startedAt,
+				completed.finishedAt,
+				completed.lastError,
+				completed.workspacePath,
+				completed.id,
+			);
+			const terminal =
+				completed.status === 'done'
+					? 'COMPLETED'
+					: completed.status === 'cancelled'
+						? 'CANCELLED'
+						: completed.status === 'blocked'
+							? 'BLOCKED'
+							: 'FAILED';
+			markRunFinished(db, queueItem.queue_item_id, terminal, runId, 'READY');
 
 			console.log(
 				`[Worker] Job ${job.id} complete: runId=${runId}, phase=${completed.phase}, status=${completed.status}`,

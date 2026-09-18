@@ -1,6 +1,7 @@
 import type React from 'react';
 import { Link } from 'react-router-dom';
 import type { Run } from '../../types.js';
+import { formatDateTime, phaseLabel, statusLabel, t } from '../../i18n/index.js';
 
 /** Fixed-size skeleton slot keys — stateless visual placeholders only. */
 const RECENT_ACTIVITY_SKELETON_SLOTS = [
@@ -58,10 +59,10 @@ export default function RecentActivity({
 		return (
 			<div className="card">
 				<h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-3">
-					Recent Activity
+					{t('Recent Activity')}
 				</h3>
 				<p className="text-xs text-slate-400 dark:text-slate-500 text-center py-4">
-					No recent activity
+					{t('No recent activity')}
 				</p>
 			</div>
 		);
@@ -70,7 +71,7 @@ export default function RecentActivity({
 	return (
 		<div className="card">
 			<h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-3">
-				Recent Activity
+				{t('Recent Activity')}
 			</h3>
 			<div className="space-y-1">
 				{recent.map((run) => (
@@ -94,17 +95,17 @@ export default function RecentActivity({
 						/>
 						<div className="flex-1 min-w-0">
 							<p className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate">
-								{run.issueNumber ? `Issue #${run.issueNumber}` : `Run ${run.id.slice(0, 8)}`}
+								{run.issueNumber ? `${t('Issue')} #${run.issueNumber}` : `${t('Run')} ${run.id.slice(0, 8)}`}
 							</p>
 							<p className="text-[10px] text-slate-500 dark:text-slate-500">
-								{run.phase ?? 'unknown'} ·{' '}
-								{run.startedAt ? new Date(run.startedAt).toLocaleString() : 'recently'}
+								{phaseLabel(run.phase)} ·{' '}
+								{run.startedAt ? formatDateTime(run.startedAt) : t('recently')}
 							</p>
 						</div>
 						<span
 							className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${STATUS_BADGE[run.status] ?? ''}`}
 						>
-							{run.status.toUpperCase()}
+							{statusLabel(run.status)}
 						</span>
 					</Link>
 				))}
@@ -112,7 +113,7 @@ export default function RecentActivity({
 			{runs.length > 5 && (
 				<div className="mt-3 text-center">
 					<Link to="/runs" className="text-[10px] text-sky-600 dark:text-sky-400 hover:underline">
-						View all {runs.length} runs →
+						{t('View all')} {runs.length} {t('runs')} →
 					</Link>
 				</div>
 			)}

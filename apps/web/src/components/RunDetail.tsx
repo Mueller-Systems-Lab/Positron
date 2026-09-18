@@ -6,6 +6,7 @@ import { api } from '../api.js';
 import { useRun } from '../hooks/useRun.js';
 import { useSSE } from '../hooks/useSSE.js';
 import type { Phase } from '../types.js';
+import { formatDateTime, statusLabel, t } from '../i18n/index.js';
 import ArtifactPanel from './ArtifactPanel.jsx';
 import GateControls from './GateControls.jsx';
 import LogViewer from './LogViewer.jsx';
@@ -56,7 +57,7 @@ export default function RunDetail(): React.ReactElement {
 			await api.cancelRun(id);
 			setShowCancelConfirm(false);
 		} catch (err) {
-			setCancelError(err instanceof Error ? err.message : 'Cancel failed');
+			setCancelError(err instanceof Error ? err.message : t('Cancel failed'));
 		} finally {
 			setCancelling(false);
 		}
@@ -73,9 +74,9 @@ export default function RunDetail(): React.ReactElement {
 	if (!id) {
 		return (
 			<div className="card text-center py-12">
-				<p className="text-red-400">No Run ID provided</p>
+				<p className="text-red-400">{t('No Run ID provided')}</p>
 				<Link to="/" className="text-blue-400 hover:underline mt-2 inline-block">
-					Back to Dashboard
+					{t('Back to Dashboard')}
 				</Link>
 			</div>
 		);
@@ -85,7 +86,7 @@ export default function RunDetail(): React.ReactElement {
 		return (
 			<div className="card text-center py-12">
 				<div className="animate-spin-slow inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" />
-				<p className="text-slate-400 mt-3">Loading Run...</p>
+				<p className="text-slate-400 mt-3">{t('Loading Run...')}</p>
 			</div>
 		);
 	}
@@ -93,9 +94,9 @@ export default function RunDetail(): React.ReactElement {
 	if (!run) {
 		return (
 			<div className="card text-center py-12">
-				<p className="text-red-400 text-lg">{runError ?? 'Run not found'}</p>
+				<p className="text-red-400 text-lg">{runError ?? t('Run not found')}</p>
 				<Link to="/" className="text-blue-400 hover:underline mt-2 inline-block">
-					Back to Dashboard
+					{t('Back to Dashboard')}
 				</Link>
 			</div>
 		);
@@ -115,7 +116,7 @@ export default function RunDetail(): React.ReactElement {
 				</Link>
 				<span>/</span>
 				<Link to="/runs" className="hover:text-blue-400 transition-colors">
-					Runs
+					{t('Runs')}
 				</Link>
 				<span>/</span>
 				<span className="text-slate-200 font-mono">{run.id.slice(0, 8)}</span>
@@ -150,7 +151,7 @@ export default function RunDetail(): React.ReactElement {
 			{isCancelled && (
 				<div className="mb-4 p-3 bg-amber-900/30 border border-amber-700 rounded-lg text-amber-200 text-sm flex items-center gap-2">
 					<span className="text-amber-400 font-bold">⚠</span>
-					<span>This run was cancelled. No further actions will be processed.</span>
+					<span>Dieser Lauf wurde abgebrochen. Es werden keine weiteren Aktionen verarbeitet.</span>
 				</div>
 			)}
 
@@ -159,7 +160,7 @@ export default function RunDetail(): React.ReactElement {
 				<div className="flex items-start justify-between">
 					<div>
 						<div className="flex items-center gap-3 mb-2">
-							<h1 className="text-xl font-bold text-white font-mono">Run {run.id.slice(0, 8)}</h1>
+							<h1 className="text-xl font-bold text-white font-mono">{t('Run')} {run.id.slice(0, 8)}</h1>
 							<PhaseBadge phase={run.phase} />
 							{/* Status badge */}
 							<span
@@ -175,30 +176,30 @@ export default function RunDetail(): React.ReactElement {
 													: 'bg-slate-600/20 text-slate-400'
 								}`}
 							>
-								{effectiveStatus.toUpperCase()}
+								{statusLabel(effectiveStatus)}
 							</span>
 						</div>
 						<div className="space-y-1 text-sm text-slate-400">
 							<p>
-								<span className="text-slate-500">Repository:</span> {run.repoId}
+								<span className="text-slate-500">{t('Repository')}:</span> {run.repoId}
 								<span className="mx-2">·</span>
-								<span className="text-slate-500">Issue:</span>{' '}
+								<span className="text-slate-500">{t('Issue')}:</span>{' '}
 								<span className="text-blue-400 font-mono">#{run.issueNumber}</span>
 							</p>
 							{run.branch && (
 								<p>
-									<span className="text-slate-500">Branch:</span>{' '}
+									<span className="text-slate-500">{t('Branch')}:</span>{' '}
 									<span className="font-mono text-xs text-slate-300">{run.branch}</span>
 								</p>
 							)}
 							<p>
-								<span className="text-slate-500">Started:</span>{' '}
-								{new Date(run.startedAt).toLocaleString()}
+								<span className="text-slate-500">{t('Started')}:</span>{' '}
+								{formatDateTime(run.startedAt)}
 								<span className="mx-2">·</span>
-								<span className="text-slate-500">Duration:</span>{' '}
+								<span className="text-slate-500">{t('Duration')}:</span>{' '}
 								{isRunning ? (
 									<span className="text-blue-400 animate-pulse">
-										running ({formatDuration(duration)})
+										{t('running')} ({formatDuration(duration)})
 									</span>
 								) : (
 									formatDuration(duration)
@@ -224,7 +225,7 @@ export default function RunDetail(): React.ReactElement {
 											: 'bg-yellow-500 animate-pulse'
 								}`}
 							/>
-							{isConnected ? 'Live' : isTerminal ? 'Completed' : 'Reconnecting'}
+							{isConnected ? t('Live') : isTerminal ? t('Completed') : t('Reconnecting')}
 						</span>
 
 						{/* Cancel Button */}
@@ -235,7 +236,7 @@ export default function RunDetail(): React.ReactElement {
 									onClick={() => setShowCancelConfirm(true)}
 									className="btn-danger text-xs py-1 px-3"
 								>
-									Cancel Run
+									{t('Cancel Run')}
 								</button>
 							) : (
 								<div className="flex items-center gap-2">
@@ -245,7 +246,7 @@ export default function RunDetail(): React.ReactElement {
 										className="btn-secondary text-xs py-1 px-3"
 										disabled={cancelling}
 									>
-										Keep
+										{t('Keep')}
 									</button>
 									<button
 										type="button"
@@ -253,7 +254,7 @@ export default function RunDetail(): React.ReactElement {
 										className="btn-danger text-xs py-1 px-3"
 										disabled={cancelling}
 									>
-										{cancelling ? 'Cancelling...' : 'Confirm Cancel'}
+										{cancelling ? t('Cancelling...') : t('Confirm Cancel')}
 									</button>
 								</div>
 							))}
@@ -263,7 +264,7 @@ export default function RunDetail(): React.ReactElement {
 							type="button"
 							onClick={handleCopyRunId}
 							className="btn-ghost text-xs py-1 px-2"
-							title="Copy Run ID"
+							title={t('Copy Run ID')}
 						>
 							<svg
 								width="14"
@@ -300,10 +301,10 @@ export default function RunDetail(): React.ReactElement {
 				<div>
 					<div className="flex items-center justify-between mb-2">
 						<h2 className="text-sm font-medium text-slate-300 flex items-center gap-2">
-							Event Log
+											{t('Event Log')}
 							{isRunning && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />}
 						</h2>
-						<span className="text-[10px] text-slate-500">{events.length} events</span>
+						<span className="text-[10px] text-slate-500">{events.length} {t('events')}</span>
 					</div>
 					<LogViewer events={events} maxHeight="600px" />
 				</div>
@@ -362,7 +363,7 @@ export default function RunDetail(): React.ReactElement {
 									<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
 									<polyline points="14 2 14 8 20 8" />
 								</svg>
-								Live Evidence
+														{t('Live Evidence')}
 								<span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
 							</h3>
 							<div className="space-y-1.5 max-h-[200px] overflow-y-auto">
@@ -385,7 +386,7 @@ export default function RunDetail(): React.ReactElement {
 
 					{/* Links */}
 					<div className="card">
-						<h3 className="text-sm font-medium text-slate-300 mb-2">Quick Links</h3>
+						<h3 className="text-sm font-medium text-slate-300 mb-2">{t('Quick Links')}</h3>
 						<div className="space-y-1.5">
 							<Link
 								to={'/evidence'}
@@ -404,7 +405,7 @@ export default function RunDetail(): React.ReactElement {
 									<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
 									<polyline points="14 2 14 8 20 8" />
 								</svg>
-								Open Evidence
+								{t('Open Evidence')}
 							</Link>
 							<a
 								href={`https://github.com/${run.repoId}/issues/${run.issueNumber}`}
@@ -426,7 +427,7 @@ export default function RunDetail(): React.ReactElement {
 									<polyline points="15 3 21 3 21 9" />
 									<line x1="10" y1="14" x2="21" y2="3" />
 								</svg>
-								Open Issue #{run.issueNumber}
+								{t('Open Issue')} #{run.issueNumber}
 							</a>
 						</div>
 					</div>

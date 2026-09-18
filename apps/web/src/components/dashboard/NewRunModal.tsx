@@ -2,6 +2,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api.js';
+import { t } from '../../i18n/index.js';
 
 interface NewRunModalProps {
 	isOpen: boolean;
@@ -38,9 +39,11 @@ export default function NewRunModal({ isOpen, onClose }: NewRunModalProps): Reac
 		try {
 			const data = await api.createRun(issueUrl.trim());
 			onClose();
-			navigate(`/runs/${data.runId}`);
+			// Queue-backed intake creates the run asynchronously in the worker path.
+			// Navigate to the durable run list when no run ID exists yet.
+			navigate(data.runId ? `/runs/${data.runId}` : '/runs');
 		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Failed to create run');
+			setError(err instanceof Error ? err.message : 'Lauf konnte nicht erstellt werden');
 		} finally {
 			setCreating(false);
 		}
@@ -51,7 +54,7 @@ export default function NewRunModal({ isOpen, onClose }: NewRunModalProps): Reac
 			<div className="absolute inset-0 bg-black/50" />
 			<div className="relative bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg mx-4 p-6">
 				<div className="flex items-center justify-between mb-4">
-					<h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">New Run</h2>
+					<h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">{t('New Run')}</h2>
 					<button
 						type="button"
 						onClick={onClose}
@@ -62,7 +65,7 @@ export default function NewRunModal({ isOpen, onClose }: NewRunModalProps): Reac
 				</div>
 
 				<p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-					Enter a GitHub issue URL to start an evidence-gated agent execution.
+					Gib eine GitHub-Issue-URL ein, um eine nachweisgesteuerte Agentenausführung zu starten.
 				</p>
 
 				<div className="space-y-3">
@@ -71,7 +74,7 @@ export default function NewRunModal({ isOpen, onClose }: NewRunModalProps): Reac
 							htmlFor="new-run-issue-url"
 							className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1"
 						>
-							Issue URL
+							Issue-URL
 						</label>
 						<input
 							id="new-run-issue-url"
@@ -91,7 +94,7 @@ export default function NewRunModal({ isOpen, onClose }: NewRunModalProps): Reac
 
 					<div className="flex items-center justify-end gap-3 pt-2">
 						<button type="button" onClick={onClose} className="btn-secondary text-sm">
-							Cancel
+							{t('Cancel')}
 						</button>
 						<button
 							type="button"
@@ -99,7 +102,7 @@ export default function NewRunModal({ isOpen, onClose }: NewRunModalProps): Reac
 							disabled={creating || !issueUrl.trim()}
 							className="btn-primary text-sm disabled:opacity-50"
 						>
-							{creating ? 'Creating...' : 'Start Run'}
+							{creating ? 'Wird erstellt …' : t('Start Run')}
 						</button>
 					</div>
 				</div>

@@ -1,5 +1,6 @@
 import type { ReactElement, ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
+import { t } from '../../i18n/index.js';
 
 interface SidebarProps {
 	open: boolean;
@@ -15,12 +16,12 @@ interface NavItem {
 
 const NAV_SECTIONS: Array<{ label: string; items: NavItem[] }> = [
 	{
-		label: 'Overview',
+		label: t('Overview'),
 		items: [
-			{ to: '/readiness', label: 'Readiness', icon: <span aria-hidden="true">✓</span> },
+			{ to: '/readiness', label: t('Readiness'), icon: <span aria-hidden="true">✓</span> },
 			{
 				to: '/',
-				label: 'Dashboard',
+				label: t('Dashboard'),
 				end: true,
 				icon: (
 					<svg
@@ -44,7 +45,7 @@ const NAV_SECTIONS: Array<{ label: string; items: NavItem[] }> = [
 			},
 			{
 				to: '/runs',
-				label: 'Runs',
+				label: t('Runs'),
 				icon: (
 					<svg
 						width="18"
@@ -64,7 +65,7 @@ const NAV_SECTIONS: Array<{ label: string; items: NavItem[] }> = [
 			},
 			{
 				to: '/evidence',
-				label: 'Evidence',
+				label: t('Evidence'),
 				icon: (
 					<svg
 						width="18"
@@ -88,7 +89,7 @@ const NAV_SECTIONS: Array<{ label: string; items: NavItem[] }> = [
 			},
 			{
 				to: '/evolution',
-				label: 'Evolution',
+				label: t('Evolution'),
 				icon: (
 					<svg
 						width="18"
@@ -114,11 +115,11 @@ const NAV_SECTIONS: Array<{ label: string; items: NavItem[] }> = [
 		],
 	},
 	{
-		label: 'Workspace',
+		label: t('Workspace'),
 		items: [
 			{
 				to: '/repos',
-				label: 'Repositories',
+				label: t('Repositories'),
 				icon: (
 					<svg
 						width="18"
@@ -138,7 +139,7 @@ const NAV_SECTIONS: Array<{ label: string; items: NavItem[] }> = [
 			},
 			{
 				to: '/projects',
-				label: 'Projects',
+				label: t('Projects'),
 				icon: (
 					<svg
 						width="18"
@@ -161,11 +162,11 @@ const NAV_SECTIONS: Array<{ label: string; items: NavItem[] }> = [
 		],
 	},
 	{
-		label: 'Safety',
+		label: t('Safety'),
 		items: [
 			{
 				to: '/settings',
-				label: 'Settings',
+				label: t('Settings'),
 				icon: (
 					<svg
 						width="18"
@@ -186,7 +187,7 @@ const NAV_SECTIONS: Array<{ label: string; items: NavItem[] }> = [
 			},
 			{
 				to: '/admin',
-				label: 'Admin',
+				label: t('Admin'),
 				icon: (
 					<svg
 						width="18"
@@ -219,7 +220,7 @@ export default function Sidebar({ open, onClose }: SidebarProps): ReactElement {
 
 	const sidebarContent = (
 		<nav
-			aria-label="Main navigation"
+			aria-label={t('Main navigation')}
 			className="flex h-full w-[19rem] shrink-0 flex-col border-r border-slate-200/80 bg-white/85 p-4 text-slate-900 shadow-2xl shadow-slate-950/5 backdrop-blur-xl dark:border-slate-800/70 dark:bg-slate-950/80 dark:text-slate-100"
 		>
 			{/* Mobile close button */}
@@ -228,7 +229,7 @@ export default function Sidebar({ open, onClose }: SidebarProps): ReactElement {
 					type="button"
 					onClick={onClose}
 					className="btn-ghost p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-					aria-label="Close sidebar"
+					aria-label={t('Close sidebar')}
 				>
 					<svg
 						width="20"
@@ -255,17 +256,17 @@ export default function Sidebar({ open, onClose }: SidebarProps): ReactElement {
 					<div>
 						<div className="font-heading text-lg font-semibold tracking-tight">Positron</div>
 						<div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-							Evidence-gated cockpit
+							Nachweisgesteuerte Steuerzentrale
 						</div>
 					</div>
 				</div>
 
 				<div className="mt-4 flex flex-wrap gap-2">
 					<span className="badge border-cyan-400/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300">
-						Local-only
+						{t('Local-only')}
 					</span>
 					<span className="badge border-emerald-400/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
-						Controlled
+						{t('Controlled')}
 					</span>
 				</div>
 			</div>
@@ -302,10 +303,10 @@ export default function Sidebar({ open, onClose }: SidebarProps): ReactElement {
 				<div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-3 py-3 text-xs text-slate-500 dark:border-slate-800/80 dark:bg-slate-900/70 dark:text-slate-300">
 					<div className="flex items-center gap-2 font-medium">
 						<span className="h-2 w-2 rounded-full bg-emerald-500" />
-						<span>System connected</span>
+						<span>{t('System connected')}</span>
 					</div>
 					<p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-						Safety gates, evidence trails, and local execution are active by default.
+						Sicherheits-Gates, Nachweisspuren und lokale Ausführung sind standardmäßig aktiv.
 					</p>
 				</div>
 			</div>
@@ -321,7 +322,7 @@ export default function Sidebar({ open, onClose }: SidebarProps): ReactElement {
 					<button
 						type="button"
 						onClick={onClose}
-						aria-label="Close sidebar"
+						aria-label={t('Close sidebar')}
 						className="absolute inset-0 z-0 bg-black/40"
 					/>
 					{/* Sidebar panel */}

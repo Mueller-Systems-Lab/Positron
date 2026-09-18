@@ -474,6 +474,23 @@ function resolveRuntimeAttemptBudgetMs(env: NodeJS.ProcessEnv): number {
 	return value;
 }
 
+function resolveRuntimeProviderBudgetMs(env: NodeJS.ProcessEnv, attemptBudgetMs: number): number {
+	const raw = env.POSITRON_RUNTIME_PROVIDER_BUDGET_MS;
+	if (raw === undefined || raw.trim() === '') return Math.min(attemptBudgetMs, 300_000);
+	const value = Number(raw);
+	if (
+		!Number.isInteger(value) ||
+		value <= 0 ||
+		value > MAX_RUNTIME_BUDGET_MS ||
+		value > attemptBudgetMs
+	) {
+		throw new Error(
+			`INVALID_RUNTIME_PROVIDER_BUDGET_MS: expected integer 1..${Math.min(MAX_RUNTIME_BUDGET_MS, attemptBudgetMs)}`,
+		);
+	}
+	return value;
+}
+
 /**
  * Erstellt (oder findet) den Job eines Typs für einen Run und öffnet einen
  * neuen Attempt. Idempotenz: Wurde der Dispatch bereits geclaimed, gilt der
@@ -639,9 +656,11 @@ function trackJobAttempt(
 		provider,
 		model,
 	});
+	const attemptBudgetMs = resolveRuntimeAttemptBudgetMs(process.env);
 	const runtimeBudgetContract = buildRuntimeBudgetContract({
 		budget_id: `budget_${crypto.randomUUID()}`,
-		attempt_wall_clock_budget_ms: resolveRuntimeAttemptBudgetMs(process.env),
+		attempt_wall_clock_budget_ms: attemptBudgetMs,
+		provider_request_budget_ms: resolveRuntimeProviderBudgetMs(process.env, attemptBudgetMs),
 		provider,
 		model,
 		effective_harness_fingerprint: effectiveHarness.fingerprint,
@@ -1130,25 +1149,28 @@ async function generateResearchDocument(
 	github: GitHubAdapter,
 	repository: RepositoryConfig,
 	issueNumber: number,
+	issueContext?: { title: string; body: string },
 ): Promise<string> {
 	const repoSlug = `${repository.owner}/${repository.repo}`;
 	const issueRef = `#${issueNumber}`;
 	const now = new Date().toISOString().slice(0, 10);
 
-	let issueBody = '';
-	let issueTitle = '';
-	try {
-		const issue = await github.getIssue({
-			owner: repository.owner,
-			repo: repository.repo,
-			issueNumber,
-		});
-		issueTitle = issue.title ?? '';
-		issueBody = issue.body ?? '';
-	} catch (err) {
-		console.warn(
-			`[Worker] generateResearchDocument: Failed to fetch issue #${issueNumber}: ${String(err).slice(0, 200)}`,
-		);
+	let issueBody = issueContext?.body ?? '';
+	let issueTitle = issueContext?.title ?? '';
+	if (!issueContext) {
+		try {
+			const issue = await github.getIssue({
+				owner: repository.owner,
+				repo: repository.repo,
+				issueNumber,
+			});
+			issueTitle = issue.title ?? '';
+			issueBody = issue.body ?? '';
+		} catch (err) {
+			console.warn(
+				`[Worker] generateResearchDocument: Failed to fetch issue #${issueNumber}: ${String(err).slice(0, 200)}`,
+			);
+		}
 	}
 
 	let readmeContent = '';
@@ -1234,6 +1256,25 @@ async function generateResearchDocument(
 	return lines.join('\n');
 }
 
+async function loadIssueContext(
+	github: GitHubAdapter,
+	repository: RepositoryConfig,
+	issueNumber: number,
+): Promise<{ title: string; body: string }> {
+	try {
+		const issue = await github.getIssue({
+			owner: repository.owner,
+			repo: repository.repo,
+			issueNumber,
+		});
+		return { title: issue.title || `Issue #${issueNumber}`, body: issue.body || '' };
+	} catch {
+		return { title: `Issue #${issueNumber}`, body: '' };
+	}
+}
+
+const issueContextCache = new Map<string, { title: string; body: string }>();
+
 // ---------------------------------------------------------------------------
 // Phase Executor
 // ---------------------------------------------------------------------------
@@ -1244,6 +1285,9 @@ async function executePhase(
 	ctx: { signal: AbortSignal },
 ): Promise<RunState> {
 	const current = run;
+	const issueContext =
+		issueContextCache.get(current.id) ??
+		({ title: `Issue #${current.issueNumber}`, body: '' } as const);
 	let result: TransitionResult;
 
 	switch (current.phase) {
@@ -1289,6 +1333,10 @@ async function executePhase(
 				});
 				current.branch = ws.branchName;
 				current.workspacePath = ws.workspacePath;
+				const lock = await deps.workspace.lockWorkspace(ws.workspacePath, current.id);
+				if (!lock.locked) {
+					throw new Error(`Workspace lock acquisition failed: ${lock.reason ?? 'unknown reason'}`);
+				}
 
 				// P3: BASELINE-Job (find-or-create) mit realem HEAD —
 				// die durable Run-Hierarchie beginnt im Workspace.
@@ -1372,10 +1420,17 @@ async function executePhase(
 				);
 			} else {
 				assertWorkerContext(current, tracking, deps);
+				const loadedIssueContext = await loadIssueContext(
+					deps.github,
+					deps.repository,
+					current.issueNumber,
+				);
+				issueContextCache.set(current.id, loadedIssueContext);
 				researchDoc = await generateResearchDocument(
 					deps.github,
 					deps.repository,
 					current.issueNumber,
+					loadedIssueContext,
 				);
 				finalizeTrackedAttempt(tracking, deps, 'succeeded', {
 					output_contract: 'positron.research.v1',
@@ -1469,10 +1524,11 @@ async function executePhase(
 							},
 							deps,
 						);
-						const specResult = await deps.opencode.runSlashCommand('speckit.specify', {
+						const specifyInput: import('@positron/shared').OpenCodeRunInput = {
 							runId: current.id,
 							workspacePath: wsPath,
-							issueTitle: `Issue #${current.issueNumber}`,
+							issueTitle: issueContext.title,
+							issueBody: issueContext.body,
 							issueNumber: current.issueNumber,
 							mode: 'safe-cli',
 							phaseName: 'specify',
@@ -1480,7 +1536,12 @@ async function executePhase(
 							agent: process.env.POSITRON_OPENCODE_AGENT ?? 'build',
 							signal: ctx.signal,
 							runtimeBudget: runtimeBudgetSlice(tracking.runtimeBudgetContract, 'provider'),
-						});
+						};
+						const harnessConfig = (
+							tracking.attempt as unknown as { effective_harness_config?: string }
+						).effective_harness_config;
+						if (harnessConfig) specifyInput.effectiveHarness = JSON.parse(harnessConfig);
+						const specResult = await deps.opencode.runSlashCommand('speckit.specify', specifyInput);
 						if (specResult.status === 'success') {
 							saveArtifact(current.id, 'spec', specResult.summary, deps);
 							// P3: Artefakt-Output-Boundary (§24)
@@ -1504,13 +1565,14 @@ async function executePhase(
 							finalizeTrackedAttempt(tracking, deps, 'failed', {
 								...openCodeFailureUpdate('specify', specResult),
 							});
+							result = markFailed(
+								current,
+								specResult.status === 'blocked' ? 'FAILED_BLOCKED' : 'FAILED_TRANSIENT',
+								`Real specify failed: ${specResult.summary}`,
+							);
+							break;
 						}
-						result = transition(
-							current,
-							'PLAN',
-							`Real Spec Kit: ${specResult.summary}`,
-							specResult.status === 'success' ? 'INFO' : 'WARN',
-						);
+						result = transition(current, 'PLAN', `Real Spec Kit: ${specResult.summary}`, 'INFO');
 						break;
 					}
 				} catch (err) {
@@ -1532,7 +1594,8 @@ async function executePhase(
 			const input = {
 				runId: current.id,
 				workspacePath: wsPath,
-				issueTitle: `Issue #${current.issueNumber}`,
+				issueTitle: issueContext.title,
+				issueBody: issueContext.body,
 				issueNumber: current.issueNumber,
 				mode: 'artifact-only' as const,
 				signal: ctx.signal,
@@ -1620,10 +1683,11 @@ async function executePhase(
 
 			if (realSpeckit) {
 				try {
-					const planResult = await deps.opencode.runSlashCommand('speckit.plan', {
+					const planInput: import('@positron/shared').OpenCodeRunInput = {
 						runId: current.id,
 						workspacePath: wsPath,
-						issueTitle: `Issue #${current.issueNumber}`,
+						issueTitle: issueContext.title,
+						issueBody: issueContext.body,
 						issueNumber: current.issueNumber,
 						mode: 'safe-cli',
 						phaseName: 'plan',
@@ -1631,7 +1695,14 @@ async function executePhase(
 						agent: process.env.POSITRON_OPENCODE_AGENT ?? 'build',
 						signal: ctx.signal,
 						runtimeBudget: runtimeBudgetSlice(tracking.runtimeBudgetContract, 'provider'),
-					});
+					};
+					const harnessConfig = (
+						tracking.attempt as unknown as { effective_harness_config?: string }
+					).effective_harness_config;
+					if (harnessConfig) {
+						planInput.effectiveHarness = JSON.parse(harnessConfig);
+					}
+					const planResult = await deps.opencode.runSlashCommand('speckit.plan', planInput);
 					if (planResult.status === 'success') {
 						saveArtifact(current.id, 'plan', planResult.summary, deps);
 						// P3: Artefakt-Output-Boundary (§24)
@@ -1655,6 +1726,12 @@ async function executePhase(
 						finalizeTrackedAttempt(tracking, deps, 'failed', {
 							...openCodeFailureUpdate('plan', planResult),
 						});
+						result = markFailed(
+							current,
+							planResult.status === 'blocked' ? 'FAILED_BLOCKED' : 'FAILED_TRANSIENT',
+							`Real plan failed: ${planResult.summary}`,
+						);
+						break;
 					}
 					result = transition(
 						current,
@@ -1855,10 +1932,11 @@ async function executePhase(
 
 			if (realSpeckit) {
 				try {
-					const tasksResult = await deps.opencode.runSlashCommand('speckit.tasks', {
+					const tasksInput: import('@positron/shared').OpenCodeRunInput = {
 						runId: current.id,
 						workspacePath: wsPath,
-						issueTitle: `Issue #${current.issueNumber}`,
+						issueTitle: issueContext.title,
+						issueBody: issueContext.body,
 						issueNumber: current.issueNumber,
 						mode: 'safe-cli',
 						phaseName: 'tasks',
@@ -1866,7 +1944,14 @@ async function executePhase(
 						agent: process.env.POSITRON_OPENCODE_AGENT ?? 'build',
 						signal: ctx.signal,
 						runtimeBudget: runtimeBudgetSlice(tracking.runtimeBudgetContract, 'provider'),
-					});
+					};
+					const harnessConfig = (
+						tracking.attempt as unknown as { effective_harness_config?: string }
+					).effective_harness_config;
+					if (harnessConfig) {
+						tasksInput.effectiveHarness = JSON.parse(harnessConfig);
+					}
+					const tasksResult = await deps.opencode.runSlashCommand('speckit.tasks', tasksInput);
 					if (tasksResult.status === 'success') {
 						saveArtifact(current.id, 'tasks', tasksResult.summary, deps);
 						// P3: Artefakt-Output-Boundary (§24)
@@ -1890,6 +1975,12 @@ async function executePhase(
 						finalizeTrackedAttempt(tracking, deps, 'failed', {
 							...openCodeFailureUpdate('tasks', tasksResult),
 						});
+						result = markFailed(
+							current,
+							tasksResult.status === 'blocked' ? 'FAILED_BLOCKED' : 'FAILED_TRANSIENT',
+							`Real tasks failed: ${tasksResult.summary}`,
+						);
+						break;
 					}
 					result = transition(
 						current,
@@ -1917,7 +2008,8 @@ async function executePhase(
 			const input = {
 				runId: current.id,
 				workspacePath: wsPath,
-				issueTitle: `Issue #${current.issueNumber}`,
+				issueTitle: issueContext.title,
+				issueBody: issueContext.body,
 				issueNumber: current.issueNumber,
 				mode: 'artifact-only' as const,
 				signal: ctx.signal,
@@ -2003,7 +2095,8 @@ async function executePhase(
 			const input = {
 				runId: current.id,
 				workspacePath: wsPath,
-				issueTitle: `Issue #${current.issueNumber}`,
+				issueTitle: issueContext.title,
+				issueBody: issueContext.body,
 				issueNumber: current.issueNumber,
 				mode: 'artifact-only' as const,
 				signal: ctx.signal,
@@ -2126,7 +2219,8 @@ async function executePhase(
 			const input: import('@positron/shared').OpenCodeRunInput = {
 				runId: current.id,
 				workspacePath: wsPath,
-				issueTitle: `Issue #${current.issueNumber}`,
+				issueTitle: issueContext.title,
+				issueBody: issueContext.body,
 				issueNumber: current.issueNumber,
 				mode: 'safe-cli' as const,
 				model: process.env.POSITRON_OPENCODE_MODEL,
@@ -3919,21 +4013,27 @@ async function runPipelineInner(
 				}
 			}
 			saveRunToDb(next, deps);
-			// Issue #244: Run workspace cleanup on terminal phase
-			runCleanup(next)
-				.then((cleanupResult) => {
-					if (!cleanupResult.cleaned) {
-						console.warn(`[Worker] Workspace cleanup: ${cleanupResult.reason ?? 'unknown'}`, {
-							runId: next.id,
-						});
-					}
-				})
-				.catch((err) => {
-					console.error(
-						`[Worker] Workspace cleanup error: ${err instanceof Error ? err.message : String(err)}`,
-						{ runId: next.id },
-					);
-				});
+			// Issue #244: Run workspace cleanup only after a terminal phase.
+			// A blocked gate can return the current phase with an error; deleting
+			// that workspace here would make recovery/re-dispatch impossible.
+			const terminal =
+				next.phase === 'DONE' || next.phase.startsWith('FAILED') || next.status === 'cancelled';
+			if (terminal) {
+				runCleanup(next)
+					.then((cleanupResult) => {
+						if (!cleanupResult.cleaned) {
+							console.warn(`[Worker] Workspace cleanup: ${cleanupResult.reason ?? 'unknown'}`, {
+								runId: next.id,
+							});
+						}
+					})
+					.catch((err) => {
+						console.error(
+							`[Worker] Workspace cleanup error: ${err instanceof Error ? err.message : String(err)}`,
+							{ runId: next.id },
+						);
+					});
+			}
 			return next;
 		}
 		current = next;

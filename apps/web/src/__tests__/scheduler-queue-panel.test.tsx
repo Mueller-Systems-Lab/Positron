@@ -73,15 +73,15 @@ describe('SchedulerQueuePanel — Backend Truth Projection', () => {
 		expect(screen.getByText(/repo\/A/)).toBeTruthy();
 		expect(screen.getByText(/repo\/B/)).toBeTruthy();
 		// States (Backend-Label)
-		expect(screen.getByText('Running')).toBeTruthy();
-		expect(screen.getByText('Waiting Resource')).toBeTruthy();
+		expect(screen.getByText('Wird ausgeführt')).toBeTruthy();
+		expect(screen.getByText('Wartet auf Ressource')).toBeTruthy();
 		// Priority
 		expect(screen.getByText('HIGH')).toBeTruthy();
 		expect(screen.getByText('NORMAL')).toBeTruthy();
 		// Reason Code (Backend-Fakt)
 		expect(screen.getByText('GLOBAL_RUN_LIMIT')).toBeTruthy();
 		// Kapazität
-		expect(screen.getByText('1 / 2 active runs')).toBeTruthy();
+		expect(screen.getByText('1 / 2 aktive Läufe')).toBeTruthy();
 	});
 
 	it('leere Queue: Hinweis ohne Absturz', async () => {
@@ -103,7 +103,7 @@ describe('SchedulerQueuePanel — Backend Truth Projection', () => {
 			waitingResource: 0,
 		});
 		render(<SchedulerQueuePanel />);
-		await waitFor(() => expect(screen.getByText(/Keine Runs in der Intake-Queue/)).toBeTruthy());
+		await waitFor(() => expect(screen.getByText(/Keine Läufe in der Intake-Warteschlange/)).toBeTruthy());
 	});
 
 	it('Backend-Fehler: Fehlerzustand statt Absturz', async () => {

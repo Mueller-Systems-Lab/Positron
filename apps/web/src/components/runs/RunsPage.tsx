@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api.js';
 import type { Run } from '../../types.js';
+import { phaseLabel, statusLabel, t } from '../../i18n/index.js';
 
 const PHASES = [
 	'all',
@@ -79,7 +80,7 @@ export default function RunsPage(): React.ReactElement {
 			setRuns(data.runs);
 			setError(null);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Failed to load runs');
+			setError(err instanceof Error ? err.message : t('Failed to load runs'));
 		} finally {
 			setLoading(false);
 		}
@@ -135,7 +136,7 @@ export default function RunsPage(): React.ReactElement {
 	if (error) {
 		return (
 			<div>
-				<h1>Runs</h1>
+				<h1>{t('Runs')}</h1>
 				<div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mt-4">
 					<p className="text-sm text-red-600 dark:text-red-400">{error}</p>
 					<button
@@ -143,7 +144,7 @@ export default function RunsPage(): React.ReactElement {
 						onClick={fetchRuns}
 						className="text-xs mt-2 text-red-600 dark:text-red-400 hover:underline"
 					>
-						Retry
+						{t('Retry')}
 					</button>
 				</div>
 			</div>
@@ -153,9 +154,9 @@ export default function RunsPage(): React.ReactElement {
 	return (
 		<div>
 			<div className="mb-6">
-				<h1>Runs</h1>
+				<h1>{t('Runs')}</h1>
 				<p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-					Agent execution runs across all repositories
+					{t('Agent execution runs across all repositories')}
 				</p>
 			</div>
 
@@ -164,7 +165,7 @@ export default function RunsPage(): React.ReactElement {
 				{Object.entries(statusCounts).map(([status, count]) => (
 					<div key={status} className="flex items-center gap-1.5">
 						<span className={`w-2 h-2 rounded-full ${STATUS_BG[status] ?? 'bg-slate-400'}`} />
-						<span className="text-slate-500 dark:text-slate-400 capitalize">{status}</span>
+						<span className="text-slate-500 dark:text-slate-400">{statusLabel(status)}</span>
 						<span className="font-medium text-slate-700 dark:text-slate-300">{count}</span>
 					</div>
 				))}
@@ -174,7 +175,7 @@ export default function RunsPage(): React.ReactElement {
 			<div className="flex items-center gap-3 mb-4 flex-wrap">
 				<input
 					type="text"
-					placeholder="Search by ID, issue, repo..."
+					placeholder="Nach ID, Issue oder Repository suchen …"
 					value={searchTerm}
 					onChange={(e) => setSearchTerm(e.target.value)}
 					className="input max-w-xs"
@@ -186,7 +187,7 @@ export default function RunsPage(): React.ReactElement {
 				>
 					{PHASES.map((p) => (
 						<option key={p} value={p}>
-							{p === 'all' ? 'All Phases' : p}
+							{phaseLabel(p)}
 						</option>
 					))}
 				</select>
@@ -195,16 +196,16 @@ export default function RunsPage(): React.ReactElement {
 					onChange={(e) => setStatusFilter(e.target.value)}
 					className="input max-w-[140px]"
 				>
-					<option value="all">All Status</option>
-					<option value="active">Active</option>
-					<option value="done">Done</option>
-					<option value="failed">Failed</option>
-					<option value="blocked">Blocked</option>
-					<option value="cancelled">Cancelled</option>
+					<option value="all">{t('All Status')}</option>
+					<option value="active">{t('Active')}</option>
+					<option value="done">{t('Done')}</option>
+					<option value="failed">{t('Failed')}</option>
+					<option value="blocked">{t('Blocked')}</option>
+					<option value="cancelled">{t('Cancelled')}</option>
 				</select>
 				{runs.length > 0 && (
 					<span className="text-xs text-slate-500 dark:text-slate-400">
-						{filtered.length} of {runs.length} runs
+						{filtered.length} {t('of')} {runs.length} {t('runs')}
 					</span>
 				)}
 			</div>
@@ -213,12 +214,14 @@ export default function RunsPage(): React.ReactElement {
 			{runs.length === 0 && (
 				<div className="card text-center py-12">
 					<p className="text-4xl mb-3">🏃</p>
-					<p className="text-sm text-slate-800 dark:text-slate-300 font-medium mb-1">No Runs Yet</p>
+					<p className="text-sm text-slate-800 dark:text-slate-300 font-medium mb-1">
+						{t('No Runs Yet')}
+					</p>
 					<p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-						Start a run from the dashboard to see it here.
+						{t('Start a run from the dashboard to see it here.')}
 					</p>
 					<Link to="/" className="btn-primary text-sm">
-						Go to Dashboard
+						{t('Go to Dashboard')}
 					</Link>
 				</div>
 			)}
@@ -227,9 +230,11 @@ export default function RunsPage(): React.ReactElement {
 				<div className="card text-center py-8">
 					<p className="text-4xl mb-2">🔎</p>
 					<p className="text-sm text-slate-800 dark:text-slate-300 font-medium mb-1">
-						No matching runs
+						{t('No matching runs')}
 					</p>
-					<p className="text-xs text-slate-500 dark:text-slate-400">Try adjusting your filters.</p>
+					<p className="text-xs text-slate-500 dark:text-slate-400">
+						{t('Try adjusting your filters.')}
+					</p>
 				</div>
 			)}
 
@@ -240,12 +245,12 @@ export default function RunsPage(): React.ReactElement {
 						<table className="w-full text-sm">
 							<thead>
 								<tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] text-slate-500 uppercase tracking-wider">
-									<th className="text-left px-4 py-2 font-medium">Run ID</th>
-									<th className="text-left px-4 py-2 font-medium">Phase</th>
-									<th className="text-left px-4 py-2 font-medium">Status</th>
-									<th className="text-left px-4 py-2 font-medium">Issue</th>
-									<th className="text-left px-4 py-2 font-medium">Duration</th>
-									<th className="text-left px-4 py-2 font-medium">Started</th>
+									<th className="text-left px-4 py-2 font-medium">{t('Run ID')}</th>
+									<th className="text-left px-4 py-2 font-medium">{t('Phase')}</th>
+									<th className="text-left px-4 py-2 font-medium">{t('Status')}</th>
+									<th className="text-left px-4 py-2 font-medium">{t('Issue')}</th>
+									<th className="text-left px-4 py-2 font-medium">{t('Duration')}</th>
+									<th className="text-left px-4 py-2 font-medium">{t('Started')}</th>
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/50">
@@ -257,7 +262,7 @@ export default function RunsPage(): React.ReactElement {
 										<td className="px-4 py-2.5">
 											<Link
 												to={`/runs/${run.id}`}
-												aria-label={`Open run ${run.id}`}
+												aria-label={`${t('Open run')} ${run.id}`}
 												className="text-xs font-mono text-sky-600 dark:text-sky-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 rounded-sm"
 											>
 												{run.id.slice(0, 12)}
@@ -265,14 +270,14 @@ export default function RunsPage(): React.ReactElement {
 										</td>
 										<td className="px-4 py-2.5">
 											<span className="text-[10px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-												{run.phase ?? '-'}
+												{phaseLabel(run.phase)}
 											</span>
 										</td>
 										<td className="px-4 py-2.5">
 											<span
 												className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${STATUS_COLORS[run.status] ?? ''}`}
 											>
-												{run.status.toUpperCase()}
+												{statusLabel(run.status)}
 											</span>
 										</td>
 										<td className="px-4 py-2.5">

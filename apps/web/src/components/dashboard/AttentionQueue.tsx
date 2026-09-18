@@ -1,6 +1,7 @@
 import type React from 'react';
 import { Link } from 'react-router-dom';
 import type { Run } from '../../types.js';
+import { statusLabel, t } from '../../i18n/index.js';
 
 interface AttentionQueueProps {
 	runs: Run[];
@@ -37,17 +38,17 @@ export default function AttentionQueue({
 		<div className="card">
 			<div className="flex items-center justify-between mb-3">
 				<h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-					Attention Queue
+					{t('Attention Queue')}
 				</h3>
 				{activeRuns.length > 0 && (
 					<span className="text-[10px] font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400 px-1.5 py-0.5 rounded">
-						{activeRuns.length} active
+						{activeRuns.length} {t('active')}
 					</span>
 				)}
 			</div>
 			{activeRuns.length === 0 ? (
 				<p className="text-xs text-slate-400 dark:text-slate-500 text-center py-4">
-					No runs requiring attention
+					{t('No Runs requiring attention')}
 				</p>
 			) : (
 				<div className="space-y-1">
@@ -63,7 +64,7 @@ export default function AttentionQueue({
 							<span
 								className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${STATUS_COLORS[run.status] ?? ''}`}
 							>
-								{run.status.toUpperCase()}
+								{statusLabel(run.status)}
 							</span>
 						</Link>
 					))}

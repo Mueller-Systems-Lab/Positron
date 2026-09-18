@@ -126,7 +126,7 @@ test.describe
 			});
 
 			// Demo Blueprint Panel (core feature)
-			await expect(page.getByText('Demo Blueprint')).toBeVisible({
+			await expect(page.getByText('Demo-Blueprint')).toBeVisible({
 				timeout: 10_000,
 			});
 		});
@@ -146,11 +146,11 @@ test.describe
 			// Fill repo and issue inputs for dynamic blueprint generation
 			// UI was refactored: "Load Mini Blueprint" → "Generate Blueprint" + inputs
 			await page.getByLabel('Repository (owner/repo)').fill('test-owner/test-repo');
-			await page.getByLabel('Issue number').fill('1');
+			await page.getByLabel('Issue-Nummer').fill('1');
 
 			// Click "Generate Blueprint" to fetch the blueprint from the API
 			const generateBtn = page.getByRole('button', {
-				name: /Generate Blueprint/i,
+				name: /Blueprint erzeugen/i,
 			});
 			await expect(generateBtn).toBeVisible({ timeout: 10_000 });
 			await generateBtn.click();
@@ -179,8 +179,8 @@ test.describe
 
 			// Generate blueprint first (updated for new UI flow)
 			await page.getByLabel('Repository (owner/repo)').fill('test-owner/test-repo');
-			await page.getByLabel('Issue number').fill('1');
-			await page.getByRole('button', { name: /Generate Blueprint/i }).click();
+			await page.getByLabel('Issue-Nummer').fill('1');
+				await page.getByRole('button', { name: /Blueprint erzeugen/i }).click();
 			await expect
 				.poll(() => page.locator('textarea').inputValue(), {
 					timeout: 15_000,
@@ -192,13 +192,13 @@ test.describe
 
 			// Click Start Demo Run
 			const startBtn = page.getByRole('button', {
-				name: /Start Demo Run/i,
+				name: /Demo-Lauf starten/i,
 			});
 			await expect(startBtn).toBeVisible({ timeout: 10_000 });
 			await startBtn.click();
 
 			// Wait for run creation response
-			await expect(page.getByText(/Demo run started/i)).toBeVisible({
+			await expect(page.getByText(/Demo-Lauf gestartet/i)).toBeVisible({
 				timeout: 10_000,
 			});
 

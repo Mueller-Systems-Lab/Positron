@@ -1,0 +1,81 @@
+{
+  "timestamp": "2026-09-18T14:52:30.289Z",
+  "backendCommand": "npm start",
+  "frontendCommand": "npm run build && npx vite preview --port 4173",
+  "backendHealth": {
+    "status": "ok",
+    "url": "http://localhost:43100/api/health"
+  },
+  "frontendUrl": "http://localhost:45100",
+  "apiBaseUrl": "http://localhost:43100",
+  "mode": "demo",
+  "runId": "314700af-4387-4ea6-9dd1-79558259d927",
+  "finalStatus": "DONE",
+  "artifacts": {
+    "screenshots": [
+      {
+        "file": "01-ui-opened.png",
+        "path": "docs/release/ui-workflow-proof/01-ui-opened.png"
+      },
+      {
+        "file": "02-health-verified.png",
+        "path": "docs/release/ui-workflow-proof/02-health-verified.png"
+      },
+      {
+        "file": "04-dashboard-complete.png",
+        "path": "docs/release/ui-workflow-proof/04-dashboard-complete.png"
+      },
+      {
+        "file": "05-blueprint-before.png",
+        "path": "docs/release/ui-workflow-proof/05-blueprint-before.png"
+      },
+      {
+        "file": "05-blueprint-loaded.png",
+        "path": "docs/release/ui-workflow-proof/05-blueprint-loaded.png"
+      },
+      {
+        "file": "06-demo-run-before.png",
+        "path": "docs/release/ui-workflow-proof/06-demo-run-before.png"
+      },
+      {
+        "file": "06-demo-run-started.png",
+        "path": "docs/release/ui-workflow-proof/06-demo-run-started.png"
+      },
+      {
+        "file": "07-run-in-list.png",
+        "path": "docs/release/ui-workflow-proof/07-run-in-list.png"
+      },
+      {
+        "file": "08-run-detail.png",
+        "path": "docs/release/ui-workflow-proof/08-run-detail.png"
+      },
+      {
+        "file": "08-runs-page.png",
+        "path": "docs/release/ui-workflow-proof/08-runs-page.png"
+      },
+      {
+        "file": "09-evidence-page.png",
+        "path": "docs/release/ui-workflow-proof/09-evidence-page.png"
+      },
+      {
+        "file": "10-settings-page.png",
+        "path": "docs/release/ui-workflow-proof/10-settings-page.png"
+      },
+      {
+        "file": "11-system-health.png",
+        "path": "docs/release/ui-workflow-proof/11-system-health.png"
+      }
+    ],
+    "networkLog": "network-log.json"
+  },
+  "network": {
+    "totalCalls": 17,
+    "requiredCalls": [
+      "GET /api/health",
+      "GET /api/runs"
+    ],
+    "allRequiredPresent": true,
+    "clientErrors": 0,
+    "serverErrors": 0
+  }
+}

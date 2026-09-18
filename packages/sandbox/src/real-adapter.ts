@@ -346,7 +346,11 @@ export class RealGitWorkspaceAdapter implements GitWorkspaceAdapter {
 			return { locked: false, reason: 'Workspace path and ownerRunId are required' };
 		}
 		const existing = getExternalMutationLock(this.lockDb, workspacePath);
-		const acquired = acquireExternalMutationLock(this.lockDb, workspacePath, ownerRunId, 600_000);
+		const configuredTtl = Number(process.env.POSITRON_WORKSPACE_LOCK_TTL_MS ?? 600_000);
+		const ttlMs = Number.isFinite(configuredTtl)
+			? Math.min(Math.max(configuredTtl, 60_000), 3_600_000)
+			: 600_000;
+		const acquired = acquireExternalMutationLock(this.lockDb, workspacePath, ownerRunId, ttlMs);
 		if (!acquired)
 			return {
 				locked: false,

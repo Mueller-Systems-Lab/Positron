@@ -2,6 +2,7 @@ import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
+import { statusLabel, t } from '../i18n/index.js';
 import type { Phase, Run } from '../types.js';
 import { ALL_PHASES } from '../types.js';
 import PhaseBadge from './PhaseBadge.jsx';
@@ -55,7 +56,7 @@ export default function Dashboard(): React.ReactElement {
 					: 0,
 			);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Failed to load runs');
+			setError(err instanceof Error ? err.message : t('Failed to load runs'));
 		} finally {
 			setLoading(false);
 		}
@@ -117,7 +118,7 @@ export default function Dashboard(): React.ReactElement {
 			setIssueNumber('');
 			navigate(`/runs/${startedRun.id}`);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Failed to start run');
+			setError(err instanceof Error ? err.message : t('Failed to start run'));
 		} finally {
 			setStartingRun(false);
 		}
@@ -128,11 +129,11 @@ export default function Dashboard(): React.ReactElement {
 			{/* Header */}
 			<div className="flex items-center justify-between mb-6">
 				<div>
-					<h1 className="text-2xl font-bold text-white">⚡ Positron Dashboard</h1>
-					<p className="text-slate-400 text-sm mt-1">Evidence-Gated GitHub Issue Execution</p>
+					<h1 className="text-2xl font-bold text-white">⚡ Positron {t('Dashboard')}</h1>
+					<p className="text-slate-400 text-sm mt-1">Nachweisgesteuerte GitHub-Issue-Ausführung</p>
 				</div>
 				<button type="button" onClick={() => setIsNewRunModalOpen(true)} className="btn-primary">
-					+ New Run
+					+ {t('New Run')}
 				</button>
 			</div>
 
@@ -153,21 +154,21 @@ export default function Dashboard(): React.ReactElement {
 			{/* Metrics Cards */}
 			<div className="grid grid-cols-4 gap-4 mb-6">
 				<div className="card">
-					<p className="text-slate-400 text-xs uppercase tracking-wide">Total Runs</p>
+					<p className="text-slate-400 text-xs uppercase tracking-wide">{t('Total Runs')}</p>
 					<p className="text-2xl font-bold text-white mt-1">{loading ? '...' : totalRuns}</p>
 				</div>
 				<div className="card">
-					<p className="text-slate-400 text-xs uppercase tracking-wide">Success Rate</p>
+					<p className="text-slate-400 text-xs uppercase tracking-wide">{t('Success Rate')}</p>
 					<p className="text-2xl font-bold text-green-400 mt-1">
 						{loading ? '...' : `${successRate}%`}
 					</p>
 				</div>
 				<div className="card">
-					<p className="text-slate-400 text-xs uppercase tracking-wide">Active Runs</p>
+					<p className="text-slate-400 text-xs uppercase tracking-wide">{t('Active Runs')}</p>
 					<p className="text-2xl font-bold text-blue-400 mt-1">{loading ? '...' : activeRuns}</p>
 				</div>
 				<div className="card">
-					<p className="text-slate-400 text-xs uppercase tracking-wide">Avg. Time</p>
+					<p className="text-slate-400 text-xs uppercase tracking-wide">{t('Avg. Time')}</p>
 					<p className="text-2xl font-bold text-white mt-1">
 						{loading ? '...' : formatDuration(avgDurationMs)}
 					</p>
@@ -178,7 +179,7 @@ export default function Dashboard(): React.ReactElement {
 			<div className="flex items-center gap-3 mb-4">
 				<input
 					type="text"
-					placeholder="Suche nach Run-ID oder Issue-Nr..."
+								placeholder="Nach Lauf-ID oder Issue-Nummer suchen …"
 					value={searchTerm}
 					onChange={(e) => setSearchTerm(e.target.value)}
 					className="input max-w-xs"
@@ -201,15 +202,15 @@ export default function Dashboard(): React.ReactElement {
 			{loading ? (
 				<div className="card text-center py-12">
 					<div className="animate-spin-slow inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" />
-					<p className="text-slate-400 mt-3">Lade Runs...</p>
+					<p className="text-slate-400 mt-3">{t('Loading')} Läufe …</p>
 				</div>
 			) : filteredRuns.length === 0 ? (
 				<div className="card text-center py-12">
 					<p className="text-4xl mb-3">📋</p>
 					<p className="text-slate-400 text-lg">
 						{runs.length === 0
-							? 'Noch keine Runs — erstelle deinen ersten Run'
-							: 'Keine Runs gefunden, die den Filtern entsprechen'}
+			? 'Noch keine Läufe — erstelle deinen ersten Lauf'
+			: 'Keine Läufe gefunden, die den Filtern entsprechen'}
 					</p>
 					{runs.length === 0 && (
 						<button
@@ -217,7 +218,7 @@ export default function Dashboard(): React.ReactElement {
 							onClick={() => setIsNewRunModalOpen(true)}
 							className="btn-primary mt-4"
 						>
-							Ersten Run erstellen
+							Ersten Lauf erstellen
 						</button>
 					)}
 				</div>
@@ -228,10 +229,10 @@ export default function Dashboard(): React.ReactElement {
 							<thead>
 								<tr className="border-b border-slate-700 text-slate-400 text-xs uppercase">
 									<th className="text-left px-4 py-3 font-medium">ID</th>
-									<th className="text-left px-4 py-3 font-medium">Phase</th>
-									<th className="text-left px-4 py-3 font-medium">Status</th>
-									<th className="text-left px-4 py-3 font-medium">Repository</th>
-									<th className="text-left px-4 py-3 font-medium">Issue</th>
+									<th className="text-left px-4 py-3 font-medium">{t('Phase')}</th>
+									<th className="text-left px-4 py-3 font-medium">{t('Status')}</th>
+									<th className="text-left px-4 py-3 font-medium">{t('Repository')}</th>
+									<th className="text-left px-4 py-3 font-medium">{t('Issue')}</th>
 									<th className="text-left px-4 py-3 font-medium">Dauer</th>
 									<th className="text-left px-4 py-3 font-medium">Gestartet</th>
 									<th className="text-right px-4 py-3 font-medium">Aktionen</th>
@@ -269,7 +270,7 @@ export default function Dashboard(): React.ReactElement {
 																	: 'text-slate-400'
 													}`}
 												>
-													{run.status}
+									{statusLabel(run.status)}
 												</span>
 											</td>
 											<td className="px-4 py-3 text-slate-300 text-xs">{run.repoId}</td>
@@ -288,7 +289,7 @@ export default function Dashboard(): React.ReactElement {
 													onClick={() => navigate(`/runs/${run.id}`)}
 													className="btn-secondary text-xs py-1 px-3"
 												>
-													Details
+														{t('Details')}
 												</button>
 											</td>
 										</tr>
@@ -306,7 +307,7 @@ export default function Dashboard(): React.ReactElement {
 					<div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 					<div className="relative bg-slate-800 rounded-2xl border border-slate-700 p-6 w-full max-w-md mx-4 shadow-2xl">
 						<div className="flex items-center justify-between mb-4">
-							<h2 className="text-lg font-bold text-white">Neuen Run starten</h2>
+							<h2 className="text-lg font-bold text-white">{t('Start a Run')}</h2>
 							<button
 								type="button"
 								onClick={() => setIsNewRunModalOpen(false)}
@@ -350,9 +351,9 @@ export default function Dashboard(): React.ReactElement {
 								<legend className="block text-sm text-slate-300 mb-2">Autonomie-Level</legend>
 								<div className="flex gap-3">
 									{[
-										{ value: 0, label: 'Full' },
-										{ value: 1, label: 'Semi' },
-										{ value: 2, label: 'Manual' },
+									{ value: 0, label: t('Full') },
+									{ value: 1, label: t('Semi') },
+									{ value: 2, label: t('Manual') },
 									].map((option) => (
 										<label
 											key={option.value}
@@ -388,7 +389,7 @@ export default function Dashboard(): React.ReactElement {
 										Starte...
 									</span>
 								) : (
-									'▶ Run starten'
+									`▶ ${t('Run')} starten`
 								)}
 							</button>
 						</div>

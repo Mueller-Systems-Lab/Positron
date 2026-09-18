@@ -248,14 +248,14 @@ describe('ThemeToggle — SVG Accessibility (Class C, 2 SVGs)', () => {
 	test('button has accessible name via aria-label (dark mode)', () => {
 		mockTheme = 'dark';
 		render(<ThemeToggle />);
-		const btn = screen.getByRole('button', { name: 'Switch to light mode' });
+		const btn = screen.getByRole('button', { name: 'Zum hellen Modus wechseln' });
 		expect(btn).toBeDefined();
 	});
 
 	test('button has accessible name via aria-label (light mode)', () => {
 		mockTheme = 'light';
 		render(<ThemeToggle />);
-		const btn = screen.getByRole('button', { name: 'Switch to dark mode' });
+		const btn = screen.getByRole('button', { name: 'Zum dunklen Modus wechseln' });
 		expect(btn).toBeDefined();
 	});
 
@@ -282,18 +282,18 @@ describe('ThemeToggle — SVG Accessibility (Class C, 2 SVGs)', () => {
 
 // ════════════════════════════════════════════════════════════════
 // 2. VOICE STATUS INDICATOR — Class A (1) + Class D (1)
-//    2 SVGs total: "No Voice" (A) + ON/OFF toggle (D)
+//    2 SVGs total: "Keine Sprachausgabe" (A) + ON/OFF toggle (D)
 // ════════════════════════════════════════════════════════════════
 describe('VoiceStatusIndicator — SVG Accessibility (Class A + D, 2 SVGs)', () => {
-	test('OFF state: visible text "Voice OFF" is present', () => {
+	test('OFF state: visible text "Stimme AUS" is present', () => {
 		render(<VoiceStatusIndicator />);
-		expect(screen.getByText(/Voice OFF/)).toBeDefined();
+		expect(screen.getByText(/Stimme AUS/)).toBeDefined();
 	});
 
 	test('OFF state: button has accessible aria-label', () => {
 		render(<VoiceStatusIndicator />);
 		const btn = screen.getByRole('button');
-		expect(btn.getAttribute('aria-label')).toContain('Voice output');
+		expect(btn.getAttribute('aria-label')).toContain('Sprachausgabe');
 	});
 
 	test('OFF state SVG is decorative: aria-hidden=true, focusable=false', () => {
@@ -304,10 +304,10 @@ describe('VoiceStatusIndicator — SVG Accessibility (Class A + D, 2 SVGs)', () 
 		expect(svg.getAttribute('focusable')).toBe('false');
 	});
 
-	test('ON state: visible text "Voice ON" is present after toggle', () => {
+	test('ON state: visible text "Stimme EIN" is present after toggle', () => {
 		render(<VoiceStatusIndicator />);
 		fireEvent.click(screen.getByRole('button'));
-		expect(screen.getByText(/Voice ON/)).toBeDefined();
+		expect(screen.getByText(/Stimme EIN/)).toBeDefined();
 	});
 
 	test('ON state SVG remains decorative after toggle', () => {
@@ -318,10 +318,10 @@ describe('VoiceStatusIndicator — SVG Accessibility (Class A + D, 2 SVGs)', () 
 		expect(svg.getAttribute('focusable')).toBe('false');
 	});
 
-	test('unsupported state: visible text "No Voice" is present', () => {
+	test('unsupported state: visible text "Keine Sprachausgabe" is present', () => {
 		vi.stubGlobal('speechSynthesis', undefined);
 		render(<VoiceStatusIndicator />);
-		expect(screen.getByText(/No Voice/)).toBeDefined();
+		expect(screen.getByText(/Keine Sprachausgabe/)).toBeDefined();
 	});
 
 	test('unsupported state SVG is decorative', () => {
@@ -336,17 +336,17 @@ describe('VoiceStatusIndicator — SVG Accessibility (Class A + D, 2 SVGs)', () 
 
 // ════════════════════════════════════════════════════════════════
 // 3. VOICE CONTROLS — Class A (1 SVG)
-//    "Voice Output" heading with decorative speaker SVG
+//    "Sprachausgabe" heading with decorative speaker SVG
 // ════════════════════════════════════════════════════════════════
 describe('VoiceControls — SVG Accessibility (Class A, 1 SVG)', () => {
-	test('"Voice Output" heading is present', () => {
+	test('"Sprachausgabe" heading is present', () => {
 		render(<VoiceControls />);
-		expect(screen.getByText('Voice Output')).toBeDefined();
+		expect(screen.getByText('Sprachausgabe')).toBeDefined();
 	});
 
 	test('heading SVG is decorative: aria-hidden=true, focusable=false', () => {
 		render(<VoiceControls />);
-		const heading = screen.getByText('Voice Output').closest('h3');
+		const heading = screen.getByText('Sprachausgabe').closest('h3');
 		expect(heading).toBeDefined();
 		const svg = heading!.querySelector('svg') as SVGElement;
 		expect(svg).toBeDefined();
@@ -359,15 +359,15 @@ describe('VoiceControls — SVG Accessibility (Class A, 1 SVG)', () => {
 // 4. SYSTEM HEALTH — Class A (1 SVG)
 // ════════════════════════════════════════════════════════════════
 describe('SystemHealth — SVG Accessibility (Class A, 1 SVG)', () => {
-	test('"System Health" heading is present', async () => {
+	test('"Systemzustand" heading is present', async () => {
 		render(<SystemHealth />);
-		const heading = await screen.findByText('System Health');
+		const heading = await screen.findByText('Systemzustand');
 		expect(heading).toBeDefined();
 	});
 
 	test('heading SVG is decorative: aria-hidden=true, focusable=false', async () => {
 		render(<SystemHealth />);
-		const heading = await screen.findByText('System Health');
+		const heading = await screen.findByText('Systemzustand');
 		const svg = heading.closest('h3')!.querySelector('svg') as SVGElement;
 		expect(svg).toBeDefined();
 		expect(svg.getAttribute('aria-hidden')).toBe('true');
@@ -379,14 +379,14 @@ describe('SystemHealth — SVG Accessibility (Class A, 1 SVG)', () => {
 // 5. DASHBOARD PAGE — Class A (1 SVG)
 // ════════════════════════════════════════════════════════════════
 describe('DashboardPage — SVG Accessibility (Class A, 1 SVG)', () => {
-	test('"Managed External Projects" heading is present when projects exist', async () => {
+	test('"Verwaltete externe Projekte" heading is present when projects exist', async () => {
 		render(
 			<MemoryRouter>
 				<DashboardPage />
 			</MemoryRouter>,
 		);
 
-		const heading = await screen.findByText('Managed External Projects');
+		const heading = await screen.findByText('Verwaltete externe Projekte');
 		expect(heading).toBeDefined();
 	});
 
@@ -397,7 +397,7 @@ describe('DashboardPage — SVG Accessibility (Class A, 1 SVG)', () => {
 			</MemoryRouter>,
 		);
 
-		const heading = await screen.findByText('Managed External Projects');
+		const heading = await screen.findByText('Verwaltete externe Projekte');
 		const svg = heading.closest('h3')!.querySelector('svg') as SVGElement;
 		expect(svg).toBeDefined();
 		expect(svg.getAttribute('aria-hidden')).toBe('true');
@@ -407,18 +407,18 @@ describe('DashboardPage — SVG Accessibility (Class A, 1 SVG)', () => {
 
 // ════════════════════════════════════════════════════════════════
 // 6. SETTINGS PAGE — Class A (3 SVGs)
-//    Safety Gates, MCP Servers, Test Modes
+//    Sicherheits-Gates, MCP Servers, Test Modes
 // ════════════════════════════════════════════════════════════════
 describe('SettingsPage — SVG Accessibility (Class A, 3 SVGs)', () => {
-	test('"Safety Gates" heading is present', async () => {
+	test('"Sicherheits-Gates" heading is present', async () => {
 		render(<SettingsPage />);
-		const heading = await screen.findByText('Safety Gates');
+		const heading = await screen.findByText('Sicherheits-Gates');
 		expect(heading).toBeDefined();
 	});
 
-	test('Safety Gates SVG is decorative', async () => {
+	test('Sicherheits-Gates SVG is decorative', async () => {
 		render(<SettingsPage />);
-		const heading = await screen.findByText('Safety Gates');
+		const heading = await screen.findByText('Sicherheits-Gates');
 		const svg = heading.closest('h3')!.querySelector('svg') as SVGElement;
 		expect(svg).toBeDefined();
 		expect(svg.getAttribute('aria-hidden')).toBe('true');
@@ -427,13 +427,13 @@ describe('SettingsPage — SVG Accessibility (Class A, 3 SVGs)', () => {
 
 	test('"MCP Servers" heading is present', async () => {
 		render(<SettingsPage />);
-		const heading = await screen.findByText('MCP Servers');
+		const heading = await screen.findByText('MCP-Server');
 		expect(heading).toBeDefined();
 	});
 
 	test('MCP Servers SVG is decorative', async () => {
 		render(<SettingsPage />);
-		const heading = await screen.findByText('MCP Servers');
+		const heading = await screen.findByText('MCP-Server');
 		const svg = heading.closest('h3')!.querySelector('svg') as SVGElement;
 		expect(svg).toBeDefined();
 		expect(svg.getAttribute('aria-hidden')).toBe('true');
@@ -442,13 +442,13 @@ describe('SettingsPage — SVG Accessibility (Class A, 3 SVGs)', () => {
 
 	test('"Test Modes" heading is present', async () => {
 		render(<SettingsPage />);
-		const heading = await screen.findByText('Test Modes');
+		const heading = await screen.findByText('Testmodi');
 		expect(heading).toBeDefined();
 	});
 
 	test('Test Modes SVG is decorative', async () => {
 		render(<SettingsPage />);
-		const heading = await screen.findByText('Test Modes');
+		const heading = await screen.findByText('Testmodi');
 		const svg = heading.closest('h3')!.querySelector('svg') as SVGElement;
 		expect(svg).toBeDefined();
 		expect(svg.getAttribute('aria-hidden')).toBe('true');
@@ -457,11 +457,11 @@ describe('SettingsPage — SVG Accessibility (Class A, 3 SVGs)', () => {
 
 	test('all three decorative SVGs are hidden (count=3)', async () => {
 		render(<SettingsPage />);
-		await screen.findByText('Safety Gates');
-		await screen.findByText('MCP Servers');
-		await screen.findByText('Test Modes');
+		await screen.findByText('Sicherheits-Gates');
+		await screen.findByText('MCP-Server');
+		await screen.findByText('Testmodi');
 
-		const headings = ['Safety Gates', 'MCP Servers', 'Test Modes'];
+		const headings = ['Sicherheits-Gates', 'MCP-Server', 'Testmodi'];
 		let hiddenCount = 0;
 		for (const text of headings) {
 			const h = screen.getByText(text);
@@ -474,69 +474,69 @@ describe('SettingsPage — SVG Accessibility (Class A, 3 SVGs)', () => {
 
 // ════════════════════════════════════════════════════════════════
 // 7. RUN DETAIL — Class A (1) + Class C (1) + Class D (2) = 4 SVGs
-//    Copy Run ID, Live Evidence, Open Evidence, Open Issue
+//    Lauf-ID kopieren, Live-Nachweise, Nachweise öffnen, Open Issue
 // ════════════════════════════════════════════════════════════════
 describe('RunDetail — SVG Accessibility (Class A+C+D, 4 SVGs)', () => {
-	test('Copy Run ID button has accessible name via title attribute', async () => {
+	test('Lauf-ID kopieren button has accessible name via title attribute', async () => {
 		render(
 			<MemoryRouter>
 				<RunDetail />
 			</MemoryRouter>,
 		);
 
-		// title="Copy Run ID" should provide accessible name
-		const btn = await screen.findByRole('button', { name: 'Copy Run ID' });
+		// title="Lauf-ID kopieren" should provide accessible name
+		const btn = await screen.findByRole('button', { name: 'Lauf-ID kopieren' });
 		expect(btn).toBeDefined();
-		expect(btn.getAttribute('title')).toBe('Copy Run ID');
+		expect(btn.getAttribute('title')).toBe('Lauf-ID kopieren');
 	});
 
-	test('Copy Run ID SVG is decorative', async () => {
+	test('Lauf-ID kopieren SVG is decorative', async () => {
 		render(
 			<MemoryRouter>
 				<RunDetail />
 			</MemoryRouter>,
 		);
 
-		const btn = await screen.findByRole('button', { name: 'Copy Run ID' });
+		const btn = await screen.findByRole('button', { name: 'Lauf-ID kopieren' });
 		const svg = btn.querySelector('svg') as SVGElement;
 		expect(svg).toBeDefined();
 		expect(svg.getAttribute('aria-hidden')).toBe('true');
 		expect(svg.getAttribute('focusable')).toBe('false');
 	});
 
-	test('"Live Evidence" heading is present', async () => {
+	test('"Live-Nachweise" heading is present', async () => {
 		render(
 			<MemoryRouter>
 				<RunDetail />
 			</MemoryRouter>,
 		);
 
-		const heading = await screen.findByText('Live Evidence');
+		const heading = await screen.findByText('Live-Nachweise');
 		expect(heading).toBeDefined();
 	});
 
-	test('Live Evidence SVG is decorative', async () => {
+	test('Live-Nachweise SVG is decorative', async () => {
 		render(
 			<MemoryRouter>
 				<RunDetail />
 			</MemoryRouter>,
 		);
 
-		const heading = await screen.findByText('Live Evidence');
+		const heading = await screen.findByText('Live-Nachweise');
 		const svg = heading.closest('h3')!.querySelector('svg') as SVGElement;
 		expect(svg).toBeDefined();
 		expect(svg.getAttribute('aria-hidden')).toBe('true');
 		expect(svg.getAttribute('focusable')).toBe('false');
 	});
 
-	test('"Open Evidence" link has accessible name with visible text', async () => {
+	test('"Nachweise öffnen" link has accessible name with visible text', async () => {
 		render(
 			<MemoryRouter>
 				<RunDetail />
 			</MemoryRouter>,
 		);
 
-		const link = await screen.findByText('Open Evidence');
+		const link = await screen.findByText('Nachweise öffnen');
 		expect(link).toBeDefined();
 		const svg = link.closest('a')?.querySelector('svg');
 		expect(svg).toBeDefined();
@@ -551,7 +551,7 @@ describe('RunDetail — SVG Accessibility (Class A+C+D, 4 SVGs)', () => {
 			</MemoryRouter>,
 		);
 
-		const link = await screen.findByText(/Open Issue #340/);
+		const link = await screen.findByText(/Issue öffnen #340/);
 		expect(link).toBeDefined();
 		const svg = link.closest('a')?.querySelector('svg');
 		expect(svg).toBeDefined();
@@ -566,7 +566,7 @@ describe('RunDetail — SVG Accessibility (Class A+C+D, 4 SVGs)', () => {
 			</MemoryRouter>,
 		);
 
-		await screen.findByText('Live Evidence');
+		await screen.findByText('Live-Nachweise');
 
 		const allSvgs = document.querySelectorAll('svg[aria-hidden="true"][focusable="false"]');
 		// RunDetail has 4 decorative SVGs + any from sub-components

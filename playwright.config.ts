@@ -24,6 +24,7 @@ import { getRouteSmokeTarget } from './e2e/support/route-smoke';
  */
 
 const FAKE_MODE_ENV = {
+	BROWSER_E2E_MODE: 'FAKE_ADAPTER',
 	// Skip .env loading entirely — the .env file sets real mode
 	VITEST: 'true',
 	// Explicit fake mode for ALL adapters
@@ -56,7 +57,9 @@ process.env.POSITRON_ADMIN_TOKEN =
 
 export default defineConfig({
 	testDir: './e2e',
-	testIgnore: ['**/support/route-smoke.test.ts'],
+	// Real-product E2E has its own fail-closed config and must never be
+	// collected by the deterministic fake-adapter suite.
+	testIgnore: ['**/support/route-smoke.test.ts', '**/real/**'],
 	fullyParallel: false,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,

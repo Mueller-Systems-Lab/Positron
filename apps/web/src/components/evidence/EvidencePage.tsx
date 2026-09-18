@@ -4,6 +4,7 @@ import { api } from '../../api.js';
 import EmptyState from '../shared/EmptyState.js';
 import ErrorBanner from '../shared/ErrorBanner.js';
 import LoadingSkeleton from '../shared/LoadingSkeleton.js';
+import { t } from '../../i18n/index.js';
 
 interface EvidenceItem {
 	id: string;
@@ -18,15 +19,15 @@ interface EvidenceItem {
 }
 
 const KIND_LABELS: Record<string, string> = {
-	spec: 'Specification',
-	plan: 'Implementation Plan',
-	tasks: 'Task List',
-	review: 'Code Review',
-	'test-results': 'Test Results',
-	diff: 'Code Diff',
-	test: 'Test Run',
-	implementation: 'Implementation',
-	research: 'Research',
+	spec: 'Spezifikation',
+	plan: 'Implementierungsplan',
+	tasks: 'Aufgabenliste',
+	review: 'Codeprüfung',
+	'test-results': 'Testergebnisse',
+	diff: 'Code-Diff',
+	test: 'Testlauf',
+	implementation: 'Implementierung',
+	research: 'Recherche',
 };
 
 const KIND_COLORS: Record<string, string> = {
@@ -67,7 +68,7 @@ export default function EvidencePage(): React.ReactElement {
 			setRuns(runsData.runs);
 			setError(null);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Failed to load evidence');
+			setError(err instanceof Error ? err.message : t('Failed to load evidence'));
 		} finally {
 			setLoading(false);
 		}
@@ -119,7 +120,7 @@ export default function EvidencePage(): React.ReactElement {
 	if (error) {
 		return (
 			<div>
-				<h1>Evidence</h1>
+				<h1>{t('Evidence')}</h1>
 				<ErrorBanner message={error} onRetry={fetchEvidence} />
 			</div>
 		);
@@ -130,9 +131,9 @@ export default function EvidencePage(): React.ReactElement {
 	return (
 		<div>
 			<div className="mb-6">
-				<h1>Evidence</h1>
+				<h1>{t('Evidence')}</h1>
 				<p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-					Aggregated evidence artifacts, test results, and logs across all runs
+					{t('Aggregated evidence artifacts, test results, and logs across all runs')}
 				</p>
 			</div>
 
@@ -141,7 +142,7 @@ export default function EvidencePage(): React.ReactElement {
 				<div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
 					<div className="card !border-l-green-400 !border-l-4 !bg-green-500/5">
 						<p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-							Artifacts
+							{t('Artifacts')}
 						</p>
 						<p className="text-2xl font-bold text-green-600 dark:text-green-400">
 							{summary.totalArtifacts as number}
@@ -154,7 +155,7 @@ export default function EvidencePage(): React.ReactElement {
 					</div>
 					<div className="card !border-l-sky-400 !border-l-4 !bg-sky-500/5">
 						<p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-							Test Events
+							Testereignisse
 						</p>
 						<p className="text-2xl font-bold text-sky-600 dark:text-sky-400">
 							{summary.testEvents as number}
@@ -162,7 +163,7 @@ export default function EvidencePage(): React.ReactElement {
 					</div>
 					<div className="card !border-l-red-400 !border-l-4 !bg-red-500/5">
 						<p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-							Errors
+							Fehler
 						</p>
 						<p className="text-2xl font-bold text-red-600 dark:text-red-400">
 							{summary.errorEvents as number}
@@ -170,7 +171,7 @@ export default function EvidencePage(): React.ReactElement {
 					</div>
 					<div className="card !border-l-amber-400 !border-l-4 !bg-amber-500/5">
 						<p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-							Warnings
+							Warnungen
 						</p>
 						<p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
 							{summary.warningEvents as number}
@@ -183,10 +184,10 @@ export default function EvidencePage(): React.ReactElement {
 			{noData && (
 				<EmptyState
 					icon="🔍"
-					title="No Evidence Yet"
-					description="Evidence artifacts are generated when agent runs execute."
+					title={t('No Evidence Yet')}
+					description={t('Evidence artifacts are generated when agent runs execute.')}
 					action={{
-						label: 'Start a Run',
+						label: t('Start a Run'),
 						onClick: () => {
 							window.location.href = '/';
 						},
@@ -198,10 +199,10 @@ export default function EvidencePage(): React.ReactElement {
 				<div className="card text-center py-8 mt-4">
 					<p className="text-2xl mb-2">📊</p>
 					<p className="text-sm text-slate-800 dark:text-slate-300 font-medium mb-1">
-						Evidence Summary Available
+						Nachweiszusammenfassung verfügbar
 					</p>
 					<p className="text-xs text-slate-500 dark:text-slate-500">
-						Aggregated data is available, but no individual evidence items exist yet.
+						Aggregierte Daten sind verfügbar, aber noch keine einzelnen Nachweise.
 					</p>
 				</div>
 			)}
@@ -211,9 +212,9 @@ export default function EvidencePage(): React.ReactElement {
 				<div className="card text-center py-8">
 					<p className="text-4xl mb-2">🔎</p>
 					<p className="text-sm text-slate-800 dark:text-slate-300 font-medium mb-1">
-						No matching evidence
+						Keine passenden Nachweise
 					</p>
-					<p className="text-xs text-slate-500 dark:text-slate-500">Try adjusting your filters.</p>
+					<p className="text-xs text-slate-500 dark:text-slate-500">{t('Try adjusting your filters.')}</p>
 				</div>
 			)}
 
@@ -223,7 +224,7 @@ export default function EvidencePage(): React.ReactElement {
 					<div className="flex items-center gap-3 mb-4 flex-wrap">
 						<input
 							type="text"
-							placeholder="Search evidence..."
+							placeholder="Nachweise suchen …"
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
 							className="input max-w-xs"
@@ -233,20 +234,20 @@ export default function EvidencePage(): React.ReactElement {
 							onChange={(e) => setStatusFilter(e.target.value)}
 							className="input max-w-[130px]"
 						>
-							<option value="all">All Status</option>
-							<option value="pass">Pass</option>
-							<option value="fail">Fail</option>
-							<option value="partial">Partial</option>
+					<option value="all">{t('All Status')}</option>
+					<option value="pass">{t('Pass')}</option>
+					<option value="fail">{t('Fail')}</option>
+					<option value="partial">{t('Partial')}</option>
 						</select>
 						<select
 							value={typeFilter}
 							onChange={(e) => setTypeFilter(e.target.value)}
 							className="input max-w-[130px]"
 						>
-							{types.map((t) => (
-								<option key={t} value={t}>
-									{t === 'all' ? 'All Types' : t}
-								</option>
+						{types.map((kind) => (
+							<option key={kind} value={kind}>
+								{kind === 'all' ? t('All Types') : KIND_LABELS[kind] ?? kind}
+							</option>
 							))}
 						</select>
 						<select
@@ -254,12 +255,12 @@ export default function EvidencePage(): React.ReactElement {
 							onChange={(e) => setRunFilter(e.target.value)}
 							className="input max-w-[180px]"
 						>
-							<option value="all">All Runs</option>
+					<option value="all">{t('All Runs')}</option>
 							{runOptions
 								.filter((r) => r !== 'all')
 								.map((r) => (
 									<option key={r} value={r}>
-										Run {r.slice(0, 8)}
+										{t('Run')} {r.slice(0, 8)}
 									</option>
 								))}
 						</select>
@@ -274,22 +275,22 @@ export default function EvidencePage(): React.ReactElement {
 								<thead>
 									<tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] text-slate-500 uppercase tracking-wider">
 										<th scope="col" className="w-10 px-2 py-2 font-medium">
-											<span className="sr-only">Evidence details</span>
+										<span className="sr-only">{t('Evidence details')}</span>
 										</th>
 										<th scope="col" className="text-left px-4 py-2 font-medium">
-											Kind
+											{t('Kind')}
 										</th>
 										<th scope="col" className="text-left px-4 py-2 font-medium">
 											Status
 										</th>
 										<th scope="col" className="text-left px-4 py-2 font-medium">
-											Summary
+											{t('Summary')}
 										</th>
 										<th scope="col" className="text-left px-4 py-2 font-medium">
-											Run
+											{t('Run')}
 										</th>
 										<th scope="col" className="text-left px-4 py-2 font-medium">
-											Time
+											{t('Time')}
 										</th>
 									</tr>
 								</thead>

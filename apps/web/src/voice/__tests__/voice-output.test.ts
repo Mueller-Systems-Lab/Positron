@@ -202,28 +202,28 @@ describe('classifyEvent', () => {
 describe('mapEventToSpeech', () => {
 	test('run_started includes shortened run ID', () => {
 		const text = mapEventToSpeech(makeEvent({ phase: 'QUEUED' }), 'run_started');
-		expect(text).toContain('Run cd6a5f1e');
-		expect(text).toContain('started');
+		expect(text).toContain('Lauf cd6a5f1e');
+		expect(text).toContain('gestartet');
 	});
 
 	test('run_done', () => {
 		const text = mapEventToSpeech(makeEvent({ phase: 'DONE' }), 'run_done');
-		expect(text).toBe('Run completed successfully');
+		expect(text).toBe('Lauf erfolgreich abgeschlossen');
 	});
 
 	test('phase_failed includes phase name', () => {
 		const text = mapEventToSpeech(makeEvent({ phase: 'FAILED' }), 'phase_failed');
-		expect(text).toContain('Phase FAILED failed');
+		expect(text).toContain('Phase FAILED fehlgeschlagen');
 	});
 
 	test('merge_blocked mentions kill-switch', () => {
 		const text = mapEventToSpeech(makeEvent({ phase: 'BLOCKED_MERGE' }), 'merge_blocked');
-		expect(text).toBe('Merge blocked by kill-switch');
+		expect(text).toBe('Merge blockiert durch Kill-Switch');
 	});
 
 	test('human_action', () => {
 		const text = mapEventToSpeech(makeEvent({ phase: 'GATE_APPROVE' }), 'human_action');
-		expect(text).toBe('Human action required');
+		expect(text).toBe('Menschliche Aktion erforderlich');
 	});
 
 	test('run_blocked includes message when present', () => {
@@ -231,7 +231,7 @@ describe('mapEventToSpeech', () => {
 			makeEvent({ phase: 'FAILED_BLOCKED', message: 'test failure' }),
 			'run_blocked',
 		);
-		expect(text).toContain('Run blocked');
+		expect(text).toContain('Lauf blockiert');
 		expect(text).toContain('test failure');
 	});
 
@@ -240,7 +240,7 @@ describe('mapEventToSpeech', () => {
 			makeEvent({ phase: 'FAILED_BLOCKED', message: '' }),
 			'run_blocked',
 		);
-		expect(text).toBe('Run blocked');
+		expect(text).toBe('Lauf blockiert');
 	});
 
 	test('never produces "undefined" or "null" in output', () => {
@@ -254,7 +254,7 @@ describe('mapEventToSpeech', () => {
 describe('eventToSpeechText', () => {
 	test('returns text for speakable event', () => {
 		const text = eventToSpeechText(makeEvent({ phase: 'QUEUED' }));
-		expect(text).toContain('Run cd6a5f1e started');
+		expect(text).toContain('Lauf cd6a5f1e gestartet');
 	});
 
 	test('returns null for non-speakable event', () => {
@@ -407,7 +407,7 @@ describe('getLastSpoken', () => {
 		speakEvent(makeEvent({ phase: 'DONE' }));
 		const last = getLastSpoken();
 		expect(last).not.toBeNull();
-		expect(last!.text).toBe('Run completed successfully');
+		expect(last!.text).toBe('Lauf erfolgreich abgeschlossen');
 		expect(typeof last!.timestamp).toBe('number');
 	});
 

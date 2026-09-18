@@ -94,65 +94,65 @@ afterEach(() => {
 // ══════════════════════════════════════════════════════════
 // 1. SETTINGS SMOKE — VoiceControls in context
 // ══════════════════════════════════════════════════════════
-describe('Settings Smoke — VoiceControls Integration', () => {
-	test('VoiceControls renders with Voice Output heading', () => {
+describe('Einstellungen Smoke — VoiceControls Integration', () => {
+	test('VoiceControls renders with Sprachausgabe heading', () => {
 		render(<VoiceControls />);
-		expect(screen.getByText('Voice Output')).toBeDefined();
+		expect(screen.getByText('Sprachausgabe')).toBeDefined();
 	});
 
 	test('Voice default OFF in settings context', () => {
 		render(<VoiceControls />);
-		const toggle = screen.getByRole('switch', { name: 'Voice Output' });
+		const toggle = screen.getByRole('switch', { name: 'Sprachausgabe' });
 		expect(toggle.getAttribute('aria-checked')).toBe('false');
 	});
 
 	test('Toggle ON saves state and updates UI', () => {
 		render(<VoiceControls />);
-		const toggle = screen.getByRole('switch', { name: 'Voice Output' });
+		const toggle = screen.getByRole('switch', { name: 'Sprachausgabe' });
 		fireEvent.click(toggle);
 		expect(toggle.getAttribute('aria-checked')).toBe('true');
 	});
 
 	test('Privacy notice visible', () => {
 		render(<VoiceControls />);
-		expect(screen.getByText(/Voice output is local browser TTS/)).toBeDefined();
-		expect(screen.getByText(/No audio is sent to external services/)).toBeDefined();
+		expect(screen.getByText(/Sprachausgabe verwendet lokale Browser-TTS/)).toBeDefined();
+		expect(screen.getByText(/kein Audio an externe Dienste/)).toBeDefined();
 	});
 
 	test('Browser support status visible when TTS is available', () => {
 		render(<VoiceControls />);
-		expect(screen.getByText(/Browser TTS supported/)).toBeDefined();
+		expect(screen.getByText(/Browser-TTS unterstützt/)).toBeDefined();
 	});
 
 	test('Unsupported browser shows warning', () => {
 		setupSpeech(false);
 		render(<VoiceControls />);
-		expect(screen.getByText(/Browser TTS not supported/)).toBeDefined();
-		expect(screen.getByText(/does not support the Web Speech API/)).toBeDefined();
+		expect(screen.getByText(/Browser-TTS nicht unterstützt/)).toBeDefined();
+		expect(screen.getByText(/unterstützt die Web-Speech-API nicht/)).toBeDefined();
 	});
 
 	test('Voice selection dropdown populates with voices', () => {
 		render(<VoiceControls />);
-		const select = screen.getByLabelText('Voice') as HTMLSelectElement;
+		const select = screen.getByLabelText('Stimme') as HTMLSelectElement;
 		expect(select).toBeDefined();
 		expect(select.options.length).toBeGreaterThanOrEqual(1);
 	});
 
-	test('Test Voice button invokes speechSynthesis', () => {
+	test('Sprachausgabe testen button invokes speechSynthesis', () => {
 		render(<VoiceControls />);
-		fireEvent.click(screen.getByRole('switch', { name: 'Voice Output' }));
-		fireEvent.click(screen.getByRole('button', { name: 'Test voice output' }));
+		fireEvent.click(screen.getByRole('switch', { name: 'Sprachausgabe' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Sprachausgabe testen' }));
 		expect(mockSpeak).toHaveBeenCalledTimes(1);
 	});
 
 	test('Event checkboxes render all 6 types', () => {
 		render(<VoiceControls />);
-		expect(screen.getByLabelText('Run started')).toBeDefined();
-		expect(screen.getByLabelText('Phase failed')).toBeDefined();
-		expect(screen.getByLabelText('Run blocked')).toBeDefined();
-		expect(screen.getByLabelText('Human action required')).toBeDefined();
-		expect(screen.getByLabelText('Merge blocked')).toBeDefined();
-		expect(screen.getByLabelText('Run done')).toBeDefined();
+		expect(screen.getByLabelText('Lauf gestartet')).toBeDefined();
+		expect(screen.getByLabelText('Phase fehlgeschlagen')).toBeDefined();
+		expect(screen.getByLabelText('Lauf blockiert')).toBeDefined();
+		expect(screen.getByLabelText('Menschliche Aktion erforderlich')).toBeDefined();
+		expect(screen.getByLabelText('Merge blockiert')).toBeDefined();
+		expect(screen.getByLabelText('Lauf abgeschlossen')).toBeDefined();
 	});
 
 	test('Invalid localStorage data does not crash VoiceControls', () => {
@@ -167,13 +167,13 @@ describe('Settings Smoke — VoiceControls Integration', () => {
 describe('Dashboard Smoke — VoiceStatusIndicator', () => {
 	test('VoiceStatusIndicator renders OFF state', () => {
 		render(<VoiceStatusIndicator />);
-		expect(screen.getByText(/Voice OFF/)).toBeDefined();
+		expect(screen.getByText(/Stimme AUS/)).toBeDefined();
 	});
 
 	test('VoiceStatusIndicator toggles to ON on click', () => {
 		render(<VoiceStatusIndicator />);
 		fireEvent.click(screen.getByRole('button'));
-		expect(screen.getByText(/Voice ON/)).toBeDefined();
+		expect(screen.getByText(/Stimme EIN/)).toBeDefined();
 	});
 
 	test('VoiceStatusIndicator toggles back to OFF', () => {
@@ -181,23 +181,23 @@ describe('Dashboard Smoke — VoiceStatusIndicator', () => {
 		const btn = screen.getByRole('button');
 		fireEvent.click(btn); // ON
 		fireEvent.click(btn); // OFF
-		expect(screen.getByText(/Voice OFF/)).toBeDefined();
+		expect(screen.getByText(/Stimme AUS/)).toBeDefined();
 	});
 
 	test('VoiceStatusIndicator shows unsupported when no TTS', () => {
 		setupSpeech(false);
 		render(<VoiceStatusIndicator />);
-		expect(screen.getByText(/No Voice/)).toBeDefined();
+		expect(screen.getByText(/Keine Sprachausgabe/)).toBeDefined();
 	});
 
 	test('VoiceStatusIndicator has accessible aria-label', () => {
 		render(<VoiceStatusIndicator />);
-		expect(screen.getByRole('button').getAttribute('aria-label')).toContain('Voice output');
+		expect(screen.getByRole('button').getAttribute('aria-label')).toContain('Sprachausgabe');
 	});
 
 	test('VoiceStatusIndicator has title with privacy note', () => {
 		render(<VoiceStatusIndicator />);
-		expect(screen.getByRole('button').getAttribute('title')).toContain('Voice alerts are local');
+		expect(screen.getByRole('button').getAttribute('title')).toContain('Sprachhinweise sind lokal');
 	});
 });
 
@@ -248,15 +248,15 @@ describe('SSE / RunEvent Regression', () => {
 	test('relevant event (DONE) triggers correct speech text', () => {
 		saveVoiceSettings({ ...DEFAULT_VOICE_SETTINGS, enabled: true });
 		speakEvent(makeEvent({ phase: 'DONE' }));
-		expect(mockSpeak.mock.calls[0][0].text).toBe('Run completed successfully');
+		expect(mockSpeak.mock.calls[0][0].text).toBe('Lauf erfolgreich abgeschlossen');
 	});
 
 	test('relevant event (QUEUED) triggers run_started speech', () => {
 		saveVoiceSettings({ ...DEFAULT_VOICE_SETTINGS, enabled: true });
 		speakEvent(makeEvent({ phase: 'QUEUED' }));
 		expect(mockSpeak).toHaveBeenCalledTimes(1);
-		expect(mockSpeak.mock.calls[0][0].text).toContain('Run abc12345');
-		expect(mockSpeak.mock.calls[0][0].text).toContain('started');
+		expect(mockSpeak.mock.calls[0][0].text).toContain('Lauf abc12345');
+		expect(mockSpeak.mock.calls[0][0].text).toContain('gestartet');
 	});
 
 	test('irrelevant event (IMPLEMENT) does not trigger voice', () => {
@@ -323,7 +323,7 @@ describe('SSE / RunEvent Regression', () => {
 		speakEvent(makeEvent({ phase: 'DONE' }));
 		const last = getLastSpoken();
 		expect(last).not.toBeNull();
-		expect(last!.text).toBe('Run completed successfully');
+		expect(last!.text).toBe('Lauf erfolgreich abgeschlossen');
 		expect(typeof last!.timestamp).toBe('number');
 	});
 
@@ -353,7 +353,7 @@ describe('SSE / RunEvent Regression', () => {
 		const silent: Phase[] = ['IMPLEMENT', 'REVIEW', 'TEST', 'VERIFY', 'COMMIT', 'CLEANUP'];
 		for (const phase of silent) {
 			resetVoiceState();
-			saveVoiceSettings({ ...DEFAULT_VOICE_SETTINGS, enabled: true });
+		saveVoiceSettings({ ...DEFAULT_VOICE_SETTINGS, enabled: true });
 			speakEvent(makeEvent({ phase, id: `evt-${phase}` }));
 		}
 		expect(mockSpeak).not.toHaveBeenCalled();
@@ -363,13 +363,13 @@ describe('SSE / RunEvent Regression', () => {
 		saveVoiceSettings({ ...DEFAULT_VOICE_SETTINGS, enabled: true });
 		speakEvent(makeEvent({ phase: 'IMPLEMENT', message: 'kill-switch activated' }));
 		expect(mockSpeak).toHaveBeenCalledTimes(1);
-		expect(mockSpeak.mock.calls[0][0].text).toContain('Run blocked');
+		expect(mockSpeak.mock.calls[0][0].text).toContain('Lauf blockiert');
 	});
 
 	test('human action message triggers from non-speakable phase', () => {
 		saveVoiceSettings({ ...DEFAULT_VOICE_SETTINGS, enabled: true });
 		speakEvent(makeEvent({ phase: 'IMPLEMENT', message: 'Human approval required for merge' }));
 		expect(mockSpeak).toHaveBeenCalledTimes(1);
-		expect(mockSpeak.mock.calls[0][0].text).toBe('Human action required');
+		expect(mockSpeak.mock.calls[0][0].text).toBe('Menschliche Aktion erforderlich');
 	});
 });

@@ -41,13 +41,13 @@ describe('BlueprintPanel', () => {
 		expect(container).toBeDefined();
 	});
 
-	test('shows Demo Blueprint heading', () => {
+	test('shows Demo-Blueprint heading', () => {
 		render(
 			<MemoryRouter>
 				<BlueprintPanel />
 			</MemoryRouter>,
 		);
-		expect(screen.getByText('Demo Blueprint')).toBeDefined();
+		expect(screen.getByText('Demo-Blueprint')).toBeDefined();
 	});
 
 	test('shows description text', () => {
@@ -56,7 +56,7 @@ describe('BlueprintPanel', () => {
 				<BlueprintPanel />
 			</MemoryRouter>,
 		);
-		expect(screen.getByText(/Start a demo run/)).toBeDefined();
+		expect(screen.getByText(/Demo-Lauf starten/)).toBeDefined();
 	});
 
 	test('has a textarea for blueprint input', () => {
@@ -76,25 +76,25 @@ describe('BlueprintPanel', () => {
 				<BlueprintPanel />
 			</MemoryRouter>,
 		);
-		expect(screen.getByText(/Demo runs do not push/i)).toBeDefined();
+		expect(screen.getByText(/Demo-Läufe pushen/i)).toBeDefined();
 	});
 
-	test('has Generate Blueprint button', () => {
+	test('has Blueprint erzeugen button', () => {
 		render(
 			<MemoryRouter>
 				<BlueprintPanel />
 			</MemoryRouter>,
 		);
-		expect(screen.getByRole('button', { name: /Generate Blueprint/i })).toBeDefined();
+		expect(screen.getByRole('button', { name: /Blueprint erzeugen/i })).toBeDefined();
 	});
 
-	test('has Start Demo Run button', () => {
+	test('has Demo-Lauf starten button', () => {
 		render(
 			<MemoryRouter>
 				<BlueprintPanel />
 			</MemoryRouter>,
 		);
-		expect(screen.getByRole('button', { name: /Start Demo Run/i })).toBeDefined();
+		expect(screen.getByRole('button', { name: /Demo-Lauf starten/i })).toBeDefined();
 	});
 
 	test('shows helpful message when no issue is selected', () => {
@@ -103,7 +103,7 @@ describe('BlueprintPanel', () => {
 				<BlueprintPanel />
 			</MemoryRouter>,
 		);
-		expect(screen.getByText(/Select a run or enter/)).toBeDefined();
+		expect(screen.getByText(/Wähle einen Lauf/)).toBeDefined();
 	});
 
 	test('has repository and issue number inputs', () => {

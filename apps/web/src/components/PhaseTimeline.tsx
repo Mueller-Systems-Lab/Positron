@@ -1,6 +1,7 @@
 import type React from 'react';
 import type { Phase } from '../types.js';
 import { ALL_PHASES, PHASE_LABELS } from '../types.js';
+import { t } from '../i18n/index.js';
 
 interface PhaseTimelineProps {
 	currentPhase: Phase;
@@ -20,7 +21,7 @@ export default function PhaseTimeline({
 
 	return (
 		<div className="card">
-			<h3 className="text-sm font-medium text-slate-300 mb-3">Phasen-Timeline</h3>
+			<h3 className="text-sm font-medium text-slate-300 mb-3">{t('Phasen-Timeline')}</h3>
 			<div className="space-y-1">
 				{ALL_PHASES.map((phase, idx) => {
 					const isCompleted = completed.has(phase) || idx < currentIdx;
@@ -61,7 +62,7 @@ export default function PhaseTimeline({
 							</span>
 							<span className={`text-xs ${textColor}`}>{PHASE_LABELS[phase] ?? phase}</span>
 							{isCurrent && (
-								<span className="ml-auto text-[10px] text-blue-400 font-medium">aktuell</span>
+								<span className="ml-auto text-[10px] text-blue-400 font-medium">{t('aktuell')}</span>
 							)}
 						</div>
 					);

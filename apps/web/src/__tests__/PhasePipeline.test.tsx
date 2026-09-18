@@ -29,20 +29,20 @@ describe('PhasePipeline', () => {
 		const currentItem = container.querySelector('[aria-current="step"]');
 		expect(currentItem).toBeDefined();
 		expect(currentItem?.getAttribute('aria-label')).toContain('TEST');
-		expect(currentItem?.getAttribute('aria-label')).toContain('current');
+		expect(currentItem?.getAttribute('aria-label')).toContain('Aktuell');
 	});
 
 	test('marks completed phases as completed', () => {
 		const { container } = render(
 			<PhasePipeline completedPhases={['QUEUED', 'CLAIMED', 'REPO_SYNC']} />,
 		);
-		const completedItems = container.querySelectorAll('[aria-label*="completed"]');
+		const completedItems = container.querySelectorAll('[aria-label*="Abgeschlossen"]');
 		expect(completedItems.length).toBeGreaterThanOrEqual(3);
 	});
 
 	test('marks failed phases as failed', () => {
 		const { container } = render(<PhasePipeline failedPhases={['TEST']} />);
-		const failedItem = container.querySelector('[aria-label*="TEST"][aria-label*="failed"]');
+		const failedItem = container.querySelector('[aria-label*="TEST"][aria-label*="Fehlgeschlagen"]');
 		expect(failedItem).toBeDefined();
 	});
 
@@ -74,12 +74,12 @@ describe('PhasePipeline', () => {
 
 	test('legend shows all phase status indicators', () => {
 		render(<PhasePipeline currentPhase="TEST" />);
-		expect(screen.getByText('Pending')).toBeDefined();
-		expect(screen.getByText('Current')).toBeDefined();
-		expect(screen.getByText('Completed')).toBeDefined();
-		expect(screen.getByText('Failed')).toBeDefined();
-		expect(screen.getByText('Blocked')).toBeDefined();
-		expect(screen.getByText('Human')).toBeDefined();
+		expect(screen.getAllByText('Ausstehend').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Aktuell').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Abgeschlossen').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Fehlgeschlagen').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Blockiert').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Menschlich').length).toBeGreaterThan(0);
 	});
 
 	test('does not show recovery section when all phases are pending', () => {

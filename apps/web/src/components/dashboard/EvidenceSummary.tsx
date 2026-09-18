@@ -1,4 +1,5 @@
 import type React from 'react';
+import { t } from '../../i18n/index.js';
 
 interface EvidenceSummaryProps {
 	isLoading: boolean;
@@ -34,27 +35,27 @@ export default function EvidenceSummary({
 			</h3>
 			<div className="space-y-2 text-xs">
 				<div className="flex items-center justify-between">
-					<span className="text-slate-500 dark:text-slate-400">Artifacts</span>
+					<span className="text-slate-500 dark:text-slate-400">{t('Artifacts')}</span>
 					<span className="font-medium text-slate-700 dark:text-slate-300">{artifactCount}</span>
 				</div>
 				{screenshotCount > 0 && (
 					<div className="flex items-center justify-between">
-						<span className="text-slate-500 dark:text-slate-400">Screenshots</span>
+						<span className="text-slate-500 dark:text-slate-400">{t('Screenshots')}</span>
 						<span className="font-medium text-slate-700 dark:text-slate-300">
 							{screenshotCount}
 						</span>
 					</div>
 				)}
 				<div className="flex items-center justify-between">
-					<span className="text-slate-500 dark:text-slate-400">Tests Passed</span>
+						<span className="text-slate-500 dark:text-slate-400">{t('Tests Passed')}</span>
 					<span className="font-medium text-green-600 dark:text-green-400">{testPassed}</span>
 				</div>
 				<div className="flex items-center justify-between">
-					<span className="text-slate-500 dark:text-slate-400">Tests Failed</span>
+						<span className="text-slate-500 dark:text-slate-400">{t('Tests Failed')}</span>
 					<span className="font-medium text-red-600 dark:text-red-400">{testFailed}</span>
 				</div>
 				<div className="flex items-center justify-between">
-					<span className="text-slate-500 dark:text-slate-400">Tests Skipped</span>
+						<span className="text-slate-500 dark:text-slate-400">{t('Tests Skipped')}</span>
 					<span className="font-medium text-amber-600 dark:text-amber-400">{testSkipped}</span>
 				</div>
 			</div>

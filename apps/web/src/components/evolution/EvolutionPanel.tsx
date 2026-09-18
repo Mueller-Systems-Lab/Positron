@@ -1,5 +1,6 @@
 // Positron P5.4 — Evolution Panel (Mission Control, backend truth only)
 import { useEffect, useState } from 'react';
+import { t } from '../../i18n/index.js';
 
 interface Candidate {
 	candidate_id: string;
@@ -47,14 +48,14 @@ export default function EvolutionPanel(): React.ReactElement {
 		void fetchData();
 	}, []);
 
-	if (loading) return <div>Loading evolution...</div>;
+	if (loading) return <div>{t('Loading evolution...')}</div>;
 
 	return (
 		<div className="evolution-panel p-4">
-			<h2 className="text-xl font-bold mb-4">Harness Evolution (P5.4)</h2>
+			<h2 className="text-xl font-bold mb-4">{t('Harness Evolution (P5.4)')}</h2>
 
 			<div className="mb-6">
-				<h3 className="font-semibold">Current Production Profile</h3>
+				<h3 className="font-semibold">{t('Current Production Profile')}</h3>
 				{current ? (
 					<div className="text-sm font-mono bg-gray-100 p-2 rounded">
 						<div>ID: {String(current.profile_id)}</div>
@@ -62,45 +63,59 @@ export default function EvolutionPanel(): React.ReactElement {
 						<div>Fingerprint: {String(current.profile_fingerprint).slice(0, 16)}...</div>
 					</div>
 				) : (
-					<div className="text-sm text-gray-500">No current pointer</div>
+					<div className="text-sm text-gray-500">{t('No current pointer')}</div>
 				)}
 			</div>
 
 			<div className="mb-6">
-				<h3 className="font-semibold">KPIs</h3>
+				<h3 className="font-semibold">{t('KPIs')}</h3>
 				{kpis ? (
 					<div className="grid grid-cols-2 gap-2 text-sm">
-						<div>Candidates: {kpis.candidate_count}</div>
-						<div>Rejection Rate: {kpis.candidate_rejection_rate ?? 'N/A'}</div>
-						<div>Promotion Rate: {kpis.candidate_promotion_rate ?? 'N/A'}</div>
-						<div>Insufficient Evidence: {kpis.insufficient_evidence_rate ?? 'N/A'}</div>
-						<div>Compute Advantage: {kpis.compute_advantage_not_harness_rate ?? 'N/A'}</div>
-						<div>Rollback Rate: {kpis.rollback_rate ?? 'N/A'}</div>
+						<div>
+							{t('Candidates')}: {kpis.candidate_count}
+						</div>
+						<div>
+							{t('Rejection Rate')}: {kpis.candidate_rejection_rate ?? '—'}
+						</div>
+						<div>
+							{t('Promotion Rate')}: {kpis.candidate_promotion_rate ?? '—'}
+						</div>
+						<div>
+							{t('Insufficient Evidence')}: {kpis.insufficient_evidence_rate ?? '—'}
+						</div>
+						<div>
+							{t('Compute Advantage')}: {kpis.compute_advantage_not_harness_rate ?? '—'}
+						</div>
+						<div>
+							{t('Rollback Rate')}: {kpis.rollback_rate ?? '—'}
+						</div>
 					</div>
 				) : (
-					<div className="text-sm text-gray-500">No KPIs</div>
+					<div className="text-sm text-gray-500">{t('No KPIs')}</div>
 				)}
 			</div>
 
 			<div>
-				<h3 className="font-semibold">Candidates</h3>
+				<h3 className="font-semibold">{t('Candidates')}</h3>
 				<div className="space-y-2">
 					{candidates.map((c) => (
 						<div key={c.candidate_id} className="border p-2 rounded text-sm">
 							<div className="font-mono">{c.candidate_id}</div>
 							<div>
-								Status: <span className="font-semibold">{c.status}</span>
+								{t('Status')}: <span className="font-semibold">{c.status}</span>
 							</div>
 							<div>Fingerprint: {c.candidate_fingerprint.slice(0, 16)}...</div>
 							<div>Version: {c.candidate_version}</div>
 						</div>
 					))}
-					{candidates.length === 0 && <div className="text-sm text-gray-500">No candidates</div>}
+					{candidates.length === 0 && (
+						<div className="text-sm text-gray-500">{t('No candidates')}</div>
+					)}
 				</div>
 			</div>
 
 			<div className="mt-6 text-xs text-gray-500">
-				Backend truth only. No raw prompts/secrets. Statuses: PROPOSED, VALIDATING, REJECTED,
+				{t('Backend truth only. No raw prompts/secrets. Statuses:')} PROPOSED, VALIDATING, REJECTED,
 				SHADOW, CANARY, PROMOTED, ROLLED_BACK
 			</div>
 		</div>

@@ -2,6 +2,7 @@ import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api.js';
 import type { HealthStatus } from '../../types.js';
+import { statusLabel, t } from '../../i18n/index.js';
 
 export default function SystemHealth(): React.ReactElement {
 	const [health, setHealth] = useState<HealthStatus | null>(null);
@@ -28,7 +29,7 @@ export default function SystemHealth(): React.ReactElement {
 			<div className="card border-red-800 bg-red-950/20">
 				<div className="flex items-center gap-2">
 					<span className="w-2 h-2 rounded-full bg-red-500" />
-					<span className="text-sm text-red-400">Backend unreachable</span>
+					<span className="text-sm text-red-400">{t('Backend unreachable')}</span>
 				</div>
 			</div>
 		);
@@ -68,7 +69,7 @@ export default function SystemHealth(): React.ReactElement {
 				>
 					<path d="M22 12h-4l-3 9L9 3l-3 9H2" />
 				</svg>
-				System Health
+				{t('System Health')}
 			</h3>
 
 			<div className="flex items-center gap-2 mb-3">
@@ -82,7 +83,7 @@ export default function SystemHealth(): React.ReactElement {
 					}`}
 				/>
 				<span className="text-sm text-slate-300">
-					Backend: <span className="font-medium">{health.status}</span>
+					Backend: <span className="font-medium">{statusLabel(health.status)}</span>
 				</span>
 				{health.mode && (
 					<span
@@ -93,7 +94,7 @@ export default function SystemHealth(): React.ReactElement {
 						{isFakeMode ? '⚙️ Demo' : '🔵 Live'}
 					</span>
 				)}
-				<span className="text-xs text-slate-500 ml-auto">Uptime: {uptimeStr}</span>
+				<span className="text-xs text-slate-500 ml-auto">{t('Uptime')}: {uptimeStr}</span>
 			</div>
 
 			{adapters.length > 0 && (
@@ -102,7 +103,7 @@ export default function SystemHealth(): React.ReactElement {
 						<div key={name} className="flex items-center justify-between text-xs">
 							<span className="text-slate-400">{name}</span>
 							<span className={ok ? 'text-green-400' : 'text-red-400'}>
-								{ok ? 'Connected' : 'Error'}
+								{ok ? t('Connected') : t('Error')}
 							</span>
 						</div>
 					))}

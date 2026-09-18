@@ -1,4 +1,5 @@
 import type React from 'react';
+import { t } from '../../i18n/index.js';
 
 interface ErrorBannerProps {
 	message: string;
@@ -16,7 +17,7 @@ export default function ErrorBanner({
 			<div className="flex items-start gap-3">
 				<span className="text-red-400 text-lg mt-0.5">⚠️</span>
 				<div className="flex-1">
-					<p className="text-sm font-medium text-red-700 dark:text-red-400">Error</p>
+					<p className="text-sm font-medium text-red-700 dark:text-red-400">{t('Error')}</p>
 					<p className="text-xs text-red-600 dark:text-red-300 mt-1">{message}</p>
 				</div>
 				<div className="flex items-center gap-2">
@@ -26,7 +27,7 @@ export default function ErrorBanner({
 							onClick={onRetry}
 							className="text-xs px-3 py-1.5 rounded bg-red-500/20 hover:bg-red-500/30 text-red-700 dark:text-red-300 transition-colors"
 						>
-							Retry
+							{t('Retry')}
 						</button>
 					)}
 					{onDismiss && (

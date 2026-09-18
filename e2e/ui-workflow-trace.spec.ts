@@ -97,12 +97,12 @@ test.describe('UI Workflow Trace & Network Proof', () => {
 
 			// ── Step 3: Load Demo Blueprint ────────────────────
 			await test.step('S03: Load demo blueprint', async () => {
-				await expect(page.getByText('Demo Blueprint')).toBeVisible({ timeout: 10_000 });
+				await expect(page.getByText('Demo-Blueprint')).toBeVisible({ timeout: 10_000 });
 
 				await page.getByLabel('Repository (owner/repo)').fill('test-owner/test-repo');
-				await page.getByLabel('Issue number').fill('1');
+				await page.getByLabel('Issue-Nummer').fill('1');
 
-				const generateBtn = page.getByRole('button', { name: /Generate Blueprint/i });
+				const generateBtn = page.getByRole('button', { name: /Blueprint erzeugen/i });
 				await expect(generateBtn).toBeVisible({ timeout: 10_000 });
 				await generateBtn.click();
 
@@ -119,12 +119,12 @@ test.describe('UI Workflow Trace & Network Proof', () => {
 				// QA-069: Inject admin token before write operations
 				await installAdminToken(page);
 
-				const startBtn = page.getByRole('button', { name: /Start Demo Run/i });
+				const startBtn = page.getByRole('button', { name: /Demo-Lauf starten/i });
 				await expect(startBtn).toBeVisible({ timeout: 10_000 });
 				await startBtn.click();
 
 				// Wait for confirmation that demo run was started
-				await expect(page.getByText(/Demo run started/i)).toBeVisible({ timeout: 15_000 });
+				await expect(page.getByText(/Demo-Lauf gestartet/i)).toBeVisible({ timeout: 15_000 });
 
 				// Wait briefly for POST /api/demo-runs to complete
 				await page.waitForTimeout(2000);

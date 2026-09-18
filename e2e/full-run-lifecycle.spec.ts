@@ -88,21 +88,21 @@ test.describe('Full Run Lifecycle E2E (QA-028)', () => {
 			await expect(page.getByRole('main')).toBeVisible({
 				timeout: 10_000,
 			});
-			await expect(page.getByRole('button', { name: '+ New Run' })).toBeVisible({
+			await expect(page.getByRole('button', { name: /Neuer Lauf/ })).toBeVisible({
 				timeout: 10_000,
 			});
 		});
 
 		// ── Step 2-3: Open modal, fill URL, start run ─────────
 		await test.step('S02: Create run via New Run modal', async () => {
-			await page.getByRole('button', { name: '+ New Run' }).click();
-			await expect(page.getByRole('button', { name: 'Start Run' })).toBeVisible({ timeout: 5_000 });
+			await page.getByRole('button', { name: /Neuer Lauf/ }).click();
+			await expect(page.getByRole('button', { name: 'Lauf starten', exact: true })).toBeVisible({ timeout: 5_000 });
 
 			await page
 				.getByPlaceholder('https://github.com/owner/repo/issues/123')
 				.fill('https://github.com/test-owner/test-repo/issues/1');
 
-			await page.getByRole('button', { name: 'Start Run' }).click();
+			await page.getByRole('button', { name: 'Lauf starten', exact: true }).click();
 			await page.waitForURL(/\/runs\/[\w-]+/, { timeout: 15_000 });
 
 			const match = page.url().match(/\/runs\/([\w-]+)/);
@@ -115,17 +115,17 @@ test.describe('Full Run Lifecycle E2E (QA-028)', () => {
 			await page.waitForTimeout(2_000);
 
 			// Phase pipeline visible
-			await expect(page.locator('[aria-label="Pipeline phases"]')).toBeVisible({
+			await expect(page.locator('[aria-label="Pipeline-Phasen"]')).toBeVisible({
 				timeout: 10_000,
 			});
 
 			// Run heading visible: "Run {id.slice(0,8)}"
-			await expect(page.locator('h1').filter({ hasText: /Run\s/ })).toBeVisible({
+			await expect(page.locator('h1').filter({ hasText: /Lauf\s/ })).toBeVisible({
 				timeout: 10_000,
 			});
 
 			// Verify a phase badge is shown (QUEUED or any phase)
-			await expect(page.locator('[aria-label="Pipeline phases"]')).toBeVisible();
+			await expect(page.locator('[aria-label="Pipeline-Phasen"]')).toBeVisible();
 		});
 
 		// ── Step 5: Wait for DONE via API polling ────────────
@@ -159,7 +159,7 @@ test.describe('Full Run Lifecycle E2E (QA-028)', () => {
 
 			// DONE should be visible in the pipeline or status badge
 			// The run detail page should reflect the DONE phase
-			await expect(page.locator('[aria-label="Pipeline phases"]')).toBeVisible({
+			await expect(page.locator('[aria-label="Pipeline-Phasen"]')).toBeVisible({
 				timeout: 10_000,
 			});
 
@@ -180,23 +180,23 @@ test.describe('Full Run Lifecycle E2E (QA-028)', () => {
 			});
 
 			// Runs page
-			await page.getByRole('link', { name: 'Runs', exact: true }).click();
+			await page.getByRole('link', { name: 'Läufe', exact: true }).click();
 			await page.waitForURL(/\/runs/, { timeout: 10_000 });
-			await expect(page.getByRole('heading', { name: 'Runs' })).toBeVisible({
+			await expect(page.getByRole('heading', { name: 'Läufe' })).toBeVisible({
 				timeout: 10_000,
 			});
 
 			// Evidence page
-			await page.getByRole('link', { name: 'Evidence' }).click();
+			await page.getByRole('link', { name: 'Nachweise' }).click();
 			await page.waitForURL(/\/evidence/, { timeout: 10_000 });
-			await expect(page.getByRole('heading', { name: 'Evidence' })).toBeVisible({
+			await expect(page.getByRole('heading', { name: 'Nachweise' })).toBeVisible({
 				timeout: 10_000,
 			});
 
 			// Settings page
-			await page.getByRole('link', { name: 'Settings' }).click();
+			await page.getByRole('link', { name: 'Einstellungen' }).click();
 			await page.waitForURL(/\/settings/, { timeout: 10_000 });
-			await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible({
+			await expect(page.getByRole('heading', { name: 'Einstellungen' })).toBeVisible({
 				timeout: 10_000,
 			});
 		});

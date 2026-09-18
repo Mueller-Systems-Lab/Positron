@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { NavLink } from 'react-router-dom';
+import { t } from '../../i18n/index.js';
 import HealthIndicator from '../HealthIndicator.js';
 import ThemeToggle from '../ThemeToggle.js';
 
@@ -18,7 +19,7 @@ export default function TopBar({ onToggleSidebar }: TopBarProps): ReactElement {
 							type="button"
 							onClick={onToggleSidebar}
 							className="btn-ghost p-1.5 lg:hidden"
-							aria-label="Toggle sidebar"
+							aria-label={t('Toggle sidebar')}
 						>
 							<svg
 								width="20"
@@ -38,7 +39,7 @@ export default function TopBar({ onToggleSidebar }: TopBarProps): ReactElement {
 					)}
 					<NavLink
 						to="/"
-						aria-label="Positron home"
+						aria-label={t('Positron home')}
 						className="flex items-center gap-2 no-underline sm:gap-3"
 					>
 						<span className="flex h-8 w-8 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 via-sky-400 to-blue-500 text-sm font-bold text-slate-950 shadow-lg shadow-sky-500/20 sm:h-9 sm:w-9">
@@ -49,7 +50,7 @@ export default function TopBar({ onToggleSidebar }: TopBarProps): ReactElement {
 								Positron
 							</span>
 							<span className="hidden text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400 sm:block">
-								Evidence-gated operator cockpit
+								Nachweisgesteuerte Bedienoberfläche
 							</span>
 						</span>
 					</NavLink>

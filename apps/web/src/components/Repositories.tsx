@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import type { Issue, Repository } from '../types.js';
+import { t } from '../i18n/index.js';
 
 export default function Repositories(): React.ReactElement {
 	const navigate = useNavigate();
@@ -21,7 +22,7 @@ export default function Repositories(): React.ReactElement {
 			const data = await api.getRepos();
 			setRepos(data.repos);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Failed to load repositories');
+			setError(err instanceof Error ? err.message : t('Failed to load repositories'));
 		} finally {
 			setLoading(false);
 		}
@@ -56,7 +57,7 @@ export default function Repositories(): React.ReactElement {
 			setNewName('');
 			await fetchRepos();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Failed to add repository');
+			setError(err instanceof Error ? err.message : t('Failed to add repository'));
 		} finally {
 			setAdding(false);
 		}
@@ -84,7 +85,7 @@ export default function Repositories(): React.ReactElement {
 			const { run: startedRun } = await api.startRun(repoId, issueNumber);
 			navigate(`/runs/${startedRun.id}`);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Failed to start run');
+			setError(err instanceof Error ? err.message : t('Failed to start run'));
 		}
 	}
 
@@ -92,9 +93,9 @@ export default function Repositories(): React.ReactElement {
 		<div>
 			{/* Header */}
 			<div className="flex items-center justify-between mb-6">
-				<h1 className="text-2xl font-bold text-white">📁 Repositories</h1>
+					<h1 className="text-2xl font-bold text-white">📁 {t('Repositories')}</h1>
 				<button type="button" onClick={() => setIsAddModalOpen(true)} className="btn-primary">
-					+ Add Repository
+					+ {t('Add Repository')}
 				</button>
 			</div>
 
@@ -197,7 +198,7 @@ export default function Repositories(): React.ReactElement {
 					<div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 					<div className="relative bg-slate-800 rounded-2xl border border-slate-700 p-6 w-full max-w-md mx-4 shadow-2xl">
 						<div className="flex items-center justify-between mb-4">
-							<h2 className="text-lg font-bold text-white">Repository hinzufügen</h2>
+							<h2 className="text-lg font-bold text-white">{t('Add Repository')}</h2>
 							<button
 								type="button"
 								onClick={() => setIsAddModalOpen(false)}

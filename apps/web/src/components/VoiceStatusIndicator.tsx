@@ -2,6 +2,7 @@ import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { getLastSpoken, isSpeechSupported } from '../voice/voice-output.js';
 import { loadVoiceSettings, toggleVoiceEnabled } from '../voice/voice-settings.js';
+import { t } from '../i18n/index.js';
 
 export default function VoiceStatusIndicator(): React.ReactElement {
 	const supported = isSpeechSupported();
@@ -35,8 +36,8 @@ export default function VoiceStatusIndicator(): React.ReactElement {
 			<span
 				role="status"
 				className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs text-slate-400 dark:text-slate-600 bg-slate-100 dark:bg-slate-800/50 cursor-not-allowed"
-				title="Voice output not supported in this browser"
-				aria-label="Voice output not supported"
+				title={t('Voice output not supported in this browser')}
+				aria-label={t('Voice output not supported')}
 			>
 				<svg
 					width="14"
@@ -53,7 +54,7 @@ export default function VoiceStatusIndicator(): React.ReactElement {
 					<line x1="23" y1="9" x2="17" y2="15" />
 					<line x1="17" y1="9" x2="23" y2="15" />
 				</svg>
-				No Voice
+				{t('No voice')}
 			</span>
 		);
 	}
@@ -69,10 +70,10 @@ export default function VoiceStatusIndicator(): React.ReactElement {
 			}`}
 			title={
 				lastSpokenPreview
-					? `Last: ${lastSpokenPreview}\nVoice alerts are local and optional.`
-					: 'Voice alerts are local and optional. Click to toggle.'
+					? `${t('Last')}: ${lastSpokenPreview}\n${t('Voice alerts are local and optional.')}`
+					: t('Voice alerts are local and optional. Click to toggle.')
 			}
-			aria-label={`Voice output ${enabled ? 'enabled' : 'disabled'}. Click to toggle.`}
+			aria-label={`${t(enabled ? 'Voice output enabled' : 'Voice output disabled')}. ${t('Click to toggle')}.`}
 		>
 			<svg
 				width="14"
@@ -87,7 +88,7 @@ export default function VoiceStatusIndicator(): React.ReactElement {
 				<path d="M11 5L6 9H2v6h4l5 4V5z" />
 				<path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
 			</svg>
-			Voice {enabled ? 'ON' : 'OFF'}
+			{t('Voice')} {enabled ? 'EIN' : 'AUS'}
 		</button>
 	);
 }

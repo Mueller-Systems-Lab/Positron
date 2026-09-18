@@ -1,6 +1,7 @@
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { type AdminStats, api, getAdminToken, setAdminToken } from '../../api.js';
+import { t } from '../../i18n/index.js';
 
 type AuthStatus = 'idle' | 'connecting' | 'valid' | 'error';
 
@@ -64,28 +65,31 @@ export default function AdminPage(): React.ReactElement {
 	};
 
 	const bulkAction = async (actionId: 'cancel' | 'retry' | 'cleanup', label: string) => {
-		setActionResult(`${label}...`);
+		const translatedLabel = t(label);
+		setActionResult(`${translatedLabel} …`);
 		try {
 			let data: unknown;
 			if (actionId === 'cancel') data = await api.bulkCancelRuns();
 			else if (actionId === 'retry') data = await api.bulkRetryRuns();
 			else data = await api.cleanupRuns();
-			setActionResult(`${label}: ${JSON.stringify(data)}`);
+			setActionResult(`${translatedLabel}: ${JSON.stringify(data)}`);
 			fetchStats();
 		} catch (err) {
-			setActionResult(`Error: ${(err as Error).message}`);
+			setActionResult(`${t('Error')}: ${(err as Error).message}`);
 		}
 	};
 
 	return (
 		<div>
-			<h1>Admin Dashboard</h1>
-			<p className="text-sm text-slate-400 mt-1 mb-6">System operations and database management</p>
+			<h1>{t('Admin Dashboard')}</h1>
+			<p className="text-sm text-slate-400 mt-1 mb-6">
+				{t('System operations and database management')}
+			</p>
 
 			{/* ── Token Section ─────────────────────────────────────────── */}
 			<div className="card mb-6">
 				<label htmlFor="admin-token" className="block text-xs font-medium text-slate-400 mb-2">
-					Admin Token
+					Administrations-Token
 				</label>
 				<div className="flex flex-col sm:flex-row gap-2">
 					<input
@@ -96,7 +100,7 @@ export default function AdminPage(): React.ReactElement {
 						onKeyDown={(e) => {
 							if (e.key === 'Enter') handleConnect();
 						}}
-						placeholder="Enter admin token..."
+						placeholder={t('Enter admin token...')}
 						autoComplete="off"
 						className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
 					/>
@@ -106,7 +110,7 @@ export default function AdminPage(): React.ReactElement {
 							onClick={handleDisconnect}
 							className="btn-ghost text-sm whitespace-nowrap"
 						>
-							Disconnect
+							Trennen
 						</button>
 					) : (
 						<button
@@ -115,7 +119,7 @@ export default function AdminPage(): React.ReactElement {
 							disabled={!tokenInput.trim() || authStatus === 'connecting'}
 							className="btn-primary text-sm whitespace-nowrap"
 						>
-							{authStatus === 'connecting' ? 'Connecting...' : 'Connect'}
+							{authStatus === 'connecting' ? 'Wird verbunden …' : t('Connect')}
 						</button>
 					)}
 				</div>
@@ -125,7 +129,7 @@ export default function AdminPage(): React.ReactElement {
 					{authStatus === 'valid' && (
 						<span className="inline-flex items-center gap-1.5 text-xs text-green-400 bg-green-500/10 border border-green-800 rounded-full px-2.5 py-0.5">
 							<span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-							Connected
+							{t('Connected')}
 						</span>
 					)}
 				</div>
@@ -158,14 +162,14 @@ export default function AdminPage(): React.ReactElement {
 				<>
 					<div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
 						{[
-							{ label: 'Total Runs', value: stats.runs.total },
-							{ label: 'Active', value: stats.runs.active, color: 'text-sky-400' },
-							{ label: 'Failed/Blocked', value: stats.runs.failed, color: 'text-red-400' },
-							{ label: 'Done', value: stats.runs.done, color: 'text-green-400' },
-							{ label: 'Repositories', value: stats.repositories },
-							{ label: 'Events', value: stats.events },
-							{ label: 'Artifacts', value: stats.artifacts },
-							{ label: 'DB Size', value: `${stats.dbSizeMb} MB`, color: 'text-amber-400' },
+							{ label: t('Total Runs'), value: stats.runs.total },
+							{ label: t('Active'), value: stats.runs.active, color: 'text-sky-400' },
+							{ label: t('Failed/Blocked'), value: stats.runs.failed, color: 'text-red-400' },
+							{ label: t('Done'), value: stats.runs.done, color: 'text-green-400' },
+							{ label: t('Repositories'), value: stats.repositories },
+							{ label: t('Events'), value: stats.events },
+							{ label: t('Artifacts'), value: stats.artifacts },
+							{ label: t('DB Size'), value: `${stats.dbSizeMb} MB`, color: 'text-amber-400' },
 						].map((item) => (
 							<div key={item.label} className="card">
 								<p className="text-xs text-slate-400">{item.label}</p>
@@ -178,28 +182,28 @@ export default function AdminPage(): React.ReactElement {
 
 					<div className="space-y-4">
 						<div className="card">
-							<h3 className="text-sm font-semibold mb-3">Bulk Operations</h3>
+							<h3 className="text-sm font-semibold mb-3">{t('Bulk Operations')}</h3>
 							<div className="flex flex-wrap gap-3">
 								<button
 									type="button"
 									onClick={() => bulkAction('cancel', 'Cancel All')}
 									className="btn-danger text-sm"
 								>
-									Cancel All Active/Blocked
+									Alle aktiven/blockierten abbrechen
 								</button>
 								<button
 									type="button"
 									onClick={() => bulkAction('retry', 'Retry Failed')}
 									className="btn-secondary text-sm"
 								>
-									Retry All Failed
+									Alle fehlgeschlagenen wiederholen
 								</button>
 								<button
 									type="button"
 									onClick={() => bulkAction('cleanup', 'Cleanup')}
 									className="btn-ghost text-sm"
 								>
-									Cleanup Old Events (7d) + VACUUM
+									Alte Ereignisse bereinigen (7 Tage) + VACUUM
 								</button>
 							</div>
 						</div>

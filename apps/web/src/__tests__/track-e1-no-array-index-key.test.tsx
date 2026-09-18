@@ -196,7 +196,7 @@ describe('ProjectsPage with duplicate blockers and recommended runs', () => {
 		});
 
 		// Expand details to see blockers
-		const showDetails = screen.getByText('▼ Show Details');
+		const showDetails = screen.getByText('▼ Details anzeigen');
 		showDetails.click();
 
 		await vi.waitFor(() => {
@@ -244,7 +244,7 @@ describe('ProjectsPage with duplicate blockers and recommended runs', () => {
 			expect(screen.getByText('TestProjectC')).toBeDefined();
 		});
 
-		const showDetails = screen.getByText('▼ Show Details');
+		const showDetails = screen.getByText('▼ Details anzeigen');
 		showDetails.click();
 
 		await vi.waitFor(() => {
@@ -292,7 +292,7 @@ describe('ProjectsPage with duplicate blockers and recommended runs', () => {
 			expect(screen.getByText('TestProjectD')).toBeDefined();
 		});
 
-		const showDetails = screen.getByText('▼ Show Details');
+		const showDetails = screen.getByText('▼ Details anzeigen');
 		showDetails.click();
 
 		await vi.waitFor(() => {

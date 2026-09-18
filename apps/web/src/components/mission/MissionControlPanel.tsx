@@ -20,6 +20,7 @@ import type {
 	ControlPlaneTransition,
 } from '../../api.js';
 import { api } from '../../api.js';
+import { t } from '../../i18n/index.js';
 import {
 	formatDurationMs,
 	formatTimestamp,
@@ -205,7 +206,7 @@ function RunTimeline({
 	transitions: ControlPlaneTransition[];
 }): React.ReactElement {
 	if (transitions.length === 0) {
-		return <p className="text-xs text-slate-500">No persisted transitions yet.</p>;
+		return <p className="text-xs text-slate-500">{t('No persisted transitions yet.')}</p>;
 	}
 	const sorted = [...transitions].sort(
 		(a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
@@ -230,7 +231,7 @@ function RunTimeline({
 
 function AttemptHistory({ attempts }: { attempts: ControlPlaneAttempt[] }): React.ReactElement {
 	if (attempts.length === 0) {
-		return <p className="text-xs text-slate-500">No attempts recorded.</p>;
+		return <p className="text-xs text-slate-500">{t('No attempts recorded.')}</p>;
 	}
 	const sorted = [...attempts].sort(
 		(a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime(),
@@ -262,19 +263,19 @@ function AttemptHistory({ attempts }: { attempts: ControlPlaneAttempt[] }): Reac
 					)}
 					{a.strategy_delta && (
 						<div className="text-[11px] text-amber-300/80 mb-1">
-							<span className="text-slate-500 mr-1">Strategy Delta:</span>
+							<span className="text-slate-500 mr-1">{t('Strategy Delta:')}</span>
 							{sanitizeDisplayText(a.strategy_delta, 160)}
 						</div>
 					)}
 					{a.new_evidence && (
 						<div className="text-[11px] text-slate-400 mb-1">
-							<span className="text-slate-500 mr-1">New Evidence:</span>
+							<span className="text-slate-500 mr-1">{t('New Evidence:')}</span>
 							{sanitizeDisplayText(a.new_evidence, 160)}
 						</div>
 					)}
 					<div className="flex flex-wrap gap-3">
-						<FingerprintValue label="Input" value={a.input_fingerprint} />
-						<FingerprintValue label="Output" value={a.output_fingerprint} />
+						<FingerprintValue label={t('Input')} value={a.input_fingerprint} />
+						<FingerprintValue label={t('Output')} value={a.output_fingerprint} />
 					</div>
 				</div>
 			))}
@@ -301,7 +302,7 @@ export default function MissionControlPanel({
 				setState({ kind: 'ready', data });
 			} catch (err) {
 				if (cancelled) return;
-				const message = err instanceof Error ? err.message : 'Unknown error';
+				const message = err instanceof Error ? err.message : t('Unknown error');
 				if (/not found|404/i.test(message)) {
 					setState({ kind: 'not-found' });
 				} else {
@@ -322,8 +323,8 @@ export default function MissionControlPanel({
 	if (state.kind === 'loading') {
 		return (
 			<div className="card mb-6">
-				<h3 className="text-sm font-medium text-slate-300 mb-2">Mission Control</h3>
-				<p className="text-xs text-slate-500">Loading control-plane state…</p>
+				<h3 className="text-sm font-medium text-slate-300 mb-2">{t('Mission Control')}</h3>
+				<p className="text-xs text-slate-500">{t('Loading control-plane state…')}</p>
 			</div>
 		);
 	}
@@ -331,9 +332,9 @@ export default function MissionControlPanel({
 	if (state.kind === 'not-found') {
 		return (
 			<div className="card mb-6 border-amber-800">
-				<h3 className="text-sm font-medium text-slate-300 mb-2">Mission Control</h3>
+				<h3 className="text-sm font-medium text-slate-300 mb-2">{t('Mission Control')}</h3>
 				<p className="text-xs text-amber-300">
-					Control-plane state unavailable for this run (run not found or pre-P2 run).
+					{t('Control-plane state unavailable for this run (run not found or pre-P2 run).')}
 				</p>
 			</div>
 		);
@@ -342,9 +343,9 @@ export default function MissionControlPanel({
 	if (state.kind === 'error') {
 		return (
 			<div className="card mb-6 border-yellow-800">
-				<h3 className="text-sm font-medium text-slate-300 mb-2">Mission Control</h3>
+				<h3 className="text-sm font-medium text-slate-300 mb-2">{t('Mission Control')}</h3>
 				<p className="text-xs text-yellow-300">
-					Backend temporarily unavailable: {sanitizeDisplayText(state.message, 140)}
+					{t('Backend temporarily unavailable')}: {sanitizeDisplayText(state.message, 140)}
 				</p>
 			</div>
 		);
@@ -371,7 +372,7 @@ export default function MissionControlPanel({
 		<div className="card mb-6" data-testid="mission-control">
 			<div className="flex items-center justify-between mb-3">
 				<h3 className="text-sm font-medium text-slate-300 flex items-center gap-2">
-					Mission Control
+					{t('Mission Control')}
 					{runStatus === 'active' && (
 						<span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
 					)}
@@ -396,34 +397,34 @@ export default function MissionControlPanel({
 			<div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
 				{/* Spalte 1: Run / Execution / Decision */}
 				<div className="space-y-3">
-					<Section title="Run">
+					<Section title={t('Run')}>
 						<KeyValue label="run_id" value={<code className="text-[10px]">{data.run_id}</code>} />
-						<KeyValue label="jobs" value={data.jobs.length} />
-						<KeyValue label="attempts" value={data.attempts.length} />
+						<KeyValue label={t('Jobs')} value={data.jobs.length} />
+						<KeyValue label={t('Attempts')} value={data.attempts.length} />
 						{execution && (
 							<>
 								<KeyValue
-									label="current job"
+									label={t('Current job')}
 									value={<code className="text-[11px]">{execution.job.job_type}</code>}
 								/>
 								<KeyValue
-									label="job state"
+									label={t('Job state')}
 									value={
 										<span className={statusColorClass(execution.job.state)}>
 											{execution.job.state.toUpperCase()}
 										</span>
 									}
 								/>
-								<KeyValue label="attempts on job" value={execution.attempts.length} />
+								<KeyValue label={t('Attempts on job')} value={execution.attempts.length} />
 							</>
 						)}
 					</Section>
 
-					<Section title="Decision">
+					<Section title="Entscheidung">
 						{decision ? (
 							<>
 								<KeyValue
-									label="decision"
+									label={t('Decision')}
 									value={
 										<span className={`font-bold ${statusColorClass(decision.decision)}`}>
 											{decision.decision}
@@ -431,17 +432,17 @@ export default function MissionControlPanel({
 									}
 								/>
 								<KeyValue
-									label="reason_code"
+									label={t('Reason code')}
 									value={<code className="text-[11px]">{decision.reason_code}</code>}
 								/>
-								<KeyValue label="at" value={formatTimestamp(decision.created_at)} />
+								<KeyValue label={t('Time')} value={formatTimestamp(decision.created_at)} />
 							</>
 						) : (
-							<p className="text-xs text-slate-500">No decision recorded yet.</p>
+							<p className="text-xs text-slate-500">{t('No decision recorded yet.')}</p>
 						)}
 					</Section>
 
-					<Section title="Plan Gate">
+					<Section title={t('Plan Gate')}>
 						{planJob ? (
 							<>
 								<KeyValue
@@ -462,16 +463,16 @@ export default function MissionControlPanel({
 								/>
 							</>
 						) : (
-							<p className="text-xs text-slate-500">No plan gate job yet.</p>
+							<p className="text-xs text-slate-500">{t('No plan gate job yet.')}</p>
 						)}
 					</Section>
 				</div>
 
 				{/* Spalte 2: Research / Build / Verify / Reviews */}
 				<div className="space-y-3">
-					<Section title="Research">
+					<Section title={t('Research')}>
 						{research.statuses.length === 0 ? (
-							<p className="text-xs text-slate-500">No research job recorded.</p>
+							<p className="text-xs text-slate-500">{t('No research job recorded.')}</p>
 						) : (
 							<>
 								<div className="space-y-1 mb-1">
@@ -496,9 +497,9 @@ export default function MissionControlPanel({
 						)}
 					</Section>
 
-					<Section title="Build">
+					<Section title={t('Build')}>
 						{buildAttempts.length === 0 ? (
-							<p className="text-xs text-slate-500">No build attempts yet.</p>
+							<p className="text-xs text-slate-500">{t('No build attempts yet.')}</p>
 						) : (
 							<>
 								{(() => {
@@ -575,16 +576,16 @@ export default function MissionControlPanel({
 													</span>
 												}
 											/>
-											<KeyValue label="attempts" value={buildAttempts.length} />
+							<KeyValue label={t('attempts')} value={buildAttempts.length} />
 											<div className="flex flex-wrap gap-3 mt-1">
-												<FingerprintValue label="Input" value={last.input_fingerprint} />
-												<FingerprintValue label="Output" value={last.output_fingerprint} />
+												<FingerprintValue label={t('Input')} value={last.input_fingerprint} />
+												<FingerprintValue label={t('Output')} value={last.output_fingerprint} />
 												<FingerprintValue
-													label="Harness"
+													label={t('Harness')}
 													value={last.harness_fingerprint ?? null}
 												/>
 												<FingerprintValue
-													label="Effective"
+													label={t('Effective')}
 													value={last.effective_harness_fingerprint ?? null}
 												/>
 											</div>
@@ -595,9 +596,9 @@ export default function MissionControlPanel({
 						)}
 					</Section>
 
-					<Section title="Verify">
+					<Section title={t('Verify')}>
 						{verifyChecks.length === 0 ? (
-							<p className="text-xs text-slate-500">No verify gates recorded.</p>
+							<p className="text-xs text-slate-500">{t('No verify gates recorded.')}</p>
 						) : (
 							<div className="space-y-1">
 								{verifyChecks.map((c, i) => (
@@ -612,9 +613,9 @@ export default function MissionControlPanel({
 						)}
 					</Section>
 
-					<Section title="Reviews">
+					<Section title={t('Reviews')}>
 						{reviewAttempts.length === 0 ? (
-							<p className="text-xs text-slate-500">No review workers recorded.</p>
+							<p className="text-xs text-slate-500">{t('No review workers recorded.')}</p>
 						) : (
 							<>
 								<div className="space-y-1 mb-1">
@@ -638,15 +639,15 @@ export default function MissionControlPanel({
 
 				{/* Spalte 3: Timeline + Attempts */}
 				<div className="space-y-3">
-					<Section title="Run Timeline">
+					<Section title={t('Run Timeline')}>
 						<RunTimeline transitions={timeline} />
 					</Section>
 
-					<Section title="Attempt History (Build)">
+					<Section title={t('Attempt History (Build)')}>
 						<AttemptHistory attempts={buildAttempts} />
 					</Section>
 
-					<Section title="Attempt History (Research)">
+					<Section title={t('Attempt History (Research)')}>
 						<AttemptHistory attempts={researchAttempts} />
 					</Section>
 				</div>

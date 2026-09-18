@@ -2,6 +2,7 @@ import type React from 'react';
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { api } from '../api.js';
 import type { Artifact } from '../types.js';
+import { t } from '../i18n/index.js';
 
 interface ArtifactPanelProps {
 	runId: string;
@@ -91,7 +92,7 @@ export default function ArtifactPanel({ runId }: ArtifactPanelProps): React.Reac
 	return (
 		<div className="card">
 			<div className="flex items-center justify-between mb-3">
-				<h3 className="text-sm font-medium text-slate-300">Artefakte</h3>
+				<h3 className="text-sm font-medium text-slate-300">{t('Artifacts')}</h3>
 				{artifact && (
 					<button
 						type="button"

@@ -12,14 +12,15 @@ import {
 	toggleVoiceEnabled,
 	type VoiceEventType,
 } from '../voice/voice-settings.js';
+import { t } from '../i18n/index.js';
 
 const EVENT_LABELS: Record<VoiceEventType, string> = {
-	run_started: 'Run started',
-	phase_failed: 'Phase failed',
-	run_blocked: 'Run blocked',
-	human_action: 'Human action required',
-	merge_blocked: 'Merge blocked',
-	run_done: 'Run done',
+	run_started: t('Run started'),
+	phase_failed: t('Phase failed'),
+	run_blocked: t('Run blocked'),
+	human_action: t('Human action required'),
+	merge_blocked: t('Merge blocked'),
+	run_done: t('Run done'),
 };
 
 function ToggleSwitch({
@@ -171,13 +172,13 @@ export default function VoiceControls(): React.ReactElement {
 								className={enabled ? '' : 'opacity-30'}
 							/>
 						</svg>
-						Voice Output
+						{t('Voice Output')}
 					</h3>
 					<p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
-						Voice alerts for important operator events — local browser TTS only.
+						Sprachhinweise für wichtige Operator-Ereignisse — nur lokale Browser-TTS.
 					</p>
 				</div>
-				<ToggleSwitch enabled={enabled} onChange={handleToggle} label="Voice Output" />
+				<ToggleSwitch enabled={enabled} onChange={handleToggle} label={t('Voice Output')} />
 			</div>
 
 			{/* Browser Support Status */}
@@ -189,16 +190,16 @@ export default function VoiceControls(): React.ReactElement {
 				}`}
 			>
 				{supported
-					? `Browser TTS supported — ${voices.length} voice(s) available`
-					: 'Browser TTS not supported — voice output unavailable'}
+					? `Browser-TTS unterstützt — ${voices.length} Stimme(n) verfügbar`
+					: 'Browser-TTS nicht unterstützt — Sprachausgabe nicht verfügbar'}
 			</div>
 
 			{/* Unsupported State */}
 			{!supported && (
 				<div className="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
 					<p className="text-xs text-amber-700 dark:text-amber-400">
-						Your browser does not support the Web Speech API. Voice output requires a modern browser
-						(Chrome, Firefox, Edge, or Safari 15+).
+						Dein Browser unterstützt die Web-Speech-API nicht. Die Sprachausgabe benötigt einen aktuellen
+						Browser (Chrome, Firefox, Edge oder Safari 15+).
 					</p>
 				</div>
 			)}
@@ -212,7 +213,7 @@ export default function VoiceControls(): React.ReactElement {
 							htmlFor="voice-select"
 							className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1"
 						>
-							Voice
+							{t('Voice')}
 						</label>
 						<select
 							id="voice-select"
@@ -235,7 +236,7 @@ export default function VoiceControls(): React.ReactElement {
 						htmlFor="rate-slider"
 						className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1"
 					>
-						Speed: {rate.toFixed(1)}x
+						Geschwindigkeit: {rate.toFixed(1)}x
 					</label>
 					<input
 						id="rate-slider"
@@ -246,7 +247,7 @@ export default function VoiceControls(): React.ReactElement {
 						value={rate}
 						onChange={(e) => handleRateChange(Number.parseFloat(e.target.value))}
 						className="w-full accent-purple-500"
-						aria-label="Speech rate"
+						aria-label={t('Speech rate')}
 					/>
 					<div className="flex justify-between text-[10px] text-slate-500 mt-0.5">
 						<span>0.5x</span>
@@ -261,7 +262,7 @@ export default function VoiceControls(): React.ReactElement {
 						htmlFor="volume-slider"
 						className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1"
 					>
-						Volume: {Math.round(volume * 100)}%
+						Lautstärke: {Math.round(volume * 100)}%
 					</label>
 					<input
 						id="volume-slider"
@@ -272,7 +273,7 @@ export default function VoiceControls(): React.ReactElement {
 						value={volume}
 						onChange={(e) => handleVolumeChange(Number.parseFloat(e.target.value))}
 						className="w-full accent-purple-500"
-						aria-label="Speech volume"
+						aria-label={t('Speech volume')}
 					/>
 				</div>
 
@@ -283,16 +284,16 @@ export default function VoiceControls(): React.ReactElement {
 						onClick={handleTestVoice}
 						disabled={testStatus === 'speaking'}
 						className="btn-secondary text-xs py-1.5 px-3"
-						aria-label="Test voice output"
+						aria-label={t('Test voice output')}
 					>
-						{testStatus === 'speaking' ? 'Speaking…' : 'Test Voice'}
+						{testStatus === 'speaking' ? 'Wird gesprochen …' : t('Test voice output')}
 					</button>
 				</div>
 
 				{/* Event Type Checkboxes */}
 				<fieldset className="pt-3 border-t border-slate-200 dark:border-slate-800">
 					<legend className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
-						Speak these events:
+						Diese Ereignisse vorlesen:
 					</legend>
 					<div className="space-y-1.5">
 						{Object.entries(EVENT_LABELS).map(([type, label]) => (
@@ -327,8 +328,8 @@ export default function VoiceControls(): React.ReactElement {
 
 			{/* Privacy Notice */}
 			<p className="text-[10px] text-slate-400 dark:text-slate-600 mt-4 pt-3 border-t border-slate-200 dark:border-slate-800">
-				Voice output is local browser TTS. No audio is sent to external services. No data leaves
-				your browser.
+				Die Sprachausgabe verwendet lokale Browser-TTS. Es wird kein Audio an externe Dienste gesendet.
+				Keine Daten verlassen deinen Browser.
 			</p>
 		</div>
 	);

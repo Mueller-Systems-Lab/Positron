@@ -2,6 +2,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import type { HealthStatus } from '../types.js';
+import { t } from '../i18n/index.js';
 
 type HealthStatusValue = 'ok' | 'degraded' | 'error' | 'loading';
 
@@ -23,15 +24,17 @@ export default function HealthIndicator(): React.ReactElement {
 				const adapterStatus = adapterEntries
 					.map(([name, ok]) => `${name}: ${ok ? '✅' : '❌'}`)
 					.join('\n');
-				const modeLine = h.mode ? `Mode: ${h.mode === 'fake' ? '⚠️ Demo' : '🔵 Real'}` : '';
+				const modeLine = h.mode
+					? `${t('Mode')}: ${h.mode === 'fake' ? '⚠️ Demo' : '🔵 Live'}`
+					: '';
 				setTooltip(
-					[`Uptime: ${h.uptime}s`, modeLine, '', adapterStatus].filter(Boolean).join('\n'),
+					[`${t('Uptime')}: ${h.uptime}s`, modeLine, '', adapterStatus].filter(Boolean).join('\n'),
 				);
 			} catch {
 				if (cancelled) return;
 				setHealth(null);
 				setStatus('error');
-				setTooltip('Health check failed');
+				setTooltip('Gesundheitsprüfung fehlgeschlagen');
 			}
 		}
 
@@ -57,10 +60,10 @@ export default function HealthIndicator(): React.ReactElement {
 		status === 'ok'
 			? 'Online'
 			: status === 'degraded'
-				? 'Degraded'
+				? 'Eingeschränkt'
 				: status === 'error'
 					? 'Offline'
-					: 'Checking...';
+					: t('Checking...');
 
 	const isFakeMode = health?.mode === 'fake';
 
@@ -76,8 +79,8 @@ export default function HealthIndicator(): React.ReactElement {
 					}`}
 					title={
 						isFakeMode
-							? 'Demo-Mode: Alle Adapter sind Fake. Setze POSITRON_GITHUB_MODE=real für echten Betrieb.'
-							: 'Live-Mode: Echte Adapter aktiv'
+							? t('Demo mode: All adapters are simulated. Set POSITRON_GITHUB_MODE=real for real operation.')
+							: t('Live mode: Real adapters active')
 					}
 				>
 					<span

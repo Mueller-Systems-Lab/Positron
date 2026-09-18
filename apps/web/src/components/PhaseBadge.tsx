@@ -1,6 +1,7 @@
 import type React from 'react';
 import type { Phase } from '../types.js';
 import { PHASE_LABELS } from '../types.js';
+import { t } from '../i18n/index.js';
 
 interface PhaseBadgeProps {
 	phase: Phase;
@@ -71,7 +72,7 @@ export default function PhaseBadge({ phase, size = 'sm' }: PhaseBadgeProps): Rea
 			className={`inline-flex items-center gap-1 rounded-full font-medium ${colorClass} ${sizeClass}`}
 		>
 			{icon && <span>{icon}</span>}
-			{label}
+			{t(label)}
 		</span>
 	);
 }

@@ -1,5 +1,6 @@
 import { type ReactElement, useCallback, useState } from 'react';
 import { Outlet } from 'react-router-dom';
+import { t } from '../../i18n/index.js';
 import Sidebar from './Sidebar.jsx';
 import TopBar from './TopBar.jsx';
 
@@ -24,7 +25,7 @@ export default function AppShell(): ReactElement {
 
 			{/* Skip to content */}
 			<a href="#main-content" className="skip-to-content">
-				Skip to content
+				{t('Skip to content')}
 			</a>
 
 			{/* Top Bar */}

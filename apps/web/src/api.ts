@@ -308,8 +308,8 @@ export const api = {
 		return request<{ run: Run; events: RunEvent[] }>(`/runs/${id}`);
 	},
 
-	createRun(issueUrl: string): Promise<{ run: Run; runId: string }> {
-		return adminRequest<{ run: Run; runId: string }>('/runs', {
+	createRun(issueUrl: string): Promise<{ run?: Run; runId?: string; queue_item_id?: string }> {
+		return adminRequest<{ run?: Run; runId?: string; queue_item_id?: string }>('/runs', {
 			method: 'POST',
 			body: JSON.stringify({ issueUrl }),
 		});

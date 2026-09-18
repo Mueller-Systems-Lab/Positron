@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import type { Run } from '../types.js';
+import { t } from '../i18n/index.js';
 
 const POLL_INTERVAL_MS = 3000;
 const TERMINAL_PHASES = new Set(['DONE', 'FAILED', 'FAILED_BLOCKED', 'FAILED_UNSAFE', 'CLEANUP']);
@@ -32,7 +33,7 @@ export function useRun(runId: string): UseRunResult {
 				}
 			}
 		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Failed to fetch run');
+			setError(err instanceof Error ? err.message : t('Failed to fetch run'));
 		} finally {
 			setIsLoading(false);
 		}

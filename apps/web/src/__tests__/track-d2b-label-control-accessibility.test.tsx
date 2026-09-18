@@ -16,7 +16,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 // ── Mock voice module for VoiceControls ──
 vi.mock('../voice/voice-output.js', () => ({
 	getAvailableVoices: vi.fn(() => [
-		{ voiceURI: 'voice-1', name: 'Test Voice', lang: 'en-US' } as SpeechSynthesisVoice,
+		{ voiceURI: 'voice-1', name: 'Sprachausgabe testen', lang: 'en-US' } as SpeechSynthesisVoice,
 	]),
 	getLastSpoken: vi.fn(() => null),
 	isSpeechSupported: vi.fn(() => true),
@@ -88,7 +88,7 @@ describe('Repositories.tsx — Label-Control Associations', () => {
 		const { default: Repositories } = await import('../components/Repositories.js');
 		renderWithRouter(<Repositories />);
 
-		const addBtn = screen.getByRole('button', { name: /add repository/i });
+		const addBtn = screen.getByRole('button', { name: /repository hinzufügen/i });
 		fireEvent.click(addBtn);
 
 		const ownerInput = screen.getByLabelText('Owner');
@@ -104,7 +104,7 @@ describe('Repositories.tsx — Label-Control Associations', () => {
 		const { default: Repositories } = await import('../components/Repositories.js');
 		renderWithRouter(<Repositories />);
 
-		const addBtn = screen.getByRole('button', { name: /add repository/i });
+		const addBtn = screen.getByRole('button', { name: /repository hinzufügen/i });
 		fireEvent.click(addBtn);
 
 		const nameInput = screen.getByLabelText('Repository-Name');
@@ -119,7 +119,7 @@ describe('Repositories.tsx — Label-Control Associations', () => {
 		const { default: Repositories } = await import('../components/Repositories.js');
 		renderWithRouter(<Repositories />);
 
-		const addBtn = screen.getByRole('button', { name: /add repository/i });
+		const addBtn = screen.getByRole('button', { name: /repository hinzufügen/i });
 		fireEvent.click(addBtn);
 
 		const allInputs = screen.getAllByRole('textbox');
@@ -137,7 +137,7 @@ describe('Dashboard.tsx — Label-Control Associations', () => {
 		const { default: Dashboard } = await import('../components/Dashboard.js');
 		renderWithRouter(<Dashboard />);
 
-		const newRunBtn = screen.getByRole('button', { name: /new run/i });
+		const newRunBtn = screen.getByRole('button', { name: /neuer lauf/i });
 		fireEvent.click(newRunBtn);
 
 		const repoInput = screen.getByLabelText('Repository');
@@ -153,7 +153,7 @@ describe('Dashboard.tsx — Label-Control Associations', () => {
 		const { default: Dashboard } = await import('../components/Dashboard.js');
 		renderWithRouter(<Dashboard />);
 
-		const newRunBtn = screen.getByRole('button', { name: /new run/i });
+		const newRunBtn = screen.getByRole('button', { name: /neuer lauf/i });
 		fireEvent.click(newRunBtn);
 
 		const issueInput = screen.getByLabelText('Issue-Nummer');
@@ -168,7 +168,7 @@ describe('Dashboard.tsx — Label-Control Associations', () => {
 		const { default: Dashboard } = await import('../components/Dashboard.js');
 		renderWithRouter(<Dashboard />);
 
-		const newRunBtn = screen.getByRole('button', { name: /new run/i });
+		const newRunBtn = screen.getByRole('button', { name: /neuer lauf/i });
 		fireEvent.click(newRunBtn);
 
 		const allInputs = screen
@@ -188,7 +188,7 @@ describe('Dashboard.tsx — Autonomie-Level Radio Group (Class E)', () => {
 		const { default: Dashboard } = await import('../components/Dashboard.js');
 		renderWithRouter(<Dashboard />);
 
-		const newRunBtn = screen.getByRole('button', { name: /new run/i });
+		const newRunBtn = screen.getByRole('button', { name: /neuer lauf/i });
 		fireEvent.click(newRunBtn);
 
 		const legend = screen.getByText('Autonomie-Level');
@@ -202,12 +202,12 @@ describe('Dashboard.tsx — Autonomie-Level Radio Group (Class E)', () => {
 		const { default: Dashboard } = await import('../components/Dashboard.js');
 		renderWithRouter(<Dashboard />);
 
-		const newRunBtn = screen.getByRole('button', { name: /new run/i });
+		const newRunBtn = screen.getByRole('button', { name: /neuer lauf/i });
 		fireEvent.click(newRunBtn);
 
-		expect(screen.getByText('Full')).toBeInTheDocument();
-		expect(screen.getByText('Semi')).toBeInTheDocument();
-		expect(screen.getByText('Manual')).toBeInTheDocument();
+		expect(screen.getByText('Vollständig')).toBeInTheDocument();
+		expect(screen.getByText('Teilweise')).toBeInTheDocument();
+		expect(screen.getByText('Manuell')).toBeInTheDocument();
 
 		const radios = screen.getAllByRole('radio');
 		expect(radios).toHaveLength(3);
@@ -217,10 +217,10 @@ describe('Dashboard.tsx — Autonomie-Level Radio Group (Class E)', () => {
 		const { default: Dashboard } = await import('../components/Dashboard.js');
 		renderWithRouter(<Dashboard />);
 
-		const newRunBtn = screen.getByRole('button', { name: /new run/i });
+		const newRunBtn = screen.getByRole('button', { name: /neuer lauf/i });
 		fireEvent.click(newRunBtn);
 
-		fireEvent.click(screen.getByText('Full'));
+		fireEvent.click(screen.getByText('Vollständig'));
 		const radios = screen.getAllByRole('radio');
 		const fullRadio = radios.find((r) => (r as HTMLInputElement).value === '0');
 		expect(fullRadio).toBeChecked();
@@ -231,11 +231,11 @@ describe('Dashboard.tsx — Autonomie-Level Radio Group (Class E)', () => {
 // CLASS A — NewRunModal.tsx
 // ═══════════════════════════════════════════════════════════════
 describe('NewRunModal.tsx — Label-Control Association', () => {
-	test('Issue URL label is associated with text input', async () => {
+	test('Issue-URL label is associated with text input', async () => {
 		const { default: NewRunModal } = await import('../components/dashboard/NewRunModal.js');
 		renderWithRouter(<NewRunModal isOpen={true} onClose={vi.fn()} />);
 
-		const urlInput = screen.getByLabelText('Issue URL');
+		const urlInput = screen.getByLabelText('Issue-URL');
 		expect(urlInput).toBeInTheDocument();
 		expect(urlInput.tagName).toBe('INPUT');
 		expect(urlInput).toHaveAttribute('id', 'new-run-issue-url');
@@ -244,11 +244,11 @@ describe('NewRunModal.tsx — Label-Control Association', () => {
 		expect(urlLabel).toHaveAttribute('for', 'new-run-issue-url');
 	});
 
-	test('Issue URL input accepts user typing', async () => {
+	test('Issue-URL input accepts user typing', async () => {
 		const { default: NewRunModal } = await import('../components/dashboard/NewRunModal.js');
 		renderWithRouter(<NewRunModal isOpen={true} onClose={vi.fn()} />);
 
-		const urlInput = screen.getByLabelText('Issue URL');
+		const urlInput = screen.getByLabelText('Issue-URL');
 		fireEvent.change(urlInput, { target: { value: 'https://github.com/test/repo/issues/1' } });
 		expect(urlInput).toHaveValue('https://github.com/test/repo/issues/1');
 	});
@@ -325,17 +325,17 @@ describe('E16 — Escape key dismisses modals', () => {
 		renderWithRouter(<Dashboard />);
 
 		// Open the modal
-		const newRunBtn = screen.getByRole('button', { name: /new run/i });
+		const newRunBtn = screen.getByRole('button', { name: /neuer lauf/i });
 		fireEvent.click(newRunBtn);
 
 		// Modal should be visible
-		expect(screen.getByText('Neuen Run starten')).toBeInTheDocument();
+		expect(screen.getByText('Lauf starten')).toBeInTheDocument();
 
 		// Press Escape
 		fireEvent.keyDown(document, { key: 'Escape' });
 
 		await waitFor(() => {
-			expect(screen.queryByText('Neuen Run starten')).not.toBeInTheDocument();
+			expect(screen.queryByText('Lauf starten')).not.toBeInTheDocument();
 		});
 	});
 
@@ -344,19 +344,19 @@ describe('E16 — Escape key dismisses modals', () => {
 		renderWithRouter(<Dashboard />);
 
 		// Open modal
-		const newRunBtn = screen.getByRole('button', { name: /new run/i });
+		const newRunBtn = screen.getByRole('button', { name: /neuer lauf/i });
 		fireEvent.click(newRunBtn);
-		expect(screen.getByText('Neuen Run starten')).toBeInTheDocument();
+		expect(screen.getByText('Lauf starten')).toBeInTheDocument();
 
 		// Close with Escape
 		fireEvent.keyDown(document, { key: 'Escape' });
 		await waitFor(() => {
-			expect(screen.queryByText('Neuen Run starten')).not.toBeInTheDocument();
+			expect(screen.queryByText('Lauf starten')).not.toBeInTheDocument();
 		});
 
 		// Subsequent Escape should not re-open the modal
 		fireEvent.keyDown(document, { key: 'Escape' });
-		expect(screen.queryByText('Neuen Run starten')).not.toBeInTheDocument();
+		expect(screen.queryByText('Lauf starten')).not.toBeInTheDocument();
 	});
 
 	test('Dashboard: close button on modal still works', async () => {
@@ -364,16 +364,16 @@ describe('E16 — Escape key dismisses modals', () => {
 		renderWithRouter(<Dashboard />);
 
 		// Open the modal
-		const newRunBtn = screen.getByRole('button', { name: /new run/i });
+		const newRunBtn = screen.getByRole('button', { name: /neuer lauf/i });
 		fireEvent.click(newRunBtn);
-		expect(screen.getByText('Neuen Run starten')).toBeInTheDocument();
+		expect(screen.getByText('Lauf starten')).toBeInTheDocument();
 
 		// Click the close button inside the modal
 		const modalCloseBtn = screen.getByRole('button', { name: '✕' });
 		fireEvent.click(modalCloseBtn);
 
 		await waitFor(() => {
-			expect(screen.queryByText('Neuen Run starten')).not.toBeInTheDocument();
+			expect(screen.queryByText('Lauf starten')).not.toBeInTheDocument();
 		});
 	});
 
@@ -384,7 +384,7 @@ describe('E16 — Escape key dismisses modals', () => {
 		renderWithRouter(<Repositories />);
 
 		// Open the modal
-		const addBtn = screen.getByRole('button', { name: /add repository/i });
+		const addBtn = screen.getByRole('button', { name: /repository hinzufügen/i });
 		fireEvent.click(addBtn);
 
 		// Modal should be visible
@@ -405,7 +405,7 @@ describe('E16 — Escape key dismisses modals', () => {
 		renderWithRouter(<Repositories />);
 
 		// Open the modal
-		const addBtn = screen.getByRole('button', { name: /add repository/i });
+		const addBtn = screen.getByRole('button', { name: /repository hinzufügen/i });
 		fireEvent.click(addBtn);
 		expect(screen.getByRole('heading', { name: 'Repository hinzufügen' })).toBeInTheDocument();
 
@@ -429,7 +429,7 @@ describe('VoiceControls.tsx — Speak These Events Checkbox Group (Class E)', ()
 		const { default: VoiceControls } = await import('../components/VoiceControls.js');
 		renderWithRouter(<VoiceControls />);
 
-		const legend = screen.getByText('Speak these events:');
+		const legend = screen.getByText('Diese Ereignisse vorlesen:');
 		expect(legend.tagName).toBe('LEGEND');
 
 		const fieldset = legend.closest('fieldset');
@@ -444,8 +444,8 @@ describe('VoiceControls.tsx — Speak These Events Checkbox Group (Class E)', ()
 		const checkboxes = screen.getAllByRole('checkbox');
 		expect(checkboxes.length).toBeGreaterThanOrEqual(1);
 
-		expect(screen.getByText('Run started')).toBeInTheDocument();
-		expect(screen.getByText('Run done')).toBeInTheDocument();
+		expect(screen.getByText('Lauf gestartet')).toBeInTheDocument();
+		expect(screen.getByText('Lauf abgeschlossen')).toBeInTheDocument();
 	});
 
 	test('Checkbox click toggles checked state', async () => {
@@ -453,12 +453,12 @@ describe('VoiceControls.tsx — Speak These Events Checkbox Group (Class E)', ()
 		renderWithRouter(<VoiceControls />);
 
 		const phaseFailedCheckbox = screen.getByRole('checkbox', {
-			name: 'Phase failed',
+			name: 'Phase fehlgeschlagen',
 		}) as HTMLInputElement;
 
 		const wasChecked = phaseFailedCheckbox.checked;
 
-		fireEvent.click(screen.getByText('Phase failed'));
+		fireEvent.click(screen.getByText('Phase fehlgeschlagen'));
 		expect(phaseFailedCheckbox.checked).toBe(!wasChecked);
 	});
 
@@ -467,7 +467,7 @@ describe('VoiceControls.tsx — Speak These Events Checkbox Group (Class E)', ()
 		renderWithRouter(<VoiceControls />);
 
 		await waitFor(() => {
-			expect(screen.getByLabelText('Voice')).toBeInTheDocument();
+			expect(screen.getByLabelText('Stimme')).toBeInTheDocument();
 		});
 	});
 
@@ -475,14 +475,14 @@ describe('VoiceControls.tsx — Speak These Events Checkbox Group (Class E)', ()
 		const { default: VoiceControls } = await import('../components/VoiceControls.js');
 		renderWithRouter(<VoiceControls />);
 
-		expect(screen.getByLabelText('Speech rate')).toBeInTheDocument();
+		expect(screen.getByLabelText('Sprechgeschwindigkeit')).toBeInTheDocument();
 	});
 
 	test('Existing volume-slider label still works (no regression)', async () => {
 		const { default: VoiceControls } = await import('../components/VoiceControls.js');
 		renderWithRouter(<VoiceControls />);
 
-		expect(screen.getByLabelText('Speech volume')).toBeInTheDocument();
+		expect(screen.getByLabelText('Sprachlautstärke')).toBeInTheDocument();
 	});
 });
 

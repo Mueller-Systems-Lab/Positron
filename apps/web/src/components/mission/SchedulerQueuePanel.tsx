@@ -14,6 +14,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import type { SchedulerQueueItem } from '../../api.js';
 import { api } from '../../api.js';
+import { t } from '../../i18n/index.js';
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -97,7 +98,9 @@ export default function SchedulerQueuePanel(): React.JSX.Element {
 	if (state.kind === 'loading') {
 		return (
 			<div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
-				<p className="text-sm text-zinc-400">Scheduler queue wird geladen…</p>
+				<p className="text-sm text-zinc-400">
+					{t('Loading')} {t('Scheduler Queue')} …
+				</p>
 			</div>
 		);
 	}
@@ -120,7 +123,7 @@ export default function SchedulerQueuePanel(): React.JSX.Element {
 	return (
 		<div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
 			<div className="mb-3 flex items-center justify-between">
-				<h3 className="text-sm font-semibold text-zinc-200">Scheduler Queue (P4)</h3>
+				<h3 className="text-sm font-semibold text-zinc-200">{t('Scheduler Queue')} (P4)</h3>
 				<span
 					className={`rounded-full border px-2 py-0.5 text-xs ${
 						state.activeRuns >= state.maxActiveRuns
@@ -128,12 +131,12 @@ export default function SchedulerQueuePanel(): React.JSX.Element {
 							: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
 					}`}
 				>
-					{state.activeRuns} / {state.maxActiveRuns} active runs
+					{state.activeRuns} / {state.maxActiveRuns} {t('active runs')}
 				</span>
 			</div>
 
 			{state.queue.length === 0 ? (
-				<p className="text-sm text-zinc-500">Keine Runs in der Intake-Queue.</p>
+				<p className="text-sm text-zinc-500">{t('No runs in intake queue.')}</p>
 			) : (
 				<ul className="space-y-2">
 					{[...active, ...queued, ...waiting].map((q) => (
@@ -148,7 +151,7 @@ export default function SchedulerQueuePanel(): React.JSX.Element {
 								<span
 									className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] ${stateBadge(q.queue_state)}`}
 								>
-									{STATE_LABEL[q.queue_state] ?? q.queue_state}
+									{t(STATE_LABEL[q.queue_state] ?? q.queue_state)}
 								</span>
 							</div>
 							<div className="mt-1 flex items-center justify-between text-[11px] text-zinc-500">

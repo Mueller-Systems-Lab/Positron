@@ -1,6 +1,7 @@
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api.js';
+import { t } from '../../i18n/index.js';
 import ErrorBanner from '../shared/ErrorBanner.js';
 import LoadingSkeleton from '../shared/LoadingSkeleton.js';
 import VoiceControls from '../VoiceControls.jsx';
@@ -92,7 +93,7 @@ export default function SettingsPage(): React.ReactElement {
 			setRedactCount(data.redactPatternCount);
 			setMcpError(null);
 		} catch (err) {
-			setMcpError(err instanceof Error ? err.message : 'Failed to load MCP settings');
+			setMcpError(err instanceof Error ? err.message : t('MCP-Einstellungen konnten nicht geladen werden.'));
 		} finally {
 			setMcpLoading(false);
 		}
@@ -105,7 +106,7 @@ export default function SettingsPage(): React.ReactElement {
 			setSecurityNotes(data.securityNotes);
 			setModesError(null);
 		} catch (err) {
-			setModesError(err instanceof Error ? err.message : 'Failed to load test modes');
+			setModesError(err instanceof Error ? err.message : t('Testmodi konnten nicht geladen werden.'));
 		} finally {
 			setModesLoading(false);
 		}
@@ -139,7 +140,7 @@ export default function SettingsPage(): React.ReactElement {
 			} catch (err) {
 				// Revert on failure and show error
 				setSafety((prev) => (prev ? { ...prev, [key]: !newValue } : prev));
-				setSafetyError(err instanceof Error ? err.message : 'Failed to update safety setting');
+				setSafetyError(err instanceof Error ? err.message : t('Sicherheitseinstellung konnte nicht aktualisiert werden.'));
 				// Clear error after 5s
 				setTimeout(() => setSafetyError(null), 5000);
 			} finally {
@@ -158,9 +159,9 @@ export default function SettingsPage(): React.ReactElement {
 	return (
 		<div>
 			<div className="mb-6">
-				<h1>Settings</h1>
+				<h1>{t('Settings')}</h1>
 				<p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-					MCP configuration, test modes, and system safety state
+					{t('Settings description')}
 				</p>
 			</div>
 
@@ -182,10 +183,10 @@ export default function SettingsPage(): React.ReactElement {
 							>
 								<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
 							</svg>
-							Safety Gates
+							{t('Safety Gates')}
 						</h3>
 						<p className="text-xs text-slate-500 dark:text-slate-500 mb-4">
-							Toggle safety mechanisms. Changes take effect immediately.
+							{t('Toggle safety mechanisms. Changes take effect immediately.')}
 						</p>
 						{safetyError && (
 							<div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
@@ -204,7 +205,7 @@ export default function SettingsPage(): React.ReactElement {
 												className={`w-2 h-2 rounded-full ${value ? 'bg-green-500' : 'bg-red-500'}`}
 											/>
 											<span className="text-xs font-medium text-slate-700 dark:text-slate-300">
-												{SAFETY_LABELS[key] ?? key}
+										{t(SAFETY_LABELS[key] ?? key)}
 											</span>
 											<span
 												className={`text-[10px] font-bold ${value ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
@@ -213,7 +214,7 @@ export default function SettingsPage(): React.ReactElement {
 											</span>
 										</div>
 										<p className="text-[10px] text-slate-500 dark:text-slate-500 mt-0.5 ml-4">
-											{SAFETY_DESCRIPTIONS[key] ?? ''}
+										{t(SAFETY_DESCRIPTIONS[key] ?? '')}
 										</p>
 									</div>
 									<div className="flex items-center gap-2 shrink-0">
@@ -223,7 +224,7 @@ export default function SettingsPage(): React.ReactElement {
 										<ToggleSwitch
 											enabled={value}
 											onChange={() => toggleSafety(key)}
-											label={SAFETY_LABELS[key] ?? key}
+										label={t(SAFETY_LABELS[key] ?? key)}
 										/>
 									</div>
 								</div>
@@ -251,10 +252,10 @@ export default function SettingsPage(): React.ReactElement {
 							<line x1="6" y1="6" x2="6.01" y2="6" />
 							<line x1="6" y1="18" x2="6.01" y2="18" />
 						</svg>
-						MCP Servers
+						{t('MCP Servers')}
 					</h3>
 					<p className="text-xs text-slate-500 dark:text-slate-500 mb-4">
-						Model Context Protocol servers. Secrets are masked — only structure is visible.
+						{t('Model Context Protocol servers. Secrets are masked — only structure is visible.')}
 					</p>
 
 					{mcpLoading ? (
@@ -281,7 +282,7 @@ export default function SettingsPage(): React.ReactElement {
 												{server.name}
 											</span>
 											{server.disabled && (
-												<span className="text-[10px] text-slate-500">(disabled)</span>
+								<span className="text-[10px] text-slate-500">{t('(disabled)')}</span>
 											)}
 										</div>
 										<code className="text-[10px] text-slate-500 dark:text-slate-500 font-mono">
@@ -312,7 +313,7 @@ export default function SettingsPage(): React.ReactElement {
 							))}
 							{mcpServers.length === 0 && (
 								<p className="text-xs text-slate-500 dark:text-slate-500">
-									No MCP servers configured.
+								{t('No MCP servers configured.')}
 								</p>
 							)}
 						</div>
@@ -369,10 +370,10 @@ export default function SettingsPage(): React.ReactElement {
 							<path d="M9 11l3 3L22 4" />
 							<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
 						</svg>
-						Test Modes
+						{t('Test Modes')}
 					</h3>
 					<p className="text-xs text-slate-500 dark:text-slate-500 mb-4">
-						Available test modes for different observation levels.
+						{t('Available test modes for different observation levels.')}
 					</p>
 
 					{modesLoading ? (
@@ -393,17 +394,17 @@ export default function SettingsPage(): React.ReactElement {
 											</span>
 											{mode.id.includes('observe') && (
 												<span className="text-[10px] bg-sky-100 dark:bg-sky-600/20 text-sky-700 dark:text-sky-400 px-1.5 py-0.5 rounded">
-													observe
+														{t('observe')}
 												</span>
 											)}
 											{mode.id.includes('headed') && !mode.id.includes('observe') && (
 												<span className="text-[10px] bg-amber-100 dark:bg-amber-600/20 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded">
-													visible
+														{t('visible')}
 												</span>
 											)}
 											{mode.id.includes('debug') && (
 												<span className="text-[10px] bg-red-100 dark:bg-red-600/20 text-red-700 dark:text-red-400 px-1.5 py-0.5 rounded">
-													debug
+														{t('debug')}
 												</span>
 											)}
 										</div>
@@ -417,7 +418,7 @@ export default function SettingsPage(): React.ReactElement {
 								</div>
 							))}
 							{modes.length === 0 && (
-								<p className="text-xs text-slate-500">No test modes configured.</p>
+								<p className="text-xs text-slate-500">{t('No test modes configured.')}</p>
 							)}
 						</div>
 					)}
@@ -425,7 +426,7 @@ export default function SettingsPage(): React.ReactElement {
 					{Object.keys(securityNotes).length > 0 && (
 						<div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
 							<h4 className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-2">
-								⚠ Security Notes
+								⚠ {t('Security Notes')}
 							</h4>
 							<div className="space-y-1.5">
 								{Object.entries(securityNotes).map(([key, note]) => (

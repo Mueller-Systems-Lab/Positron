@@ -144,7 +144,7 @@ describe('DashboardPage — Managed Target Projects Contract', () => {
 		expect(container).toBeDefined();
 	});
 
-	test('displays Managed External Projects section with project names', async () => {
+	test('displays Verwaltete externe Projekte section with project names', async () => {
 		render(
 			<MemoryRouter>
 				<DashboardPage />
@@ -152,7 +152,7 @@ describe('DashboardPage — Managed Target Projects Contract', () => {
 		);
 
 		await waitFor(() => {
-			expect(screen.getByText('Managed External Projects')).toBeDefined();
+			expect(screen.getByText('Verwaltete externe Projekte')).toBeDefined();
 		});
 
 		// Both project names should appear
@@ -183,7 +183,7 @@ describe('DashboardPage — Managed Target Projects Contract', () => {
 
 		await waitFor(() => {
 			// KleinPilot has 1 blocker
-			expect(screen.getByText(/1 blocker/)).toBeDefined();
+			expect(screen.getByText(/1 Blocker/)).toBeDefined();
 		});
 	});
 
@@ -195,8 +195,8 @@ describe('DashboardPage — Managed Target Projects Contract', () => {
 		);
 
 		await waitFor(() => {
-			// Both projects show "Next:" with their first recommended run
-			const elements = screen.getAllByText(/Next:/);
+				// Both projects show the localized next-step label.
+				const elements = screen.getAllByText(/Nächster Schritt:/);
 			expect(elements.length).toBe(2);
 		});
 	});
@@ -210,7 +210,7 @@ describe('DashboardPage — Managed Target Projects Contract', () => {
 
 		await waitFor(() => {
 			// Both test projects have 2 nextRecommendedRuns
-			const elements = screen.getAllByText(/2 steps/);
+				const elements = screen.getAllByText(/2 Schritte geplant/);
 			expect(elements.length).toBeGreaterThanOrEqual(1);
 		});
 	});
@@ -223,7 +223,7 @@ describe('DashboardPage — Managed Target Projects Contract', () => {
 		);
 
 		await waitFor(() => {
-			const link = screen.getByText('View All →');
+				const link = screen.getByText('Alle anzeigen →');
 			expect(link.closest('button')).toBeDefined();
 		});
 	});
@@ -245,8 +245,8 @@ describe('DashboardPage — Managed Target Projects Contract', () => {
 			expect(screen.getByRole('heading', { name: /Dashboard/i })).toBeDefined();
 		});
 
-		// "Managed External Projects" section should NOT appear when empty
-		expect(screen.queryByText('Managed External Projects')).toBeNull();
+		// "Verwaltete externe Projekte" section should NOT appear when empty
+		expect(screen.queryByText('Verwaltete externe Projekte')).toBeNull();
 	});
 
 	test('handles API error gracefully without crashing', async () => {
@@ -264,7 +264,7 @@ describe('DashboardPage — Managed Target Projects Contract', () => {
 		});
 
 		// Should still render the dashboard, just without managed projects
-		expect(screen.queryByText('Managed External Projects')).toBeNull();
+		expect(screen.queryByText('Verwaltete externe Projekte')).toBeNull();
 	});
 
 	// ── E14: Native card link semantics ───────────────────────────────
@@ -293,7 +293,7 @@ describe('DashboardPage — Managed Target Projects Contract', () => {
 		});
 
 		const internalLink = screen.getByRole('link', {
-			name: /Open VoiceWiki in managed projects/i,
+			name: /Projekt öffnen: VoiceWiki/i,
 		});
 
 		expect(internalLink).toBeDefined();
@@ -320,7 +320,7 @@ describe('DashboardPage — Managed Target Projects Contract', () => {
 		});
 
 		const externalLink = screen.getByRole('link', {
-			name: /Open VoiceWiki repository in a new tab/i,
+			name: /Repository in einem neuen Tab öffnen: VoiceWiki/i,
 		});
 
 		expect(externalLink).toBeDefined();
@@ -343,7 +343,7 @@ describe('DashboardPage — Managed Target Projects Contract', () => {
 
 		// The VoiceWiki name is now inside a link — find its parent card container
 		const voiceWikiLink = screen.getByRole('link', {
-			name: /Open VoiceWiki in managed projects/i,
+			name: /Projekt öffnen: VoiceWiki/i,
 		});
 
 		// Walk up to find the card wrapper (the div that used to have role=button)
@@ -369,10 +369,10 @@ describe('DashboardPage — Managed Target Projects Contract', () => {
 		});
 
 		const internalLink = screen.getByRole('link', {
-			name: /Open VoiceWiki in managed projects/i,
+			name: /Projekt öffnen: VoiceWiki/i,
 		});
 		const externalLink = screen.getByRole('link', {
-			name: /Open VoiceWiki repository in a new tab/i,
+			name: /Repository in einem neuen Tab öffnen: VoiceWiki/i,
 		});
 
 		// Internal link does not contain external link
@@ -419,6 +419,6 @@ describe('DashboardPage — Managed Target Projects Contract', () => {
 		expect(screen.getAllByText('Gates OK').length).toBeGreaterThanOrEqual(1);
 
 		// Blocker count still visible
-		expect(screen.getByText(/1 blocker/)).toBeDefined();
+		expect(screen.getByText(/1 Blocker/)).toBeDefined();
 	});
 });

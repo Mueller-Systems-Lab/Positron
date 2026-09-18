@@ -1,5 +1,6 @@
 import type React from 'react';
 import { useTheme } from '../contexts/ThemeContext.js';
+import { t } from '../i18n/index.js';
 
 export default function ThemeToggle(): React.ReactElement {
 	const { theme, toggleTheme } = useTheme();
@@ -13,8 +14,8 @@ export default function ThemeToggle(): React.ReactElement {
         hover:bg-slate-800 dark:hover:bg-slate-800
         text-slate-400 hover:text-slate-200
         transition-colors duration-150"
-			aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-			title={isDark ? 'Light Mode' : 'Dark Mode'}
+			aria-label={isDark ? t('Switch to light mode') : t('Switch to dark mode')}
+			title={isDark ? t('Light Mode') : t('Dark Mode')}
 		>
 			{isDark ? (
 				/* Sun icon for switching to light mode */

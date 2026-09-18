@@ -8,9 +8,9 @@ test('operator can inspect readiness and a safe next action', async ({ page }) =
 		if (message.type() === 'error') consoleErrors.push(message.text());
 	});
 	await page.goto(`${FRONTEND_URL}/readiness`, { waitUntil: 'domcontentloaded' });
-	await expect(page.getByRole('heading', { name: 'Operator Readiness' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Bereitschaft' })).toBeVisible();
 	await expect(page.getByTestId('readiness-overall')).toBeVisible();
 	await expect(page.getByTestId('readiness-security_policy')).toBeVisible();
-	await expect(page.getByRole('button', { name: 'Refresh checks' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Prüfungen aktualisieren' })).toBeVisible();
 	expect(consoleErrors).toEqual([]);
 });

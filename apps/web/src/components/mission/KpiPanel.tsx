@@ -8,6 +8,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import type { KpiReport, KpisResponse } from '../../api.js';
 import { api } from '../../api.js';
+import { t } from '../../i18n/index.js';
 import { formatDurationMs } from './mission-format.js';
 
 const POLL_INTERVAL_MS = 10000;
@@ -111,8 +112,8 @@ export default function KpiPanel(): React.ReactElement {
 	if (state.kind === 'loading') {
 		return (
 			<div className="card">
-				<h3 className="text-sm font-medium text-slate-300 mb-2">Runtime KPIs</h3>
-				<p className="text-xs text-slate-500">Loading KPIs…</p>
+				<h3 className="text-sm font-medium text-slate-300 mb-2">{t('Runtime KPIs')}</h3>
+				<p className="text-xs text-slate-500">{t('Loading KPIs…')}</p>
 			</div>
 		);
 	}
@@ -120,8 +121,8 @@ export default function KpiPanel(): React.ReactElement {
 	if (state.kind === 'error') {
 		return (
 			<div className="card border-yellow-800">
-				<h3 className="text-sm font-medium text-slate-300 mb-2">Runtime KPIs</h3>
-				<p className="text-xs text-yellow-300">Backend temporarily unavailable: {state.message}</p>
+				<h3 className="text-sm font-medium text-slate-300 mb-2">{t('Runtime KPIs')}</h3>
+		<p className="text-xs text-yellow-300">{t('Backend temporarily unavailable:')} {state.message}</p>
 			</div>
 		);
 	}
@@ -137,8 +138,8 @@ export default function KpiPanel(): React.ReactElement {
 	return (
 		<div className="card" data-testid="kpi-panel">
 			<div className="flex items-center justify-between mb-3">
-				<h3 className="text-sm font-medium text-slate-300">Runtime KPIs</h3>
-				<span className="text-[10px] text-slate-600">{kpis.runs_total} runs</span>
+				<h3 className="text-sm font-medium text-slate-300">{t('Runtime KPIs')}</h3>
+				<span className="text-[10px] text-slate-600">{kpis.runs_total} {t('runs')}</span>
 			</div>
 
 			{invariants.violations.length > 0 && (
@@ -146,7 +147,7 @@ export default function KpiPanel(): React.ReactElement {
 					className="mb-3 p-2 rounded-md border border-red-700 bg-red-900/40"
 					data-testid="kpi-invariant-violation"
 				>
-					<p className="text-[11px] font-bold text-red-300">INVARIANT VIOLATION</p>
+					<p className="text-[11px] font-bold text-red-300">{t('INVARIANT VIOLATION')}</p>
 					<ul className="list-disc ml-4 text-[11px] text-red-300/90">
 						{invariants.violations.map((v) => (
 							<li key={v}>{v}</li>
@@ -156,58 +157,58 @@ export default function KpiPanel(): React.ReactElement {
 			)}
 
 			<div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-				<KpiCell label="First-Pass Success" value={formatRate(kpis.first_pass_success_rate)} />
-				<KpiCell label="Mean Attempts to DONE" value={formatCount(kpis.mean_attempts_to_done)} />
+				<KpiCell label={t('First-Pass Success')} value={formatRate(kpis.first_pass_success_rate)} />
+				<KpiCell label={t('Mean Attempts to DONE')} value={formatCount(kpis.mean_attempts_to_done)} />
 				<KpiCell
-					label="Blind Retry Rate"
+					label={t('Blind Retry Rate')}
 					value={formatRate(kpis.blind_retry_rate)}
 					ok={blindRetryOk}
-					detail={blindRetryOk ? 'invariant: = 0' : 'INVARIANT VIOLATED'}
+					detail={blindRetryOk ? t('invariant: = 0') : t('INVARIANT VIOLATED')}
 				/>
 				<KpiCell
-					label="Duplicate Mutation Rate"
+					label={t('Duplicate Mutation Rate')}
 					value={formatRate(kpis.duplicate_mutation_rate)}
 					ok={duplicateMutationOk}
-					detail={duplicateMutationOk ? 'invariant: = 0' : 'INVARIANT VIOLATED'}
+					detail={duplicateMutationOk ? t('invariant: = 0') : t('INVARIANT VIOLATED')}
 				/>
-				<KpiCell label="Useful Retry Rate" value={formatRate(kpis.useful_retry_rate)} />
+				<KpiCell label={t('Useful Retry Rate')} value={formatRate(kpis.useful_retry_rate)} />
 				<KpiCell
-					label="Security Enforcement"
+					label={t('Security Enforcement')}
 					value={formatRate(kpis.security_block_enforcement_rate)}
 					ok={securityOk}
-					detail={securityOk ? 'invariant: = 100 %' : 'INVARIANT VIOLATED'}
+					detail={securityOk ? t('invariant: = 100 %') : t('INVARIANT VIOLATED')}
 				/>
-				<KpiCell label="Trace Completeness" value={formatRate(kpis.trace_completeness)} />
-				<KpiCell label="Retry Denials" value={String(kpis.retry_denials)} />
-				<KpiCell label="p50 Stage Duration" value={formatDurationMs(kpis.p50_stage_duration_ms)} />
-				<KpiCell label="p95 Stage Duration" value={formatDurationMs(kpis.p95_stage_duration_ms)} />
+				<KpiCell label={t('Trace Completeness')} value={formatRate(kpis.trace_completeness)} />
+				<KpiCell label={t('Retry Denials')} value={String(kpis.retry_denials)} />
+				<KpiCell label={t('p50 Stage Duration')} value={formatDurationMs(kpis.p50_stage_duration_ms)} />
+				<KpiCell label={t('p95 Stage Duration')} value={formatDurationMs(kpis.p95_stage_duration_ms)} />
 			</div>
 
 			{/* P5.1 — Harness Profile KPIs (Backend Truth, keine Client-Berechnung) */}
 			<div className="mt-4" data-testid="profile-kpi-panel">
 				<div className="flex items-center justify-between mb-2">
 					<h4 className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
-						Profile KPIs
+						{t('Profile KPIs')}
 					</h4>
 					<span className="text-[10px] text-slate-600">
-						cost/verified success:{' '}
+						{t('cost/verified success:')}{' '}
 						{state.data.profile?.cost_per_verified_success ?? 'NOT_AVAILABLE'}
 					</span>
 				</div>
 				{!state.data.profile || state.data.profile.groups.length === 0 ? (
-					<p className="text-xs text-slate-500">No profile data yet.</p>
+					<p className="text-xs text-slate-500">{t('No profile data yet.')}</p>
 				) : (
 					<div className="overflow-x-auto">
 						<table className="w-full text-[11px]">
 							<thead>
 								<tr className="text-left text-slate-500">
-									<th className="py-1 pr-2 font-medium">Profile</th>
-									<th className="py-1 pr-2 font-medium">Task</th>
-									<th className="py-1 pr-2 font-medium text-right">Sample</th>
-									<th className="py-1 pr-2 font-medium text-right">Verified Success</th>
-									<th className="py-1 pr-2 font-medium text-right">First Pass</th>
-									<th className="py-1 pr-2 font-medium text-right">Attempts/Success</th>
-									<th className="py-1 pr-2 font-medium text-right">Retry</th>
+								<th className="py-1 pr-2 font-medium">{t('Profile')}</th>
+								<th className="py-1 pr-2 font-medium">{t('Task')}</th>
+								<th className="py-1 pr-2 font-medium text-right">{t('Sample')}</th>
+								<th className="py-1 pr-2 font-medium text-right">{t('Verified Success')}</th>
+								<th className="py-1 pr-2 font-medium text-right">{t('First Pass')}</th>
+								<th className="py-1 pr-2 font-medium text-right">{t('Attempts/Success')}</th>
+								<th className="py-1 pr-2 font-medium text-right">{t('Retry')}</th>
 								</tr>
 							</thead>
 							<tbody>

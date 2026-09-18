@@ -146,15 +146,15 @@ test.describe('Positron Reality Check', () => {
 		console.log(`[Diagnostic] Found ${headingCount} headings on dashboard`);
 
 		// Check for the  "New Run" button
-		const newRunBtn = page.getByRole('button', { name: /New Run/i });
+		const newRunBtn = page.getByRole('button', { name: /Neuer Lauf/i });
 		await expect(newRunBtn).toBeVisible();
 
 		// Check for Blueprint panel
-		const blueprintHeader = page.getByText(/Demo Blueprint/i);
+		const blueprintHeader = page.getByText(/Demo-Blueprint/i);
 		await expect(blueprintHeader).toBeVisible();
 
 		// Check for Start Demo Run button
-		const demoRunBtn = page.getByRole('button', { name: /Start Demo Run/i });
+		const demoRunBtn = page.getByRole('button', { name: /Demo-Lauf starten/i });
 		await expect(demoRunBtn).toBeVisible();
 		await expect(demoRunBtn).toBeEnabled();
 	});
@@ -188,8 +188,8 @@ test.describe('Positron Reality Check', () => {
 		// Try to start a demo run using the Blueprint panel
 		// First, enter a repo ID and issue number
 		const repoInput = page.getByLabel('Repository (owner/repo)');
-		const issueInput = page.getByLabel('Issue number');
-		const demoRunBtn = page.getByRole('button', { name: /Start Demo Run/i });
+		const issueInput = page.getByLabel('Issue-Nummer');
+		const demoRunBtn = page.getByRole('button', { name: /Demo-Lauf starten/i });
 
 		// Fill in the form
 		await repoInput.fill('Mueller-Systems-Lab/Positron');
@@ -198,7 +198,7 @@ test.describe('Positron Reality Check', () => {
 
 		// Check if "Generate Blueprint" is available and works
 		const generateBtn = page.getByRole('button', {
-			name: /Generate Blueprint/i,
+			name: /Blueprint erzeugen/i,
 		});
 		if (await generateBtn.isVisible()) {
 			await generateBtn.click();

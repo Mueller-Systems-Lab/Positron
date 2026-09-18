@@ -3,6 +3,7 @@
 // Rate-Limit 1/3s, Deduplizierung, max 200 Zeichen.
 
 import type { RunEvent } from '../types.js';
+import { t } from '../i18n/index.js';
 import { cleanForSpeech } from './redact-for-speech.js';
 import type { VoiceEventType } from './voice-settings.js';
 import { loadVoiceSettings } from './voice-settings.js';
@@ -95,19 +96,19 @@ export function mapEventToSpeech(event: RunEvent, type: VoiceEventType): string 
 
 	switch (type) {
 		case 'run_started':
-			return `Run ${runId} started`;
+			return `${t('Run')} ${runId} ${t('started')}`;
 		case 'run_done':
-			return 'Run completed successfully';
+			return `${t('Run')} ${t('completed successfully')}`;
 		case 'phase_failed':
-			return `Phase ${event.phase} failed`;
+			return `${t('Phase')} ${event.phase} ${t('failed')}`;
 		case 'run_blocked': {
 			const reason = event.message ? `: ${event.message}` : '';
-			return `Run blocked${reason}`;
+			return `${t('Run blocked')}${reason}`;
 		}
 		case 'human_action':
-			return 'Human action required';
+			return t('Human action required');
 		case 'merge_blocked':
-			return 'Merge blocked by kill-switch';
+			return `${t('Merge blocked')} durch Kill-Switch`;
 	}
 }
 

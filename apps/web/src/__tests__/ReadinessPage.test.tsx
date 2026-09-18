@@ -31,7 +31,7 @@ describe('ReadinessPage', () => {
 		await waitFor(() =>
 			expect(screen.getByTestId('readiness-overall')).toHaveTextContent('READY_DEMO'),
 		);
-		fireEvent.click(screen.getByRole('button', { name: 'Refresh checks' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Prüfungen aktualisieren' }));
 		expect(api.getOperatorReadiness).toHaveBeenCalledTimes(2);
 	});
 });
