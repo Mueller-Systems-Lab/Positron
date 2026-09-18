@@ -17,8 +17,9 @@ test:e2e` command is the deterministic layer and is explicitly configured with
 
 The real path is fail-closed and requires all of
 `POSITRON_GITHUB_MODE=real`, `POSITRON_OPENCODE_MODE=real`,
-`POSITRON_SPECKIT_MODE=real`, `POSITRON_DISABLE_QUEUE=false`, a configured
-workspace/repository/Issue, Redis and an OpenCode model:
+`POSITRON_SPECKIT_MODE=real`, `POSITRON_DISABLE_QUEUE=false`,
+`POSITRON_OPENCODE_AUTO=true`, a configured workspace/repository/Issue, Redis
+and an OpenCode model:
 
 ```bash
 npm run build

@@ -145,7 +145,7 @@ test.describe
 
 			// Fill repo and issue inputs for dynamic blueprint generation
 			// UI was refactored: "Load Mini Blueprint" → "Generate Blueprint" + inputs
-			await page.getByLabel('Repository (owner/repo)').fill('test-owner/test-repo');
+			await page.getByLabel('Repository (Eigentümer/Repository)').fill('test-owner/test-repo');
 			await page.getByLabel('Issue-Nummer').fill('1');
 
 			// Click "Generate Blueprint" to fetch the blueprint from the API
@@ -178,7 +178,7 @@ test.describe
 			});
 
 			// Generate blueprint first (updated for new UI flow)
-			await page.getByLabel('Repository (owner/repo)').fill('test-owner/test-repo');
+			await page.getByLabel('Repository (Eigentümer/Repository)').fill('test-owner/test-repo');
 			await page.getByLabel('Issue-Nummer').fill('1');
 				await page.getByRole('button', { name: /Blueprint erzeugen/i }).click();
 			await expect

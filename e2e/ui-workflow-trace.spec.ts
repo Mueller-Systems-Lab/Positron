@@ -99,7 +99,7 @@ test.describe('UI Workflow Trace & Network Proof', () => {
 			await test.step('S03: Load demo blueprint', async () => {
 				await expect(page.getByText('Demo-Blueprint')).toBeVisible({ timeout: 10_000 });
 
-				await page.getByLabel('Repository (owner/repo)').fill('test-owner/test-repo');
+				await page.getByLabel('Repository (Eigentümer/Repository)').fill('test-owner/test-repo');
 				await page.getByLabel('Issue-Nummer').fill('1');
 
 				const generateBtn = page.getByRole('button', { name: /Blueprint erzeugen/i });

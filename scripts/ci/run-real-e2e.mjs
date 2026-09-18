@@ -19,6 +19,10 @@ const env = {
 	POSITRON_REDIS_URL: process.env.POSITRON_REDIS_URL ?? 'redis://127.0.0.1:46379',
 	POSITRON_ENABLE_REAL_SPECKIT: process.env.POSITRON_ENABLE_REAL_SPECKIT ?? 'true',
 	POSITRON_ENABLE_PUSH: process.env.POSITRON_ENABLE_PUSH ?? 'true',
+	// The real implement command must execute its tool calls. Without
+	// --auto OpenCode can return successful text while making no workspace
+	// change, which later appears as a misleading empty PR.
+	POSITRON_OPENCODE_AUTO: process.env.POSITRON_OPENCODE_AUTO ?? 'true',
 	POSITRON_ADMIN_TOKEN: process.env.POSITRON_ADMIN_TOKEN ?? 'positron-real-e2e-admin',
 	POSITRON_WORKSPACE_ROOT:
 		process.env.POSITRON_WORKSPACE_ROOT ?? '/tmp/positron-real-e2e-workspaces',
@@ -45,6 +49,19 @@ execFileSync(process.execPath, ['scripts/ci/real-e2e-guard.mjs'], {
 
 const redisPort = '46379';
 const children = [];
+const cleanup = () => {
+	for (const child of children) {
+		try {
+			process.kill(-child.pid, 'SIGTERM');
+		} catch {
+			try {
+				child.kill('SIGTERM');
+			} catch {
+				/* already exited */
+			}
+		}
+	}
+};
 const start = (command, args, extra = {}) => {
 	const child = spawn(command, args, {
 		cwd: root,
@@ -75,7 +92,7 @@ const webChild = start('node_modules/.bin/vite', [
 ]);
 await delay(2500);
 if (workerChild.exitCode !== null || serverChild.exitCode !== null || webChild.exitCode !== null) {
-	for (const child of children) child.kill('SIGTERM');
+	cleanup();
 	throw new Error(
 		`REAL_PRODUCT_E2E runtime exited before Playwright startup (worker=${workerChild.exitCode}, server=${serverChild.exitCode}, web=${webChild.exitCode})`,
 	);
@@ -95,12 +112,6 @@ try {
 	);
 	exitCode = await new Promise((resolve) => result.on('exit', (code) => resolve(code ?? 1)));
 } finally {
-	for (const child of children) {
-		try {
-			process.kill(-child.pid, 'SIGTERM');
-		} catch {
-			child.kill('SIGTERM');
-		}
-	}
+	cleanup();
 }
 process.exit(exitCode);

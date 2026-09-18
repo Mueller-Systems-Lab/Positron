@@ -14,7 +14,10 @@ export default defineConfig({
 	fullyParallel: false,
 	workers: 1,
 	retries: 0,
-	reporter: 'html',
+	// A failed real run must terminate so the runner can clean up Redis,
+	// worker, server and Vite. Playwright's default HTML reporter opens a
+	// long-lived report server on failure and otherwise leaks the runtime.
+	reporter: [['html', { open: 'never' }]],
 	use: {
 		...devices['Desktop Chrome'],
 		baseURL: `http://localhost:${process.env.REAL_E2E_WEB_PORT ?? '46201'}`,

@@ -187,7 +187,7 @@ test.describe('Positron Reality Check', () => {
 
 		// Try to start a demo run using the Blueprint panel
 		// First, enter a repo ID and issue number
-		const repoInput = page.getByLabel('Repository (owner/repo)');
+		const repoInput = page.getByLabel('Repository (Eigentümer/Repository)');
 		const issueInput = page.getByLabel('Issue-Nummer');
 		const demoRunBtn = page.getByRole('button', { name: /Demo-Lauf starten/i });
 

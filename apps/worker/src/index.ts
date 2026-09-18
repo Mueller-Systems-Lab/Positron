@@ -248,10 +248,18 @@ const worker = new Worker<PipelineJobData, PipelineJobResult>(
 			throw schedErr;
 		}
 
-		// Load run from DB
-		const row = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as
-			| Record<string, unknown>
-			| undefined;
+		// The API persists the run immediately before enqueueing, but SQLite and
+		// BullMQ are separate durability boundaries. On a cold start or a busy
+		// scheduler tick the worker can observe the queue job before the run row
+		// becomes visible. Briefly retry the read instead of permanently failing
+		// a valid productive job as "run not found".
+		let row: Record<string, unknown> | undefined;
+		for (let attempt = 0; attempt < 20 && !row; attempt += 1) {
+			row = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as
+				| Record<string, unknown>
+				| undefined;
+			if (!row && attempt < 19) await new Promise((resolve) => setTimeout(resolve, 250));
+		}
 		if (!row) throw new Error(`Run ${runId} not found in database`);
 
 		const { parsePhase, parseRunStatus } = await import('@positron/shared');

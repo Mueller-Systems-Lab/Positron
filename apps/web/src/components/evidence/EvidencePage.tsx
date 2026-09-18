@@ -307,7 +307,7 @@ export default function EvidencePage(): React.ReactElement {
 															type="button"
 															aria-expanded={expanded}
 															aria-controls={detailId}
-															aria-label={`${expanded ? 'Collapse' : 'Expand'} evidence ${item.id}`}
+										aria-label={`${expanded ? t('Collapse') : t('Expand')} ${t('Evidence')} ${item.id}`}
 															onClick={() => setExpandedId(expanded ? null : item.id)}
 															className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
 														>

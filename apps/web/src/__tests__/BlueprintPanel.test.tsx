@@ -112,7 +112,7 @@ describe('BlueprintPanel', () => {
 				<BlueprintPanel />
 			</MemoryRouter>,
 		);
-		expect(screen.getByPlaceholderText('owner/repo')).toBeDefined();
-		expect(screen.getByPlaceholderText('Issue #')).toBeDefined();
+		expect(screen.getByPlaceholderText('z. B. eigentümer/repository')).toBeDefined();
+		expect(screen.getByPlaceholderText('Issue-Nr.')).toBeDefined();
 	});
 });

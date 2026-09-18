@@ -16,6 +16,10 @@ if (process.env.POSITRON_DISABLE_QUEUE === 'true') {
 	throw new Error('REAL_E2E_FAIL_CLOSED: POSITRON_DISABLE_QUEUE=true selects the inline bypass');
 }
 
+if (process.env.POSITRON_OPENCODE_AUTO !== 'true') {
+	throw new Error('REAL_E2E_FAIL_CLOSED: POSITRON_OPENCODE_AUTO must be true for the mutating real-product path');
+}
+
 for (const name of [
 	'POSITRON_WORKSPACE_ROOT',
 	'POSITRON_REPO_OWNER',

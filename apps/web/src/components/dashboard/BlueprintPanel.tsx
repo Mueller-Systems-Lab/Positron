@@ -22,13 +22,13 @@ export default function BlueprintPanel(): React.ReactElement {
 		const issueNum = Number.parseInt(issueNumber.trim(), 10);
 
 		if (!trimmedRepo || Number.isNaN(issueNum) || issueNum < 1) {
-			setError('Gültiges Repository (owner/repo) und eine Issue-Nummer eingeben');
+			setError(t('Enter a valid repository and issue number'));
 			return;
 		}
 
 		const parts = trimmedRepo.split('/');
 		if (parts.length !== 2 || !parts[0] || !parts[1]) {
-			setError('Repository muss das Format owner/repo haben');
+			setError(t('Repository format error'));
 			return;
 		}
 
@@ -39,7 +39,7 @@ export default function BlueprintPanel(): React.ReactElement {
 			const result = await api.getBlueprint(parts[0], parts[1], issueNum);
 			setBlueprint(result.blueprint);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Blueprint konnte nicht erzeugt werden');
+			setError(err instanceof Error ? err.message : t('Blueprint generation failed'));
 		} finally {
 			setIsFetching(false);
 		}
@@ -54,7 +54,7 @@ export default function BlueprintPanel(): React.ReactElement {
 			// Navigate to run detail after short delay
 			setTimeout(() => navigate(`/runs/${result.run.id}`), 800);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Demo-Lauf konnte nicht gestartet werden');
+			setError(err instanceof Error ? err.message : t('Demo run could not be started'));
 		} finally {
 			setIsLoading(false);
 		}
@@ -82,15 +82,15 @@ export default function BlueprintPanel(): React.ReactElement {
 					type="text"
 					value={repoId}
 					onChange={(e) => setRepoId(e.target.value)}
-					placeholder="owner/repo"
+					placeholder="z. B. eigentümer/repository"
 					className="input flex-1 text-sm font-['IBM_Plex_Mono']"
-					aria-label="Repository (owner/repo)"
+					aria-label={t('Repository identifier')}
 				/>
 				<input
 					type="number"
 					value={issueNumber}
 					onChange={(e) => setIssueNumber(e.target.value)}
-					placeholder="Issue #"
+					placeholder="Issue-Nr."
 					className="input w-28 text-sm font-['IBM_Plex_Mono']"
 					min="1"
 					aria-label="Issue-Nummer"
@@ -116,7 +116,7 @@ export default function BlueprintPanel(): React.ReactElement {
 				onChange={(e) => setBlueprint(e.target.value)}
 				placeholder="Blueprint einfügen oder oben aus einem Issue erzeugen …"
 				className="input min-h-[160px] resize-y font-['IBM_Plex_Mono'] text-sm leading-relaxed"
-				aria-label="Blueprint text"
+				aria-label={t('Blueprint text')}
 			/>
 
 			{/* Demo Warning */}

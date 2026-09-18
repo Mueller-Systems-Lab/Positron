@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-18T14:52:30.289Z",
+  "timestamp": "2026-09-18T15:52:02.766Z",
   "backendCommand": "npm start",
   "frontendCommand": "npm run build && npx vite preview --port 4173",
   "backendHealth": {
@@ -9,7 +9,7 @@
   "frontendUrl": "http://localhost:45100",
   "apiBaseUrl": "http://localhost:43100",
   "mode": "demo",
-  "runId": "314700af-4387-4ea6-9dd1-79558259d927",
+  "runId": "8433ae4b-4dd9-48d7-91a0-f44e994cbc8d",
   "finalStatus": "DONE",
   "artifacts": {
     "screenshots": [

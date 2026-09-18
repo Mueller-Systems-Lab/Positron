@@ -150,9 +150,9 @@ function FingerprintValue({
 				onClick={() => {
 					navigator.clipboard.writeText(value).catch(() => undefined);
 				}}
-				aria-label={`Copy full ${label} fingerprint`}
+				aria-label={`${t('Copy full')} ${label} ${t('Fingerprint')}`}
 			>
-				copy
+				{t('Copy')}
 			</button>
 		</span>
 	);

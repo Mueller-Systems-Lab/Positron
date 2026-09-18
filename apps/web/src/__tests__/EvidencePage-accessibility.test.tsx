@@ -58,7 +58,7 @@ describe('EvidencePage — E17 Native Expand/Collapse Button', () => {
 		});
 
 		const buttons = screen.getAllByRole('button', {
-			name: /expand evidence/i,
+			name: /ausklappen nachweise/i,
 		});
 		expect(buttons).toHaveLength(2);
 
@@ -81,8 +81,8 @@ describe('EvidencePage — E17 Native Expand/Collapse Button', () => {
 			expect(screen.getByText('All unit tests passed')).toBeDefined();
 		});
 
-		expect(screen.getByRole('button', { name: /expand evidence ev-test-001/i })).toBeDefined();
-		expect(screen.getByRole('button', { name: /expand evidence ev-test-002/i })).toBeDefined();
+		expect(screen.getByRole('button', { name: /ausklappen nachweise ev-test-001/i })).toBeDefined();
+		expect(screen.getByRole('button', { name: /ausklappen nachweise ev-test-002/i })).toBeDefined();
 	});
 
 	test('clicking expand sets aria-expanded=true and shows detail', async () => {
@@ -98,7 +98,7 @@ describe('EvidencePage — E17 Native Expand/Collapse Button', () => {
 		});
 
 		const btn = screen.getByRole('button', {
-			name: /expand evidence ev-test-001/i,
+			name: /ausklappen nachweise ev-test-001/i,
 		});
 		expect(btn.getAttribute('aria-expanded')).toBe('false');
 
@@ -108,7 +108,7 @@ describe('EvidencePage — E17 Native Expand/Collapse Button', () => {
 
 		expect(
 			screen.getByRole('button', {
-				name: /collapse evidence ev-test-001/i,
+				name: /einklappen nachweise ev-test-001/i,
 			}),
 		).toBeDefined();
 
@@ -132,7 +132,7 @@ describe('EvidencePage — E17 Native Expand/Collapse Button', () => {
 		});
 
 		const btn = screen.getByRole('button', {
-			name: /expand evidence ev-test-001/i,
+			name: /ausklappen nachweise ev-test-001/i,
 		});
 
 		fireEvent.click(btn);
@@ -155,10 +155,10 @@ describe('EvidencePage — E17 Native Expand/Collapse Button', () => {
 		});
 
 		const btn1 = screen.getByRole('button', {
-			name: /expand evidence ev-test-001/i,
+			name: /ausklappen nachweise ev-test-001/i,
 		});
 		const btn2 = screen.getByRole('button', {
-			name: /expand evidence ev-test-002/i,
+			name: /ausklappen nachweise ev-test-002/i,
 		});
 
 		fireEvent.click(btn1);
@@ -208,7 +208,7 @@ describe('EvidencePage — E17 Native Expand/Collapse Button', () => {
 		fireEvent.click(summaryCell);
 
 		const btn = screen.getByRole('button', {
-			name: /expand evidence ev-test-001/i,
+			name: /ausklappen nachweise ev-test-001/i,
 		});
 		expect(btn.getAttribute('aria-expanded')).toBe('false');
 	});
@@ -236,7 +236,7 @@ describe('EvidencePage — E17 Native Expand/Collapse Button', () => {
 		// Clicking the link should not expand the row
 		fireEvent.click(runLink);
 		const expandBtn = screen.getByRole('button', {
-			name: /expand evidence ev-test-001/i,
+			name: /ausklappen nachweise ev-test-001/i,
 		});
 		expect(expandBtn.getAttribute('aria-expanded')).toBe('false');
 	});
